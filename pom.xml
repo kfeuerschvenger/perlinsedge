@@ -1,18 +1,18 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.feuerschvenger</groupId>
+  <groupId>com.feuerschvenger.perlinsedge</groupId>
   <artifactId>PerlinsEdge</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <name>Perlin’s Edge</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.10.2</junit.version>
-    <javafx.version>21.0.2</javafx.version>
+    <maven.compiler.source>24</maven.compiler.source>
+    <maven.compiler.target>24</maven.compiler.target>
+    <javafx.version>21.0.3</javafx.version>
+    <junit.version>5.7.1</junit.version>
   </properties>
 
   <dependencies>
@@ -20,21 +20,25 @@
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
       <version>${javafx.version}</version>
+      <classifier>win</classifier>
     </dependency>
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-fxml</artifactId>
       <version>${javafx.version}</version>
+      <classifier>win</classifier>
     </dependency>
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-graphics</artifactId>
       <version>${javafx.version}</version>
+      <classifier>win</classifier>
     </dependency>
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-base</artifactId>
       <version>${javafx.version}</version>
+      <classifier>win</classifier>
     </dependency>
     <dependency>
       <groupId>org.controlsfx</groupId>
@@ -52,39 +56,39 @@
       <artifactId>junit-jupiter-engine</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
-    </dependency>  </dependencies>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
+      <!-- Compilador -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <source>24</source>
-          <target>24</target>
+          <release>24</release>
         </configuration>
       </plugin>
+
+      <!-- Fat JAR (shaded) -->
       <plugin>
-        <groupId>org.openjfx</groupId>
-        <artifactId>javafx-maven-plugin</artifactId>
-        <version>0.0.8</version>
-        <configuration>
-          <mainClass>com.feuerschvenger.perlinsedge.app.GameApplication</mainClass>
-          <options>
-            <option>--enable-native-access=ALL-UNNAMED</option>
-            <option>--add-exports=javafx.graphics/com.sun.glass.utils=ALL-UNNAMED</option>
-            <option>--add-opens=javafx.graphics/com.sun.javafx.tk.quantum=ALL-UNNAMED</option>
-            <option>--add-opens=javafx.controls/javafx.scene.control=ALL-UNNAMED</option>
-            <option>--add-exports=javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED</option>
-          </options>
-        </configuration>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
         <executions>
           <execution>
-            <id>default-cli</id>
+            <phase>package</phase>
             <goals>
-              <goal>run</goal>
+              <goal>shade</goal>
             </goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.feuerschvenger.perlinsedge.app.GameApplication</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
           </execution>
         </executions>
       </plugin>
