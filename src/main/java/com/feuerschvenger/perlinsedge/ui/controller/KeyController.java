@@ -117,18 +117,29 @@ public class KeyController implements IKeyListener {
         }
     }
 
+    /**
+     * Toggles the debug mode on or off.
+     */
     private void toggleDebugMode() {
         boolean newDebugState = !debug.isEnabled();
         debug.setEnabled(newDebugState);
         System.out.println("Debug Mode: " + (newDebugState ? "ON" : "OFF"));
     }
 
+    /**
+     * Toggles the gray scale mode for the debug view.
+     * If debug mode is not enabled, this action will not take effect.
+     */
     private void toggleGrayScaleMode() {
         boolean newGrayScaleState = !debug.isGrayscaleEnabled();
         debug.setGrayscaleEnabled(newGrayScaleState);
         System.out.println("Gray Scale Mode: " + (newGrayScaleState ? "ENABLED" : "DISABLED"));
     }
 
+    /**
+     * Toggles the visibility of debug text.
+     * If gray scale mode is not enabled, this action will not take effect.
+     */
     private void toggleDebugText() {
         if (!debug.isGrayscaleEnabled()) {
             return;
@@ -138,12 +149,20 @@ public class KeyController implements IKeyListener {
         System.out.println("Debug Text: " + (newDebugTextState ? "VISIBLE" : "HIDDEN"));
     }
 
+    /**
+     * Toggles the map configuration panel.
+     * If debug mode is not enabled, this action will not take effect.
+     */
     private void toggleMapConfigPanelAction() {
         if (debug.isEnabled() && toggleMapConfigPanelAction != null) {
             toggleMapConfigPanelAction.run();
         }
     }
 
+    /**
+     * Generates a new random map.
+     * This action is only available when debug mode is enabled.
+     */
     private void generateNewRandomMap() {
         if (debug.isEnabled() && generateNewMapAction != null) {
             generateNewMapAction.run();

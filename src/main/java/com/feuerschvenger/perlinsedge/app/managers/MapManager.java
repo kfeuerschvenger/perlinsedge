@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.events.IMapGenerationListener;
+import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGeneratorFactory;
@@ -18,11 +19,27 @@ import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Predicate;
 
+/**
+ * Manages map generation, configuration, and enemy spawning.
+ * Handles map creation based on configuration parameters and player position.
+ */
 public class MapManager implements IConfigChangeListener, IMapGenerationListener {
+    // Configuration constants
+    private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
+    private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
+
+    // Tile validator predicate
+    private static final Predicate<Tile> SPAWN_VALIDATOR =
+            tile -> tile != null && tile.isWalkable();
+
+    // Dependencies
     private final GameStateManager gameState;
     private final MapConfigPanel mapConfigPanel;
     private final MapGeneratorFactory mapGeneratorFactory;
+
+    // State
     private MapGenerationContext currentMapContext;
 
     public MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel) {
@@ -32,136 +49,165 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
     }
 
     /**
-     * Creates a new MapGenerationContext based on the provided map type and seed,
-     * using other parameters from AppConfig.
-     * This method is public so GameOrchestrator can use it.
-     * @param mapType The type of map to generate.
-     * @param seed The seed for map generation.
-     * @return A new MapGenerationContext.
+     * Creates a new map generation context with current configuration.
+     *
+     * @param mapType Type of map to generate
+     * @param seed Random seed for generation
+     * @return Configured generation context
      */
     public MapGenerationContext createMapContext(MapType mapType, long seed) {
+        AppConfig.WorldConfig worldConfig = AppConfig.getInstance().world();
         return new MapGenerationContext(
                 mapType,
                 seed,
-                AppConfig.getInstance().world().getHeightNoiseFrequency(),
-                AppConfig.getInstance().world().getHeightNoiseOctaves(),
-                AppConfig.getInstance().world().getTemperatureNoiseFrequency(),
-                AppConfig.getInstance().world().getTemperatureNoiseOctaves(),
-                AppConfig.getInstance().world().getMoistureNoiseFrequency(),
-                AppConfig.getInstance().world().getMoistureNoiseOctaves(),
-                AppConfig.getInstance().world().getStonePatchFrequency(),
-                AppConfig.getInstance().world().getStoneThreshold(),
-                AppConfig.getInstance().world().getCrystalsPatchFrequency(),
-                AppConfig.getInstance().world().getCrystalsThreshold(),
-                AppConfig.getInstance().world().getTreeDensity(),
-                AppConfig.getInstance().world().getRiverDensity()
+                worldConfig.getHeightNoiseFrequency(),
+                worldConfig.getHeightNoiseOctaves(),
+                worldConfig.getTemperatureNoiseFrequency(),
+                worldConfig.getTemperatureNoiseOctaves(),
+                worldConfig.getMoistureNoiseFrequency(),
+                worldConfig.getMoistureNoiseOctaves(),
+                worldConfig.getStonePatchFrequency(),
+                worldConfig.getStoneThreshold(),
+                worldConfig.getCrystalsPatchFrequency(),
+                worldConfig.getCrystalsThreshold(),
+                worldConfig.getTreeDensity(),
+                worldConfig.getRiverDensity()
         );
     }
 
+    /**
+     * Generates a new map based on the provided context.
+     *
+     * @param context Map generation parameters
+     */
     public void generateNewMap(MapGenerationContext context) {
-        System.out.println("MapManager: Generando nuevo mapa de tipo " + context.getMapType().name() + " con seed " + context.getSeed());
+        logMapGeneration(context);
         this.currentMapContext = context;
-        IMapGenerator activeMapGenerator = mapGeneratorFactory.createGenerator(context.getMapType());
-        TileMap newMap = activeMapGenerator.generateMap(
+
+        IMapGenerator generator = mapGeneratorFactory.createGenerator(context.getMapType());
+        TileMap newMap = generator.generateMap(
                 AppConfig.getInstance().world().getWidth(),
                 AppConfig.getInstance().world().getHeight(),
                 context
         );
-        onMapGenerated(newMap, activeMapGenerator);
+
+        onMapGenerated(newMap, generator);
     }
 
+    /**
+     * Callback when map generation completes.
+     * Resets game state and spawns enemies.
+     */
     @Override
-    public void onMapGenerated(TileMap newMap, IMapGenerator newGenerator) {
+    public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
         gameState.setCurrentMap(newMap);
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
 
-        spawnEnemies(newMap);
-        mapConfigPanel.updateValuesFromGenerator(newGenerator);
+        spawnEnemies();
+        mapConfigPanel.updateValuesFromGenerator(generator);
     }
 
-    public void spawnEnemies(TileMap map) {
+    /**
+     * Spawns enemies based on configuration settings.
+     * Ensures safe positioning relative to player.
+     */
+    public void spawnEnemies() {
         List<Enemy> enemies = new ArrayList<>();
-        Player player = gameState.getPlayer();
-        int[] playerPosition = null;
-        if (player != null) {
-            playerPosition = new int[]{player.getCurrentTileX(), player.getCurrentTileY()};
-        }
+        TileMap map = gameState.getCurrentMap();
 
-        int numSlimes = AppConfig.getInstance().world().getBaseSlimesCount();
-        System.out.println("MapManager: Trying to generate " + numSlimes + " slimes.");
-        for (int i = 0; i < numSlimes; i++) {
-            int[] enemyPosition = findSafePosition(playerPosition, map);
-            if (enemyPosition != null) {
-                enemies.add(new Slime(enemyPosition[0], enemyPosition[1]));
-            } else {
-                System.out.println("MapManager: Couldn't find a safe position for Slime #" + (i + 1));
-            }
-        }
-        int numMimics = AppConfig.getInstance().world().getBaseMimicsCount();
-        System.out.println("MapManager: Trying to generate " + numMimics + " mimics.");
-        for (int i = 0; i < numMimics; i++) {
-            int[] enemyPosition = findSafePosition(playerPosition, map);
-            if (enemyPosition != null) {
-                enemies.add(new Mimic(enemyPosition[0], enemyPosition[1]));
-            } else {
-                System.out.println("MapManager: Couldn't find a safe position for Mimic #" + (i + 1));
-            }
-        }
+        int[] playerPosition = getPlayerPosition();
+        spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map);
+        spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map);
+
         gameState.setEnemies(enemies);
-        System.out.println("MapManager: " + enemies.size() + " enemies generated and added to game state.");
+        logSpawnSummary(enemies.size());
     }
 
-    private int[] findSafePosition(int[] referencePosition, TileMap map) {
+    /**
+     * Spawns multiple enemies of a specific type.
+     */
+    private void spawnEnemyType(List<Enemy> enemies, Class<? extends Enemy> type, int count,
+                                int[] playerPosition, TileMap map) {
+        logSpawnAttempt(type.getSimpleName(), count);
+
+        for (int i = 0; i < count; i++) {
+            int[] position = findSafePosition(playerPosition, map);
+            if (position != null) {
+                enemies.add(createEnemy(type, position[0], position[1]));
+            } else {
+                logSpawnFailure(type.getSimpleName(), i);
+            }
+        }
+    }
+
+    /**
+     * Creates an enemy instance based on type.
+     */
+    private Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
+        if (type == Slime.class) return new Slime(x, y);
+        if (type == Mimic.class) return new Mimic(x, y);
+        throw new IllegalArgumentException("Unsupported enemy type: " + type);
+    }
+
+    /**
+     * Finds a safe spawn position considering:
+     * - Walkable terrain
+     * - Distance from player
+     * - Sufficient adjacent walkable tiles
+     */
+    private int[] findSafePosition(int[] playerPosition, TileMap map) {
         Random random = new Random();
-        int attempts = 0;
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
 
-        while (attempts < maxAttempts) {
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
             int x = random.nextInt(map.getWidth());
             int y = random.nextInt(map.getHeight());
-            Tile tile = map.getTile(x, y);
 
-            if (tile == null || !tile.getType().isWalkable() || tile.hasResource()) {
-                attempts++;
-                continue;
+            if (isValidSpawnPosition(x, y, playerPosition, map)) {
+                return new int[]{x, y};
             }
-
-            if (isPositionSurrounded(x, y, map)) {
-                attempts++;
-                continue;
-            }
-
-            if (referencePosition != null) {
-                double distance = Math.sqrt(Math.pow(x - referencePosition[0], 2) + Math.pow(y - referencePosition[1], 2));
-                if (distance < 10) {
-                    attempts++;
-                    continue;
-                }
-            }
-
-            return new int[]{x, y};
         }
         return null;
     }
 
-    private boolean isPositionSurrounded(int x, int y, TileMap map) {
-        int[][] directions = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
-        int walkableNeighbors = 0;
-
-        for (int[] dir : directions) {
-            int nx = x + dir[0];
-            int ny = y + dir[1];
-            if (nx >= 0 && nx < map.getWidth() && ny >= 0 && ny < map.getHeight()) {
-                Tile neighbor = map.getTile(nx, ny);
-                if (neighbor != null && neighbor.getType().isWalkable()) {
-                    walkableNeighbors++;
-                }
-            }
+    /**
+     * Validates a potential spawn position.
+     */
+    private boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
+        Tile tile = map.getTile(x, y);
+        if (tile == null || !tile.isWalkable()) {
+            return false;
         }
-        return walkableNeighbors < 2;
+
+        if (isPositionSurrounded(x, y, map)) {
+            return false;
+        }
+
+        if (playerPosition != null) {
+            double distance = Math.hypot(x - playerPosition[0], y - playerPosition[1]);
+            return !(distance < MIN_SPAWN_DISTANCE);
+        }
+
+        return true;
     }
 
+    /**
+     * Checks if position has sufficient walkable neighbors.
+     */
+    private boolean isPositionSurrounded(int x, int y, TileMap map) {
+        return IsometricUtils.isPositionSurrounded(
+                x, y, map,
+                SPAWN_VALIDATOR,
+                MIN_WALKABLE_NEIGHBORS,
+                IsometricUtils.CARDINAL_DIRECTIONS
+        );
+    }
+
+    /**
+     * Handles configuration changes from UI.
+     * Regenerates map with new parameters.
+     */
     @Override
     public void onMapConfigChanged(MapType mapType, long seed,
                                    float heightFreq, int heightOctaves,
@@ -171,7 +217,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
                                    float crystalsFreq, float crystalsThreshold,
                                    float treeDensity, float riverDensity) {
         AppConfig.getInstance().world().setCurrentMapType(mapType);
-        MapGenerationContext newContext = new MapGenerationContext(
+        generateNewMap(new MapGenerationContext(
                 mapType, seed,
                 heightFreq, heightOctaves,
                 tempFreq, tempOctaves,
@@ -179,9 +225,37 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
                 stoneFreq, stoneThreshold,
                 crystalsFreq, crystalsThreshold,
                 treeDensity, riverDensity
-        );
-        generateNewMap(newContext);
+        ));
     }
+
+    /**
+     * Retrieves player position if available.
+     */
+    private int[] getPlayerPosition() {
+        Player player = gameState.getPlayer();
+        return (player != null) ? new int[]{player.getCurrentTileX(), player.getCurrentTileY()} : null;
+    }
+
+    // --- Logging Methods ---
+
+    private void logMapGeneration(MapGenerationContext context) {
+        System.out.printf("Generating %s map with seed %d%n",
+                context.getMapType().name(), context.getSeed());
+    }
+
+    private void logSpawnAttempt(String enemyType, int count) {
+        System.out.printf("Attempting to spawn %d %s enemies%n", count, enemyType);
+    }
+
+    private void logSpawnFailure(String enemyType, int index) {
+        System.out.printf("Failed to find position for %s #%d%n", enemyType, index + 1);
+    }
+
+    private void logSpawnSummary(int total) {
+        System.out.printf("Spawned %d total enemies%n", total);
+    }
+
+    // --- Getters ---
 
     public MapGenerationContext getCurrentMapContext() {
         return currentMapContext;

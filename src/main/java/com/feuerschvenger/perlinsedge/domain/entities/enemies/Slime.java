@@ -3,41 +3,97 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import javafx.scene.paint.Color;
-
 import java.util.Random;
 
 /**
- * Represents a Slime enemy in the game.
- * Its movement and attack behaviors are delegated to strategy objects.
+ * Represents a Slime enemy with unique jumping movement and varied coloration.
+ * Slimes exhibit bouncy movement patterns and come in various colors.
  */
 public class Slime extends Enemy {
-    // Slime colors
-    private static final Color[] SLIME_COLORS = {
+    // ==================================================================
+    //  Configuration Constants
+    // ==================================================================
+    private static final double MAX_HEALTH = 30.0;
+    private static final double ATTACK_DAMAGE = 10.0;
+    private static final double ATTACK_COOLDOWN = 1.0;
+
+    private static final double BASE_RENDER_OFFSET_Y = -8.0;
+
+    // Color variants
+    private static final Color[] COLOR_VARIANTS = {
             Color.LIGHTGREEN.deriveColor(0, 1.0, 0.8, 1.0),
             Color.LIGHTBLUE.deriveColor(0, 1.0, 0.8, 1.0),
             Color.LIGHTPINK.deriveColor(0, 1.0, 0.8, 1.0)
     };
 
-    private static final double SLIME_MAX_HEALTH = 30.0;
-    private static final double SLIME_ATTACK_DAMAGE = 10.0;
-    private static final double SLIME_ATTACK_COOLDOWN = 1.0;
-    public static final double RENDER_OFFSET_Y = -8; // Fixed offset for Slime rendering
+    // Shared random generator
+    private static final Random RANDOM = new Random();
 
+    // ==================================================================
+    //  Constructor
+    // ==================================================================
+
+    /**
+     * Creates a new Slime at the specified position with random coloration.
+     *
+     * @param startX Initial X-coordinate (tile position)
+     * @param startY Initial Y-coordinate (tile position)
+     */
     public Slime(int startX, int startY) {
-        super(startX, startY, SLIME_MAX_HEALTH, SLIME_ATTACK_DAMAGE, SLIME_ATTACK_COOLDOWN,
-                new SlimeMovementStrategy(), new SlimeAttackStrategy());
-        this.color = SLIME_COLORS[new Random().nextInt(SLIME_COLORS.length)];
+        super(
+                startX,
+                startY,
+                MAX_HEALTH,
+                ATTACK_DAMAGE,
+                ATTACK_COOLDOWN,
+                new SlimeMovementStrategy(),
+                new SlimeAttackStrategy()
+        );
+        this.setColor(selectRandomColor());
     }
 
+    // ==================================================================
+    //  Rendering Methods
+    // ==================================================================
+
+    /**
+     * Calculates vertical render offset based on jump state.
+     * During jumps, slimes rise according to a sine wave pattern.
+     *
+     * @return Vertical offset for rendering
+     */
     @Override
     public double getRenderOffsetY() {
-        if (movementStrategy instanceof SlimeMovementStrategy slimeMove) {
-            if (slimeMove.isJumping()) {
-                double jumpHeight = Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR;
-                return RENDER_OFFSET_Y - jumpHeight;
+        if (getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement) {
+            if (slimeMovement.isJumping()) {
+                return calculateJumpOffset(slimeMovement);
             }
         }
-        return RENDER_OFFSET_Y;
+        return BASE_RENDER_OFFSET_Y;
+    }
+
+    // ==================================================================
+    //  Helper Methods
+    // ==================================================================
+
+    /**
+     * Selects a random color variant for the slime.
+     */
+    private Color selectRandomColor() {
+        return COLOR_VARIANTS[RANDOM.nextInt(COLOR_VARIANTS.length)];
+    }
+
+    /**
+     * Calculates vertical offset during jump animation.
+     * Uses sine wave for smooth bouncing motion.
+     *
+     * @param movement Active movement strategy
+     * @return Current jump offset
+     */
+    private double calculateJumpOffset(SlimeMovementStrategy movement) {
+        final double jumpPhase = movement.getJumpPhase();
+        final double jumpHeight = Math.sin(jumpPhase * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR;
+        return BASE_RENDER_OFFSET_Y - jumpHeight;
     }
 
 }

@@ -5,10 +5,6 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
@@ -21,24 +17,24 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
 import com.feuerschvenger.perlinsedge.ui.view.*;
+import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDroppedOutsideCallback;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
-import javafx.scene.input.Dragboard;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.input.TransferMode;
+import javafx.scene.input.*;
 import javafx.scene.paint.Color;
 
 import java.util.List;
 import java.util.Random;
 
 /**
- * Orchestrates the main game loop, manages game state, and handles interactions between different game systems.
+ * Main game orchestrator managing the game loop, state transitions, and interactions between subsystems.
+ * Handles initialization, input processing, rendering, and coordination of game managers.
  */
 public class GameOrchestrator {
+    // Game system managers
     private final RecipeManager recipeManager;
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
@@ -51,6 +47,7 @@ public class GameOrchestrator {
     private final ItemDropManager itemDropManager;
     private final HotbarManager hotbarManager;
 
+    // UI and rendering components
     private final FxRenderer renderer;
     private final FxCamera camera;
     private final FxInputHandler inputHandler;
@@ -59,6 +56,7 @@ public class GameOrchestrator {
     private final InventoryPanel inventoryPanel;
     private final MapConfigPanel mapConfigPanel;
 
+    // Game loop and UI state
     private AnimationTimer gameLoop;
     private PauseMenuPanel pauseMenuPanel;
 
@@ -74,70 +72,59 @@ public class GameOrchestrator {
         this.mainCanvas = mainCanvas;
         this.inventoryPanel = inventoryPanel;
 
-        // Initialize game managers
+        // Initialize game managers with dependency injection
         this.gameState = gameState != null ? gameState : new GameStateManager();
         this.recipeManager = recipeManager != null ? recipeManager : new RecipeManager();
-        playerManager = new PlayerManager(this.gameState, healthBar, this.inventoryPanel);
+        playerManager = new PlayerManager(this.gameState, healthBar, inventoryPanel);
         combatManager = new CombatManager(this.gameState);
-        inventoryManager = new InventoryManager(this.gameState, this.inventoryPanel);
-        mapManager = new MapManager(this.gameState, this.mapConfigPanel);
+        inventoryManager = new InventoryManager(this.gameState, inventoryPanel);
+        mapManager = new MapManager(this.gameState, mapConfigPanel);
         resourceManager = new ResourceManager(this.gameState);
-        itemDropManager = new ItemDropManager(this.gameState, this.inventoryPanel);
+        itemDropManager = new ItemDropManager(this.gameState, inventoryPanel);
         containerManager = new ContainerManager();
-        buildingManager = new BuildingManager(this.gameState, this.recipeManager, containerManager);
-        hotbarManager = new HotbarManager(this.recipeManager, buildingManager, this.gameState, buildingHotbarPanel);
+        buildingManager = new BuildingManager(this.gameState, recipeManager, containerManager);
+        hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
     }
 
+    // Game lifecycle methods
+    // =======================================================================
+
     /**
-     * Starts a new game with the specified map type.
-     * This method orchestrates the setup of a new game session.
-     * @param selectedMapType The MapType chosen by the player.
+     * Starts a new game session with the specified map type.
+     *
+     * @param selectedMapType The map type to generate for the new game
      */
     public void startNewGame(MapType selectedMapType) {
         System.out.println("GameOrchestrator: Starting new game with map type: " + selectedMapType.name());
-        stopGameLoop(); // Stop the game loop if already running (e.g., restarting a game)
+        stopGameLoop(); // Ensure no existing game loop is running
 
-        // 1. Reset global game state
+        // Reset game state and configuration
         gameState.resetGameState();
-        AppConfig.getInstance().world().setCurrentMapType(selectedMapType); // Set the selected map type
+        AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
 
-        // 2. Create a map context with a new random seed for the new game
-        Random random = new Random();
-        long newSeed = random.nextLong();
+        // Generate new map
+        long newSeed = new Random().nextLong();
         MapGenerationContext newMapContext = mapManager.createMapContext(selectedMapType, newSeed);
+        mapManager.generateNewMap(newMapContext);
 
-        // 3. Generate the new map
-        mapManager.generateNewMap(newMapContext); // This will update currentMap in gameState.
-
-        // 4. Initialize the player on the new map. PlayerManager handles safe positioning.
-        // This MUST happen before initializing managers that depend on Player/Map state.
+        // Initialize player and enemies
         playerManager.initializePlayer();
+        mapManager.spawnEnemies();
 
-        // 5. Spawn enemies after player is initialized, using player's position to avoid nearby spawns.
-        mapManager.spawnEnemies(gameState.getCurrentMap()); // Pass player position for enemy spawning
-
-        // 6. Initialize other game components (handlers, loop, etc.)
+        // Set up game systems
         initializeGameComponents();
-
-        // 7. Update minimap with the newly generated map
         minimapDrawer.updateMap(gameState.getCurrentMap());
-
-        // 8. Center the camera on the player
         centerOnPlayer();
-
-        // 9. Start the main game loop
         startGameLoop();
+
         System.out.println("GameOrchestrator: New game started successfully!");
     }
 
     /**
-     * Initializes various game components that need to be set up once
-     * the main game objects (map, player, etc.) are ready.
-     * This method can be called safely multiple times as it attempts to remove
-     * old handlers before adding new ones.
+     * Initializes game components including input handlers and UI callbacks.
      */
     private void initializeGameComponents() {
-        System.out.println("GameOrchestrator: Initializing game components (input handlers, etc.).");
+        System.out.println("GameOrchestrator: Initializing game components");
         mapConfigPanel.setMapConfigListener(mapManager);
         setupInventoryCallbacks();
         setupSceneDragHandlers();
@@ -146,16 +133,32 @@ public class GameOrchestrator {
         setupGameLoop();
     }
 
+    /**
+     * Starts the main game loop.
+     */
+    public void startGameLoop() {
+        if (gameLoop != null) gameLoop.start();
+    }
+
+    /**
+     * Stops the main game loop.
+     */
+    public void stopGameLoop() {
+        if (gameLoop != null) gameLoop.stop();
+    }
+
+    // Input handling setup
+    // =======================================================================
+
+    /**
+     * Configures drag-and-drop handlers for the game scene.
+     */
     private void setupSceneDragHandlers() {
         Scene scene = mainCanvas.getScene();
-
         if (scene == null) {
-            System.err.println("Warning: Scene is not available when trying to set up drag handlers.");
+            System.err.println("Warning: Scene not available for drag handlers");
             return;
         }
-
-        scene.setOnDragOver(null);
-        //scene.setOnDragDropped(null);
 
         scene.setOnDragOver(event -> {
             if (event.getDragboard().hasString()) {
@@ -163,128 +166,75 @@ public class GameOrchestrator {
             }
             event.consume();
         });
-        scene.setOnDragDropped(event -> {
-            Dragboard db = event.getDragboard();
-            if (db.hasString()) {
-                Node sourceNode = (Node) event.getGestureSource();
-                if (sourceNode != null) {
-                    Item draggedItem = (Item) sourceNode.getProperties().get("draggedItem");
-                    if (draggedItem != null && inventoryPanel.getOnItemDroppedOutsideCallback() != null) {
-                        inventoryPanel.getOnItemDroppedOutsideCallback().drop(draggedItem);
-                        event.setDropCompleted(true);
-                        return;
-                    }
-                }
-            }
-            event.setDropCompleted(false);
-            event.consume();
-        });
+
+        scene.setOnDragDropped(this::handleSceneDragDropped);
     }
 
+    /**
+     * Sets up inventory UI callbacks for item interactions.
+     */
     private void setupInventoryCallbacks() {
-        inventoryPanel.setOnItemDroppedInside(
-                (srcSlot, srcContainer, tgtSlot, tgtContainer, item) -> {
-                    System.out.println("TRANSFER START: " + item.getDisplayName() +
-                            " from " + srcContainer.getClass().getSimpleName() + ":" + srcSlot +
-                            " to " + tgtContainer.getClass().getSimpleName() + ":" + tgtSlot);
+        // Item transfer between containers
+        inventoryPanel.setOnItemDroppedInside((srcSlot, srcContainer, tgtSlot, tgtContainer, item) -> {
+            containerManager.transferBetweenSlots(srcContainer, srcSlot, tgtContainer, tgtSlot, item);
+            Platform.runLater(inventoryPanel::updateInventoryDisplay);
+        });
 
-                    containerManager.transferBetweenSlots(
-                            srcContainer, srcSlot,
-                            tgtContainer, tgtSlot,
-                            item
-                    );
-
-                    // FIX: Refresh UI immediately
-                    Platform.runLater(() -> {
-                        System.out.println("REFRESHING UI AFTER TRANSFER");
-                        inventoryPanel.updateInventoryDisplay();
-                    });
-                }
-        );
-
+        // Item dropped outside inventory
         inventoryPanel.setOnItemDroppedOutside(item -> {
-            System.out.println("ITEM DROPPED OUTSIDE: " + item.getDisplayName());
             Player player = gameState.getPlayer();
             if (player != null) {
-                // Find and remove the actual item instance
-                for (int i = 0; i < player.getCapacity(); i++) {
-                    Item invItem = player.getItemAt(i);
-                    if (invItem == item) {
-                        player.setItemAt(i, null);
-                        System.out.println("Removed from slot: " + i);
-                        break;
-                    }
-                }
-
-                int[] dropPos = playerManager.findAdjacentDropPosition(
-                        player.getCurrentTileX(),
-                        player.getCurrentTileY()
-                );
-
-                // Create new instance for dropped item
-                DroppedItem dropped = new DroppedItem(
-                        dropPos[0], dropPos[1],
-                        new Item(item.getType(), item.getQuantity()),
-                        gameState.getGameTime(),
-                        DroppedItem.DropSource.PLAYER
-                );
-
-                gameState.getDroppedItems().add(dropped);
-                gameState.setLastDropTime(gameState.getGameTime());
-
-                // Force UI refresh
-                Platform.runLater(() -> {
-                    inventoryPanel.updateInventoryDisplay();
-                });
+                inventoryManager.removeItemFromPlayerInventory(item);
+                itemDropManager.createDroppedItem(item, player);
+                Platform.runLater(inventoryPanel::updateInventoryDisplay);
             }
         });
 
-        // FIX: Ensure recipes are set when opening inventory
+        // Crafting attempt
         inventoryPanel.setOnCraftRecipe(recipe -> {
-            System.out.println("CRAFT ATTEMPT: " + recipe.getName());
             inventoryManager.handleCraftRecipe(recipe);
-
-            // Refresh UI after crafting
-            Platform.runLater(() -> {
-                inventoryPanel.updateInventoryDisplay();
-            });
+            Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
     }
 
-    private void generateNewMap() {
-        System.out.println("GameOrchestrator: Regenerating current map.");
-        Random random = new Random();
-        long newSeed = random.nextLong();
-        MapGenerationContext currentContext = mapManager.getCurrentMapContext();
-        MapGenerationContext newContext = mapManager.createMapContext(
-                currentContext.getMapType(), newSeed
-        );
-        mapManager.generateNewMap(newContext);
-        minimapDrawer.updateMap(gameState.getCurrentMap());
-        playerManager.initializePlayer();
-
-        mapManager.spawnEnemies(gameState.getCurrentMap());
-
-        centerOnPlayer();
-        System.out.println("GameOrchestrator: Map regenerated.");
-    }
-
+    /**
+     * Configures keyboard input controller.
+     */
     private void setupKeyController() {
         KeyController keyController = new KeyController(
                 this::togglePauseMenu,
                 this::centerOnPlayer,
-                this::generateNewMap,
+                this::regenerateMap,
                 () -> togglePanelVisibility(mapConfigPanel, "Map Config Panel"),
-                this::toggleInventory, // Changed to use GameOrchestrator's toggleInventory
+                this::toggleInventory,
                 combatManager::handlePlayerAttack,
                 this::toggleBuildingMode,
                 hotbarManager::handleHotbarNumberSelection
         );
-
         inputHandler.setGameKeyListener(keyController);
     }
 
+    /**
+     * Regenerates the current map with a new seed.
+     */
+    private void regenerateMap() {
+        System.out.println("GameOrchestrator: Regenerating current map");
+        MapGenerationContext currentContext = mapManager.getCurrentMapContext();
+        MapGenerationContext newContext = mapManager.createMapContext(
+                currentContext.getMapType(), new Random().nextLong()
+        );
+        mapManager.generateNewMap(newContext);
+        minimapDrawer.updateMap(gameState.getCurrentMap());
+        playerManager.initializePlayer();
+        mapManager.spawnEnemies();
+        centerOnPlayer();
+    }
+
+    /**
+     * Sets up mouse event handlers for game interaction.
+     */
     private void setupMouseEventHandlers() {
+        // Clear existing handlers to avoid duplicates
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_CLICKED, this::handleCanvasClick);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_MOVED, this::handleMouseMovement);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_EXITED, this::handleMouseExit);
@@ -292,6 +242,7 @@ public class GameOrchestrator {
             minimapDrawer.getCanvas().removeEventHandler(MouseEvent.MOUSE_CLICKED, this::handleMinimapClick);
         }
 
+        // Register new handlers
         mainCanvas.addEventHandler(MouseEvent.MOUSE_CLICKED, this::handleCanvasClick);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_MOVED, this::handleMouseMovement);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_EXITED, this::handleMouseExit);
@@ -300,68 +251,102 @@ public class GameOrchestrator {
         }
     }
 
+    // Mouse event handlers
+    // =======================================================================
+
+    /**
+     * Handles drag-and-drop events on the game scene.
+     */
+    private void handleSceneDragDropped(DragEvent event) {
+        Dragboard db = event.getDragboard();
+        if (!db.hasString()) {
+            event.setDropCompleted(false);
+            return;
+        }
+
+        Node sourceNode = (Node) event.getGestureSource();
+        if (sourceNode == null) {
+            event.setDropCompleted(false);
+            return;
+        }
+
+        Item draggedItem = (Item) sourceNode.getProperties().get("draggedItem");
+        ItemDroppedOutsideCallback callback = inventoryPanel.getOnItemDroppedOutsideCallback();
+
+        if (draggedItem != null && callback != null) {
+            callback.drop(draggedItem);
+            event.setDropCompleted(true);
+        } else {
+            event.setDropCompleted(false);
+        }
+        event.consume();
+    }
+
+    /**
+     * Handles canvas click events based on current game mode.
+     */
     private void handleCanvasClick(MouseEvent event) {
         if (gameState.isGamePaused()) return;
 
-        int[] tileCords = getClickedTile(event.getX(), event.getY());
-        int tileX = tileCords[0];
-        int tileY = tileCords[1];
+        int[] tileCoords = getClickedTile(event.getX(), event.getY());
+        int tileX = tileCoords[0];
+        int tileY = tileCoords[1];
 
-        if (gameState.getCurrentMap() == null || !isWithinMapBounds(tileX, tileY)) return;
+        if (!isWithinMapBounds(tileX, tileY)) return;
 
         Tile tile = gameState.getCurrentMap().getTile(tileX, tileY);
         if (tile == null) return;
 
         switch (gameState.getCurrentGameMode()) {
             case BUILDING_MODE:
-                if (buildingManager.getSelectedBuildingType() != null) {
-                    if (event.getButton() == MouseButton.PRIMARY) {
-                        buildingManager.placeBuilding(tileX, tileY);
-                    } else if (event.getButton() == MouseButton.SECONDARY) {
-                        buildingManager.removeBuilding(tileX, tileY);
-                    }
-                } else {
-                    if (event.getButton() == MouseButton.SECONDARY) {
-                        buildingManager.removeBuilding(tileX, tileY);
-                    } else {
-                        System.out.println("GameOrchestrator: No building type selected in building mode. Use 1-9 to select.");
-                    }
-                }
+                handleBuildingModeClick(event, tileX, tileY);
                 break;
             case EXPLORATION:
-                if (event.getButton() == MouseButton.PRIMARY) {
-                    // Always try to interact with a building first if one exists
-                    if (tile.hasBuilding()) { // Check if the tile has a building first
-                        if (buildingManager.interactWithBuilding(tileX, tileY)) {
-                            if (containerManager.isContainerOpen()) {
-                                inventoryPanel.openDualInventory(gameState.getPlayer(), containerManager.getOpenContainer());
-                                gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
-                                System.out.println("GameOrchestrator: Building with container opened, entering INVENTORY_OPEN mode.");
-                            } else {
-                                System.out.println("GameOrchestrator: Building interacted with, but no container opened.");
-                            }
-                            return; // Interaction with building was handled, prevent resource interaction
-                        }
-                    }
-                    // If no building interaction or building interaction didn't consume the click, try resource interaction
-                    if (tile.hasResource()) { // Only try to interact with resource if it exists
-                        resourceManager.handleTileInteraction(gameState.getPlayer(), tile);
-                        return; // Resource interaction handled
-                    }
-                } else if (event.getButton() == MouseButton.SECONDARY) {
-                    playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
-                }
+                handleExplorationModeClick(event, tileX, tileY, tile);
                 break;
             case INVENTORY_OPEN:
             case CRAFTING_OPEN:
-                System.out.println("GameOrchestrator: Click ignored while in UI mode.");
-                break;
             case PAUSED:
-                System.out.println("GameOrchestrator: Click ignored while paused.");
+                System.out.println("GameOrchestrator: Click ignored in UI mode");
                 break;
         }
     }
 
+    /**
+     * Processes clicks in building mode.
+     */
+    private void handleBuildingModeClick(MouseEvent event, int tileX, int tileY) {
+        if (event.getButton() == MouseButton.PRIMARY) {
+            buildingManager.placeBuilding(tileX, tileY);
+        } else if (event.getButton() == MouseButton.SECONDARY) {
+            buildingManager.removeBuilding(tileX, tileY);
+        }
+    }
+
+    /**
+     * Processes clicks in exploration mode.
+     */
+    private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY, Tile tile) {
+        if (event.getButton() == MouseButton.PRIMARY) {
+            // Prioritize building interaction
+            if (tile.hasBuilding() && buildingManager.interactWithBuilding(tileX, tileY)) {
+                if (containerManager.isContainerOpen()) {
+                    inventoryPanel.openDualInventory(containerManager.getOpenContainer());
+                    gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
+                }
+            }
+            // Then resource interaction
+            else if (tile.hasResource()) {
+                resourceManager.handleTileInteraction(gameState.getPlayer(), tile);
+            }
+        } else if (event.getButton() == MouseButton.SECONDARY) {
+            playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
+        }
+    }
+
+    /**
+     * Converts screen coordinates to tile coordinates.
+     */
     private int[] getClickedTile(double screenX, double screenY) {
         return IsometricUtils.screenToTileAdjusted(
                 screenX, screenY,
@@ -373,26 +358,39 @@ public class GameOrchestrator {
         );
     }
 
+    /**
+     * Checks if coordinates are within map boundaries.
+     */
     private boolean isWithinMapBounds(int x, int y) {
-        return x >= 0 && x < gameState.getCurrentMap().getWidth() &&
-                y >= 0 && y < gameState.getCurrentMap().getHeight();
+        TileMap map = gameState.getCurrentMap();
+        return map != null && x >= 0 && x < map.getWidth() && y >= 0 && y < map.getHeight();
     }
 
+    /**
+     * Handles mouse movement for tile highlighting.
+     */
     private void handleMouseMovement(MouseEvent event) {
-        // Adjusted logic: only update mouse-over tile if not in UI-blocking mode OR paused
-        if (gameState.getCurrentGameMode() == GameMode.INVENTORY_OPEN ||
-                gameState.getCurrentGameMode() == GameMode.CRAFTING_OPEN ||
-                gameState.getCurrentGameMode() == GameMode.PAUSED) {
-            gameState.setMouseOverTileX(-1);
-            gameState.setMouseOverTileY(-1);
+        if (shouldIgnoreMouseInput()) {
+            gameState.setMouseOverTile(-1, -1);
             return;
         }
 
-        int[] tileCords = getHoveredTile(event.getX(), event.getY());
-        gameState.setMouseOverTileX(tileCords[0]);
-        gameState.setMouseOverTileY(tileCords[1]);
+        int[] tileCoords = getHoveredTile(event.getX(), event.getY());
+        gameState.setMouseOverTile(tileCoords[0], tileCoords[1]);
     }
 
+    /**
+     * Determines if mouse input should be ignored based on game state.
+     */
+    private boolean shouldIgnoreMouseInput() {
+        return gameState.getCurrentGameMode() == GameMode.INVENTORY_OPEN ||
+                gameState.getCurrentGameMode() == GameMode.CRAFTING_OPEN ||
+                gameState.getCurrentGameMode() == GameMode.PAUSED;
+    }
+
+    /**
+     * Converts screen coordinates to tile coordinates for hovering.
+     */
     private int[] getHoveredTile(double screenX, double screenY) {
         return IsometricUtils.screenToTile(
                 screenX, screenY,
@@ -403,23 +401,34 @@ public class GameOrchestrator {
         );
     }
 
+    /**
+     * Handles mouse exit from game canvas.
+     */
     private void handleMouseExit(MouseEvent event) {
-        gameState.setMouseOverTileX(-1);
-        gameState.setMouseOverTileY(-1);
+        gameState.setMouseOverTile(-1, -1);
     }
 
+    /**
+     * Handles minimap click events for camera movement.
+     */
     private void handleMinimapClick(MouseEvent event) {
         if (gameState.isGamePaused()) return;
-        double[] tileCords = minimapDrawer.miniMapToTile(event.getX(), event.getY());
-        camera.centerOnTile(tileCords[0], tileCords[1], mainCanvas);
+        double[] tileCoords = minimapDrawer.miniMapToTile(event.getX(), event.getY());
+        camera.centerOnTile(tileCoords[0], tileCoords[1], mainCanvas);
     }
 
+    // Game loop implementation
+    // =======================================================================
+
+    /**
+     * Initializes the game loop with fixed timestep physics.
+     */
     private void setupGameLoop() {
         if (gameLoop == null) {
             gameLoop = new AnimationTimer() {
                 private long lastUpdate = 0;
                 private double accumulator = 0;
-                private static final double FIXED_TIME_STEP = 1.0 / 60.0;
+                private static final double FIXED_TIME_STEP = 1.0 / 60.0; // 60 FPS
 
                 @Override
                 public void handle(long now) {
@@ -428,17 +437,19 @@ public class GameOrchestrator {
                         return;
                     }
 
-                    double deltaTime = (now - lastUpdate) / 1_000_000_000.0; // Tiempo real en segundos
+                    // Calculate delta time in seconds
+                    double deltaTime = (now - lastUpdate) / 1_000_000_000.0;
                     lastUpdate = now;
+                    deltaTime = Math.min(deltaTime, 0.25); // Clamp to prevent spiral of death
 
-                    if (deltaTime > 0.25) deltaTime = 0.25;
-
+                    // Fixed timestep updates
                     accumulator += deltaTime;
                     while (accumulator >= FIXED_TIME_STEP) {
                         update(FIXED_TIME_STEP);
                         accumulator -= FIXED_TIME_STEP;
                     }
 
+                    // Render with interpolation
                     double alpha = accumulator / FIXED_TIME_STEP;
                     render(alpha, deltaTime);
                 }
@@ -446,128 +457,261 @@ public class GameOrchestrator {
         }
     }
 
+    /**
+     * Updates game state with fixed timestep.
+     *
+     * @param deltaTime Fixed timestep value (1/60 second)
+     */
     private void update(double deltaTime) {
         if (gameState.isGamePaused()) return;
 
-        if (gameState.getPlayerRespawnTimer() > 0) {
-            gameState.setPlayerRespawnTimer(gameState.getPlayerRespawnTimer() - deltaTime); // Decrement timer
-            if (gameState.getPlayerRespawnTimer() <= 0) {
-                System.out.println("GameOrchestrator: Respawn timer reached 0. Calling respawnPlayer.");
-                playerManager.respawnPlayer(); // This will revive the player
-                centerOnPlayer();
-            }
+        // Handle player respawn logic
+        if (playerManager.handleRespawn(deltaTime)) {
+            centerOnPlayer();
         }
 
+        // Update game systems
         gameState.incrementGameTime(deltaTime);
         gameState.setAttackCooldownTimer(Math.max(0, gameState.getAttackCooldownTimer() - deltaTime));
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
-        itemDropManager.updateDroppedItems(deltaTime);
-        itemDropManager.checkItemPickup();
-        updateEnemies(deltaTime);
+        itemDropManager.update();
+        combatManager.updateEnemies(deltaTime);
 
+        // Handle camera centering request
         if (gameState.shouldCenterCamera()) {
             centerOnPlayer();
             gameState.setShouldCenterCamera(false);
         }
     }
 
-    private void updateEnemies(double deltaTime) {
-        Player player = gameState.getPlayer();
-        TileMap map = gameState.getCurrentMap();
-
-        if (player == null || map == null) return;
-
-        for (Enemy enemy : gameState.getEnemies()) {
-            enemy.update(deltaTime, map, player);
-        }
-    }
-
+    /**
+     * Handles camera panning based on input.
+     */
     private void handleEdgePanning(double deltaTime) {
         boolean[] edgeActive = inputHandler.getEdgeActive();
         double panSpeed = AppConfig.getInstance().core().getPanSpeed() * deltaTime * 60;
 
-        if (edgeActive[0]) camera.pan(0, panSpeed, mainCanvas);
-        if (edgeActive[1]) camera.pan(-panSpeed, 0, mainCanvas);
-        if (edgeActive[2]) camera.pan(0, -panSpeed, mainCanvas);
-        if (edgeActive[3]) camera.pan(panSpeed, 0, mainCanvas);
+        if (edgeActive[0]) camera.pan(0, panSpeed, mainCanvas);  // Up
+        if (edgeActive[1]) camera.pan(-panSpeed, 0, mainCanvas); // Left
+        if (edgeActive[2]) camera.pan(0, -panSpeed, mainCanvas); // Down
+        if (edgeActive[3]) camera.pan(panSpeed, 0, mainCanvas);  // Right
     }
 
+    /**
+     * Renders the game state.
+     *
+     * @param alpha Interpolation factor for smooth rendering
+     * @param deltaTime Time since last render (seconds)
+     */
     private void render(double alpha, double deltaTime) {
-        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) {
-            return;
-        }
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
 
-        Color previewColor = null;
-        BuildingType previewBuilding = null;
-
+        // Set building preview if in building mode
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
-            previewColor = buildingManager.getPlacementPreviewColor(
-                    gameState.getMouseOverTileX(),
-                    gameState.getMouseOverTileY()
+            int[] mouseTile = gameState.getMouseOverTile();
+            Color previewColor = buildingManager.getPlacementPreviewColor(mouseTile[0], mouseTile[1]);
+            renderer.setBuildingPreview(
+                    mouseTile[0],
+                    mouseTile[1],
+                    buildingManager.getSelectedBuildingType(),
+                    previewColor
             );
-            previewBuilding = buildingManager.getSelectedBuildingType();
         }
 
-        renderer.setBuildingPreview(
-                gameState.getMouseOverTileX(),
-                gameState.getMouseOverTileY(),
-                previewBuilding,
-                previewColor
-        );
-
-        renderer.render(alpha, deltaTime); // Pasar deltaTime
+        // Perform rendering
+        renderer.render(alpha, deltaTime);
         minimapDrawer.updateMap(gameState.getCurrentMap());
         minimapDrawer.draw();
 
+        // Draw special overlays
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             renderer.drawBuildingModeBorder(mainCanvas.getWidth(), mainCanvas.getHeight());
         }
     }
 
+    // Game state management
+    // =======================================================================
+
+    /**
+     * Toggles pause menu state.
+     */
     private void togglePauseMenu() {
         if (gameState.isGamePaused()) {
             resumeGame();
         } else {
-            // Close other UI panels before pausing
-            if (inventoryPanel.isVisible()) {
-                inventoryPanel.closeInventory(); // Use closeInventory which handles UI and container state
-            }
-            if (hotbarManager.isHotbarVisible()) {
-                hotbarManager.hideHotbar();
-            }
-            if (buildingManager.isBuildingModeActive()) {
-                buildingManager.toggleBuildingMode(); // Deactivate building mode
-            }
+            closeOpenUIPanels();
             pauseGame();
         }
     }
 
+    /**
+     * Closes all open UI panels before pausing.
+     */
+    private void closeOpenUIPanels() {
+        if (inventoryPanel.isVisible()) {
+            inventoryPanel.closeInventory();
+        }
+        if (hotbarManager.isHotbarVisible()) {
+            hotbarManager.hideHotbar();
+        }
+        if (buildingManager.isBuildingModeActive()) {
+            buildingManager.toggleBuildingMode();
+        }
+    }
+
+    /**
+     * Pauses the game and shows pause menu.
+     */
     private void pauseGame() {
         gameState.setGamePaused(true);
         stopGameLoop();
-        // Set game mode to PAUSED
         gameState.setCurrentGameMode(GameMode.PAUSED);
         if (pauseMenuPanel != null) {
             pauseMenuPanel.setVisible(true);
             pauseMenuPanel.setManaged(true);
         }
-        System.out.println("GameOrchestrator: Game paused. Mode: " + gameState.getCurrentGameMode());
     }
 
+    /**
+     * Resumes the game from paused state.
+     */
     public void resumeGame() {
         gameState.setGamePaused(false);
-        // Return to the mode before pausing, or to EXPLORATION if unknown
-        if (gameState.getCurrentGameMode() == GameMode.PAUSED) {
-            gameState.setCurrentGameMode(GameMode.EXPLORATION);
-        }
+        gameState.setCurrentGameMode(GameMode.EXPLORATION);
         if (pauseMenuPanel != null) {
             pauseMenuPanel.setVisible(false);
             pauseMenuPanel.setManaged(false);
         }
         startGameLoop();
-        System.out.println("GameOrchestrator: Game resumed. Mode: " + gameState.getCurrentGameMode());
     }
+
+    /**
+     * Centers camera on player position.
+     */
+    public void centerOnPlayer() {
+        Player player = gameState.getPlayer();
+        if (player != null) {
+            camera.centerOnTile(player.getCurrentTileX(), player.getCurrentTileY(), mainCanvas);
+        }
+    }
+
+    /**
+     * Toggles visibility of UI panels.
+     *
+     * @param panel The panel to toggle
+     * @param panelName Name for logging purposes
+     */
+    private void togglePanelVisibility(Node panel, String panelName) {
+        boolean isVisible = !panel.isVisible();
+        panel.setVisible(isVisible);
+        panel.setManaged(isVisible);
+
+        if (panel == inventoryPanel) {
+            handleInventoryPanelToggle(isVisible);
+        } else if (panel == mapConfigPanel) {
+            System.out.println(panelName + ": " + (isVisible ? "VISIBLE" : "HIDDEN"));
+        }
+    }
+
+    /**
+     * Handles inventory panel visibility changes.
+     */
+    private void handleInventoryPanelToggle(boolean isVisible) {
+        if (isVisible) {
+            // Show inventory
+            hotbarManager.hideHotbar();
+            List<Recipe> recipes = recipeManager.getAllItemRecipes();
+            inventoryPanel.setCraftingRecipes(recipes);
+            containerManager.openContainer(gameState.getPlayer());
+            inventoryPanel.openPlayerInventory();
+            gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
+        } else {
+            // Hide inventory
+            containerManager.closeContainer();
+            inventoryPanel.closeInventory();
+            if (gameState.isInventoryOpen()) {
+                gameState.setCurrentGameMode(GameMode.EXPLORATION);
+            }
+        }
+        inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
+    }
+
+    /**
+     * Toggles building mode on/off.
+     */
+    public void toggleBuildingMode() {
+        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
+            setGameMode(GameMode.EXPLORATION);
+            hotbarManager.hideHotbar();
+        } else {
+            if (inventoryPanel.isVisible()) {
+                togglePanelVisibility(inventoryPanel, "Inventory Panel");
+            }
+            if (!gameState.isGamePaused()) {
+                setGameMode(GameMode.BUILDING_MODE);
+                hotbarManager.showHotbar();
+            }
+        }
+    }
+
+    /**
+     * Toggles inventory visibility.
+     */
+    public void toggleInventory() {
+        if (hotbarManager.isHotbarVisible()) {
+            hotbarManager.hideHotbar();
+        }
+
+        if (inventoryPanel.isVisible() && gameState.isInventoryOpen()) {
+            setGameMode(GameMode.EXPLORATION);
+        } else {
+            inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
+            inventoryPanel.openPlayerInventory();
+            setGameMode(GameMode.INVENTORY_OPEN);
+        }
+    }
+
+    /**
+     * Sets the current game mode and handles transitions.
+     *
+     * @param newMode Target game mode
+     */
+    public void setGameMode(GameMode newMode) {
+        if (gameState.getCurrentGameMode() == newMode) return;
+
+        // Exit current mode
+        switch (gameState.getCurrentGameMode()) {
+            case BUILDING_MODE:
+                buildingManager.deactivateBuildingMode();
+                hotbarManager.hideHotbar();
+                break;
+            case INVENTORY_OPEN:
+            case CRAFTING_OPEN:
+                containerManager.closeContainer();
+                inventoryPanel.closeInventory();
+                gameState.setInventoryOpen(false);
+                break;
+        }
+
+        // Enter new mode
+        switch (newMode) {
+            case BUILDING_MODE:
+                buildingManager.activateBuildingMode();
+                hotbarManager.showHotbar();
+                break;
+            case INVENTORY_OPEN:
+                containerManager.openContainer(gameState.getPlayer());
+                gameState.setInventoryOpen(true);
+                inventoryPanel.openPlayerInventory();
+                break;
+        }
+
+        gameState.setCurrentGameMode(newMode);
+    }
+
+    // Save/Load functionality (stubs)
+    // =======================================================================
 
     public void saveGame() {
         System.out.println("Saving game...");
@@ -579,161 +723,11 @@ public class GameOrchestrator {
         // TODO: Implement load logic
     }
 
-    private void togglePanelVisibility(Node panel, String panelName) {
-        boolean isVisible = !panel.isVisible();
-        panel.setVisible(isVisible);
-        panel.setManaged(isVisible);
-
-        if (panel == inventoryPanel) {
-            if (isVisible) {
-                if (hotbarManager.isHotbarVisible()) {
-                    hotbarManager.hideHotbar();
-                }
-                List<Recipe> recipes = recipeManager.getAllRecipes();
-                System.out.println("LOADING RECIPES: " + recipes.size() + " available");
-                inventoryPanel.setCraftingRecipes(recipes);
-                containerManager.openContainer(gameState.getPlayer());
-                inventoryPanel.openPlayerInventory();
-                gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
-                System.out.println("GameOrchestrator: Inventory panel opened. Mode: " + gameState.getCurrentGameMode());
-            } else {
-                containerManager.closeContainer();
-                inventoryPanel.closeInventory();
-                if (gameState.getCurrentGameMode() == GameMode.INVENTORY_OPEN || gameState.getCurrentGameMode() == GameMode.CRAFTING_OPEN) {
-                    gameState.setCurrentGameMode(GameMode.EXPLORATION);
-                }
-                System.out.println("GameOrchestrator: Inventory panel closed. Mode: " + gameState.getCurrentGameMode());
-            }
-            inventoryPanel.setCraftingRecipes(recipeManager.getAllRecipes());
-        } else if (panel == mapConfigPanel) {
-            if (isVisible) {
-                System.out.println(panelName + ": VISIBLE");
-            } else {
-                System.out.println(panelName + ": HIDDEN");
-            }
-        }
-    }
-
-    public void startGameLoop() {
-        if (gameLoop != null) gameLoop.start();
-    }
-
-    public void stopGameLoop() {
-        if (gameLoop != null) gameLoop.stop();
-    }
-
     public void setPauseMenuPanel(PauseMenuPanel pauseMenuPanel) {
         this.pauseMenuPanel = pauseMenuPanel;
         pauseMenuPanel.setOnResumeAction(this::resumeGame);
         pauseMenuPanel.setOnSaveAction(this::saveGame);
         pauseMenuPanel.setOnLoadAction(this::loadGame);
-    }
-
-    public void centerOnPlayer() {
-        Player player = gameState.getPlayer();
-        if (player != null) {
-            camera.centerOnTile(player.getCurrentTileX(), player.getCurrentTileY(), mainCanvas);
-        }
-    }
-
-    /**
-     * Sets the current game mode, handling transitions.
-     * @param newMode The mode to switch to.
-     */
-    public void setGameMode(GameMode newMode) {
-        if (gameState.getCurrentGameMode() == newMode) {
-            return; // No change needed
-        }
-
-        // Logic to exit current mode gracefully
-        switch (gameState.getCurrentGameMode()) {
-            case BUILDING_MODE:
-                if (buildingManager.isBuildingModeActive()) {
-                    buildingManager.toggleBuildingMode(); // Esto desactivará el modo de construcción internamente
-                }
-                buildingManager.setSelectedBuildingType(null);
-                // Ocultar la hotbar de construcción al salir del modo construcción usando HotbarManager
-                hotbarManager.hideHotbar();
-                break;
-            case INVENTORY_OPEN:
-            case CRAFTING_OPEN:
-                containerManager.closeContainer(); // Cerrar cualquier contenedor/UI abierto
-                inventoryPanel.closeInventory(); // Asegurarse de que la UI también se cierre
-                break;
-            case PAUSED:
-                // Si se sale del modo de pausa, no se necesita un cierre especial de la UI, resumeGame lo maneja.
-                break;
-            case EXPLORATION:
-                // No se necesita limpieza específica al salir de la exploración a menos que se entre en un modo de UI
-                break;
-        }
-
-        // Logic to enter new mode
-        switch (newMode) {
-            case BUILDING_MODE:
-                if (!buildingManager.isBuildingModeActive()) {
-                    buildingManager.toggleBuildingMode(); // Esto activará el modo de construcción internamente
-                }
-                hotbarManager.showHotbar(); // Mostrar la hotbar de construcción usando HotbarManager
-                // No abrir inventoryPanel.openBuildingPanel(); aquí, ya que el usuario no quiere el inventario.
-                break;
-            case INVENTORY_OPEN:
-                containerManager.openContainer(gameState.getPlayer());
-                inventoryPanel.openPlayerInventory(); // Abre la UI, por defecto al inventario del jugador
-                break;
-            case CRAFTING_OPEN:
-                // Si alguna vez queremos ir directamente al crafteo, añadiríamos lógica específica aquí.
-                // Por ahora, generalmente se accede a través de las pestañas de InventoryPanel.
-                break;
-            case PAUSED:
-                // La pausa se maneja con togglePauseMenu, no directamente con setGameMode
-                break;
-            case EXPLORATION:
-                // No se necesita configuración específica al entrar en exploración, solo asegura que otras UI estén cerradas.
-                break;
-        }
-
-        gameState.setCurrentGameMode(newMode);
-        System.out.println("Game mode changed to: " + newMode);
-    }
-
-    /**
-     * Toggles the building mode.
-     */
-    public void toggleBuildingMode() {
-        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
-            setGameMode(GameMode.EXPLORATION);
-            hotbarManager.hideHotbar();
-            System.out.println("Building mode: OFF");
-        } else {
-            if (inventoryPanel.isVisible()) {
-                togglePanelVisibility(inventoryPanel, "Inventory Panel");
-            }
-            if (gameState.getCurrentGameMode() != GameMode.PAUSED) {
-                setGameMode(GameMode.BUILDING_MODE);
-                hotbarManager.showHotbar();
-                System.out.println("Building mode: ON");
-            }
-        }
-    }
-
-    /**
-     * Toggles the inventory mode.
-     */
-    public void toggleInventory() {
-        // Alternar el inventario significa abrir/cerrar el panel de inventario (que también maneja la pestaña de crafteo)
-        // Asegurarse de que la hotbar de construcción se oculte si el inventario se abre.
-        if (hotbarManager.isHotbarVisible()) { // Usa HotbarManager
-            hotbarManager.hideHotbar(); // Usa HotbarManager
-        }
-
-        if (inventoryPanel.isVisible() && (gameState.getCurrentGameMode() == GameMode.INVENTORY_OPEN || gameState.getCurrentGameMode() == GameMode.CRAFTING_OPEN)) {
-            setGameMode(GameMode.EXPLORATION); // Cerrar inventario/crafteo
-        } else {
-            inventoryPanel.setCraftingRecipes(recipeManager.getAllRecipes());
-            inventoryPanel.openPlayerInventory();
-            setGameMode(GameMode.INVENTORY_OPEN); // Abrir inventario
-        }
     }
 
 }

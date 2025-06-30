@@ -29,7 +29,7 @@ module com.feuerschvenger.perlinsedge {
     exports com.feuerschvenger.perlinsedge.infra.noise;
     exports com.feuerschvenger.perlinsedge.ui.controller;
     exports com.feuerschvenger.perlinsedge.ui.view;
-
+    exports com.feuerschvenger.perlinsedge.ui.view.callbacks;
 
     opens com.feuerschvenger.perlinsedge.app to javafx.fxml, javafx.graphics;
 }
