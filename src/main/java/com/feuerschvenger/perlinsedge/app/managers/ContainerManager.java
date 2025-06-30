@@ -4,169 +4,183 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 
 /**
- * Manages interactions with various item containers in the game, such as player inventory and chests.
- * This class facilitates opening, closing, and transferring items between containers.
+ * Manages container interactions including opening/closing containers and item transfers.
+ * Supports both bulk quantity transfers and slot-based transfers between containers.
  */
 public class ContainerManager {
-    private Container openContainer; // The container currently open in the UI
+    private Container openContainer; // Currently active container in UI
 
     public ContainerManager() {
         this.openContainer = null;
     }
 
     /**
-     * Opens a specific container in the UI.
-     * @param container The container to open.
+     * Opens a container for interaction.
+     * @param container Container to open (must not be null)
      */
     public void openContainer(Container container) {
         if (container == null) {
-            System.err.println("ContainerManager: Cannot open null container.");
+            logError("Cannot open null container");
             return;
         }
-        this.openContainer = container;
-        System.out.println("Container " + container.getClass().getSimpleName() + " opened.");
-        // UI logic for displaying the container would be in InventoryPanel or similar
+
+        openContainer = container;
+        logAction("Opened container: " + container.getClass().getSimpleName());
     }
 
     /**
-     * Closes the currently open container.
+     * Closes the currently open container if any.
      */
     public void closeContainer() {
         if (openContainer != null) {
-            System.out.println("Container " + openContainer.getClass().getSimpleName() + " closed.");
-            this.openContainer = null;
+            logAction("Closed container: " + openContainer.getClass().getSimpleName());
+            openContainer = null;
         }
     }
 
     /**
-     * Checks if any container is currently open.
-     * @return True if a container is open, false otherwise.
+     * Checks if a container is currently open.
+     * @return true if a container is open, false otherwise
      */
     public boolean isContainerOpen() {
         return openContainer != null;
     }
 
     /**
-     * Gets the currently open container.
-     * @return The open Container, or null if none is open.
+     * Retrieves the currently open container.
+     * @return Open container instance or null if none
      */
     public Container getOpenContainer() {
         return openContainer;
     }
 
     /**
-     * Transfers an item from one container to another.
+     * Transfers items between specific slots in two containers.
+     * Handles moving to empty slots, stacking, and swapping items.
      *
-     * @param source         The container to take the item from.
-     * @param destination    The container to add the item to.
-     * @param itemToTransfer The item (and its type) to transfer.
-     * @param quantity       The quantity of the item to transfer.
+     * @param source Source container
+     * @param sourceSlot Source slot index
+     * @param destination Destination container
+     * @param destinationSlot Destination slot index
+     * @param item Item being transferred (reference for validation)
      */
-    public void transferItem(Container source, Container destination, Item itemToTransfer, int quantity) {
-        if (source == null || destination == null || itemToTransfer == null || quantity <= 0) {
-            System.err.println("ContainerManager: Invalid transfer parameters.");
+    public void transferBetweenSlots(Container source, int sourceSlot,
+                                     Container destination, int destinationSlot,
+                                     Item item) {
+        if (!validateSlotTransferParameters(source, sourceSlot, destination, item)) {
             return;
         }
 
-        // Check if source has enough quantity
-        if (!source.canTakeItem(itemToTransfer, quantity)) {
-            System.out.println("ContainerManager: Source does not have enough " + itemToTransfer.getDisplayName() + ".");
-            return;
-        }
-
-        // Create a temporary item with the quantity to transfer
-        Item actualItemToTransfer = new Item(itemToTransfer.getType(), quantity);
-
-        // Check if source has enough quantity
-        if (!source.canTakeItem(actualItemToTransfer, quantity)) {
-            System.out.println("ContainerManager: Source does not have enough " + itemToTransfer.getDisplayName() + " to transfer " + quantity + ".");
-            return;
-        }
-
-        // Attempt to add to destination. addItem returns true if *any* part was added.
-        boolean added = destination.addItem(actualItemToTransfer);
-
-        // If something was added, remove that quantity from the source
-        if (added) {
-            int quantityActuallyAdded = quantity - actualItemToTransfer.getQuantity(); // Remaining quantity in actualItemToTransfer
-            if (quantityActuallyAdded > 0) {
-                source.removeItem(itemToTransfer, quantityActuallyAdded);
-                System.out.println("ContainerManager: Transferred " + quantityActuallyAdded + "x " + itemToTransfer.getDisplayName() +
-                        " from " + source.getClass().getSimpleName() + " to " + destination.getClass().getSimpleName());
-                return;
-            }
-        }
-        System.out.println("ContainerManager: Failed to transfer " + quantity + "x " + itemToTransfer.getDisplayName() +
-                " from " + source.getClass().getSimpleName() + " to " + destination.getClass().getSimpleName());
-    }
-
-    public void transferBetweenSlots(Container source, int sourceSlot, Container destination, int destinationSlot, Item item) {
-        System.out.println("TRANSFER OPERATION: " + item.getDisplayName() +
-                " from slot " + sourceSlot + " to " + destinationSlot);
-
-        if (source == null || destination == null) {
-            System.err.println("TRANSFER ERROR: Invalid containers");
-            return;
-        }
-
-        // Obtener ítem real del slot de origen
         Item sourceItem = source.getItemAt(sourceSlot);
-        if (sourceItem == null) {
-            System.err.println("TRANSFER ERROR: Source item is null");
-            return;
-        }
-
-        // Verificar coincidencia (usar ID o tipo para evitar problemas de referencia)
-        if (sourceItem.getType() != item.getType()) {
-            System.err.println("TRANSFER ERROR: Source item mismatch");
-            return;
-        }
-
         Item destItem = destination.getItemAt(destinationSlot);
-        System.out.println("SOURCE ITEM: " + sourceItem.getDisplayName() + " x" + sourceItem.getQuantity());
-        System.out.println("DEST ITEM: " + (destItem != null ?
-                destItem.getDisplayName() + " x" + destItem.getQuantity() : "Empty"));
+
+        logTransferOperation(sourceItem, sourceSlot, destItem, destinationSlot);
 
         if (destItem == null) {
-            // FIX: Ensure we're moving the exact instance
-            destination.setItemAt(destinationSlot, sourceItem);
-            source.setItemAt(sourceSlot, null);
-            System.out.println("TRANSFER: Moved to empty slot");
+            moveToEmptySlot(source, sourceSlot, destination, destinationSlot, sourceItem);
         } else if (canStack(sourceItem, destItem)) {
-            // Calculate stackable amount
-            int maxStack = destItem.getMaxStackSize();
-            int spaceAvailable = maxStack - destItem.getQuantity();
-            int transferAmount = Math.min(spaceAvailable, sourceItem.getQuantity());
-
-            System.out.println("STACKING: " + transferAmount + " items");
-
-            // Update quantities
-            destItem.addQuantity(transferAmount);
-            sourceItem.removeQuantity(transferAmount);
-
-            // Clear source slot if empty
-            if (sourceItem.getQuantity() <= 0) {
-                source.setItemAt(sourceSlot, null);
-                System.out.println("CLEARED source slot");
-            }
+            stackItems(source, sourceSlot, sourceItem, destItem);
         } else {
-            // FIX: Full swap including item instances
-            System.out.println("SWAPPING items");
-
-            // Preserve source item reference
-            Item temp = sourceItem;
-
-            // Perform swap
-            source.setItemAt(sourceSlot, destItem);
-            destination.setItemAt(destinationSlot, temp);
+            swapItems(source, sourceSlot, destination, destinationSlot, sourceItem, destItem);
         }
-
-        System.out.println("TRANSFER COMPLETE");
     }
 
-    private boolean canStack(Item item1, Item item2) {
-        return item1.getType() == item2.getType() &&
-                item2.getQuantity() < item2.getMaxStackSize();
+    /**
+     * Moves an item to an empty destination slot.
+     */
+    private void moveToEmptySlot(Container source, int sourceSlot,
+                                 Container destination, int destinationSlot,
+                                 Item sourceItem) {
+        destination.setItemAt(destinationSlot, sourceItem);
+        source.setItemAt(sourceSlot, null);
+        logAction("Moved to empty slot");
+    }
+
+    /**
+     * Stacks items between slots when possible.
+     */
+    private void stackItems(Container source, int sourceSlot, Item sourceItem, Item destItem) {
+        int maxStack = destItem.getMaxStackSize();
+        int availableSpace = maxStack - destItem.getQuantity();
+        int transferAmount = Math.min(availableSpace, sourceItem.getQuantity());
+
+        destItem.addQuantity(transferAmount);
+        sourceItem.removeQuantity(transferAmount);
+
+        if (sourceItem.getQuantity() <= 0) {
+            source.setItemAt(sourceSlot, null);
+            logAction("Cleared source slot after stacking");
+        }
+        logAction("Stacked " + transferAmount + " items");
+    }
+
+    /**
+     * Swaps items between slots when types differ or stacks are full.
+     */
+    private void swapItems(Container source, int sourceSlot,
+                           Container destination, int destinationSlot,
+                           Item sourceItem, Item destItem) {
+        source.setItemAt(sourceSlot, destItem);
+        destination.setItemAt(destinationSlot, sourceItem);
+        logAction("Swapped items");
+    }
+
+    /**
+     * Validates slot-based transfer parameters.
+     * @return true if parameters are valid, false otherwise
+     */
+    private boolean validateSlotTransferParameters(Container source, int sourceSlot, Container destination, Item item) {
+        if (source == null || destination == null) {
+            logError("Slot transfer failed: Null container(s)");
+            return false;
+        }
+
+        Item sourceItem = source.getItemAt(sourceSlot);
+        if (sourceItem == null) {
+            logError("Slot transfer failed: Empty source slot");
+            return false;
+        }
+        if (sourceItem.getType() != item.getType()) {
+            logError("Slot transfer failed: Item type mismatch");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Checks if two items can be stacked.
+     * @return true if same type and destination has stack space
+     */
+    private boolean canStack(Item sourceItem, Item destItem) {
+        return sourceItem.getType() == destItem.getType() &&
+                destItem.getQuantity() < destItem.getMaxStackSize();
+    }
+
+    /**
+     * Logs a slot transfer operation details.
+     */
+    private void logTransferOperation(Item sourceItem, int sourceSlot,
+                                      Item destItem, int destSlot) {
+        System.out.printf("TRANSFER OP: %s x%d (Slot %d) -> %s (Slot %d)%n",
+                sourceItem.getDisplayName(),
+                sourceItem.getQuantity(),
+                sourceSlot,
+                destItem != null ? destItem.getDisplayName() + " x" + destItem.getQuantity() : "Empty",
+                destSlot);
+    }
+
+    /**
+     * Logs an action message.
+     */
+    private void logAction(String message) {
+        System.out.println("ContainerManager: " + message);
+    }
+
+    /**
+     * Logs an error message.
+     */
+    private void logError(String message) {
+        System.err.println("ContainerManager ERROR: " + message);
     }
 
 }

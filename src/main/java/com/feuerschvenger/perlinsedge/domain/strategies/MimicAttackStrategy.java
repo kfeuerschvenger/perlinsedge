@@ -16,16 +16,21 @@ public class MimicAttackStrategy implements EnemyAttackStrategy {
 
     @Override
     public void updateAttack(Enemy enemy, double deltaTime, Player player) {
-        MimicMovementStrategy movementStrategy = (MimicMovementStrategy) enemy.getMovementStrategy(); // Cast to access aggro state
-        if (movementStrategy.isAggroed() && canAttackPlayer(enemy, player)) {
+        if (canAttack(enemy, player)) {
             player.takeDamage(enemy.getAttackDamage());
-            enemy.setAttackTimer(enemy.getAttackCooldown());
+            enemy.resetAttackCooldown();
             System.out.println("Mimic attacked player!");
         }
     }
 
-    private boolean canAttackPlayer(Enemy enemy, Player player) {
-        if (enemy.getAttackTimer() <= 0 && !player.isDead()) {
+    @Override
+    public boolean canAttack(Enemy enemy, Player player) {
+        if (enemy.isReadyToAttack() && !player.isDead()) {
+            // Check aggro state for Mimic
+            if (enemy.getMovementStrategy() instanceof MimicMovementStrategy movementStrategy) {
+                if (!movementStrategy.isAggroed()) return false;
+            }
+
             double dx = player.getCurrentTileX() - enemy.getCurrentTileX();
             double dy = player.getCurrentTileY() - enemy.getCurrentTileY();
             double distance = Math.sqrt(dx * dx + dy * dy);
@@ -33,4 +38,5 @@ public class MimicAttackStrategy implements EnemyAttackStrategy {
         }
         return false;
     }
+
 }

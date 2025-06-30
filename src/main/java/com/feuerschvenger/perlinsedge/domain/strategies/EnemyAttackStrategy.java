@@ -15,4 +15,13 @@ public interface EnemyAttackStrategy {
      * @param player The player character.
      */
     void updateAttack(Enemy enemy, double deltaTime, Player player);
+
+    /**
+     * Checks if the enemy can attack the player.
+     * @param enemy The enemy to check
+     * @param player The player to check
+     * @return true if attack conditions are met
+     */
+    boolean canAttack(Enemy enemy, Player player);
+
 }

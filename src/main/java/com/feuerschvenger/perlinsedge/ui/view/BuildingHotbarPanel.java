@@ -54,7 +54,7 @@ public class BuildingHotbarPanel extends HBox {
     }
 
     private void populateHotbar() {
-        List<BuildingRecipe> buildingRecipes = recipeManager.getBuildingRecipes();
+        List<BuildingRecipe> buildingRecipes = recipeManager.getAllBuildingRecipes();
         int slotIndex = 1;
         getChildren().clear();
 
@@ -83,7 +83,7 @@ public class BuildingHotbarPanel extends HBox {
         StackPane iconWrapper = new StackPane();
         iconWrapper.setPrefSize(ICON_SIZE, ICON_SIZE);
         iconWrapper.setBackground(new Background(new BackgroundFill(
-                type.getColor().deriveColor(0, 1, 1, 0.5),
+                type.getBaseColor().deriveColor(0, 1, 1, 0.5),
                 new CornerRadii(5),
                 Insets.EMPTY
         )));
@@ -180,9 +180,6 @@ public class BuildingHotbarPanel extends HBox {
     }
 
     // Getters and setters
-    public BuildingType getCurrentlySelectedBuildingType() {
-        return currentlySelectedBuildingType;
-    }
 
     public void setOnBuildingSelected(Consumer<BuildingType> listener) {
         this.onBuildingSelectedListener = listener;
@@ -199,4 +196,5 @@ public class BuildingHotbarPanel extends HBox {
             }
         }
     }
+
 }

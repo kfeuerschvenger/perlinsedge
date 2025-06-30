@@ -11,15 +11,19 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import javafx.scene.paint.Color;
 
+import java.util.Optional;
+
 /**
- * Manages the placement, removal, and interaction with buildings in the game world.
+ * Manages building operations including placement, removal, interaction, and preview visualization.
+ * Handles resource validation, tile suitability checks, and building lifecycle management.
  */
 public class BuildingManager {
-    private final GameStateManager gameState; // Now depends on GameStateManager
+    // Dependencies
+    private final GameStateManager gameState;
     private final RecipeManager recipeManager;
     private final ContainerManager containerManager;
 
-    // State for building mode
+    // Building mode state
     private BuildingType selectedBuildingType;
     private boolean buildingModeActive;
 
@@ -35,21 +39,49 @@ public class BuildingManager {
         return buildingModeActive;
     }
 
-    public void toggleBuildingMode() {
-        this.buildingModeActive = !this.buildingModeActive;
-        // Reset selected building when toggling off
-        if (!this.buildingModeActive) {
-            this.selectedBuildingType = null;
-        }
-        System.out.println("Building mode: " + (buildingModeActive ? "ON" : "OFF"));
-    }
-
     public BuildingType getSelectedBuildingType() {
         return selectedBuildingType;
     }
 
+    /**
+     * Toggles building mode on/off. Resets selection when deactivated.
+     */
+    public void toggleBuildingMode() {
+        if (buildingModeActive) {
+            deactivateBuildingMode();
+        } else {
+            activateBuildingMode();
+        }
+    }
+
+    /**
+     * Activates building mode.
+     */
+    public void activateBuildingMode() {
+        if (!buildingModeActive) {
+            buildingModeActive = true;
+            System.out.println("Building mode: ON");
+        }
+    }
+
+    /**
+     * Deactivates building mode and clears any selected building type.
+     */
+    public void deactivateBuildingMode() {
+        if (buildingModeActive) {
+            buildingModeActive = false;
+            selectedBuildingType = null;
+            System.out.println("Building mode: OFF");
+        }
+    }
+
+    /**
+     * Sets the currently selected building type for placement.
+     *
+     * @param type Building type to select (null to clear selection)
+     */
     public void setSelectedBuildingType(BuildingType type) {
-        this.selectedBuildingType = type;
+        selectedBuildingType = type;
         if (type != null) {
             System.out.println("Selected building type: " + type.getDisplayName());
         } else {
@@ -58,115 +90,145 @@ public class BuildingManager {
     }
 
     /**
-     * Attempts to place the currently selected building type at the given world coordinates.
-     * @param worldX The world X coordinate of the tile.
-     * @param worldY The world Y coordinate of the tile.
-     * @return True if the building was successfully placed, false otherwise.
+     * Places the selected building at specified coordinates after validating conditions.
+     *
+     * @param worldX X-coordinate in world units
+     * @param worldY Y-coordinate in world units
      */
-    public boolean placeBuilding(int worldX, int worldY) {
-        if (!buildingModeActive || selectedBuildingType == null) {
-            System.out.println("Cannot place building: Building mode not active or no building type selected.");
-            return false;
+    public void placeBuilding(int worldX, int worldY) {
+        // Validate preconditions
+        if (!validatePlacementPreconditions(worldX, worldY)) {
+            return;
         }
 
-        TileMap tileMap = gameState.getCurrentMap(); // Get map from GameStateManager
-        Player player = gameState.getPlayer(); // Get player from GameStateManager
-
-        if (tileMap == null || player == null) {
-            System.err.println("Cannot place building: Map or Player is null.");
-            return false;
-        }
-
+        TileMap tileMap = gameState.getCurrentMap();
+        Player player = gameState.getPlayer();
         Tile targetTile = tileMap.getTile(worldX, worldY);
-        if (targetTile == null) {
-            System.out.println("Cannot place building: Invalid tile coordinates.");
-            return false;
+        Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
+        BuildingRecipe existingRecipe = recipe.orElse(null);
+
+        // Validate resources and placement rules
+        if (!playerHasResources(player, existingRecipe) || !canPlaceOnTile(selectedBuildingType, targetTile)) {
+            return;
         }
 
-        if (targetTile.hasBuilding()) {
-            System.out.println("Cannot place building: Tile already has a building.");
-            return false;
-        }
-
-        BuildingRecipe recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
-        if (recipe == null) {
-            System.out.println("Cannot place building: No recipe found for " + selectedBuildingType.getDisplayName());
-            return false;
-        }
-
-        // 1. Check if player has required resources
-        if (!playerHasResources(player, recipe)) { // Pass player
-            System.out.println("Cannot place building: Not enough resources.");
-            return false;
-        }
-
-        // 2. Check specific tile placement rules (more detailed than Tile.isBuildable)
-        if (!canPlaceOnTile(selectedBuildingType, targetTile)) {
-            System.out.println("Cannot place building: Invalid terrain for " + selectedBuildingType.getDisplayName());
-            return false;
-        }
-
-        // 3. Create the building instance
+        // Create and place building
         Building newBuilding = createBuildingInstance(selectedBuildingType, worldX, worldY);
-        if (newBuilding == null) {
-            System.out.println("Failed to create building instance.");
-            return false;
-        }
+        if (newBuilding == null) return;
 
-        // 4. Consume resources from player's inventory
-        consumeResources(player, recipe); // Pass player
-
-        // 5. Place the building on the tile
+        consumeResources(player, existingRecipe);
         targetTile.setBuilding(newBuilding);
-        System.out.println("Successfully placed " + selectedBuildingType.getDisplayName() + " at (" + worldX + ", " + worldY + ")");
-        return true;
+        System.out.println("Placed " + selectedBuildingType.getDisplayName() + " at (" + worldX + ", " + worldY + ")");
     }
 
     /**
-     * Attempts to remove a building from the given world coordinates.
-     * @param worldX The world X coordinate of the tile.
-     * @param worldY The world Y coordinate of the tile.
-     * @return True if the building was successfully removed, false otherwise.
+     * Removes a building from specified coordinates if destructible.
+     *
+     * @param worldX X-coordinate in world units
+     * @param worldY Y-coordinate in world units
      */
-    public boolean removeBuilding(int worldX, int worldY) {
-        TileMap tileMap = gameState.getCurrentMap(); // Get map from GameStateManager
+    public void removeBuilding(int worldX, int worldY) {
+        TileMap tileMap = gameState.getCurrentMap();
         if (tileMap == null) {
-            System.err.println("Cannot remove building: Map is null.");
+            System.err.println("Remove building failed: Map is null");
+            return;
+        }
+
+        Tile targetTile = tileMap.getTile(worldX, worldY);
+        if (targetTile == null || !targetTile.hasBuilding()) {
+            System.out.println("No building at (" + worldX + ", " + worldY + ")");
+            return;
+        }
+
+        Building building = targetTile.getBuilding();
+        if (!building.isDestructible()) {
+            System.out.println("Building not destructible: " + building.getType().getDisplayName());
+            return;
+        }
+
+        targetTile.setBuilding(null);
+        System.out.println("Removed " + building.getType().getDisplayName() + " from (" + worldX + ", " + worldY + ")");
+    }
+
+    /**
+     * Handles player interaction with a building at specified coordinates.
+     *
+     * @param worldX X-coordinate in world units
+     * @param worldY Y-coordinate in world units
+     * @return true if interaction occurred, false otherwise
+     */
+    public boolean interactWithBuilding(int worldX, int worldY) {
+        TileMap tileMap = gameState.getCurrentMap();
+        if (tileMap == null) {
+            System.err.println("Interaction failed: Map is null");
             return false;
         }
 
         Tile targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null || !targetTile.hasBuilding()) {
-            System.out.println("No building to remove at (" + worldX + ", " + worldY + ").");
             return false;
         }
 
-        Building buildingToRemove = targetTile.getBuilding();
-        if (!buildingToRemove.isDestructible()) {
-            System.out.println("Building " + buildingToRemove.getType().getDisplayName() + " at (" + worldX + ", " + worldY + ") is not destructible.");
+        Building building = targetTile.getBuilding();
+        boolean interacted = building.onInteract(targetTile);
+
+        if (interacted && building instanceof Container) {
+            containerManager.openContainer((Container) building);
+            System.out.println("Opened container: " + building.getClass().getSimpleName());
+        }
+        return interacted;
+    }
+
+    /**
+     * Validates global conditions for building placement.
+     *
+     * @return true if all preconditions are met, false otherwise
+     */
+    private boolean validatePlacementPreconditions(int worldX, int worldY) {
+        if (!buildingModeActive || selectedBuildingType == null) {
+            System.out.println("Placement failed: Building mode inactive or no type selected");
             return false;
         }
 
-        // Optional: Return some resources to the player upon destruction?
-        // For simplicity, we'll just destroy it for now.
+        TileMap tileMap = gameState.getCurrentMap();
+        Player player = gameState.getPlayer();
 
-        targetTile.setBuilding(null); // Remove the building from the tile
-        System.out.println("Successfully removed " + buildingToRemove.getType().getDisplayName() + " from (" + worldX + ", " + worldY + ").");
+        if (tileMap == null || player == null) {
+            System.err.println("Placement failed: Map or player is null");
+            return false;
+        }
+
+        Tile targetTile = tileMap.getTile(worldX, worldY);
+        if (targetTile == null) {
+            System.out.println("Placement failed: Invalid tile coordinates");
+            return false;
+        }
+
+        if (targetTile.hasBuilding()) {
+            System.out.println("Placement failed: Tile occupied");
+            return false;
+        }
+
+        if (recipeManager.getBuildingRecipeByType(selectedBuildingType).isEmpty()) {
+            System.out.println("Placement failed: No recipe for " + selectedBuildingType.getDisplayName());
+            return false;
+        }
         return true;
     }
 
     /**
-     * Checks if the player has all the required ingredients for a given building recipe.
-     * @param player The player entity.
-     * @param recipe The BuildingRecipe to check.
-     * @return True if the player has all ingredients, false otherwise.
+     * Checks if player has required resources for a recipe.
+     *
+     * @param player Player whose inventory to check
+     * @param recipe Recipe to validate against
+     * @return true if player has sufficient resources
      */
-    private boolean playerHasResources(Player player, BuildingRecipe recipe) { // Now accepts Player
-        if (player == null) return false;
+    private boolean playerHasResources(Player player, BuildingRecipe recipe) {
+        if (player == null || recipe == null) return false;
+
         for (CraftingIngredient ingredient : recipe.ingredients()) {
-            // Player (as Container) must have at least the required quantity of each item type
-            if (!player.canTakeItem(new Item(ingredient.getItemType(), 1), ingredient.getQuantity())) { // Direct call on player
-                System.out.println("Missing: " + ingredient.getQuantity() + "x " + ingredient.getItemType().getDisplayName());
+            if (!player.canTakeItem(new Item(ingredient.itemType(), 1), ingredient.quantity())) {
+                System.out.println("Missing resource: " + ingredient.quantity() + "x " + ingredient.itemType().getDisplayName());
                 return false;
             }
         }
@@ -174,22 +236,22 @@ public class BuildingManager {
     }
 
     /**
-     * Consumes the required resources from the player's inventory based on the recipe.
-     * Assumes playerHasResources() has already returned true.
-     * @param player The player entity.
-     * @param recipe The BuildingRecipe whose ingredients to consume.
+     * Consumes recipe resources from player's inventory.
+     * Precondition: playerHasResources() must return true.
      */
-    private void consumeResources(Player player, BuildingRecipe recipe) { // Now accepts Player
+    private void consumeResources(Player player, BuildingRecipe recipe) {
         if (player == null) return;
+
         for (CraftingIngredient ingredient : recipe.ingredients()) {
-            player.removeItem(new Item(ingredient.getItemType(), 1), ingredient.getQuantity()); // Direct call on player
-            System.out.println("Consumed: " + ingredient.getQuantity() + "x " + ingredient.getItemType().getDisplayName());
+            player.removeItem(new Item(ingredient.itemType(), 1), ingredient.quantity());
+            System.out.println("Consumed: " + ingredient.quantity() + "x " + ingredient.itemType().getDisplayName());
         }
     }
 
     /**
-     * Creates an instance of a Building based on its type.
-     * This uses a simple factory pattern.
+     * Factory method for building creation.
+     *
+     * @return Building instance or null for unknown types
      */
     private Building createBuildingInstance(BuildingType type, int x, int y) {
         return switch (type) {
@@ -200,7 +262,6 @@ public class BuildingManager {
             case FENCE -> new Fence(x, y);
             case CHEST -> new Chest(x, y, 9);
             case FURNACE -> new Furnace(x, y);
-            // case STANDING_TORCH -> new StandingTorch(x, y);
             case CAMPFIRE -> new Campfire(x, y);
             case ANVIL -> new Anvil(x, y);
             case WORKBENCH -> new Workbench(x, y);
@@ -213,129 +274,71 @@ public class BuildingManager {
     }
 
     /**
-     * Determines if a specific building type can be placed on a given tile.
-     * This contains specific game rules for placement (e.g., docks only on water).
-     * @param type The BuildingType to check.
-     * @param tile The Tile to place the building on.
-     * @return True if placement is valid, false otherwise.
+     * Determines if a building type can be placed on a tile.
+     *
+     * @param type Building type to check
+     * @param tile Target tile for placement
+     * @return true if placement is valid according to game rules
      */
     public boolean canPlaceOnTile(BuildingType type, Tile tile) {
-        // Basic check: Tile must be buildable (no resource, no existing building)
-        if (!tile.isBuildable()) {
-            return false;
-        }
+        if (!tile.isBuildable()) return false;
 
-        // Specific rules based on building type
         switch (type) {
-            case WALL:
-            case DOOR:
-            case FENCE:
-            case CHEST:
-            case FURNACE:
-            case STANDING_TORCH:
-            case CAMPFIRE:
-            case ANVIL:
-            case WORKBENCH:
-            case BED:
-                // These generally need to be placed on walkable land tiles
-                boolean canPlaceOnLand = tile.getType().isLand() && tile.getType().isWalkable();
-                if (!canPlaceOnLand) {
-                    System.out.println("Cannot place " + type.getDisplayName() + ": Must be placed on walkable land tile.");
+            // Land-based structures
+            case WALL, DOOR, FENCE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
+                boolean validLand = tile.getType().isLand() && tile.getType().isWalkable();
+                if (!validLand) {
+                    System.out.println("Invalid terrain for " + type.getDisplayName() + ": Requires walkable land");
                 }
-                return canPlaceOnLand;
-            case BRIDGE:
-                // Bridges must be placed on water tiles
-                boolean canPlaceOnWaterBridge = tile.getType().isWater();
-                if (!canPlaceOnWaterBridge) {
-                    System.out.println("Cannot place " + type.getDisplayName() + ": Must be placed on water tile.");
+                return validLand;
+            }
+
+            // Water-based structures
+            case BRIDGE, DOCK -> {
+                boolean validWater = tile.getType().isWater();
+                if (!validWater) {
+                    System.out.println("Invalid terrain for " + type.getDisplayName() + ": Requires water");
                 }
-                return canPlaceOnWaterBridge;
-            case DOCK:
-                // Docks must be placed on water tiles
-                boolean canPlaceOnWaterDock = tile.getType().isWater();
-                if (!canPlaceOnWaterDock) {
-                    System.out.println("Cannot place " + type.getDisplayName() + ": Must be placed on water tile.");
-                }
-                return canPlaceOnWaterDock;
-            default:
-                System.out.println("Cannot place " + type.getDisplayName() + ": Unknown building type for placement rules.");
-                return false; // Unknown type, cannot place
+                return validWater;
+            }
+
+            default -> {
+                System.out.println("Unhandled building type: " + type);
+                return false;
+            }
         }
     }
 
     /**
-     * Gets the preview color for a building placement.
-     * @param worldX The world X coordinate of the tile.
-     * @param worldY The world Y coordinate of the tile.
-     * @return Green if placable, Red if not, Yellow if no type selected.
+     * Generates placement preview color for a tile.
+     *
+     * @return Color indicating placement feasibility or null when inactive
      */
     public Color getPlacementPreviewColor(int worldX, int worldY) {
-        if (!buildingModeActive) {
-            return null;
-        }
-        if (selectedBuildingType == null) {
-            return Color.YELLOW.deriveColor(0, 1, 1, 0.7);
-        }
+        if (!buildingModeActive) return null;
+        if (selectedBuildingType == null) return Color.YELLOW.deriveColor(0, 1, 1, 0.7);
 
-        TileMap tileMap = gameState.getCurrentMap(); // Get map from GameStateManager
-        Player player = gameState.getPlayer(); // Get player from GameStateManager
-
-        if (tileMap == null || player == null) {
-            return Color.RED.deriveColor(0, 1, 1, 0.7); // Cannot determine preview if map or player is null
-        }
+        TileMap tileMap = gameState.getCurrentMap();
+        Player player = gameState.getPlayer();
+        if (tileMap == null || player == null) return errorColor();
 
         Tile targetTile = tileMap.getTile(worldX, worldY);
-        if (targetTile == null) {
-            return Color.RED.deriveColor(0, 1, 1, 0.7); // Invalid tile
-        }
+        if (targetTile == null || targetTile.hasBuilding()) return errorColor();
 
-        // Check placement rules without consuming resources
-        if (targetTile.hasBuilding()) {
-            return Color.RED.deriveColor(0, 1, 1, 0.7); // Already has building
-        }
+        Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
+        if (recipe.isEmpty()) return errorColor();
 
-        if (!canPlaceOnTile(selectedBuildingType, targetTile)) {
-            return Color.RED.deriveColor(0, 1, 1, 0.7); // Invalid terrain
-        }
+        if (!canPlaceOnTile(selectedBuildingType, targetTile)) return errorColor();
+        if (!playerHasResources(player, recipe.orElse(null))) return Color.ORANGE.deriveColor(0, 1, 1, 0.7);
 
-        BuildingRecipe recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
-        // Pass player to playerHasResources
-        if (recipe == null || !playerHasResources(player, recipe)) {
-            return Color.ORANGE.deriveColor(0, 1, 1, 0.7); // Not enough resources or no recipe
-        }
-
-        return Color.LIMEGREEN.deriveColor(0, 1, 1, 0.7); // All good, can place
+        return Color.LIMEGREEN.deriveColor(0, 1, 1, 0.7);
     }
 
     /**
-     * Handles interaction with a building on a specific tile.
-     * @param worldX The world X coordinate of the tile.
-     * @param worldY The world Y coordinate of the tile.
-     * @return True if an interaction occurred, false otherwise.
+     * Returns standardized error color for placement preview
      */
-    public boolean interactWithBuilding(int worldX, int worldY) {
-        TileMap tileMap = gameState.getCurrentMap();
-        if (tileMap == null) {
-            System.err.println("Cannot interact with building: Map is null.");
-            return false;
-        }
-
-        Tile targetTile = tileMap.getTile(worldX, worldY);
-        if (targetTile == null || !targetTile.hasBuilding()) {
-            return false;
-        }
-
-        Building building = targetTile.getBuilding();
-        boolean interacted = building.onInteract(targetTile);
-
-        // Abrir contenedor si es un cofre
-        if (interacted && building instanceof Container) {
-            containerManager.openContainer((Container) building);
-            System.out.println("Container opened: " + building.getClass().getSimpleName());
-        }
-
-        return interacted;
+    private Color errorColor() {
+        return Color.RED.deriveColor(0, 1, 1, 0.7);
     }
 
-    // You might want methods to get lists of buildings, save/load buildings, etc.
 }

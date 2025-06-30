@@ -9,197 +9,206 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
+/**
+ * Manages all crafting recipes in the game, including both item recipes and building recipes.
+ * Provides access to recipes through a well-defined API with immutable return types.
+ */
 public class RecipeManager {
-    private final List<Recipe> recipes = new ArrayList<>();
+    // Recipe collections
+    private final List<Recipe> itemRecipes = new ArrayList<>();
     private final List<BuildingRecipe> buildingRecipes = new ArrayList<>();
 
+    /**
+     * Initializes all recipes during construction.
+     */
     public RecipeManager() {
-        initializeRecipes();
+        initializeItemRecipes();
         initializeBuildingRecipes();
     }
 
-    private void initializeRecipes() {
-        // Stone Axe
-        recipes.add(new Recipe(
-                ItemType.AXE,
-                1,
-                List.of(
-                        new CraftingIngredient(ItemType.STONE, 3),
-                        new CraftingIngredient(ItemType.STICK, 2)
-                )
-        ));
+    // Public API -----------------------------------------------------------------
 
-        // Stone Pickaxe
-        recipes.add(new Recipe(
-                ItemType.PICKAXE,
-                1,
-                List.of(
-                        new CraftingIngredient(ItemType.STONE, 3),
-                        new CraftingIngredient(ItemType.STICK, 2)
-                )
-        ));
+    /**
+     * Retrieves all item crafting recipes.
+     *
+     * @return Unmodifiable list of item recipes
+     */
+    public List<Recipe> getAllItemRecipes() {
+        return Collections.unmodifiableList(itemRecipes);
+    }
 
-        // Stone Sword
-        recipes.add(new Recipe(
-                ItemType.SWORD,
-                1,
-                List.of(
-                        new CraftingIngredient(ItemType.STONE, 2),
-                        new CraftingIngredient(ItemType.STICK, 1)
-                )
-        ));
+    /**
+     * Retrieves all building recipes.
+     *
+     * @return Unmodifiable list of building recipes
+     */
+    public List<BuildingRecipe> getAllBuildingRecipes() {
+        return Collections.unmodifiableList(buildingRecipes);
+    }
 
-        // Torch
-        recipes.add(new Recipe(
+    /**
+     * Finds a building recipe by building type.
+     *
+     * @param type The building type to search for
+     * @return Optional containing the recipe if found, empty otherwise
+     */
+    public Optional<BuildingRecipe> getBuildingRecipeByType(BuildingType type) {
+        Objects.requireNonNull(type, "Building type cannot be null");
+
+        return buildingRecipes.stream()
+                .filter(recipe -> recipe.buildingType() == type)
+                .findFirst();
+    }
+
+    // Recipe Initialization ------------------------------------------------------
+
+    /**
+     * Initializes all item crafting recipes.
+     */
+    private void initializeItemRecipes() {
+        // Basic tools
+        itemRecipes.add(createToolRecipe(ItemType.AXE,
+                new CraftingIngredient(ItemType.STONE, 3),
+                new CraftingIngredient(ItemType.STICK, 2))
+        );
+
+        itemRecipes.add(createToolRecipe(ItemType.PICKAXE,
+                new CraftingIngredient(ItemType.STONE, 3),
+                new CraftingIngredient(ItemType.STICK, 2))
+        );
+
+        itemRecipes.add(createToolRecipe(ItemType.SWORD,
+                new CraftingIngredient(ItemType.STONE, 2),
+                new CraftingIngredient(ItemType.STICK, 1))
+        );
+
+        // Light sources
+        itemRecipes.add(new Recipe(
                 ItemType.TORCH,
                 4,
                 List.of(
                         new CraftingIngredient(ItemType.STICK, 1),
                         new CraftingIngredient(ItemType.COAL, 1)
-                )
-        ));
+                )));
 
-        // Wood Planks
-        recipes.add(new Recipe(
-                ItemType.WOOD_PLANK,
+        // Material processing
+        itemRecipes.add(createMaterialRecipe(ItemType.WOOD_PLANK,
                 4,
-                List.of(
-                        new CraftingIngredient(ItemType.WOOD_LOG, 1)
-                )
-        ));
+                new CraftingIngredient(ItemType.WOOD_LOG, 1)));
 
-        // Stone Bricks
-        recipes.add(new Recipe(
-                ItemType.STONE_BRICK,
+        itemRecipes.add(createMaterialRecipe(ItemType.STONE_BRICK,
                 4,
-                List.of(
-                        new CraftingIngredient(ItemType.STONE, 1)
-                )
-        ));
+                new CraftingIngredient(ItemType.STONE, 1)));
 
-        // Arrows
-        recipes.add(new Recipe(
+        itemRecipes.add(createMaterialRecipe(ItemType.STICK,
+                4,
+                new CraftingIngredient(ItemType.WOOD_LOG, 1)));
+
+        itemRecipes.add(createMaterialRecipe(ItemType.FLINT,
+                1,
+                new CraftingIngredient(ItemType.STONE, 2)));
+
+        // Combat items
+        itemRecipes.add(new Recipe(
                 ItemType.ARROW,
                 8,
                 List.of(
                         new CraftingIngredient(ItemType.STICK, 1),
                         new CraftingIngredient(ItemType.FLINT, 1)
-                )
-        ));
+                )));
 
-        // Bow
-        recipes.add(new Recipe(
+        itemRecipes.add(new Recipe(
                 ItemType.BOW,
                 1,
                 List.of(
                         new CraftingIngredient(ItemType.STICK, 3),
                         new CraftingIngredient(ItemType.FIBER, 2)
-                )
-        ));
+                )));
 
-        // Health Potion
-        recipes.add(new Recipe(
+        // Consumables
+        itemRecipes.add(new Recipe(
                 ItemType.POTION_HEALTH,
                 1,
                 List.of(
                         new CraftingIngredient(ItemType.CRYSTALS, 1),
                         new CraftingIngredient(ItemType.FIBER, 2),
                         new CraftingIngredient(ItemType.SLIME_BALL, 1)
-                )
-        ));
-
-        // Sticks
-        recipes.add(new Recipe(
-                ItemType.STICK,
-                4,
-                List.of(
-                        new CraftingIngredient(ItemType.WOOD_LOG, 1)
-                )
-        ));
-
-        // Flint
-        recipes.add(new Recipe(
-                ItemType.FLINT,
-                1,
-                List.of(
-                        new CraftingIngredient(ItemType.STONE, 2)
-                )
-        ));
+                )));
     }
 
+    /**
+     * Creates a tool recipe with standard naming convention.
+     */
+    private Recipe createToolRecipe(ItemType toolType, CraftingIngredient... ingredients) {
+        return new Recipe(toolType, 1, List.of(ingredients));
+    }
+
+    /**
+     * Creates a material processing recipe with standard naming convention.
+     */
+    private Recipe createMaterialRecipe(ItemType materialType, int outputCount, CraftingIngredient... ingredient) {
+        return new Recipe(materialType, outputCount, List.of(ingredient));
+    }
+
+    /**
+     * Initializes all building construction recipes.
+     */
     private void initializeBuildingRecipes() {
-        buildingRecipes.addAll(
-            List.of(
-                new BuildingRecipe(BuildingType.WALL, List.of(
-                        new CraftingIngredient(ItemType.STONE, 2)
-                )),
-                new BuildingRecipe(BuildingType.DOOR, List.of(
-                        new CraftingIngredient(ItemType.WOOD_PLANK, 5),
-                        new CraftingIngredient(ItemType.IRON_INGOT, 1)
-                )),
-                new BuildingRecipe(BuildingType.BRIDGE, List.of(
-                        new CraftingIngredient(ItemType.WOOD_PLANK, 10)
-                )),
-                new BuildingRecipe(BuildingType.DOCK, List.of(
-                        new CraftingIngredient(ItemType.WOOD_PLANK, 8)
-                )),
-                new BuildingRecipe(BuildingType.FENCE, List.of(
-                        new CraftingIngredient(ItemType.WOOD_LOG, 2) // Using WOOD_LOG for fences
-                )),
-                new BuildingRecipe(BuildingType.CHEST, List.of(
-                        new CraftingIngredient(ItemType.WOOD_PLANK, 6)
-                )),
-                new BuildingRecipe(BuildingType.FURNACE, List.of(
-                        new CraftingIngredient(ItemType.STONE, 8),
-                        new CraftingIngredient(ItemType.COAL, 2)
-                )),
-                new BuildingRecipe(BuildingType.STANDING_TORCH, List.of(
-                        new CraftingIngredient(ItemType.STICK, 1),
-                        new CraftingIngredient(ItemType.COAL, 1)
-                )),
-                // Adding recipes for other BuildingTypes you provided:
-                new BuildingRecipe(BuildingType.CAMPFIRE, List.of(
-                        new CraftingIngredient(ItemType.WOOD_LOG, 3),
-                        new CraftingIngredient(ItemType.FLINT, 1)
-                )),
-                new BuildingRecipe(BuildingType.ANVIL, List.of(
-                        new CraftingIngredient(ItemType.IRON_INGOT, 5),
-                        new CraftingIngredient(ItemType.STONE, 3)
-                )),
-                new BuildingRecipe(BuildingType.WORKBENCH, List.of(
-                        new CraftingIngredient(ItemType.WOOD_PLANK, 4)
-                )),
-                new BuildingRecipe(BuildingType.BED, List.of(
-                        new CraftingIngredient(ItemType.WOOD_PLANK, 3),
-                        new CraftingIngredient(ItemType.FIBER, 5)
-                ))
-            )
-        );
-    }
+        // Structural buildings
+        buildingRecipes.add(createBuildingRecipe(BuildingType.WALL,
+                new CraftingIngredient(ItemType.STONE, 2)));
 
-    public List<Recipe> getAllRecipes() {
-        return Collections.unmodifiableList(recipes);
+        buildingRecipes.add(createBuildingRecipe(BuildingType.DOOR,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 5),
+                new CraftingIngredient(ItemType.IRON_INGOT, 1)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.BRIDGE,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 10)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.DOCK,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 8)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE,
+                new CraftingIngredient(ItemType.WOOD_LOG, 2)));
+
+        // Containers
+        buildingRecipes.add(createBuildingRecipe(BuildingType.CHEST,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 6)));
+
+        // Crafting stations
+        buildingRecipes.add(createBuildingRecipe(BuildingType.FURNACE,
+                new CraftingIngredient(ItemType.STONE, 8),
+                new CraftingIngredient(ItemType.COAL, 2)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.CAMPFIRE,
+                new CraftingIngredient(ItemType.WOOD_LOG, 3),
+                new CraftingIngredient(ItemType.FLINT, 1)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.ANVIL,
+                new CraftingIngredient(ItemType.IRON_INGOT, 5),
+                new CraftingIngredient(ItemType.STONE, 3)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.WORKBENCH,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 4)));
+
+        // Utility
+        buildingRecipes.add(createBuildingRecipe(BuildingType.STANDING_TORCH,
+                new CraftingIngredient(ItemType.STICK, 1),
+                new CraftingIngredient(ItemType.COAL, 1)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.BED,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 3),
+                new CraftingIngredient(ItemType.FIBER, 5)));
     }
 
     /**
-     * Retorna una lista inmodificable de todas las recetas de construcción.
-     * @return Lista de BuildingRecipe.
+     * Creates a building recipe with consistent formatting.
      */
-    public List<BuildingRecipe> getBuildingRecipes() {
-        return Collections.unmodifiableList(buildingRecipes);
-    }
-
-    /**
-     * Busca y retorna una BuildingRecipe por su tipo de edificio.
-     * @param type El tipo de BuildingType a buscar.
-     * @return La BuildingRecipe correspondiente, o null si no se encuentra.
-     */
-    public BuildingRecipe getBuildingRecipeByType(BuildingType type) {
-        return buildingRecipes.stream()
-                .filter(recipe -> recipe.buildingType() == type)
-                .findFirst()
-                .orElse(null);
+    private BuildingRecipe createBuildingRecipe(BuildingType type, CraftingIngredient... ingredients) {
+        return new BuildingRecipe(type, List.of(ingredients));
     }
 
 }

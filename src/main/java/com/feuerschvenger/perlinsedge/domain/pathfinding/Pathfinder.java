@@ -1,25 +1,34 @@
 package com.feuerschvenger.perlinsedge.domain.pathfinding;
 
+import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.*;
 
 /**
- * A* pathfinding implementation with optimizations for isometric grid-based worlds.
- * Supports resource avoidance and efficient path reconstruction.
+ * A* pathfinding implementation optimized for isometric grid-based worlds.
+ * Features 8-directional movement, efficient path reconstruction, and walkability validation.
  */
 public final class Pathfinder {
-    // Movement directions (8-way movement)
-    private static final int[] DX = {-1, 0, 1, -1, 1, -1, 0, 1};
-    private static final int[] DY = {-1, -1, -1, 0, 0, 1, 1, 1};
+    // Reuse direction constants from IsometricUtils to prevent duplication
+    private static final int[][] MOVEMENT_DIRECTIONS = IsometricUtils.ALL_DIRECTIONS;
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
 
     private final TileMap map;
 
+    /**
+     * Constructs a Pathfinder instance for a specific game map.
+     *
+     * @param map The TileMap to perform pathfinding on
+     */
     public Pathfinder(TileMap map) {
-        this.map = map;
+        this.map = Objects.requireNonNull(map, "TileMap must not be null");
     }
+
+    // ==================================================================
+    //  Pathfinding Core Algorithm
+    // ==================================================================
 
     /**
      * Finds the optimal path between two points using A* algorithm.
@@ -28,79 +37,124 @@ public final class Pathfinder {
      * @param startY Starting Y coordinate
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
-     * @return List of nodes representing the path, or null if no path exists
+     * @return List of nodes representing the path (excluding start position),
+     *         or null if no valid path exists
      */
     public List<PathNode> findPath(int startX, int startY, int targetX, int targetY) {
-        // Check valid start and end positions
+        // Validate start and target positions
         if (!isWalkable(startX, startY) || !isWalkable(targetX, targetY)) {
             return null;
         }
 
+        // Initialize data structures for A* algorithm
         final PriorityQueue<PathNode> openSet = new PriorityQueue<>();
         final Map<PathNode, PathNode> cameFrom = new HashMap<>();
         final Map<PathNode, Double> gScores = new HashMap<>();
 
+        // Configure starting node
         final PathNode startNode = new PathNode(startX, startY);
-        startNode.gCost = 0;
-        startNode.hCost = heuristic(startX, startY, targetX, targetY);
-        startNode.fCost = startNode.gCost + startNode.hCost;
-
+        initializeNode(startNode, 0, heuristic(startX, startY, targetX, targetY));
         openSet.add(startNode);
         gScores.put(startNode, 0.0);
 
+        // Process nodes until path found or search exhausted
         while (!openSet.isEmpty()) {
             PathNode current = openSet.poll();
 
-            // Skip if we found a better path to this node already
+            // Skip outdated nodes that have been improved since being queued
             if (current.gCost > gScores.getOrDefault(current, Double.POSITIVE_INFINITY)) {
                 continue;
             }
 
-            // Path found
-            if (current.x == targetX && current.y == targetY) {
+            // Check for path completion
+            if (isTargetReached(current, targetX, targetY)) {
                 return reconstructPath(cameFrom, current);
             }
 
-            // Explore neighbors
-            for (int i = 0; i < DX.length; i++) {
-                int nx = current.x + DX[i];
-                int ny = current.y + DY[i];
-
-                // Skip unwalkable tiles
-                if (!isWalkable(nx, ny)) continue;
-
-                PathNode neighbor = new PathNode(nx, ny);
-                double moveCost = current.gCost + DIRECTION_COSTS[i];
-
-                // Found a better path to this neighbor
-                if (moveCost < gScores.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
-                    cameFrom.put(neighbor, current);
-                    neighbor.gCost = moveCost;
-                    neighbor.hCost = heuristic(nx, ny, targetX, targetY);
-                    neighbor.fCost = neighbor.gCost + neighbor.hCost;
-
-                    gScores.put(neighbor, moveCost);
-                    openSet.add(neighbor);
-                }
-            }
+            // Explore all possible neighbor directions
+            exploreNeighbors(current, targetX, targetY, openSet, cameFrom, gScores);
         }
 
-        return null; // No path found
+        return null; // No valid path exists
+    }
+
+    // ==================================================================
+    //  Helper Methods
+    // ==================================================================
+
+    /**
+     * Explores all neighbor directions from current position.
+     */
+    private void exploreNeighbors(PathNode current, int targetX, int targetY,
+                                  PriorityQueue<PathNode> openSet,
+                                  Map<PathNode, PathNode> cameFrom,
+                                  Map<PathNode, Double> gScores) {
+        for (int i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
+            int nx = current.x + MOVEMENT_DIRECTIONS[i][0];
+            int ny = current.y + MOVEMENT_DIRECTIONS[i][1];
+
+            // Skip invalid or unwalkable positions
+            if (!isWalkable(nx, ny)) continue;
+
+            processNeighbor(current, nx, ny, targetX, targetY,
+                    i, openSet, cameFrom, gScores);
+        }
     }
 
     /**
-     * Checks if a tile is walkable considering resource avoidance.
+     * Processes a single neighbor position.
+     */
+    private void processNeighbor(PathNode current, int nx, int ny, int targetX, int targetY,
+                                 int directionIndex,
+                                 PriorityQueue<PathNode> openSet,
+                                 Map<PathNode, PathNode> cameFrom,
+                                 Map<PathNode, Double> gScores) {
+        PathNode neighbor = new PathNode(nx, ny);
+        double newGCost = current.gCost + DIRECTION_COSTS[directionIndex];
+
+        // Update neighbor if we found a better path
+        if (newGCost < gScores.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
+            cameFrom.put(neighbor, current);
+            initializeNode(neighbor, newGCost, heuristic(nx, ny, targetX, targetY));
+            gScores.put(neighbor, newGCost);
+            openSet.add(neighbor);
+        }
+    }
+
+    /**
+     * Initializes node costs for pathfinding.
+     */
+    private void initializeNode(PathNode node, double gCost, double hCost) {
+        node.gCost = gCost;
+        node.hCost = hCost;
+        node.fCost = gCost + hCost;
+    }
+
+    /**
+     * Checks if target position has been reached.
+     */
+    private boolean isTargetReached(PathNode node, int targetX, int targetY) {
+        return node.x == targetX && node.y == targetY;
+    }
+
+    /**
+     * Validates if a tile is walkable and within map boundaries.
      */
     private boolean isWalkable(int x, int y) {
-        if (x < 0 || x >= map.getWidth() || y < 0 || y >= map.getHeight()) {
+        if (!IsometricUtils.isWithinMapBounds(x, y, map)) {
             return false;
         }
         Tile tile = map.getTile(x, y);
         return tile != null && tile.isWalkable();
     }
 
+    // ==================================================================
+    //  Heuristic and Path Reconstruction
+    // ==================================================================
+
     /**
      * Euclidean distance heuristic for 8-direction movement.
+     * Consistent and admissible for A* algorithm.
      */
     private double heuristic(int x1, int y1, int x2, int y2) {
         int dx = x1 - x2;
@@ -109,25 +163,38 @@ public final class Pathfinder {
     }
 
     /**
-     * Reconstructs the path from the target node to the start.
+     * Reconstructs path from target to start.
+     *
+     * @return Path from start to target (excluding start position)
      */
     private List<PathNode> reconstructPath(Map<PathNode, PathNode> cameFrom, PathNode current) {
         final LinkedList<PathNode> path = new LinkedList<>();
+
+        // Backtrack from target to start
         while (current != null) {
             path.addFirst(current);
             current = cameFrom.get(current);
         }
-        path.removeFirst(); // Remove start position
+
+        // Remove start position (already occupied)
+        path.removeFirst();
         return path;
     }
 
+    // ==================================================================
+    //  Direction Cost Precomputation
+    // ==================================================================
+
     /**
      * Precomputes movement costs for each direction.
+     * Diagonal moves cost ≈1.414, cardinal moves cost 1.0.
      */
     private static double[] precomputeDirectionCosts() {
-        double[] costs = new double[8];
-        for (int i = 0; i < 8; i++) {
-            costs[i] = Math.sqrt(DX[i] * DX[i] + DY[i] * DY[i]);
+        double[] costs = new double[MOVEMENT_DIRECTIONS.length];
+        for (int i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
+            int dx = MOVEMENT_DIRECTIONS[i][0];
+            int dy = MOVEMENT_DIRECTIONS[i][1];
+            costs[i] = Math.sqrt(dx * dx + dy * dy);
         }
         return costs;
     }

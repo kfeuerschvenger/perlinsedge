@@ -19,23 +19,28 @@ import javafx.stage.Stage;
 import java.awt.Dimension;
 
 /**
- * Main application class for the Perlin's Edge game.
- * Initializes the game window, UI layers, and manages game state transitions.
+ * Main JavaFX application class for Perlin's Edge game.
+ * Manages application lifecycle, UI layers, and game initialization.
  */
 public class GameApplication extends Application {
-
-    private double screenWidth, screenHeight;
-
+    // Core UI components
     private Stage primaryStage;
     private StackPane rootPane;
     private Pane gameLayer;
     private Pane uiLayer;
+
+    // Rendering components
     private Canvas mainCanvas;
     private FxCamera camera;
     private FxRenderer renderer;
     private FxMinimapDrawer minimapDrawer;
-    private GameOrchestrator gameOrchestrator;
 
+    // Game systems
+    private GameOrchestrator gameOrchestrator;
+    private GameStateManager gameStateManager;
+    private final RecipeManager recipeManager = new RecipeManager();
+
+    // UI panels
     private MainMenuPanel mainMenuPanel;
     private MapSelectionPanel mapSelectionPanel;
     private HealthBar healthBar;
@@ -43,62 +48,74 @@ public class GameApplication extends Application {
     private MapConfigPanel mapConfigPanel;
     private BuildingHotbarPanel hotbarPanel;
 
-    private GameStateManager gameStateManager;
-    private RecipeManager recipeManager = new RecipeManager();
-
     @Override
     public void start(Stage primaryStage) {
-
-        System.setProperty("javafx.verbose", "true");
-        System.setProperty("prism.verbose", "true");
-        System.setProperty("prism.dirtyopts", "true");
-
-        this.primaryStage = primaryStage;
-        AppConfig config = AppConfig.getInstance();
-
-
-        if (config.core().isFullscreen()) {
-            Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
-            screenWidth = screenSize.getWidth();
-            screenHeight = screenSize.getHeight();
-        } else {
-            screenWidth = config.core().getWindowWidth();
-            screenHeight = config.core().getWindowHeight();
-        }
-
-        // Initialize main root pane
-        rootPane = new StackPane();
-        rootPane.setPrefSize(screenWidth, screenHeight);
-        rootPane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
-
-        // Configure primary stage
-        Scene scene = new Scene(rootPane);
-        primaryStage.setTitle("Perlin's Edge");
-        primaryStage.setScene(scene);
-        primaryStage.setFullScreen(config.core().isFullscreen());
-        primaryStage.setFullScreenExitHint("");
-        primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
-        primaryStage.show();
-
-        // Start with main menu
+        configureDebugProperties();
+        initializeRootPane();
+        initializePrimaryStage(primaryStage);
         showMainMenu();
     }
 
     /**
-     * Displays the main menu screen and hides other layers.
+     * Configures debug properties based on application configuration.
+     */
+    private void configureDebugProperties() {
+        System.setProperty("javafx.verbose", "true");
+        System.setProperty("prism.verbose", "true");
+        System.setProperty("prism.dirtyopts", "true");
+    }
+
+    /**
+     * Initializes and configures the primary application window.
+     *
+     * @param stage Primary stage to configure
+     */
+    private void initializePrimaryStage(Stage stage) {
+        this.primaryStage = stage;
+
+        // Create scene with root pane
+        Scene scene = new Scene(rootPane);
+        primaryStage.setTitle("Perlin's Edge");
+        primaryStage.setScene(scene);
+
+        // Configure fullscreen settings
+        AppConfig config = AppConfig.getInstance();
+        primaryStage.setFullScreen(config.core().isFullscreen());
+        primaryStage.setFullScreenExitHint("");
+        primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        primaryStage.show();
+    }
+
+    /**
+     * Initializes the root application pane with proper dimensions.
+     */
+    private void initializeRootPane() {
+        AppConfig config = AppConfig.getInstance();
+        Dimension screenSize = getScreenDimensions(config);
+
+        rootPane = new StackPane();
+        rootPane.setPrefSize(screenSize.getWidth(), screenSize.getHeight());
+        rootPane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
+    }
+
+    /**
+     * Gets screen dimensions based on fullscreen configuration.
+     */
+    private Dimension getScreenDimensions(AppConfig config) {
+        if (config.core().isFullscreen()) {
+            return java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+        }
+        return new Dimension(config.core().getWindowWidth(), config.core().getWindowHeight());
+    }
+
+    /**
+     * Displays the main menu screen.
      */
     private void showMainMenu() {
         rootPane.getChildren().clear();
 
-        // Initialize main menu if needed
         if (mainMenuPanel == null) {
-            mainMenuPanel = new MainMenuPanel();
-            // Bind the preferred size of the main menu panel to a percentage of the root's size
-            mainMenuPanel.prefWidthProperty().bind(rootPane.widthProperty().multiply(0.35)); // e.g., 35% of root width
-            mainMenuPanel.prefHeightProperty().bind(rootPane.heightProperty().multiply(0.45)); // e.g., 45% of root height
-            mainMenuPanel.setOnNewGameAction(this::showMapSelectionMenu);
-            mainMenuPanel.setOnLoadGameAction(() -> System.out.println("Load game not implemented yet."));
-            mainMenuPanel.setOnExitAction(primaryStage::close);
+            createMainMenuPanel();
         }
 
         rootPane.getChildren().add(mainMenuPanel);
@@ -106,20 +123,29 @@ public class GameApplication extends Application {
     }
 
     /**
-     * Displays the map selection menu screen.
+     * Creates and configures the main menu panel.
+     */
+    private void createMainMenuPanel() {
+        mainMenuPanel = new MainMenuPanel();
+
+        // Size binding (35% width, 45% height of root pane)
+        mainMenuPanel.prefWidthProperty().bind(rootPane.widthProperty().multiply(0.35));
+        mainMenuPanel.prefHeightProperty().bind(rootPane.heightProperty().multiply(0.45));
+
+        // Action bindings
+        mainMenuPanel.setOnNewGameAction(this::showMapSelectionMenu);
+        mainMenuPanel.setOnLoadGameAction(() -> System.out.println("Load game not implemented"));
+        mainMenuPanel.setOnExitAction(primaryStage::close);
+    }
+
+    /**
+     * Displays the map selection menu.
      */
     private void showMapSelectionMenu() {
         rootPane.getChildren().clear();
 
-        // Initialize map selection menu if needed
         if (mapSelectionPanel == null) {
-            mapSelectionPanel = new MapSelectionPanel();
-            mapSelectionPanel.prefWidthProperty().bind(rootPane.widthProperty().multiply(0.6));
-            mapSelectionPanel.prefHeightProperty().bind(rootPane.heightProperty().multiply(0.7));
-            mapSelectionPanel.minWidthProperty().bind(mapSelectionPanel.prefWidthProperty());
-            mapSelectionPanel.minHeightProperty().bind(mapSelectionPanel.prefHeightProperty());
-            mapSelectionPanel.setOnMapSelected(this::startGame);
-            mapSelectionPanel.setOnBackAction(this::showMainMenu);
+            createMapSelectionPanel();
         }
 
         rootPane.getChildren().add(mapSelectionPanel);
@@ -127,183 +153,227 @@ public class GameApplication extends Application {
     }
 
     /**
+     * Creates and configures the map selection panel.
+     */
+    private void createMapSelectionPanel() {
+        mapSelectionPanel = new MapSelectionPanel();
+
+        // Size binding (60% width, 70% height of root pane)
+        mapSelectionPanel.prefWidthProperty().bind(rootPane.widthProperty().multiply(0.6));
+        mapSelectionPanel.prefHeightProperty().bind(rootPane.heightProperty().multiply(0.7));
+        mapSelectionPanel.minWidthProperty().bind(mapSelectionPanel.prefWidthProperty());
+        mapSelectionPanel.minHeightProperty().bind(mapSelectionPanel.prefHeightProperty());
+
+        // Action bindings
+        mapSelectionPanel.setOnMapSelected(this::startGame);
+        mapSelectionPanel.setOnBackAction(this::showMainMenu);
+    }
+
+    /**
      * Starts a new game with the selected map type.
      *
-     * @param selectedMapType The map type selected by the player
+     * @param selectedMapType Map type to generate
      */
     private void startGame(MapType selectedMapType) {
         rootPane.getChildren().clear();
-        AppConfig config = AppConfig.getInstance();
-        double width = rootPane.getPrefWidth();
-        double height = rootPane.getPrefHeight();
 
-        if (gameStateManager == null) { // Only create once for the application lifecycle
-            gameStateManager = new GameStateManager(); // Will be properly initialized in GameOrchestrator
-            gameStateManager.setScreenSize(screenWidth, screenHeight);
-        }
+        // Initialize game systems
+        initializeGameStateManager();
+        initializeGameComponents();
+        initializeGameOrchestrator();
 
-        // Initialize game components if not already created
-        if (mainCanvas == null) {
-            initializeGameComponents(width, height, config);
-        } else {
-            // Re-add existing components
-            rootPane.getChildren().addAll(gameLayer, uiLayer);
-        }
-
-        // Initialize game orchestrator if needed
-        if (gameOrchestrator == null) {
-            initializeGameOrchestrator();
-        }
-
+        // Start game
         gameOrchestrator.startNewGame(selectedMapType);
     }
 
     /**
-     * Initializes core game components (canvas, camera, renderer, etc.)
-     *
-     * @param width Preferred width of the game area
-     * @param height Preferred height of the game area
-     * @param config Application configuration instance
+     * Initializes game state manager if needed.
      */
-    private void initializeGameComponents(double width, double height, AppConfig config) {
-        mainCanvas = new Canvas(width, height);
+    private void initializeGameStateManager() {
+        if (gameStateManager == null) {
+            gameStateManager = new GameStateManager();
+        }
+    }
 
-        // Initialize minimap canvas
-        Canvas minimapCanvas = new Canvas(
-                config.graphics().getMinimapWidth(),
-                config.graphics().getMinimapHeight()
-        );
-        minimapCanvas.setTranslateX(width - minimapCanvas.getWidth() - 12);
-        minimapCanvas.setTranslateY(height - minimapCanvas.getHeight() - 12);
+    /**
+     * Initializes core game components (canvas, layers, UI).
+     */
+    private void initializeGameComponents() {
+        if (mainCanvas == null) {
+            createCoreRenderingComponents();
+        }
 
-        // Initialize camera centered on screen with initial zoom
-        camera = new FxCamera(width / 2, height / 2, config.core().getInitialZoom());
-
-        // Initialize renderer and minimap
-        renderer = new FxRenderer(mainCanvas.getGraphicsContext2D(), camera, gameStateManager);
-        minimapDrawer = new FxMinimapDrawer(minimapCanvas, camera, mainCanvas);
-
-        // Create game layer containing canvases
-        gameLayer = new Pane(mainCanvas, minimapCanvas);
-        gameLayer.setPrefSize(width, height);
-
-        // Create UI layer
-        uiLayer = createUILayer(config);
-        uiLayer.setPrefSize(width, height);
-
-        // Add layers to root pane
         rootPane.getChildren().addAll(gameLayer, uiLayer);
     }
 
     /**
-     * Creates the UI layer containing all interface elements.
-     *
-     * @param config Application configuration instance
-     * @return Configured UI layer pane
+     * Creates core rendering components and UI layers.
+     */
+    private void createCoreRenderingComponents() {
+        AppConfig config = AppConfig.getInstance();
+        double width = rootPane.getPrefWidth();
+        double height = rootPane.getPrefHeight();
+
+        // Create main rendering canvas
+        mainCanvas = new Canvas(width, height);
+
+        // Create camera system
+        camera = new FxCamera(width / 2, height / 2, config.core().getInitialZoom());
+
+        // Create renderers
+        renderer = new FxRenderer(mainCanvas.getGraphicsContext2D(), camera, gameStateManager);
+        createMinimap(config);
+
+        // Build UI layers
+        gameLayer = createGameLayer();
+        uiLayer = createUILayer(config);
+    }
+
+    /**
+     * Creates and configures the minimap component.
+     */
+    private void createMinimap(AppConfig config) {
+        Canvas minimapCanvas = new Canvas(
+                config.graphics().getMinimapWidth(),
+                config.graphics().getMinimapHeight()
+        );
+        minimapCanvas.setTranslateX(rootPane.getPrefWidth() - minimapCanvas.getWidth() - 12);
+        minimapCanvas.setTranslateY(rootPane.getPrefHeight() - minimapCanvas.getHeight() - 12);
+        minimapDrawer = new FxMinimapDrawer(minimapCanvas, camera, mainCanvas);
+    }
+
+    /**
+     * Creates the game layer containing rendering canvases.
+     */
+    private Pane createGameLayer() {
+        Pane layer = new Pane(mainCanvas, minimapDrawer.getCanvas());
+        layer.setPrefSize(rootPane.getPrefWidth(), rootPane.getPrefHeight());
+        return layer;
+    }
+
+    /**
+     * Creates the UI layer with game interface components.
      */
     private Pane createUILayer(AppConfig config) {
-        Pane uiLayer = new Pane();
-        uiLayer.setPickOnBounds(false);
+        Pane layer = new Pane();
+        layer.setPickOnBounds(false);
 
+        // Create UI components
+        createUIConfigPanels(config);
+        createPlayerUIComponents();
+
+        // Add components to layer
+        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel);
+        return layer;
+    }
+
+    /**
+     * Creates configuration panels.
+     */
+    private void createUIConfigPanels(AppConfig config) {
         mapConfigPanel = new MapConfigPanel(
                 config.world().getCurrentMapType(),
                 config.world().getDefaultSeed()
         );
         mapConfigPanel.setVisible(false);
         mapConfigPanel.setManaged(false);
+    }
 
+    /**
+     * Creates player-related UI components.
+     */
+    private void createPlayerUIComponents() {
+        // Health bar (bottom-left)
         healthBar = new HealthBar();
         healthBar.setLayoutX(12);
         healthBar.layoutYProperty().bind(
-                mainCanvas.heightProperty().subtract(healthBar.heightProperty()).subtract(12)
+                rootPane.heightProperty().subtract(healthBar.heightProperty()).subtract(12)
         );
 
+        // Inventory panel (centered)
         inventoryPanel = new InventoryPanel(gameStateManager);
         inventoryPanel.layoutXProperty().bind(
-                mainCanvas.widthProperty().subtract(inventoryPanel.widthProperty()).divide(2)
+                rootPane.widthProperty().subtract(inventoryPanel.widthProperty()).divide(2)
         );
         inventoryPanel.layoutYProperty().bind(
-                mainCanvas.heightProperty().subtract(inventoryPanel.heightProperty()).divide(2)
+                rootPane.heightProperty().subtract(inventoryPanel.heightProperty()).divide(2)
         );
         inventoryPanel.setVisible(false);
         inventoryPanel.setManaged(false);
 
+        // Hotbar panel (bottom-center)
         hotbarPanel = new BuildingHotbarPanel(recipeManager);
-
         hotbarPanel.layoutXProperty().bind(
-                mainCanvas.widthProperty().subtract(hotbarPanel.widthProperty()).divide(2)
+                rootPane.widthProperty().subtract(hotbarPanel.widthProperty()).divide(2)
         );
-        hotbarPanel.setLayoutY(mainCanvas.getHeight() - hotbarPanel.getHeight() - 82);
-
-        uiLayer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel);
-        return uiLayer;
+        hotbarPanel.setLayoutY(rootPane.getHeight() - hotbarPanel.getHeight() - 82);
     }
 
     /**
      * Initializes the game orchestrator and pause menu.
      */
     private void initializeGameOrchestrator() {
-        FxInputHandler inputHandler = new FxInputHandler(
-                primaryStage.getScene(),
-                mainCanvas,
-                camera
-        );
+        if (gameOrchestrator == null) {
+            // Create input handler
+            FxInputHandler inputHandler = new FxInputHandler(
+                    primaryStage.getScene(),
+                    mainCanvas,
+                    camera
+            );
 
-        gameOrchestrator = new GameOrchestrator(
-                renderer,
-                camera,
-                inputHandler,
-                minimapDrawer,
-                mapConfigPanel,
-                mainCanvas,
-                healthBar,
-                inventoryPanel,
-                hotbarPanel,
-                gameStateManager,
-                recipeManager
-        );
+            // Create orchestrator
+            gameOrchestrator = new GameOrchestrator(
+                    renderer,
+                    camera,
+                    inputHandler,
+                    minimapDrawer,
+                    mapConfigPanel,
+                    mainCanvas,
+                    healthBar,
+                    inventoryPanel,
+                    hotbarPanel,
+                    gameStateManager,
+                    recipeManager
+            );
 
-        setupPauseMenu();
+            // Configure pause menu
+            configurePauseMenu();
+        }
     }
 
     /**
-     * Configures the pause menu panel and links it to the orchestrator.
+     * Configures and adds the pause menu to the UI.
      */
-    private void setupPauseMenu() {
+    private void configurePauseMenu() {
         PauseMenuPanel pauseMenuPanel = new PauseMenuPanel();
 
-        // Center pause menu on screen
+        // Center positioning
         pauseMenuPanel.layoutXProperty().bind(
-                mainCanvas.widthProperty()
-                        .subtract(pauseMenuPanel.widthProperty())
-                        .divide(2)
+                rootPane.widthProperty().subtract(pauseMenuPanel.widthProperty()).divide(2)
         );
         pauseMenuPanel.layoutYProperty().bind(
-                mainCanvas.heightProperty()
-                        .subtract(pauseMenuPanel.heightProperty())
-                        .divide(2)
+                rootPane.heightProperty().subtract(pauseMenuPanel.heightProperty()).divide(2)
         );
 
+        // Initial state
         pauseMenuPanel.setVisible(false);
         pauseMenuPanel.setManaged(false);
 
-        // Configure menu actions
+        // Action bindings
         pauseMenuPanel.setOnExitAction(primaryStage::close);
         pauseMenuPanel.setOnBackToMainMenuAction(() -> {
             gameOrchestrator.stopGameLoop();
             showMainMenu();
         });
 
-        // Add to UI layer and link to orchestrator
+        // Add to UI and link to orchestrator
         uiLayer.getChildren().add(pauseMenuPanel);
         pauseMenuPanel.toFront();
         gameOrchestrator.setPauseMenuPanel(pauseMenuPanel);
     }
 
     /**
-     * Main entry point for the application.
-     *
-     * @param args Command line arguments (not used)
+     * Application entry point.
      */
     public static void main(String[] args) {
         launch(args);

@@ -4,61 +4,98 @@ import javafx.scene.canvas.GraphicsContext;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 
 /**
- * Abstract base class for all constructible buildings in the game.
- * Defines common properties and behaviors for buildings.
+ * Abstract base class for all constructible structures in the game world.
+ * Defines core properties and behaviors common to all buildings, including position,
+ * type, physical properties, and interaction mechanics.
  */
 public abstract class Building {
-    protected int tileX;
-    protected int tileY;
-    protected BuildingType type;
-    protected boolean solid;
-    protected boolean destructible;
+    // ==================================================================
+    //  Instance Properties
+    // ==================================================================
+    protected final int tileX;
+    protected final int tileY;
+    protected final BuildingType type;
+    protected boolean isSolid; // Whether the building blocks movement. Not final to allow toggling (e.g., for doors)
+    protected final boolean isDestructible;
 
-    public Building(int tileX, int tileY, BuildingType type, boolean solid, boolean destructible) {
+    // ==================================================================
+    //  Constructor
+    // ==================================================================
+
+    /**
+     * Creates a new building instance at the specified tile position.
+     *
+     * @param tileX         X-coordinate in tile units
+     * @param tileY         Y-coordinate in tile units
+     * @param type          Classification of the building
+     * @param isSolid       Whether the building blocks movement
+     * @param isDestructible Whether the building can be destroyed
+     */
+    public Building(int tileX, int tileY, BuildingType type, boolean isSolid, boolean isDestructible) {
         this.tileX = tileX;
         this.tileY = tileY;
         this.type = type;
-        this.solid = solid;
-        this.destructible = destructible;
+        this.isSolid = isSolid;
+        this.isDestructible = isDestructible;
     }
 
+    // ==================================================================
+    //  Accessor Methods
+    // ==================================================================
+
+    /** @return X-coordinate in tile units */
     public int getTileX() {
         return tileX;
     }
 
+    /** @return Y-coordinate in tile units */
     public int getTileY() {
         return tileY;
     }
 
+    /** @return Classification of the building */
     public BuildingType getType() {
         return type;
     }
 
+    /** @return True if this building blocks entity movement */
     public boolean isSolid() {
-        return solid;
+        return isSolid;
     }
 
+    /** @return True if this building can be destroyed */
     public boolean isDestructible() {
-        return destructible;
+        return isDestructible;
     }
+
+    // ==================================================================
+    //  Interaction Methods
+    // ==================================================================
 
     /**
-     * Called when the building is interacted with (e.g., clicked).
-     * @param tile The tile the building is on.
-     * @return True if the interaction was handled, false otherwise.
+     * Handles player interaction with this building.
+     *
+     * @param tile The tile where the building is located
+     * @return True if the interaction was handled, false to propagate
      */
     public boolean onInteract(Tile tile) {
-        System.out.println("Interacted with " + type.getDisplayName() + " at (" + tileX + ", " + tileY + ")");
-        return false; // Default: not handled
+        System.out.printf("Interacted with %s at (%d, %d)%n",
+                type.getDisplayName(), tileX, tileY);
+        return false;
     }
 
+    // ==================================================================
+    //  Rendering Methods
+    // ==================================================================
+
     /**
-     * Abstract method for drawing the building. Concrete classes will implement this
-     * using JavaFX shapes for fallback drawing.
-     * @param gc The GraphicsContext to draw on.
-     * @param screenX The screen X coordinate for the tile's center.
-     * @param screenY The screen Y coordinate for the tile's center.
-     * @param zoom The current zoom level.
+     * Renders the building using isometric projection principles.
+     * Must be implemented by concrete building types.
+     *
+     * @param gc      Graphics context for drawing
+     * @param screenX Screen X-coordinate for tile origin
+     * @param screenY Screen Y-coordinate for tile origin
+     * @param zoom    Current zoom level
      */
     public abstract void draw(GraphicsContext gc, double screenX, double screenY, double zoom);
 }

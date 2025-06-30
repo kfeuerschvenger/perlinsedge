@@ -1,77 +1,92 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
-import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingHotbarPanel;
 
 /**
- * Manages the building hotbar, handling its visibility, selection, and interaction
- * with the BuildingManager based on user input.
+ * Manages the building hotbar UI component and its interaction with game systems.
+ * Handles visibility, selection, and synchronization with building mode state.
  */
 public class HotbarManager {
-
+    // Dependencies
     private final BuildingHotbarPanel buildingHotbarPanel;
     private final BuildingManager buildingManager;
     private final GameStateManager gameState;
 
     /**
-     * Constructs a HotbarManager.
+     * Initializes the hotbar manager with required dependencies.
      *
-     * @param recipeManager   The RecipeManager to populate the hotbar with building recipes.
-     * @param buildingManager The BuildingManager to notify about selected building types.
-     * @param gameState       The GameStateManager to check current game mode.
+     * @param buildingManager Controls building selection and placement
+     * @param gameState Provides current game state information
+     * @param buildingHotbarPanel The UI hotbar component to manage
      */
-    public HotbarManager(RecipeManager recipeManager, BuildingManager buildingManager, GameStateManager gameState, BuildingHotbarPanel buildingHotbarPanel) {
+    public HotbarManager(BuildingManager buildingManager,
+                         GameStateManager gameState,
+                         BuildingHotbarPanel buildingHotbarPanel) {
         this.buildingManager = buildingManager;
         this.gameState = gameState;
         this.buildingHotbarPanel = buildingHotbarPanel;
 
-        this.buildingHotbarPanel.setOnBuildingSelected(this.buildingManager::setSelectedBuildingType);
+        // Link UI selection to building manager
+        buildingHotbarPanel.setOnBuildingSelected(buildingManager::setSelectedBuildingType);
     }
 
     /**
-     * Handles a number key press to select a building type from the hotbar.
-     * This method is intended to be called by the KeyController.
-     *
-     * @param number The number corresponding to the hotbar slot (1-9).
-     */
-    public void handleHotbarNumberSelection(int number) {
-        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
-            buildingHotbarPanel.selectBuildingBySlotNumber(number);
-        }
-    }
-
-    /**
-     * Shows the building hotbar and refreshes its display.
+     * Displays and activates the building hotbar UI.
+     * Refreshes content before showing to ensure current state.
      */
     public void showHotbar() {
         buildingHotbarPanel.refreshHotbarDisplay();
         buildingHotbarPanel.setVisible(true);
         buildingHotbarPanel.setManaged(true);
-        System.out.println("HotbarManager: Hotbar shown.");
+        logAction("Hotbar shown");
     }
 
     /**
-     * Hides the building hotbar.
+     * Hides and deactivates the building hotbar UI.
+     * Clears any active building selection.
      */
     public void hideHotbar() {
         buildingHotbarPanel.setVisible(false);
         buildingHotbarPanel.setManaged(false);
-        buildingManager.setSelectedBuildingType(null);
-        System.out.println("HotbarManager: Hotbar hidden.");
+        buildingManager.setSelectedBuildingType(null); // Clear selection
+        logAction("Hotbar hidden");
     }
 
     /**
      * Checks if the hotbar is currently visible.
-     *
-     * @return true if the hotbar is visible, false otherwise.
+     * @return true if hotbar is visible, false otherwise
      */
     public boolean isHotbarVisible() {
         return buildingHotbarPanel.isVisible();
     }
 
-    public BuildingHotbarPanel getHotbarPanel() {
-        return buildingHotbarPanel;
+    /**
+     * Processes number key input for hotbar selection.
+     * Only responds when in building mode.
+     *
+     * @param slotNumber Hotbar slot number (1-9)
+     */
+    public void handleHotbarNumberSelection(int slotNumber) {
+        if (isInBuildingMode()) {
+            buildingHotbarPanel.selectBuildingBySlotNumber(slotNumber);
+            logAction("Selected slot: " + slotNumber);
+        }
+    }
+
+    /**
+     * Checks if game is currently in building mode.
+     * @return true if in BUILDING_MODE, false otherwise
+     */
+    private boolean isInBuildingMode() {
+        return gameState.getCurrentGameMode() == GameMode.BUILDING_MODE;
+    }
+
+    /**
+     * Logs hotbar management actions.
+     */
+    private void logAction(String message) {
+        System.out.println("HotbarManager: " + message);
     }
 
 }

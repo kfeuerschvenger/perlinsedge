@@ -12,42 +12,71 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Central repository for game state information.
+ * Tracks entities, timers, player status, and world state.
+ */
 public class GameStateManager {
+    // Entity State
     private Player player;
-    private List<Enemy> enemies = new ArrayList<>();
-    private List<DroppedItem> droppedItems = new ArrayList<>();
+    private final List<Enemy> enemies = new ArrayList<>();
+    private final List<DroppedItem> droppedItems = new ArrayList<>();
+
+    // World State
     private TileMap currentMap;
-    private Map<Resource, Long> resourceHitTimes = new HashMap<>();
+    private final Map<Resource, Long> resourceHitTimes = new HashMap<>();
+
+    // Timing & Cooldowns
     private double gameTime = 0;
     private double playerRespawnTimer = -1;
     private double lastDropTime = -10;
     private double attackCooldownTimer = 0;
+
+    // Input & UI State
     private int mouseOverTileX = -1;
     private int mouseOverTileY = -1;
     private boolean isGamePaused = false;
+    private boolean isInventoryOpen = false;
     private boolean shouldCenterCamera = true;
+
+    // Game Configuration
     private GameMode currentGameMode = GameMode.EXPLORATION;
-    private double screenWidth = 0;
-    private double screenHeight = 0;
 
     /**
-     * Resets the entire game state to a default, uninitialized state, ready for a new game.
+     * Resets all game state to initial values.
+     * Clears entities, resets timers, and restores default settings.
      */
     public void resetGameState() {
-        this.player = null;
-        this.enemies.clear();
-        this.droppedItems.clear();
-        this.currentMap = null;
-        this.resourceHitTimes.clear();
-        this.gameTime = 0;
-        this.playerRespawnTimer = 0;
-        this.lastDropTime = 0;
-        this.attackCooldownTimer = 0;
-        this.mouseOverTileX = -1;
-        this.mouseOverTileY = -1;
-        this.isGamePaused = false;
-        this.shouldCenterCamera = false;
-        this.currentGameMode = GameMode.EXPLORATION;
+        // Entity reset
+        player = null;
+        enemies.clear();
+        droppedItems.clear();
+
+        // World reset
+        currentMap = null;
+        resourceHitTimes.clear();
+
+        // Timer reset
+        gameTime = 0;
+        playerRespawnTimer = -1;
+        lastDropTime = -10;
+        attackCooldownTimer = 0;
+
+        // UI/Input reset
+        mouseOverTileX = -1;
+        mouseOverTileY = -1;
+        isGamePaused = false;
+        isInventoryOpen = false;
+        shouldCenterCamera = false;
+        currentGameMode = GameMode.EXPLORATION;
+    }
+
+    /**
+     * Advances the game clock by the specified time delta.
+     * @param deltaTime Time elapsed since last update (in seconds)
+     */
+    public void incrementGameTime(double deltaTime) {
+        gameTime += deltaTime;
     }
 
     public Player getPlayer() {
@@ -63,7 +92,10 @@ public class GameStateManager {
     }
 
     public void setEnemies(List<Enemy> enemies) {
-        this.enemies = enemies;
+        this.enemies.clear();
+        if (enemies != null) {
+            this.enemies.addAll(enemies);
+        }
     }
 
     public List<DroppedItem> getDroppedItems() {
@@ -71,7 +103,10 @@ public class GameStateManager {
     }
 
     public void setDroppedItems(List<DroppedItem> droppedItems) {
-        this.droppedItems = droppedItems;
+        this.droppedItems.clear();
+        if (droppedItems != null) {
+            this.droppedItems.addAll(droppedItems);
+        }
     }
 
     public TileMap getCurrentMap() {
@@ -86,34 +121,24 @@ public class GameStateManager {
         return resourceHitTimes;
     }
 
-    public void setResourceHitTimes(Map<Resource, Long> resourceHitTimes) {
-        this.resourceHitTimes = resourceHitTimes;
-    }
-
     public double getGameTime() {
         return gameTime;
-    }
-
-    public void setGameTime(double gameTime) {
-        this.gameTime = gameTime;
-    }
-
-    public void incrementGameTime(double deltaTime) {
-        gameTime += deltaTime;
     }
 
     public double getPlayerRespawnTimer() {
         return playerRespawnTimer;
     }
 
-    public void setPlayerRespawnTimer(double playerRespawnTimer) { this.playerRespawnTimer = playerRespawnTimer; }
+    public void setPlayerRespawnTimer(double playerRespawnTimer) {
+        this.playerRespawnTimer = playerRespawnTimer;
+    }
 
     public double getLastDropTime() {
         return lastDropTime;
     }
 
-    public void setLastDropTime(double time) {
-        this.lastDropTime = time;
+    public void setLastDropTime(double lastDropTime) {
+        this.lastDropTime = lastDropTime;
     }
 
     public double getAttackCooldownTimer() {
@@ -140,12 +165,29 @@ public class GameStateManager {
         this.mouseOverTileY = mouseOverTileY;
     }
 
+    public int[] getMouseOverTile() {
+        return new int[]{mouseOverTileX, mouseOverTileY};
+    }
+
+    public void setMouseOverTile(int x, int y) {
+        this.mouseOverTileX = x;
+        this.mouseOverTileY = y;
+    }
+
     public boolean isGamePaused() {
         return isGamePaused;
     }
 
     public void setGamePaused(boolean gamePaused) {
         isGamePaused = gamePaused;
+    }
+
+    public boolean isInventoryOpen() {
+        return isInventoryOpen;
+    }
+
+    public void setInventoryOpen(boolean inventoryOpen) {
+        isInventoryOpen = inventoryOpen;
     }
 
     public boolean shouldCenterCamera() {
@@ -156,21 +198,12 @@ public class GameStateManager {
         this.shouldCenterCamera = shouldCenterCamera;
     }
 
-    public GameMode getCurrentGameMode() { return currentGameMode; }
-
-    public void setCurrentGameMode(GameMode currentGameMode) { this.currentGameMode = currentGameMode; }
-
-    public void setScreenSize(double screenWidth, double screenHeight) {
-        this.screenWidth = screenWidth;
-        this.screenHeight = screenHeight;
+    public GameMode getCurrentGameMode() {
+        return currentGameMode;
     }
 
-    public double getScreenWidth() {
-        return screenWidth;
-    }
-
-    public double getScreenHeight() {
-        return screenHeight;
+    public void setCurrentGameMode(GameMode currentGameMode) {
+        this.currentGameMode = currentGameMode;
     }
 
 }
