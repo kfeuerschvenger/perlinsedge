@@ -17,5 +17,6 @@ Thumbs.db
 docs/private/
 .no-telemetry
 .atl/
+.claude/
 .env*
 !.env.example
