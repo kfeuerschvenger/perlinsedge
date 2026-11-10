@@ -5,18 +5,18 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  package:
-    name: package (${{ matrix.os }})
+  build:
+    name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
@@ -26,9 +26,28 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - name: Package
-        run: mvn -B -DskipTests package
-      - name: Upload to the GitHub Release
-        uses: softprops/action-gh-release@v3
+      - name: Build and test
+        run: mvn -B verify
+      - name: Upload the jar
+        uses: actions/upload-artifact@v7
         with:
-          files: target/perlins-edge-*.jar
+          name: jar-${{ matrix.os }}
+          path: target/perlins-edge-*.jar
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all jars
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          files: dist/*.jar
