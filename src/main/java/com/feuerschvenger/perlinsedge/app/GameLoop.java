@@ -15,7 +15,6 @@ public final class GameLoop {
     public static final double FIXED_TIME_STEP = 1.0 / 60.0;
 
     private static final double MAX_FRAME_DELTA = 0.25;
-    private static final double NANOS_PER_SECOND = 1_000_000_000.0;
 
     /** Receives the interpolation factor and the frame time once per rendered frame. */
     @FunctionalInterface
@@ -33,8 +32,7 @@ public final class GameLoop {
     private final FrameRenderer frameRenderer;
     private final AnimationTimer timer = new FixedStepTimer();
 
-    private long lastUpdate;
-    private double accumulator;
+    private final FixedStepAccumulator stepper = new FixedStepAccumulator(FIXED_TIME_STEP, MAX_FRAME_DELTA);
 
     /**
      * Creates a loop.
@@ -60,22 +58,17 @@ public final class GameLoop {
     private final class FixedStepTimer extends AnimationTimer {
         @Override
         public void handle(long now) {
-            if (lastUpdate == 0) {
-                lastUpdate = now;
+            boolean firstFrame = !stepper.hasStarted();
+            int steps = stepper.advance(now);
+            if (firstFrame) {
                 return;
             }
 
-            double deltaTime = (now - lastUpdate) / NANOS_PER_SECOND;
-            lastUpdate = now;
-            deltaTime = Math.min(deltaTime, MAX_FRAME_DELTA);
-
-            accumulator += deltaTime;
-            while (accumulator >= FIXED_TIME_STEP) {
+            for (int i = 0; i < steps; i++) {
                 updateStep.accept(FIXED_TIME_STEP);
-                accumulator -= FIXED_TIME_STEP;
             }
 
-            frameRenderer.render(accumulator / FIXED_TIME_STEP, deltaTime);
+            frameRenderer.render(stepper.alpha(), stepper.lastDelta());
         }
     }
 }
