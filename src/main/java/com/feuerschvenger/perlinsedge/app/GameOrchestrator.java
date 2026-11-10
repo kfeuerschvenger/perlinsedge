@@ -84,7 +84,7 @@ public class GameOrchestrator {
         ResourceManager resourceManager = new ResourceManager(this.gameState);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel);
         containerManager = new ContainerManager();
-        buildingManager = new BuildingManager(this.gameState, recipeManager, containerManager);
+        buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
 
         gameLoop = new GameLoop(this::update, this::render);
