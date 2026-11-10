@@ -1,7 +1,5 @@
 # Perlin's Edge
 
-![Banner Image](docs/images/banner.png)
-
 ## Game Overview
 
 Perlin's Edge is an isometric open-world survival and building game developed using JavaFX. Players explore procedurally generated landscapes, gather resources, craft tools and structures, and face various creatures in a dynamic world. Inspired by classic titles in the genre, Perlin's Edge delivers a relaxing (and occasionally hilarious) gaming experience where exploration and resource management are crucial for survival.
@@ -12,20 +10,20 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 - **Isometric Perspective**: Classic visual style for exploration and building.
 - **Crafting System**: Combine recipes to make tools, weapons, and more.
 - **Base Building**: Construct fortresses, huts, or your dream treehouse.
-- **Inventory Management**: Organized chaos—your call.
+- **Inventory Management**: Organized chaos: your call.
 - **Basic Combat**: Swing, shoot, or smash your way through enemies.
 - **Exploration**: Roam biomes, find hidden secrets, or just get lost (we won’t judge).
-- **Pathfinding**: Smart navigation for friends—and foes.
+- **Pathfinding**: Smart navigation for friends: and foes.
 
 ## Debug Modes & Hotkeys
 
-Geek out with our built-in debug modes. Toggle these cheats—I mean, features—with the F-keys:
+Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys:
 
-- **F1** – Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner.
-- **F2** – Grayscale Mode: See the Perlin noise tile values in all their gray glory.
-- **F3** – Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
-- **F4** – Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
-- **F5** – Regenerate Map: Smash this to get a fresh world with a random seed.
+- **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner.
+- **F2**: Grayscale Mode: See the Perlin noise tile values in all their gray glory.
+- **F3**: Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
+- **F4**: Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
+- **F5**: Regenerate Map: Smash this to get a fresh world with a random seed.
 
 ## How to Play
 
@@ -56,7 +54,7 @@ Each map not only looks different but also features unique resources and special
 ### Building Mode
 
 - `B` toggles Building mode.
-- Use number keys (1–9) to select a structure.
+- Use number keys (1: 9) to select a structure.
 - Left-click to place, Right-click to demolish.
 - Color hints:
     - **Green**: Good to go.

@@ -1,3 +1,21 @@
-target
-out
-.idea
+# Build output
+target/
+out/
+dependency-reduced-pom.xml
+
+# Editors and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and local saves
+*.log
+
+# Local only, never committed
+docs/private/
+.no-telemetry
+.atl/
+.env*
+!.env.example
