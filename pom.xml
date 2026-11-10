@@ -23,8 +23,11 @@
     <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
     <maven-shade-plugin.version>3.6.2</maven-shade-plugin.version>
 
-    <!-- JavaFX native classifier. Set by the OS profiles below, override with -Djavafx.platform=linux -->
-    <javafx.platform>win</javafx.platform>
+    <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
+
+    <!-- JavaFX native classifier. Set by the OS profiles below, override with -Djavafx.platform=linux.
+         The sentinel makes the build fail on an unsupported platform instead of picking the wrong natives. -->
+    <javafx.platform>unset</javafx.platform>
   </properties>
 
   <dependencyManagement>
@@ -101,6 +104,30 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-javafx-platform</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireProperty>
+                  <property>javafx.platform</property>
+                  <regex>win|linux|linux-aarch64|mac|mac-aarch64</regex>
+                  <regexMessage>Unsupported JavaFX platform '${javafx.platform}'. Supported: win, linux, linux-aarch64, mac, mac-aarch64. Pass -Djavafx.platform=&lt;value&gt; to select one.</regexMessage>
+                </requireProperty>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
       </plugin>
@@ -134,6 +161,9 @@
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>com.feuerschvenger.perlinsedge.app.Launcher</mainClass>
+                  <manifestEntries>
+                    <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                  </manifestEntries>
                 </transformer>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
               </transformers>
@@ -160,11 +190,26 @@
       <id>javafx-linux</id>
       <activation>
         <os>
-          <family>linux</family>
+          <family>unix</family>
+          <name>linux</name>
         </os>
       </activation>
       <properties>
         <javafx.platform>linux</javafx.platform>
+      </properties>
+    </profile>
+    <!-- Declared after javafx-linux so it wins on aarch64, where both profiles are active -->
+    <profile>
+      <id>javafx-linux-aarch64</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>linux</name>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <javafx.platform>linux-aarch64</javafx.platform>
       </properties>
     </profile>
     <profile>
