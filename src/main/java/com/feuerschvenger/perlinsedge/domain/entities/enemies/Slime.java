@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import java.util.Random;
 
 /**
@@ -20,10 +20,10 @@ public class Slime extends Enemy {
     private static final double BASE_RENDER_OFFSET_Y = -8.0;
 
     // Color variants
-    private static final Color[] COLOR_VARIANTS = {
-            Color.LIGHTGREEN.deriveColor(0, 1.0, 0.8, 1.0),
-            Color.LIGHTBLUE.deriveColor(0, 1.0, 0.8, 1.0),
-            Color.LIGHTPINK.deriveColor(0, 1.0, 0.8, 1.0)
+    private static final Rgba[] COLOR_VARIANTS = {
+            Rgba.LIGHT_GREEN.scaleBrightness(0.8),
+            Rgba.LIGHT_BLUE.scaleBrightness(0.8),
+            Rgba.LIGHT_PINK.scaleBrightness(0.8)
     };
 
     // Shared random generator
@@ -79,7 +79,7 @@ public class Slime extends Enemy {
     /**
      * Selects a random color variant for the slime.
      */
-    private Color selectRandomColor() {
+    private Rgba selectRandomColor() {
         return COLOR_VARIANTS[RANDOM.nextInt(COLOR_VARIANTS.length)];
     }
 

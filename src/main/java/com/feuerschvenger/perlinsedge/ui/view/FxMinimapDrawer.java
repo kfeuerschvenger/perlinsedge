@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 
 /**
@@ -158,7 +159,7 @@ public class FxMinimapDrawer {
         for (int y = 0; y < height; y += sampleStep) {
             for (int x = 0; x < width; x += sampleStep) {
                 final double[] pos = calculateTilePosition(x, y);
-                gc.setFill(map.getTile(x, y).getColor());
+                gc.setFill(FxColors.toFx(map.getTile(x, y).getColor()));
                 gc.fillRect(pos[0], pos[1], drawWidth, drawHeight);
             }
         }

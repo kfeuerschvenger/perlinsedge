@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.model;
 
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
  * Represents different types of terrain tiles with specific properties.
@@ -9,71 +9,71 @@ import javafx.scene.paint.Color;
 public enum TileType {
     // Water-based tiles
     DEEP_WATER(
-            Color.rgb(20, 40, 80),
+            Rgba.rgb(20, 40, 80),
             TerrainProperties.WATER
     ),
     SHALLOW_WATER(
-            Color.rgb(40, 80, 120),
+            Rgba.rgb(40, 80, 120),
             TerrainProperties.WATER
     ),
     RIVER(
-            Color.rgb(50, 90, 130),
+            Rgba.rgb(50, 90, 130),
             TerrainProperties.WATER
     ),
     COAST(
-            Color.rgb(100, 150, 200),
+            Rgba.rgb(100, 150, 200),
             TerrainProperties.WATER
     ),
     ICE(
-            Color.rgb(200, 220, 240),
+            Rgba.rgb(200, 220, 240),
             new TerrainProperties(true, false, true, false)
     ),
 
     // Land-based tiles
     BEACH(
-            Color.rgb(200, 180, 120),
+            Rgba.rgb(200, 180, 120),
             TerrainProperties.LAND
     ),
     SAND(
-            Color.rgb(200, 180, 120),
+            Rgba.rgb(200, 180, 120),
             new TerrainProperties(true, false, true, true)
     ),
     GRASS(
-            Color.rgb(60, 120, 60),
+            Rgba.rgb(60, 120, 60),
             new TerrainProperties(true, false, true, true)
     ),
     FOREST(
-            Color.rgb(40, 80, 40),
+            Rgba.rgb(40, 80, 40),
             new TerrainProperties(true, false, true, true)
     ),
     SAVANNA(
-            Color.rgb(189, 183, 107),
+            Rgba.rgb(189, 183, 107),
             new TerrainProperties(true, false, true, true)
     ),
     HILL(
-            Color.rgb(120, 80, 50),
+            Rgba.rgb(120, 80, 50),
             new TerrainProperties(true, false, true, true)
     ),
     MOUNTAIN(
-            Color.rgb(90, 90, 90),
+            Rgba.rgb(90, 90, 90),
             new TerrainProperties(true, false, false, false)
     ),
     SNOW(
-            Color.rgb(235, 235, 235),
+            Rgba.rgb(235, 235, 235),
             new TerrainProperties(true, false, true, false)
     ),
     SWAMP(
-            Color.rgb(50, 70, 50),
+            Rgba.rgb(50, 70, 50),
             new TerrainProperties(true, false, true, true)
     );
 
     // Visual Properties
-    private final Color color;
+    private final Rgba color;
 
     // Terrain Properties
     private final TerrainProperties properties;
 
-    TileType(Color color, TerrainProperties properties) {
+    TileType(Rgba color, TerrainProperties properties) {
         this.color = color;
         this.properties = properties;
     }
@@ -82,7 +82,7 @@ public enum TileType {
     //  Visual Getters
     // ==================================================================
 
-    public Color getColor() {
+    public Rgba getColor() {
         return color;
     }
 

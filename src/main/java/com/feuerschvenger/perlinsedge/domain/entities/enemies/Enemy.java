@@ -5,7 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
  * Abstract base class for all enemy entities in the game.
@@ -16,12 +16,12 @@ public abstract class Enemy extends Entity {
     // ==================================================================
     //  Configuration Defaults
     // ==================================================================
-    private static final Color DEFAULT_ENEMY_COLOR = Color.MAGENTA;
+    private static final Rgba DEFAULT_ENEMY_COLOR = Rgba.MAGENTA;
 
     // ==================================================================
     //  Instance Properties
     // ==================================================================
-    protected Color color;
+    protected Rgba color;
     protected double attackDamage;
     protected double attackCooldown;
     protected double attackTimer;
@@ -118,7 +118,7 @@ public abstract class Enemy extends Entity {
     // ==================================================================
 
     /** @return Visual representation color */
-    public Color getColor() {
+    public Rgba getColor() {
         return color;
     }
 
@@ -156,7 +156,7 @@ public abstract class Enemy extends Entity {
      *
      * @param color New color value
      */
-    public void setColor(Color color) {
+    public void setColor(Rgba color) {
         this.color = color;
     }
 

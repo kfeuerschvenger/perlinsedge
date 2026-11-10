@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.world.model;
 
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import java.util.Objects;
 
 /**
@@ -71,7 +71,7 @@ public class Tile {
         this.type = type;
     }
 
-    public Color getColor() {
+    public Rgba getColor() {
         return type.getColor();
     }
 

@@ -9,7 +9,10 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
@@ -17,14 +20,19 @@ import java.util.Optional;
  * Manages building operations including placement, removal, interaction, and preview visualization.
  * Handles resource validation, tile suitability checks, and building lifecycle management.
  */
+@Slf4j
 public class BuildingManager {
+    private static final double PREVIEW_OPACITY = 0.7;
+
     // Dependencies
     private final GameStateManager gameState;
     private final RecipeManager recipeManager;
     private final ContainerManager containerManager;
 
     // Building mode state
+    @Getter
     private BuildingType selectedBuildingType;
+    @Getter
     private boolean buildingModeActive;
 
     public BuildingManager(GameStateManager gameState, RecipeManager recipeManager, ContainerManager containerManager) {
@@ -33,14 +41,6 @@ public class BuildingManager {
         this.containerManager = containerManager;
         this.buildingModeActive = false;
         this.selectedBuildingType = null;
-    }
-
-    public boolean isBuildingModeActive() {
-        return buildingModeActive;
-    }
-
-    public BuildingType getSelectedBuildingType() {
-        return selectedBuildingType;
     }
 
     /**
@@ -60,7 +60,7 @@ public class BuildingManager {
     public void activateBuildingMode() {
         if (!buildingModeActive) {
             buildingModeActive = true;
-            System.out.println("Building mode: ON");
+            log.info("Building mode: ON");
         }
     }
 
@@ -71,7 +71,7 @@ public class BuildingManager {
         if (buildingModeActive) {
             buildingModeActive = false;
             selectedBuildingType = null;
-            System.out.println("Building mode: OFF");
+            log.info("Building mode: OFF");
         }
     }
 
@@ -83,9 +83,9 @@ public class BuildingManager {
     public void setSelectedBuildingType(BuildingType type) {
         selectedBuildingType = type;
         if (type != null) {
-            System.out.println("Selected building type: " + type.getDisplayName());
+            log.debug("Selected building type: {}", type.getDisplayName());
         } else {
-            System.out.println("Building type selection cleared.");
+            log.debug("Building type selection cleared.");
         }
     }
 
@@ -118,7 +118,7 @@ public class BuildingManager {
 
         consumeResources(player, existingRecipe);
         targetTile.setBuilding(newBuilding);
-        System.out.println("Placed " + selectedBuildingType.getDisplayName() + " at (" + worldX + ", " + worldY + ")");
+        log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
     }
 
     /**
@@ -130,24 +130,24 @@ public class BuildingManager {
     public void removeBuilding(int worldX, int worldY) {
         TileMap tileMap = gameState.getCurrentMap();
         if (tileMap == null) {
-            System.err.println("Remove building failed: Map is null");
+            log.warn("Remove building failed: Map is null");
             return;
         }
 
         Tile targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null || !targetTile.hasBuilding()) {
-            System.out.println("No building at (" + worldX + ", " + worldY + ")");
+            log.debug("No building at ({}, {})", worldX, worldY);
             return;
         }
 
         Building building = targetTile.getBuilding();
         if (!building.isDestructible()) {
-            System.out.println("Building not destructible: " + building.getType().getDisplayName());
+            log.debug("Building not destructible: {}", building.getType().getDisplayName());
             return;
         }
 
         targetTile.setBuilding(null);
-        System.out.println("Removed " + building.getType().getDisplayName() + " from (" + worldX + ", " + worldY + ")");
+        log.info("Removed {} from ({}, {})", building.getType().getDisplayName(), worldX, worldY);
     }
 
     /**
@@ -160,7 +160,7 @@ public class BuildingManager {
     public boolean interactWithBuilding(int worldX, int worldY) {
         TileMap tileMap = gameState.getCurrentMap();
         if (tileMap == null) {
-            System.err.println("Interaction failed: Map is null");
+            log.warn("Interaction failed: Map is null");
             return false;
         }
 
@@ -174,7 +174,7 @@ public class BuildingManager {
 
         if (interacted && building instanceof Container) {
             containerManager.openContainer((Container) building);
-            System.out.println("Opened container: " + building.getClass().getSimpleName());
+            log.debug("Opened container: {}", building.getClass().getSimpleName());
         }
         return interacted;
     }
@@ -186,7 +186,7 @@ public class BuildingManager {
      */
     private boolean validatePlacementPreconditions(int worldX, int worldY) {
         if (!buildingModeActive || selectedBuildingType == null) {
-            System.out.println("Placement failed: Building mode inactive or no type selected");
+            log.debug("Placement failed: Building mode inactive or no type selected");
             return false;
         }
 
@@ -194,23 +194,23 @@ public class BuildingManager {
         Player player = gameState.getPlayer();
 
         if (tileMap == null || player == null) {
-            System.err.println("Placement failed: Map or player is null");
+            log.warn("Placement failed: Map or player is null");
             return false;
         }
 
         Tile targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null) {
-            System.out.println("Placement failed: Invalid tile coordinates");
+            log.debug("Placement failed: Invalid tile coordinates");
             return false;
         }
 
         if (targetTile.hasBuilding()) {
-            System.out.println("Placement failed: Tile occupied");
+            log.debug("Placement failed: Tile occupied");
             return false;
         }
 
         if (recipeManager.getBuildingRecipeByType(selectedBuildingType).isEmpty()) {
-            System.out.println("Placement failed: No recipe for " + selectedBuildingType.getDisplayName());
+            log.debug("Placement failed: No recipe for {}", selectedBuildingType.getDisplayName());
             return false;
         }
         return true;
@@ -228,7 +228,7 @@ public class BuildingManager {
 
         for (CraftingIngredient ingredient : recipe.ingredients()) {
             if (!player.canTakeItem(new Item(ingredient.itemType(), 1), ingredient.quantity())) {
-                System.out.println("Missing resource: " + ingredient.quantity() + "x " + ingredient.itemType().getDisplayName());
+                log.debug("Missing resource: {}x {}", ingredient.quantity(), ingredient.itemType().getDisplayName());
                 return false;
             }
         }
@@ -244,7 +244,7 @@ public class BuildingManager {
 
         for (CraftingIngredient ingredient : recipe.ingredients()) {
             player.removeItem(new Item(ingredient.itemType(), 1), ingredient.quantity());
-            System.out.println("Consumed: " + ingredient.quantity() + "x " + ingredient.itemType().getDisplayName());
+            log.debug("Consumed: {}x {}", ingredient.quantity(), ingredient.itemType().getDisplayName());
         }
     }
 
@@ -267,7 +267,7 @@ public class BuildingManager {
             case WORKBENCH -> new Workbench(x, y);
             case BED -> new Bed(x, y);
             default -> {
-                System.err.println("Unknown BuildingType: " + type);
+                log.warn("Unknown BuildingType: {}", type);
                 yield null;
             }
         };
@@ -288,7 +288,7 @@ public class BuildingManager {
             case WALL, DOOR, FENCE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
                 boolean validLand = tile.getType().isLand() && tile.getType().isWalkable();
                 if (!validLand) {
-                    System.out.println("Invalid terrain for " + type.getDisplayName() + ": Requires walkable land");
+                    log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
                 }
                 return validLand;
             }
@@ -297,13 +297,13 @@ public class BuildingManager {
             case BRIDGE, DOCK -> {
                 boolean validWater = tile.getType().isWater();
                 if (!validWater) {
-                    System.out.println("Invalid terrain for " + type.getDisplayName() + ": Requires water");
+                    log.debug("Invalid terrain for {}: Requires water", type.getDisplayName());
                 }
                 return validWater;
             }
 
             default -> {
-                System.out.println("Unhandled building type: " + type);
+                log.warn("Unhandled building type: {}", type);
                 return false;
             }
         }
@@ -314,9 +314,9 @@ public class BuildingManager {
      *
      * @return Color indicating placement feasibility or null when inactive
      */
-    public Color getPlacementPreviewColor(int worldX, int worldY) {
+    public Rgba getPlacementPreviewColor(int worldX, int worldY) {
         if (!buildingModeActive) return null;
-        if (selectedBuildingType == null) return Color.YELLOW.deriveColor(0, 1, 1, 0.7);
+        if (selectedBuildingType == null) return Rgba.YELLOW.withOpacityFactor(PREVIEW_OPACITY);
 
         TileMap tileMap = gameState.getCurrentMap();
         Player player = gameState.getPlayer();
@@ -329,16 +329,16 @@ public class BuildingManager {
         if (recipe.isEmpty()) return errorColor();
 
         if (!canPlaceOnTile(selectedBuildingType, targetTile)) return errorColor();
-        if (!playerHasResources(player, recipe.orElse(null))) return Color.ORANGE.deriveColor(0, 1, 1, 0.7);
+        if (!playerHasResources(player, recipe.orElse(null))) return Rgba.ORANGE.withOpacityFactor(PREVIEW_OPACITY);
 
-        return Color.LIMEGREEN.deriveColor(0, 1, 1, 0.7);
+        return Rgba.LIME_GREEN.withOpacityFactor(PREVIEW_OPACITY);
     }
 
     /**
      * Returns standardized error color for placement preview
      */
-    private Color errorColor() {
-        return Color.RED.deriveColor(0, 1, 1, 0.7);
+    private Rgba errorColor() {
+        return Rgba.RED.withOpacityFactor(PREVIEW_OPACITY);
     }
 
 }

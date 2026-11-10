@@ -24,7 +24,7 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.*;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 import java.util.List;
 import java.util.Random;
@@ -510,7 +510,7 @@ public class GameOrchestrator {
         // Set building preview if in building mode
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             int[] mouseTile = gameState.getMouseOverTile();
-            Color previewColor = buildingManager.getPlacementPreviewColor(mouseTile[0], mouseTile[1]);
+            Rgba previewColor = buildingManager.getPlacementPreviewColor(mouseTile[0], mouseTile[1]);
             renderer.setBuildingPreview(
                     mouseTile[0],
                     mouseTile[1],

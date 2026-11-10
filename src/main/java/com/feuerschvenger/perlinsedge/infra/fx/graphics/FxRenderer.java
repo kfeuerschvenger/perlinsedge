@@ -10,6 +10,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.model.*;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -53,11 +55,11 @@ public class FxRenderer {
         this.spriteManager = SpriteManager.getInstance();
     }
 
-    public void setBuildingPreview(int tileX, int tileY, BuildingType buildingType, Color color) {
+    public void setBuildingPreview(int tileX, int tileY, BuildingType buildingType, Rgba color) {
         this.previewTileX = tileX;
         this.previewTileY = tileY;
         this.previewBuildingType = buildingType;
-        this.previewColor = color;
+        this.previewColor = FxColors.toFx(color);
     }
 
     /**

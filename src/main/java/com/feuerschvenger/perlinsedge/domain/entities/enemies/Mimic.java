@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicMovementStrategy;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
  * Represents a Mimic enemy that disguises itself as a chest until activated.
@@ -17,7 +17,7 @@ public class Mimic extends Enemy {
     private static final double ATTACK_COOLDOWN = 2.0;
 
     private static final double RENDER_OFFSET_Y = -4.0; // Closer to ground for chest-like appearance
-    private static final Color BASE_COLOR = Color.BROWN.darker();
+    private static final Rgba BASE_COLOR = Rgba.BROWN.darker();
 
     // ==================================================================
     //  Constructor
