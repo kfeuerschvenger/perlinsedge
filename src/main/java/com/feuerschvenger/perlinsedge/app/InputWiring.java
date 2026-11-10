@@ -113,9 +113,10 @@ public class InputWiring {
 
     /**
      * Adds the mouse handlers to the game canvas and the minimap.
-     * Every call adds the handlers again, so repeated calls stack them.
+     * Idempotent: any previously registered handlers are removed first, so repeated calls never stack them.
      */
     public void registerMouseHandlers() {
+        unregisterMouseHandlers();
         mainCanvas.addEventHandler(MouseEvent.MOUSE_CLICKED, canvasClickHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
