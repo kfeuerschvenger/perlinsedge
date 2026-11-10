@@ -1,12 +1,16 @@
 package com.feuerschvenger.perlinsedge.domain.world.model;
 
+import lombok.Getter;
+
 /**
  * Represents a 2D grid of tiles with efficient coordinate-based access.
  * Provides bounds-checked operations for safe tile manipulation.
  */
 public class TileMap {
     // Dimensions (Immutable)
+    @Getter
     private final int width;
+    @Getter
     private final int height;
 
     // Tile Storage
@@ -21,18 +25,6 @@ public class TileMap {
         this.width = width;
         this.height = height;
         this.tiles = new Tile[width][height];
-    }
-
-    // ==================================================================
-    //  Dimensional Getters
-    // ==================================================================
-
-    public int getWidth() {
-        return width;
-    }
-
-    public int getHeight() {
-        return height;
     }
 
     // ==================================================================

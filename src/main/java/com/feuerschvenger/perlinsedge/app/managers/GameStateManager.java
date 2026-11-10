@@ -6,6 +6,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,6 +18,8 @@ import java.util.Map;
  * Central repository for game state information.
  * Tracks entities, timers, player status, and world state.
  */
+@Getter
+@Setter
 public class GameStateManager {
     // Entity State
     private Player player;
@@ -27,6 +31,7 @@ public class GameStateManager {
     private final Map<Resource, Long> resourceHitTimes = new HashMap<>();
 
     // Timing & Cooldowns
+    @Setter(lombok.AccessLevel.NONE)
     private double gameTime = 0;
     private double playerRespawnTimer = -1;
     private double lastDropTime = -10;
@@ -37,6 +42,7 @@ public class GameStateManager {
     private int mouseOverTileY = -1;
     private boolean isGamePaused = false;
     private boolean isInventoryOpen = false;
+    @Getter(lombok.AccessLevel.NONE)
     private boolean shouldCenterCamera = true;
 
     // Game Configuration
@@ -79,18 +85,11 @@ public class GameStateManager {
         gameTime += deltaTime;
     }
 
-    public Player getPlayer() {
-        return player;
-    }
-
-    public void setPlayer(Player player) {
-        this.player = player;
-    }
-
-    public List<Enemy> getEnemies() {
-        return enemies;
-    }
-
+    /**
+     * Replaces the enemies with a copy of the given list.
+     *
+     * @param enemies the new enemies, null clears the list
+     */
     public void setEnemies(List<Enemy> enemies) {
         this.enemies.clear();
         if (enemies != null) {
@@ -98,10 +97,11 @@ public class GameStateManager {
         }
     }
 
-    public List<DroppedItem> getDroppedItems() {
-        return droppedItems;
-    }
-
+    /**
+     * Replaces the dropped items with a copy of the given list.
+     *
+     * @param droppedItems the new dropped items, null clears the list
+     */
     public void setDroppedItems(List<DroppedItem> droppedItems) {
         this.droppedItems.clear();
         if (droppedItems != null) {
@@ -109,101 +109,34 @@ public class GameStateManager {
         }
     }
 
-    public TileMap getCurrentMap() {
-        return currentMap;
-    }
-
-    public void setCurrentMap(TileMap currentMap) {
-        this.currentMap = currentMap;
-    }
-
-    public Map<Resource, Long> getResourceHitTimes() {
-        return resourceHitTimes;
-    }
-
-    public double getGameTime() {
-        return gameTime;
-    }
-
-    public double getPlayerRespawnTimer() {
-        return playerRespawnTimer;
-    }
-
-    public void setPlayerRespawnTimer(double playerRespawnTimer) {
-        this.playerRespawnTimer = playerRespawnTimer;
-    }
-
-    public double getLastDropTime() {
-        return lastDropTime;
-    }
-
-    public void setLastDropTime(double lastDropTime) {
-        this.lastDropTime = lastDropTime;
-    }
-
-    public double getAttackCooldownTimer() {
-        return attackCooldownTimer;
-    }
-
-    public void setAttackCooldownTimer(double attackCooldownTimer) {
-        this.attackCooldownTimer = attackCooldownTimer;
-    }
-
-    public int getMouseOverTileX() {
-        return mouseOverTileX;
-    }
-
-    public void setMouseOverTileX(int mouseOverTileX) {
-        this.mouseOverTileX = mouseOverTileX;
-    }
-
-    public int getMouseOverTileY() {
-        return mouseOverTileY;
-    }
-
-    public void setMouseOverTileY(int mouseOverTileY) {
-        this.mouseOverTileY = mouseOverTileY;
-    }
-
+    /** @return the mouse-over tile as {x, y}, or {-1, -1} when there is none */
     public int[] getMouseOverTile() {
         return new int[]{mouseOverTileX, mouseOverTileY};
     }
 
+    /**
+     * Sets the tile under the mouse.
+     *
+     * @param x tile X, -1 for none
+     * @param y tile Y, -1 for none
+     */
     public void setMouseOverTile(int x, int y) {
         this.mouseOverTileX = x;
         this.mouseOverTileY = y;
     }
 
-    public boolean isGamePaused() {
-        return isGamePaused;
-    }
-
-    public void setGamePaused(boolean gamePaused) {
-        isGamePaused = gamePaused;
-    }
-
-    public boolean isInventoryOpen() {
-        return isInventoryOpen;
-    }
-
-    public void setInventoryOpen(boolean inventoryOpen) {
-        isInventoryOpen = inventoryOpen;
-    }
-
+    /** @return true when the camera should be centred on the player at the next update */
     public boolean shouldCenterCamera() {
         return shouldCenterCamera;
     }
 
+    /**
+     * Requests or cancels centring the camera on the player.
+     *
+     * @param shouldCenterCamera true to centre at the next update
+     */
     public void setShouldCenterCamera(boolean shouldCenterCamera) {
         this.shouldCenterCamera = shouldCenterCamera;
-    }
-
-    public GameMode getCurrentGameMode() {
-        return currentGameMode;
-    }
-
-    public void setCurrentGameMode(GameMode currentGameMode) {
-        this.currentGameMode = currentGameMode;
     }
 
 }

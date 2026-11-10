@@ -3,6 +3,9 @@ package com.feuerschvenger.perlinsedge.domain.world.model;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Objects;
 
 /**
@@ -10,16 +13,23 @@ import java.util.Objects;
  */
 public class Tile {
     // Coordinate Properties (Immutable)
+    @Getter
     private final int x, y;
 
     // Terrain Properties
+    @Getter
+    @Setter
     private float height;
+    @Getter
+    @Setter
     private TileType type;
 
     // Resource Association
     private Resource resource;
 
     // Building Association
+    @Getter
+    @Setter
     private Building building;
 
     /**
@@ -39,38 +49,7 @@ public class Tile {
         this.building = null;
     }
 
-    // ==================================================================
-    //  Coordinate Getters
-    // ==================================================================
-
-    public int getX() {
-        return x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
-    // ==================================================================
-    //  Terrain Getters and Setters
-    // ==================================================================
-
-    public float getHeight() {
-        return height;
-    }
-
-    public void setHeight(float height) {
-        this.height = height;
-    }
-
-    public TileType getType() {
-        return type;
-    }
-
-    public void setType(TileType type) {
-        this.type = type;
-    }
-
+    /** @return the colour of this tile's terrain type */
     public Rgba getColor() {
         return type.getColor();
     }
@@ -94,14 +73,6 @@ public class Tile {
     // ==================================================================
     //  Building Management
     // ==================================================================
-
-    public Building getBuilding() {
-        return building;
-    }
-
-    public void setBuilding(Building building) {
-        this.building = building;
-    }
 
     public boolean hasBuilding() {
         return building != null;
