@@ -38,6 +38,60 @@ class IsometricUtilsTest {
     }
 
     @Test
+    void screenToTileFloorsNegativeCoordinatesInsteadOfTruncating() {
+        // One pixel left of the origin sits in tile (-1, 0); truncation toward zero would give (0, 0)
+        assertArrayEquals(new int[]{-1, 0},
+                IsometricUtils.screenToTile(-1, 0, 0, 0, 1, HALF_W, HALF_H));
+        assertArrayEquals(new int[]{-1, -1},
+                IsometricUtils.screenToTile(0, -1, 0, 0, 1, HALF_W, HALF_H));
+    }
+
+    @Test
+    void screenToTileHandlesNegativeTileCoordinates() {
+        double[] screen = IsometricUtils.tileToScreen(-3, -2, 0, 0, 1, HALF_W, HALF_H);
+        assertArrayEquals(new double[]{-32, -80}, screen, DELTA);
+        assertArrayEquals(new int[]{-3, -2},
+                IsometricUtils.screenToTile(screen[0], screen[1], 0, 0, 1, HALF_W, HALF_H));
+    }
+
+    @Test
+    void screenToTileHandlesNegativeCameraOffset() {
+        assertArrayEquals(new int[]{2, 1},
+                IsometricUtils.screenToTile(-68, -2, -100, -50, 1, HALF_W, HALF_H));
+    }
+
+    @Test
+    void screenToTileMapsTileVertexToThatTileAndJustBeforeItToTheNeighbour() {
+        // The top vertex of tile (2, 1) is exactly on its boundary and belongs to it
+        assertArrayEquals(new int[]{2, 1},
+                IsometricUtils.screenToTile(32, 48, 0, 0, 1, HALF_W, HALF_H));
+        // A hair above that vertex lies in tile (1, 0)
+        assertArrayEquals(new int[]{1, 0},
+                IsometricUtils.screenToTile(32, 47.99, 0, 0, 1, HALF_W, HALF_H));
+        // A hair below it is inside tile (2, 1)
+        assertArrayEquals(new int[]{2, 1},
+                IsometricUtils.screenToTile(32, 48.01, 0, 0, 1, HALF_W, HALF_H));
+    }
+
+    @Test
+    void screenToTileMapsOriginVertexToTileZero() {
+        assertArrayEquals(new int[]{0, 0},
+                IsometricUtils.screenToTile(0, 0, 0, 0, 1, HALF_W, HALF_H));
+    }
+
+    @Test
+    void screenToTileFractionalKeepsNegativeValues() {
+        assertArrayEquals(new double[]{-1.5, 0},
+                IsometricUtils.screenToTileFractional(-48, -24, 0, 0, 1, HALF_W, HALF_H), DELTA);
+    }
+
+    @Test
+    void tileToScreenHandlesNegativeTileCoordinates() {
+        assertArrayEquals(new double[]{32, -16},
+                IsometricUtils.tileToScreen(-1, 0, 64, 0, 1, HALF_W, HALF_H), DELTA);
+    }
+
+    @Test
     void integerRoundTripReturnsOriginalTile() {
         for (int x = 0; x < 10; x++) {
             for (int y = 0; y < 10; y++) {
