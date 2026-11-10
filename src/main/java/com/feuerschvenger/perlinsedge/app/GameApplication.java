@@ -15,13 +15,16 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import lombok.extern.slf4j.Slf4j;
 
 import java.awt.Dimension;
 
 /**
  * Main JavaFX application class for Perlin's Edge game.
  * Manages application lifecycle, UI layers, and game initialization.
+ * Start the JVM with {@code -Dperlinsedge.debug=true} to enable verbose JavaFX and Prism logging.
  */
+@Slf4j
 public class GameApplication extends Application {
     // Core UI components
     private Stage primaryStage;
@@ -60,8 +63,11 @@ public class GameApplication extends Application {
      * Configures debug properties based on application configuration.
      */
     private void configureDebugProperties() {
-        System.setProperty("javafx.verbose", "true");
-        System.setProperty("prism.verbose", "true");
+        if (Boolean.getBoolean("perlinsedge.debug")) {
+            System.setProperty("javafx.verbose", "true");
+            System.setProperty("prism.verbose", "true");
+            log.info("Verbose JavaFX and Prism logging enabled");
+        }
         System.setProperty("prism.dirtyopts", "true");
     }
 
@@ -134,7 +140,7 @@ public class GameApplication extends Application {
 
         // Action bindings
         mainMenuPanel.setOnNewGameAction(this::showMapSelectionMenu);
-        mainMenuPanel.setOnLoadGameAction(() -> System.out.println("Load game not implemented"));
+        mainMenuPanel.setOnLoadGameAction(() -> log.warn("Load game not implemented"));
         mainMenuPanel.setOnExitAction(primaryStage::close);
     }
 

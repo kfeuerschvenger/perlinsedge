@@ -1,10 +1,10 @@
 module com.feuerschvenger.perlinsedge {
     requires javafx.controls;
-    requires javafx.fxml;
     requires javafx.graphics;
-    requires org.controlsfx.controls;
     requires java.desktop;
     requires java.logging;
+    requires org.slf4j;
+    requires static lombok;
 
     exports com.feuerschvenger.perlinsedge.app;
     exports com.feuerschvenger.perlinsedge.app.managers;
@@ -31,5 +31,5 @@ module com.feuerschvenger.perlinsedge {
     exports com.feuerschvenger.perlinsedge.ui.view;
     exports com.feuerschvenger.perlinsedge.ui.view.callbacks;
 
-    opens com.feuerschvenger.perlinsedge.app to javafx.fxml, javafx.graphics;
+    opens com.feuerschvenger.perlinsedge.app to javafx.graphics;
 }
