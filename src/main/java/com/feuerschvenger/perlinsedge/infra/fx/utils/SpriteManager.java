@@ -339,7 +339,8 @@ public final class SpriteManager {
         try {
             return new WritableImage(reader, x, y, width, height);
         } catch (Exception e) {
-            log.warn("Error extracting frame at ({},{})", x, y, e);
+            log.warn("Error extracting frame at ({},{}): {}", x, y, e.getMessage());
+            log.debug("Frame extraction failure at ({},{})", x, y, e);
             return createSolidColorImage(width, height, FALLBACK_COLOR);
         }
     }

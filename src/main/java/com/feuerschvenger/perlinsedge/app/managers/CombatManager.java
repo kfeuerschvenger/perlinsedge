@@ -64,8 +64,10 @@ public class CombatManager {
         if (enemy.isReadyToAttack()) {
             player.takeDamage(enemy.getAttackDamage());
             enemy.resetAttackCooldown();
-            log.debug("{} attacked player. Player health: {}",
-                    enemy.getClass().getSimpleName(), player.getHealth());
+            if (log.isDebugEnabled()) {
+                log.debug("{} attacked player. Player health: {}",
+                        enemy.getClass().getSimpleName(), "%.1f".formatted(player.getHealth()));
+            }
         }
     }
 

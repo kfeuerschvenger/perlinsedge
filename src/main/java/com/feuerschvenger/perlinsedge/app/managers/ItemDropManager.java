@@ -169,9 +169,11 @@ public class ItemDropManager {
      * Logs item despawn event.
      */
     private void logDespawn(DroppedItem item) {
-        log.debug("Despawned {} (dropped {} minutes ago)",
-                item.getItem().getType().getDisplayName(),
-                "%.1f".formatted((gameState.getGameTime() - item.getDropTime()) / 60));
+        if (log.isDebugEnabled()) {
+            log.debug("Despawned {} (dropped {} minutes ago)",
+                    item.getItem().getType().getDisplayName(),
+                    "%.1f".formatted((gameState.getGameTime() - item.getDropTime()) / 60));
+        }
     }
 
 }
