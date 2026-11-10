@@ -15,8 +15,8 @@ flowchart LR
 
 | File | Use |
 |---|---|
-| `mark-mono.svg` | The mark in one colour. Uses `currentColor`, so it inherits the text colour of whatever embeds it inline. |
-| `mark-color.svg` | The mark in palette colours, on a light background. |
+| `mark-mono.svg` | The mark in one colour, drawn as an outline. Uses `currentColor`, so it inherits the text colour of whatever embeds it inline. |
+| `mark-color.svg` | The mark in palette colours, transparent, meant for light backgrounds. |
 | `lockup-light.svg` | Mark plus the wordmark in near-black violet, for light backgrounds. |
 | `lockup-dark.svg` | Mark plus the wordmark in off-white, for dark backgrounds. The mark outline is off-white so it stays visible. |
 | `banner-light.svg` | Full-width README banner, 1280x320, with the tagline. |
@@ -31,7 +31,7 @@ Embed the light and dark variants with a `<picture>` element so GitHub picks the
 
 ## Brand roles
 
-Colours come from the 40 colour palette in `docs/private/palette`.
+Colours come from the game's own 40 colour pixel art palette. These are the roles used for docs, diagrams and badges.
 
 | Role | Palette name | Hex |
 |---|---|---|
