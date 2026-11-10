@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -147,16 +148,17 @@ class PathfinderTest {
         assertTrue(path.stream().anyMatch(n -> n.x == 3 && n.y == 3));
     }
 
+    @Disabled("bug: Pathfinder allows a diagonal step between two blocked orthogonal neighbours, so a path is "
+            + "returned where none should exist")
     @Test
-    void diagonalStepsMayCutBetweenTwoBlockedTiles() {
+    void diagonalStepsNeverCutBetweenTwoBlockedTiles() {
         TileMap map = grassMap();
         wall(map, 1, 0);
         wall(map, 0, 1);
 
         List<PathNode> path = new Pathfinder(map).findPath(0, 0, 1, 1);
 
-        assertNotNull(path);
-        assertEquals(1, path.size(), "current behaviour: no corner-cutting check");
+        assertNull(path);
     }
 
     @Test

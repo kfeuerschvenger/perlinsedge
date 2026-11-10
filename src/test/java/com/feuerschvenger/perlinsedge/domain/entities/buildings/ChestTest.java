@@ -64,7 +64,7 @@ class ChestTest {
     }
 
     @Disabled("bug: Chest.addItem stores at most one stack when the quantity exceeds the stack size, the excess "
-            + "is lost and the call still returns true; fixed in PR 3")
+            + "is lost and the call still returns true")
     @Test
     void addingMoreThanOneStackKeepsEveryUnit() {
         assertTrue(chest.addItem(new Item(ItemType.STONE, STACK + 5)));
@@ -105,7 +105,7 @@ class ChestTest {
     }
 
     @Disabled("bug: Chest.getItemAt throws IndexOutOfBoundsException for an empty slot that is below the capacity "
-            + "(the slot check uses capacity, the list is shorter); fixed in PR 3")
+            + "(the slot check uses capacity, the list is shorter)")
     @Test
     void emptySlotBelowCapacityReturnsNull() {
         chest.addItem(new Item(ItemType.STONE, 1));
@@ -114,7 +114,7 @@ class ChestTest {
     }
 
     @Disabled("bug: Chest.setItemAt silently ignores a slot that is beyond the next free one, so an item dropped "
-            + "on that slot is lost; fixed in PR 3")
+            + "on that slot is lost")
     @Test
     void itemCanBePlacedInAnyEmptySlot() {
         Item stone = new Item(ItemType.STONE, 4);

@@ -133,7 +133,7 @@ class PlayerInventoryTest {
     }
 
     @Disabled("bug: Player.removeItem consumes the available part and then returns false when the quantity is "
-            + "insufficient, instead of leaving the inventory untouched; fixed in PR 3")
+            + "insufficient, instead of leaving the inventory untouched")
     @Test
     void removeIsAtomicWhenQuantityIsInsufficient() {
         player.addItem(new Item(ItemType.STONE, 4));
@@ -189,7 +189,7 @@ class PlayerInventoryTest {
     }
 
     @Test
-    void itemsAreEqualWhenTheyShareAType() {
+    void itemEqualityIsByTypeOnlyAndToStringShowsQuantity() {
         assertEquals(new Item(ItemType.STONE, 1), new Item(ItemType.STONE, 50));
         assertEquals("3x " + ItemType.STONE.getDisplayName(), new Item(ItemType.STONE, 3).toString());
     }

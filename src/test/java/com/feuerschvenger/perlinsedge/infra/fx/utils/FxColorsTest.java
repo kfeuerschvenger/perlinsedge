@@ -3,7 +3,15 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import javafx.scene.paint.Color;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -72,13 +80,25 @@ class FxColorsTest {
         assertSameColor(Color.RED.deriveColor(0, 1, 1, 0.7), FxColors.toFx(Rgba.RED.withOpacityFactor(0.7)));
     }
 
+    /** Every public {@link Rgba} named constant, so a newly added constant is covered automatically. */
+    static Stream<String> namedConstants() {
+        return Arrays.stream(Rgba.class.getFields())
+                .filter(f -> Modifier.isStatic(f.getModifiers()) && f.getType() == Rgba.class)
+                .map(Field::getName);
+    }
+
+    @ParameterizedTest(name = "{0} matches the JavaFX palette")
+    @MethodSource("namedConstants")
+    void namedConstantMatchesJavaFxPalette(String name) throws ReflectiveOperationException {
+        Rgba constant = (Rgba) Rgba.class.getField(name).get(null);
+        Color expected = (Color) Color.class.getField(name.replace("_", "")).get(null);
+
+        assertSameColor(expected, FxColors.toFx(constant));
+    }
+
     @Test
-    void namedConstantsMatchJavaFxPalette() {
-        assertSameColor(Color.GRAY, FxColors.toFx(Rgba.GRAY));
-        assertSameColor(Color.PERU, FxColors.toFx(Rgba.PERU));
-        assertSameColor(Color.LIMEGREEN, FxColors.toFx(Rgba.LIME_GREEN));
-        assertSameColor(Color.MAGENTA, FxColors.toFx(Rgba.MAGENTA));
-        assertSameColor(Color.DARKGOLDENROD, FxColors.toFx(Rgba.DARK_GOLDENROD));
+    void namedConstantsAreDiscovered() {
+        assertTrue(namedConstants().count() >= 15, "reflection found fewer constants than expected");
     }
 
     @Test
