@@ -10,6 +10,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 import java.util.Random;
 import java.util.function.Predicate;
@@ -18,6 +20,7 @@ import java.util.function.Predicate;
  * Manages player lifecycle including initialization, movement, health, death, and respawn.
  * Handles inventory management and item dropping on death.
  */
+@Slf4j
 public class PlayerManager {
     // Configuration constants
     private static final int MIN_ENEMY_DISTANCE = 5; // Minimum tiles from enemies for safe position
@@ -67,24 +70,24 @@ public class PlayerManager {
     public void initializePlayer() {
         TileMap map = gameState.getCurrentMap();
         if (map == null) {
-            logError("Cannot initialize player: Map unavailable");
+            log.warn("Cannot initialize player: Map unavailable");
             return;
         }
 
         int[] startPosition = findSafePosition(map);
         if (startPosition == null) {
             startPosition = getFallbackPosition(map);
-            logAction("Using fallback position: " + startPosition[0] + "," + startPosition[1]);
+            log.debug("Using fallback position: {},{}", startPosition[0], startPosition[1]);
         }
 
         Player player = gameState.getPlayer();
         if (player == null) {
             player = new Player(startPosition[0], startPosition[1]);
             gameState.setPlayer(player);
-            logAction("New player created at " + formatPosition(startPosition));
+            log.info("New player created at {},{}", startPosition[0], startPosition[1]);
         } else {
             player.revive(startPosition[0], startPosition[1]);
-            logAction("Player revived at " + formatPosition(startPosition));
+            log.info("Player revived at {},{}", startPosition[0], startPosition[1]);
         }
 
         updatePlayerUI();
@@ -115,21 +118,21 @@ public class PlayerManager {
         Player player = getPlayer();
         TileMap map = gameState.getCurrentMap();
         if (player == null || map == null) {
-            logError("Respawn failed: Player or map missing");
+            log.warn("Respawn failed: Player or map missing");
             return;
         }
 
         int[] respawnPosition = findSafePosition(map);
         if (respawnPosition == null) {
             respawnPosition = getFallbackPosition(map);
-            logAction("Using fallback respawn position");
+            log.debug("Using fallback respawn position");
         }
 
         player.revive(respawnPosition[0], respawnPosition[1]);
         gameState.setPlayerRespawnTimer(-1); // Reset timer
         gameState.setShouldCenterCamera(true);
         updatePlayerUI();
-        logAction("Player respawned at " + formatPosition(respawnPosition));
+        log.info("Player respawned at {},{}", respawnPosition[0], respawnPosition[1]);
     }
 
     /**
@@ -158,7 +161,7 @@ public class PlayerManager {
         getPlayer().clearInventory();
         updatePlayerUI();
         gameState.setPlayerRespawnTimer(RESPAWN_TIMER);
-        logAction("Death sequence initiated");
+        log.info("Death sequence initiated");
     }
 
     /**
@@ -169,7 +172,7 @@ public class PlayerManager {
         if (player == null) return;
 
         List<Item> inventory = player.getInventory();
-        logAction("Dropping " + inventory.size() + " items");
+        log.debug("Dropping {} items", inventory.size());
 
         for (Item item : inventory) {
             if (item.getQuantity() > 0) {
@@ -181,7 +184,7 @@ public class PlayerManager {
                                 DroppedItem.DropSource.PLAYER
                         )
                 );
-                logAction("Dropped " + item.getType().name() + " at " + formatPosition(dropPos));
+                log.debug("Dropped {} at {},{}", item.getType().name(), dropPos[0], dropPos[1]);
             }
         }
     }
@@ -193,7 +196,7 @@ public class PlayerManager {
     private int[] findSafePosition(TileMap map) {
         Random random = new Random();
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
-        logAction("Searching safe position (max attempts: " + maxAttempts + ")");
+        log.debug("Searching safe position (max attempts: {})", maxAttempts);
 
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             int x = random.nextInt(map.getWidth());
@@ -203,7 +206,7 @@ public class PlayerManager {
                 return new int[]{x, y};
             }
         }
-        logAction("Safe position not found after " + maxAttempts + " attempts");
+        log.debug("Safe position not found after {} attempts", maxAttempts);
         return null;
     }
 
@@ -213,7 +216,7 @@ public class PlayerManager {
     private int[] getFallbackPosition(TileMap map) {
         int centerX = map.getWidth() / 2;
         int centerY = map.getHeight() / 2;
-        logAction("Searching fallback position around center");
+        log.debug("Searching fallback position around center");
 
         for (int radius = 0; radius < FALLBACK_SEARCH_RADIUS; radius++) {
             for (int x = centerX - radius; x <= centerX + radius; x++) {
@@ -226,7 +229,7 @@ public class PlayerManager {
                 }
             }
         }
-        logAction("Fallback search failed, using map center");
+        log.debug("Fallback search failed, using map center");
         return new int[]{centerX, centerY};
     }
 
@@ -237,7 +240,7 @@ public class PlayerManager {
     public int[] findAdjacentDropPosition(int playerX, int playerY) {
         TileMap map = gameState.getCurrentMap();
         if (map == null) {
-            logError("Drop position fallback: Map unavailable");
+            log.warn("Drop position fallback: Map unavailable");
             return new int[]{playerX, playerY};
         }
 
@@ -314,7 +317,7 @@ public class PlayerManager {
     private Player getPlayer() {
         Player player = gameState.getPlayer();
         if (player == null) {
-            logError("Player reference missing");
+            log.warn("Player reference missing");
         }
         return player;
     }
@@ -330,21 +333,5 @@ public class PlayerManager {
         }
     }
 
-    /**
-     * Formats coordinates for logging.
-     */
-    private String formatPosition(int[] position) {
-        return position[0] + "," + position[1];
-    }
-
-    // --- Logging Methods ---
-
-    private void logAction(String message) {
-        System.out.println("PlayerManager: " + message);
-    }
-
-    private void logError(String message) {
-        System.err.println("PlayerManager ERROR: " + message);
-    }
 
 }

@@ -16,6 +16,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -25,6 +27,7 @@ import java.util.function.Predicate;
  * Manages map generation, configuration, and enemy spawning.
  * Handles map creation based on configuration parameters and player position.
  */
+@Slf4j
 public class MapManager implements IConfigChangeListener, IMapGenerationListener {
     // Configuration constants
     private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
@@ -239,20 +242,19 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
     // --- Logging Methods ---
 
     private void logMapGeneration(MapGenerationContext context) {
-        System.out.printf("Generating %s map with seed %d%n",
-                context.getMapType().name(), context.getSeed());
+        log.info("Generating {} map with seed {}", context.getMapType().name(), context.getSeed());
     }
 
     private void logSpawnAttempt(String enemyType, int count) {
-        System.out.printf("Attempting to spawn %d %s enemies%n", count, enemyType);
+        log.debug("Attempting to spawn {} {} enemies", count, enemyType);
     }
 
     private void logSpawnFailure(String enemyType, int index) {
-        System.out.printf("Failed to find position for %s #%d%n", enemyType, index + 1);
+        log.debug("Failed to find position for {} #{}", enemyType, index + 1);
     }
 
     private void logSpawnSummary(int total) {
-        System.out.printf("Spawned %d total enemies%n", total);
+        log.debug("Spawned {} total enemies", total);
     }
 
     // --- Getters ---

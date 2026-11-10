@@ -2,11 +2,13 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manages container interactions including opening/closing containers and item transfers.
  * Supports both bulk quantity transfers and slot-based transfers between containers.
  */
+@Slf4j
 public class ContainerManager {
     private Container openContainer; // Currently active container in UI
 
@@ -20,12 +22,12 @@ public class ContainerManager {
      */
     public void openContainer(Container container) {
         if (container == null) {
-            logError("Cannot open null container");
+            log.warn("Cannot open null container");
             return;
         }
 
         openContainer = container;
-        logAction("Opened container: " + container.getClass().getSimpleName());
+        log.debug("Opened container: {}", container.getClass().getSimpleName());
     }
 
     /**
@@ -33,7 +35,7 @@ public class ContainerManager {
      */
     public void closeContainer() {
         if (openContainer != null) {
-            logAction("Closed container: " + openContainer.getClass().getSimpleName());
+            log.debug("Closed container: {}", openContainer.getClass().getSimpleName());
             openContainer = null;
         }
     }
@@ -93,7 +95,7 @@ public class ContainerManager {
                                  Item sourceItem) {
         destination.setItemAt(destinationSlot, sourceItem);
         source.setItemAt(sourceSlot, null);
-        logAction("Moved to empty slot");
+        log.debug("Moved to empty slot");
     }
 
     /**
@@ -109,9 +111,9 @@ public class ContainerManager {
 
         if (sourceItem.getQuantity() <= 0) {
             source.setItemAt(sourceSlot, null);
-            logAction("Cleared source slot after stacking");
+            log.debug("Cleared source slot after stacking");
         }
-        logAction("Stacked " + transferAmount + " items");
+        log.debug("Stacked {} items", transferAmount);
     }
 
     /**
@@ -122,7 +124,7 @@ public class ContainerManager {
                            Item sourceItem, Item destItem) {
         source.setItemAt(sourceSlot, destItem);
         destination.setItemAt(destinationSlot, sourceItem);
-        logAction("Swapped items");
+        log.debug("Swapped items");
     }
 
     /**
@@ -131,17 +133,17 @@ public class ContainerManager {
      */
     private boolean validateSlotTransferParameters(Container source, int sourceSlot, Container destination, Item item) {
         if (source == null || destination == null) {
-            logError("Slot transfer failed: Null container(s)");
+            log.warn("Slot transfer failed: Null container(s)");
             return false;
         }
 
         Item sourceItem = source.getItemAt(sourceSlot);
         if (sourceItem == null) {
-            logError("Slot transfer failed: Empty source slot");
+            log.warn("Slot transfer failed: Empty source slot");
             return false;
         }
         if (sourceItem.getType() != item.getType()) {
-            logError("Slot transfer failed: Item type mismatch");
+            log.warn("Slot transfer failed: Item type mismatch");
             return false;
         }
         return true;
@@ -161,26 +163,13 @@ public class ContainerManager {
      */
     private void logTransferOperation(Item sourceItem, int sourceSlot,
                                       Item destItem, int destSlot) {
-        System.out.printf("TRANSFER OP: %s x%d (Slot %d) -> %s (Slot %d)%n",
+        if (!log.isDebugEnabled()) return;
+        log.debug("TRANSFER OP: {} x{} (Slot {}) -> {} (Slot {})",
                 sourceItem.getDisplayName(),
                 sourceItem.getQuantity(),
                 sourceSlot,
                 destItem != null ? destItem.getDisplayName() + " x" + destItem.getQuantity() : "Empty",
                 destSlot);
-    }
-
-    /**
-     * Logs an action message.
-     */
-    private void logAction(String message) {
-        System.out.println("ContainerManager: " + message);
-    }
-
-    /**
-     * Logs an error message.
-     */
-    private void logError(String message) {
-        System.err.println("ContainerManager ERROR: " + message);
     }
 
 }

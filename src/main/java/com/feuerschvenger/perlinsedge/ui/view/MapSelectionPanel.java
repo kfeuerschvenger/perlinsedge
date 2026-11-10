@@ -10,6 +10,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +20,7 @@ import java.util.function.Consumer;
  * Panel for selecting a map type before starting a new game.
  * Displays a grid of map options with representative images.
  */
+@Slf4j
 public class MapSelectionPanel extends VBox {
 
     private Consumer<MapType> onMapSelected;
@@ -159,20 +161,20 @@ public class MapSelectionPanel extends VBox {
         String imageUrl = mapThumbnails.get(mapType);
         if (imageUrl != null) {
             try {
-                // Check if the resource can be found
                 if (getClass().getResource(imageUrl) == null) {
-                    System.err.println("RESOURCE NOT FOUND: " + imageUrl + " (check path in src/main/resources)");
+                    log.warn("Map thumbnail not found: {} (check path in src/main/resources)", imageUrl);
+                    button.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
+                } else {
+                    Image backgroundImage = new Image(getClass().getResourceAsStream(imageUrl));
+                    BackgroundImage bi = new BackgroundImage(backgroundImage,
+                            BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT,
+                            BackgroundPosition.CENTER,
+                            // Scale image to cover the button while maintaining aspect ratio
+                            new BackgroundSize(BackgroundSize.AUTO, BackgroundSize.AUTO, false, false, true, true));
+                    button.setBackground(new Background(bi));
                 }
-                Image backgroundImage = new Image(getClass().getResourceAsStream(imageUrl));
-                BackgroundImage bi = new BackgroundImage(backgroundImage,
-                        BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT,
-                        BackgroundPosition.CENTER,
-                        // Scale image to cover the button while maintaining aspect ratio
-                        new BackgroundSize(BackgroundSize.AUTO, BackgroundSize.AUTO, false, false, true, true));
-                button.setBackground(new Background(bi));
             } catch (Exception e) {
-                System.err.println("Error loading image for " + mapType.name() + ": " + imageUrl);
-                e.printStackTrace(); // Print full stack trace for more details
+                log.warn("Error loading image for {}: {}", mapType.name(), imageUrl, e);
                 button.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
             }
         } else {

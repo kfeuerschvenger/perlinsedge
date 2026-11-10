@@ -2,11 +2,13 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingHotbarPanel;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manages the building hotbar UI component and its interaction with game systems.
  * Handles visibility, selection, and synchronization with building mode state.
  */
+@Slf4j
 public class HotbarManager {
     // Dependencies
     private final BuildingHotbarPanel buildingHotbarPanel;
@@ -39,7 +41,7 @@ public class HotbarManager {
         buildingHotbarPanel.refreshHotbarDisplay();
         buildingHotbarPanel.setVisible(true);
         buildingHotbarPanel.setManaged(true);
-        logAction("Hotbar shown");
+        log.debug("Hotbar shown");
     }
 
     /**
@@ -50,7 +52,7 @@ public class HotbarManager {
         buildingHotbarPanel.setVisible(false);
         buildingHotbarPanel.setManaged(false);
         buildingManager.setSelectedBuildingType(null); // Clear selection
-        logAction("Hotbar hidden");
+        log.debug("Hotbar hidden");
     }
 
     /**
@@ -70,7 +72,7 @@ public class HotbarManager {
     public void handleHotbarNumberSelection(int slotNumber) {
         if (isInBuildingMode()) {
             buildingHotbarPanel.selectBuildingBySlotNumber(slotNumber);
-            logAction("Selected slot: " + slotNumber);
+            log.debug("Selected slot: {}", slotNumber);
         }
     }
 
@@ -80,13 +82,6 @@ public class HotbarManager {
      */
     private boolean isInBuildingMode() {
         return gameState.getCurrentGameMode() == GameMode.BUILDING_MODE;
-    }
-
-    /**
-     * Logs hotbar management actions.
-     */
-    private void logAction(String message) {
-        System.out.println("HotbarManager: " + message);
     }
 
 }

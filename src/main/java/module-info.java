@@ -2,7 +2,6 @@ module com.feuerschvenger.perlinsedge {
     requires javafx.controls;
     requires javafx.graphics;
     requires java.desktop;
-    requires java.logging;
     requires org.slf4j;
     requires static lombok;
 

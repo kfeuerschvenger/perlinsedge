@@ -4,26 +4,19 @@ import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manages player inventory operations including crafting and UI synchronization.
  * Handles recipe validation, resource consumption, and inventory updates.
  */
+@Slf4j
+@RequiredArgsConstructor
 public class InventoryManager {
-    // Dependencies
+    // Dependencies: player state access and the UI component to update after operations
     private final GameStateManager gameState;
     private final InventoryPanel inventoryPanel;
-
-    /**
-     * Initializes inventory manager with required dependencies.
-     *
-     * @param gameState Provides access to player state
-     * @param inventoryPanel UI component to update after operations
-     */
-    public InventoryManager(GameStateManager gameState, InventoryPanel inventoryPanel) {
-        this.gameState = gameState;
-        this.inventoryPanel = inventoryPanel;
-    }
 
     /**
      * Attempts to craft an item based on the specified recipe.
@@ -33,7 +26,7 @@ public class InventoryManager {
      */
     public void handleCraftRecipe(Recipe recipe) {
         if (recipe == null) {
-            logError("Cannot craft: Recipe is null");
+            log.warn("Cannot craft: Recipe is null");
             return;
         }
 
@@ -99,7 +92,7 @@ public class InventoryManager {
     private Player getPlayer() {
         Player player = gameState.getPlayer();
         if (player == null) {
-            logError("Crafting failed: Player is null");
+            log.warn("Crafting failed: Player is null");
         }
         return player;
     }
@@ -108,21 +101,14 @@ public class InventoryManager {
      * Logs a successful crafting operation.
      */
     private void logCraftSuccess(Recipe recipe) {
-        System.out.println("Crafted: " + recipe.getName());
+        log.info("Crafted: {}", recipe.getName());
     }
 
     /**
      * Logs a failed crafting attempt.
      */
     private void logCraftFailure(Recipe recipe) {
-        System.out.println("Craft failed: Insufficient materials for " + recipe.getName());
-    }
-
-    /**
-     * Logs an error message.
-     */
-    private void logError(String message) {
-        System.err.println("InventoryManager: " + message);
+        log.debug("Craft failed: Insufficient materials for {}", recipe.getName());
     }
 
 }

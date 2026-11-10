@@ -2,11 +2,13 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implements the attack behavior for Mimic enemies.
  * Mimics attack only when aggroed and player is in range.
  */
+@Slf4j
 public class MimicAttackStrategy implements EnemyAttackStrategy {
     private static final double ATTACK_RANGE_TILES = 1.0; // Mimics attack when adjacent or on same tile
 
@@ -19,7 +21,7 @@ public class MimicAttackStrategy implements EnemyAttackStrategy {
         if (canAttack(enemy, player)) {
             player.takeDamage(enemy.getAttackDamage());
             enemy.resetAttackCooldown();
-            System.out.println("Mimic attacked player!");
+            log.debug("Mimic attacked player");
         }
     }
 

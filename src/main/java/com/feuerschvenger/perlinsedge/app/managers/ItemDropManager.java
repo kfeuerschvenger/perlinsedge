@@ -7,6 +7,8 @@ import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Predicate;
@@ -14,6 +16,7 @@ import java.util.function.Predicate;
 /**
  * Manages dropped items in the game world, handling pickup mechanics, despawning, and item creation.
  */
+@Slf4j
 public class ItemDropManager {
     // Configuration constants
     private static final double PICKUP_COOLDOWN_SECONDS = 0.5; // Prevents instant re-pickup
@@ -59,7 +62,7 @@ public class ItemDropManager {
 
         gameState.getDroppedItems().add(dropped);
         gameState.setLastDropTime(gameState.getGameTime());
-        System.out.printf("Dropped item: %s at (%d, %d)%n",
+        log.debug("Dropped item: {} at ({}, {})",
                 item.getType().getDisplayName(), dropPos[0], dropPos[1]);
     }
 
@@ -150,7 +153,7 @@ public class ItemDropManager {
     private Player getPlayer() {
         Player player = gameState.getPlayer();
         if (player == null) {
-            System.err.println("ItemDropManager: Player is null");
+            log.warn("Player is null");
         }
         return player;
     }
@@ -159,16 +162,16 @@ public class ItemDropManager {
      * Logs successful item pickup.
      */
     private void logPickup(Item item, int quantity) {
-        System.out.printf("Picked up %dx %s%n", quantity, item.getType().getDisplayName());
+        log.debug("Picked up {}x {}", quantity, item.getType().getDisplayName());
     }
 
     /**
      * Logs item despawn event.
      */
     private void logDespawn(DroppedItem item) {
-        System.out.printf("Despawned %s (dropped %.1f minutes ago)%n",
+        log.debug("Despawned {} (dropped {} minutes ago)",
                 item.getItem().getType().getDisplayName(),
-                (gameState.getGameTime() - item.getDropTime()) / 60);
+                "%.1f".formatted((gameState.getGameTime() - item.getDropTime()) / 60));
     }
 
 }

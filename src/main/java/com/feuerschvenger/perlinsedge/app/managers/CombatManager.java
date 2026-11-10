@@ -7,6 +7,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,16 +17,14 @@ import java.util.List;
  * Manages combat interactions between player and enemies.
  * Handles attack direction calculation, damage application, enemy updates, and death processing.
  */
+@Slf4j
+@RequiredArgsConstructor
 public class CombatManager {
     private static final double FULL_CIRCLE_RADIANS = 2 * Math.PI;
     private static final double DIRECTION_SECTOR_SIZE = Math.PI / 4; // 45-degree sectors
     private static final double HALF_SECTOR_ADJUSTMENT = DIRECTION_SECTOR_SIZE / 2;
 
     private final GameStateManager gameState;
-
-    public CombatManager(GameStateManager gameState) {
-        this.gameState = gameState;
-    }
 
     /**
      * Updates all enemies in the game world.
@@ -63,7 +64,7 @@ public class CombatManager {
         if (enemy.isReadyToAttack()) {
             player.takeDamage(enemy.getAttackDamage());
             enemy.resetAttackCooldown();
-            System.out.printf("%s attacked player. Player health: %.1f%n",
+            log.debug("{} attacked player. Player health: {}",
                     enemy.getClass().getSimpleName(), player.getHealth());
         }
     }
@@ -144,7 +145,7 @@ public class CombatManager {
     private void handleEnemyDeath(Enemy enemy) {
         generateLootDrops(enemy);
         gameState.getEnemies().remove(enemy);
-        System.out.printf("%s defeated!%n", enemy.getClass().getSimpleName());
+        log.debug("{} defeated", enemy.getClass().getSimpleName());
     }
 
     /**
