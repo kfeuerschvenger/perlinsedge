@@ -48,8 +48,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           VERSION="${TAG#v}"
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
-            echo "::error::Tag '${TAG}' does not look like vMAJOR.MINOR.PATCH"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '${TAG}' is not a strict vMAJOR.MINOR.PATCH release tag (suffixes are not accepted)"
             exit 1
           fi
           mvn -B -ntp versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
