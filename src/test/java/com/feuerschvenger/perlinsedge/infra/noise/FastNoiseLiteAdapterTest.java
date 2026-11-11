@@ -4,6 +4,9 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,8 +17,38 @@ class FastNoiseLiteAdapterTest {
     private static final NoiseSettings FRACTAL = new NoiseSettings(0.05f, 4, FractalKind.FBM, 0.5f, 2f);
 
     @Test
-    void foldSeedKeepsTheLowHalfWhenTheHighHalfIsZero() {
-        assertEquals(12_345, FastNoiseLiteAdapter.foldSeed(12_345L));
+    void foldSeedIsDeterministic() {
+        assertEquals(FastNoiseLiteAdapter.foldSeed(12_345L), FastNoiseLiteAdapter.foldSeed(12_345L));
+    }
+
+    @Test
+    void seedsWithEqualHalvesNoLongerCollapseToTheSameValue() {
+        long[] equalHalves = {0L, 0x1_0000_0001L, 0x7FFF_FFFF_7FFF_FFFFL, -1L, 0x1234_5678_1234_5678L};
+
+        Set<Integer> folded = new HashSet<>();
+        for (long seed : equalHalves) {
+            folded.add(FastNoiseLiteAdapter.foldSeed(seed));
+        }
+
+        assertEquals(equalHalves.length, folded.size());
+    }
+
+    @Test
+    void aSeedAndItsHalfSwappedTwinDiffer() {
+        long seed = (7L << 32) | 3L;
+        long swapped = (3L << 32) | 7L;
+
+        assertNotEquals(FastNoiseLiteAdapter.foldSeed(seed), FastNoiseLiteAdapter.foldSeed(swapped));
+    }
+
+    @Test
+    void consecutiveSeedsFoldToDistinctValues() {
+        Set<Integer> folded = new HashSet<>();
+        for (long seed = 0; seed < 10_000; seed++) {
+            folded.add(FastNoiseLiteAdapter.foldSeed(seed));
+        }
+
+        assertEquals(10_000, folded.size());
     }
 
     @Test

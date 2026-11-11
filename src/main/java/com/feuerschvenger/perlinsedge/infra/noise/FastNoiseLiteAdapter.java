@@ -36,14 +36,21 @@ public final class FastNoiseLiteAdapter implements NoiseSource {
     }
 
     /**
-     * Folds a 64-bit seed into 32 bits with both halves contributing.
-     * A plain narrowing cast would make seeds that differ only in the upper 32 bits produce the same noise.
+     * Folds a 64-bit seed into 32 bits with every input bit contributing.
+     * A narrowing cast ignores the upper 32 bits, and xoring the two halves still collapses every seed whose halves
+     * are equal to 0 and maps a seed and its half-swapped twin to the same value. The seed goes through the
+     * SplitMix64 finaliser first, which spreads each input bit over the whole word, and the two halves of that
+     * result are then combined.
      *
      * @param seed the 64-bit seed
      * @return a 32-bit seed that depends on every bit of the input
      */
     static int foldSeed(long seed) {
-        return (int) (seed ^ (seed >>> 32));
+        long z = seed + 0x9E3779B97F4A7C15L;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        z ^= z >>> 31;
+        return (int) (z ^ (z >>> 32));
     }
 
     @Override
