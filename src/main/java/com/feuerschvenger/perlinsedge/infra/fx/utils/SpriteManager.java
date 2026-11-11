@@ -59,10 +59,12 @@ public final class SpriteManager {
     private final Map<String, List<List<Image>>> entitySprites = new HashMap<>();
     private final Map<TileType, List<Image>> tileSprites = new EnumMap<>(TileType.class);
     private final Map<ItemType, SpriteMetadata> itemSprites = new EnumMap<>(ItemType.class);
+    private final Map<String, Image> decalSprites = new HashMap<>();
     private List<Image> slimeFrames = List.of();
 
     private SpriteManager() {
         loadTileSprites();
+        loadDecalSprites();
         loadResourceSprites();
         loadEntitySprites();
         loadItemSprites();
@@ -94,6 +96,21 @@ public final class SpriteManager {
             } else {
                 tileSprites.put(type, variants);
             }
+        }
+    }
+
+    private void loadDecalSprites() {
+        List<String> missing = new ArrayList<>();
+        for (String name : GroundDecals.ALL) {
+            Image image = loadImage(AssetPaths.decal(name));
+            if (image == null) {
+                missing.add(name);
+            } else {
+                decalSprites.put(name, image);
+            }
+        }
+        if (!missing.isEmpty()) {
+            log.info("No decal art for {}, those decals are skipped", missing);
         }
     }
 
@@ -228,6 +245,16 @@ public final class SpriteManager {
             return null;
         }
         return variants.get(SpriteVariants.forTile(x, y, variants.size()));
+    }
+
+    /**
+     * Retrieves a decal sprite.
+     *
+     * @param name the decal name, see {@link GroundDecals}
+     * @return the sprite, or null when the name is null or has no art
+     */
+    public Image getDecalSprite(String name) {
+        return name == null ? null : decalSprites.get(name);
     }
 
     /**

@@ -109,6 +109,7 @@ public class MapManager implements IMapGenerationListener {
     @Override
     public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
         gameState.setCurrentMap(newMap);
+        gameState.setWorldSeed(generator.getSeed());
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
 

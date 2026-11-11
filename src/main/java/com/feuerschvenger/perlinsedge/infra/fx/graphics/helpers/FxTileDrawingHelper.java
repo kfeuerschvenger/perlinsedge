@@ -20,6 +20,9 @@ public final class FxTileDrawingHelper {
     private static final double OUTLINE_WIDTH = 1.2;
     private static final double WATER_SCALE_FACTOR = 1.01;
     private static final double HEIGHT_NORMALIZATION_FACTOR = 2.0;
+    /** Half the width and height of the top diamond of a tile sprite, in art pixels. */
+    private static final double DECAL_TILE_HALF_WIDTH = 16.0;
+    private static final double DECAL_TILE_HALF_HEIGHT = 8.0;
     private static final double DEBUG_TEXT_OFFSET = 5.0;
     private static final double DEBUG_TEXT_Y_OFFSET_FACTOR = 1.2;
     private static final Font DEBUG_FONT = new Font("Arial", 10);
@@ -110,6 +113,32 @@ public final class FxTileDrawingHelper {
         final double width = tileSprite.getWidth() * scale;
         final double height = tileSprite.getHeight() * scale;
         gc.drawImage(tileSprite, Math.rint(screenX - width / 2), Math.rint(screenY), width, height);
+    }
+
+    /**
+     * Draws a small decal sprite on the top diamond of a tile sprite, with its bottom centre at an offset from the
+     * diamond centre.
+     * The offset is given along the two isometric axes as fractions of the tile, so it maps to a point inside the
+     * diamond for any value up to one half. The decal is drawn at an integer scale on whole pixels like the tile.
+     *
+     * @param gc GraphicsContext to draw on
+     * @param decal the decal sprite
+     * @param screenX Screen X coordinate of the tile top vertex
+     * @param screenY Screen Y coordinate of the tile top vertex
+     * @param zoom Current zoom level
+     * @param offsetU offset along the first isometric axis, a fraction of the tile
+     * @param offsetV offset along the second isometric axis, a fraction of the tile
+     */
+    public static void drawDecal(GraphicsContext gc, Image decal, double screenX, double screenY, double zoom,
+                                 double offsetU, double offsetV) {
+        final double scale = ZoomSteps.artScale(zoom);
+        final double halfW = DECAL_TILE_HALF_WIDTH * scale;
+        final double halfH = DECAL_TILE_HALF_HEIGHT * scale;
+        final double anchorX = screenX + (offsetU - offsetV) * halfW;
+        final double anchorY = screenY + halfH + (offsetU + offsetV) * halfH;
+        final double width = decal.getWidth() * scale;
+        final double height = decal.getHeight() * scale;
+        gc.drawImage(decal, Math.rint(anchorX - width / 2), Math.rint(anchorY - height), width, height);
     }
 
     /**

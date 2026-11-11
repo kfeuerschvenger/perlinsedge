@@ -13,6 +13,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.Canvas;
@@ -408,12 +409,30 @@ public class FxRenderer {
 
         if (r.sprite() != null) {
             FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
+            drawGroundDecal(tile, r);
         } else {
             FxTileDrawingHelper.drawTileShape(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
         }
         if (saveCount > 0) {
             gc.restore();
         }
+    }
+
+    /**
+     * Draws the decal of a tile on its top face, when the tile has one and holds no resource or building.
+     * The choice and the offset are pure functions of the tile and the world seed, so nothing is allocated.
+     */
+    private void drawGroundDecal(Tile tile, Renderable r) {
+        if (!tile.isBuildable()) {
+            return;
+        }
+        final long seed = gameState.getWorldSeed();
+        final Image decal = spriteManager.getDecalSprite(GroundDecals.decalFor(tile.getType(), tile.getX(), tile.getY(), seed));
+        if (decal == null) {
+            return;
+        }
+        FxTileDrawingHelper.drawDecal(gc, decal, r.screenX(), r.screenY(), camera.getZoom(),
+                GroundDecals.offsetU(tile.getX(), tile.getY(), seed), GroundDecals.offsetV(tile.getX(), tile.getY(), seed));
     }
 
     /**

@@ -29,6 +29,8 @@ public class GameStateManager {
     // World State
     private TileMap currentMap;
     private final Map<Resource, Long> resourceHitTimes = new HashMap<>();
+    /** The seed the current map was generated from, which also scatters the cosmetic ground decals. */
+    private long worldSeed;
 
     // Timing & Cooldowns
     @Setter(lombok.AccessLevel.NONE)

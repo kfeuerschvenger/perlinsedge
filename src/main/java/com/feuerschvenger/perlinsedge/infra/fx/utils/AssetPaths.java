@@ -76,6 +76,16 @@ public final class AssetPaths {
     }
 
     /**
+     * Returns the path of a decal sprite.
+     *
+     * @param name the decal name, for example tuft-1
+     * @return the classpath location
+     */
+    public static String decal(String name) {
+        return BASE + "decals/" + name + ".png";
+    }
+
+    /**
      * Returns the path of an item icon.
      *
      * @param type the item type
