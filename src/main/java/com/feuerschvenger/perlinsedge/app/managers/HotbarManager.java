@@ -52,7 +52,20 @@ public class HotbarManager {
         buildingHotbarPanel.setVisible(false);
         buildingHotbarPanel.setManaged(false);
         buildingManager.setSelectedBuildingType(null); // Clear selection
+        buildingHotbarPanel.clearSelection();
         log.debug("Hotbar hidden");
+    }
+
+    /**
+     * Shows the next or previous group of buildings when there are more buildings than number keys.
+     * Only responds when in building mode.
+     *
+     * @param delta 1 for the next page, -1 for the previous page
+     */
+    public void changePage(int delta) {
+        if (isInBuildingMode()) {
+            buildingHotbarPanel.changePage(delta);
+        }
     }
 
     /**
@@ -67,7 +80,7 @@ public class HotbarManager {
      * Processes number key input for hotbar selection.
      * Only responds when in building mode.
      *
-     * @param slotNumber Hotbar slot number (1-9)
+     * @param slotNumber Hotbar slot number (1-9) within the page that is showing
      */
     public void handleHotbarNumberSelection(int slotNumber) {
         if (isInBuildingMode()) {

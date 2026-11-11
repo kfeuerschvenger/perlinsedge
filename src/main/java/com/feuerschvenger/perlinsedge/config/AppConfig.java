@@ -197,8 +197,11 @@ public class AppConfig {
         private boolean enabled = false;
         private boolean grayscaleEnabled = false;
         private boolean textEnabled = false;
+        private boolean fpsOverlayEnabled = false;
 
         // Getters and setters
+        public boolean isFpsOverlayEnabled() { return fpsOverlayEnabled; }
+        public void setFpsOverlayEnabled(boolean enabled) { this.fpsOverlayEnabled = enabled; }
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public boolean isGrayscaleEnabled() { return grayscaleEnabled; }

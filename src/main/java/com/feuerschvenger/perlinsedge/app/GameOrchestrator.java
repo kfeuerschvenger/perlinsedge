@@ -229,7 +229,8 @@ public class GameOrchestrator {
                 transitions::toggleInventory,
                 combatManager::handlePlayerAttack,
                 transitions::toggleBuildingMode,
-                hotbarManager::handleHotbarNumberSelection
+                hotbarManager::handleHotbarNumberSelection,
+                hotbarManager::changePage
         );
     }
 

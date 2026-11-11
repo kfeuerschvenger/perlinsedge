@@ -24,6 +24,13 @@ class FxKeyMapperTest {
     void mapsDebugKeys() {
         assertEquals(Optional.of(GameKey.F1), FxKeyMapper.toGameKey(KeyCode.F1));
         assertEquals(Optional.of(GameKey.F5), FxKeyMapper.toGameKey(KeyCode.F5));
+        assertEquals(Optional.of(GameKey.F6), FxKeyMapper.toGameKey(KeyCode.F6));
+    }
+
+    @Test
+    void mapsTheHotbarPageKeys() {
+        assertEquals(Optional.of(GameKey.Q), FxKeyMapper.toGameKey(KeyCode.Q));
+        assertEquals(Optional.of(GameKey.E), FxKeyMapper.toGameKey(KeyCode.E));
     }
 
     @Test
