@@ -29,7 +29,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * Registers the mouse, drag-and-drop and keyboard handlers of the game and translates
  * canvas events into game actions.

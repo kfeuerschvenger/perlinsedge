@@ -78,10 +78,6 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
                 if (next == null) {
                     return;
                 }
-                if (isPlayerTile(next, player)) {
-                    path.clear();
-                    return;
-                }
             }
 
             double dx = next.x - enemy.getPosX();
