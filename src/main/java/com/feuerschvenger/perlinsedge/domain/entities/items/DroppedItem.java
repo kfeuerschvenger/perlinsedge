@@ -11,7 +11,7 @@ public class DroppedItem {
     // Configuration constants
     private static final AtomicLong ID_GENERATOR = new AtomicLong();
     private static final double PICKUP_RADIUS = 0.8; // Tile-based pickup radius
-    private static final double PROXIMITY_THRESHOLD = 3.0; // Distance to mark player departure
+    private static final double PLAYER_DROP_PICKUP_DELAY_SECONDS = 0.5; // Prevents instant re-pickup of a dropped stack
 
     /**
      * Identifies the original source of the dropped item.
@@ -30,7 +30,6 @@ public class DroppedItem {
     private final int tileY;
     private final double dropTime;
     private final DropSource source;
-    private boolean playerHasLeftProximity = false;
 
     /**
      * Creates a new dropped item instance.
@@ -137,29 +136,23 @@ public class DroppedItem {
     }
 
     /**
-     * Determines if this item can currently be picked up.
-     * Implements special pickup rules based on item source.
+     * Determines if this item can be picked up at a given moment.
+     * An item dropped by the player has its own short delay, so the player does not collect the stack again
+     * in the same instant; the other sources are available at once. The delay is per item, it never holds up
+     * other drops.
      *
      * @param playerTileX Player's current X position
      * @param playerTileY Player's current Y position
-     * @return True if pickup is permitted under current conditions
+     * @param gameTime    Current game time in seconds
+     * @return True if the player is in range and the item's own delay has passed
      */
-    public boolean canBePickedUp(int playerTileX, int playerTileY) {
-        // Resource and enemy drops have immediate pickup availability
-        if (source == DropSource.RESOURCE || source == DropSource.ENEMY) {
-            return isInPickupRange(playerTileX, playerTileY);
-        }
+    public boolean canBePickedUp(int playerTileX, int playerTileY, double gameTime) {
+        return gameTime - dropTime >= pickupDelaySeconds() && isInPickupRange(playerTileX, playerTileY);
+    }
 
-        // Player drops require departure and return mechanic
-        if (!playerHasLeftProximity) {
-            double distance = Math.hypot(playerTileX - tileX, playerTileY - tileY);
-            if (distance > PROXIMITY_THRESHOLD) {
-                playerHasLeftProximity = true;
-            }
-            return false;
-        }
-
-        return isInPickupRange(playerTileX, playerTileY);
+    /** @return Seconds after the drop during which this item cannot be picked up */
+    public double pickupDelaySeconds() {
+        return source == DropSource.PLAYER ? PLAYER_DROP_PICKUP_DELAY_SECONDS : 0.0;
     }
 
     // ==================================================================

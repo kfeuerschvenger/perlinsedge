@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Predicate;
 
 /**
@@ -19,7 +20,6 @@ import java.util.function.Predicate;
 @Slf4j
 public class ItemDropManager {
     // Configuration constants
-    private static final double PICKUP_COOLDOWN_SECONDS = 0.5; // Prevents instant re-pickup
     private static final double DESPAWN_TIME_SECONDS = 300; // 5 minutes
 
     // Tile validator for drop positions
@@ -61,7 +61,6 @@ public class ItemDropManager {
         );
 
         gameState.getDroppedItems().add(dropped);
-        gameState.setLastDropTime(gameState.getGameTime());
         log.debug("Dropped item: {} at ({}, {})",
                 item.getType().getDisplayName(), dropPos[0], dropPos[1]);
     }
@@ -114,14 +113,10 @@ public class ItemDropManager {
     }
 
     /**
-     * Validates if an item can be picked up:
-     * 1. Within pickup range (adjacent tiles)
-     * 2. Past the pickup cooldown period
+     * Validates if an item can be picked up: in range and past that item's own pickup delay.
      */
     private boolean isPickupValid(int playerX, int playerY, DroppedItem item) {
-        if (!item.canBePickedUp(playerX, playerY)) return false;
-
-        return (gameState.getGameTime() - gameState.getLastDropTime()) >= PICKUP_COOLDOWN_SECONDS;
+        return item.canBePickedUp(playerX, playerY, gameState.getGameTime());
     }
 
     /**
@@ -151,11 +146,7 @@ public class ItemDropManager {
      * Retrieves the player instance if valid.
      */
     private Player getPlayer() {
-        Player player = gameState.getPlayer();
-        if (player == null) {
-            log.warn("Player is null");
-        }
-        return player;
+        return gameState.getPlayer();
     }
 
     /**
@@ -172,7 +163,7 @@ public class ItemDropManager {
         if (log.isDebugEnabled()) {
             log.debug("Despawned {} (dropped {} minutes ago)",
                     item.getItem().getType().getDisplayName(),
-                    "%.1f".formatted((gameState.getGameTime() - item.getDropTime()) / 60));
+                    String.format(Locale.ROOT, "%.1f", (gameState.getGameTime() - item.getDropTime()) / 60));
         }
     }
 

@@ -85,14 +85,17 @@ public class Player extends Entity implements Container {
      * Initiates an attack in the specified direction.
      *
      * @param direction The attack direction (using DIR_* constants)
+     * @return true if the attack started, false while the cooldown runs or the player is dead
      */
-    public void startAttack(int direction) {
-        if (attackTimer <= 0 && !isDead) {
-            isAttacking = true;
-            attackTimer = attackCooldown;
-            attackAnimationTime = 0;
-            attackDirection = direction;
+    public boolean startAttack(int direction) {
+        if (attackTimer > 0 || isDead) {
+            return false;
         }
+        isAttacking = true;
+        attackTimer = attackCooldown;
+        attackAnimationTime = 0;
+        attackDirection = direction;
+        return true;
     }
 
     public boolean isAttacking() {

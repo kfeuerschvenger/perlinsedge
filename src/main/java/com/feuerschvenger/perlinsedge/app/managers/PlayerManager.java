@@ -175,7 +175,7 @@ public class PlayerManager {
         log.debug("Dropping {} items", inventory.size());
 
         for (Item item : inventory) {
-            if (item.getQuantity() > 0) {
+            if (item != null && item.getQuantity() > 0) {
                 int[] dropPos = findAdjacentDropPosition(player.getCurrentTileX(), player.getCurrentTileY());
                 gameState.getDroppedItems().add(
                         new DroppedItem(
@@ -312,14 +312,11 @@ public class PlayerManager {
     }
 
     /**
-     * Retrieves player instance if available.
+     * Retrieves player instance, null before a game has started.
+     * A missing player is a normal state for the per-frame update, so it is not logged.
      */
     private Player getPlayer() {
-        Player player = gameState.getPlayer();
-        if (player == null) {
-            log.warn("Player reference missing");
-        }
-        return player;
+        return gameState.getPlayer();
     }
 
     /**

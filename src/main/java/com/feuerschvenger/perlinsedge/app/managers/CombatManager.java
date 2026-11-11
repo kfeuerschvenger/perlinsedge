@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Manages combat interactions between player and enemies.
@@ -66,7 +67,7 @@ public class CombatManager {
             enemy.resetAttackCooldown();
             if (log.isDebugEnabled()) {
                 log.debug("{} attacked player. Player health: {}",
-                        enemy.getClass().getSimpleName(), "%.1f".formatted(player.getHealth()));
+                        enemy.getClass().getSimpleName(), String.format(Locale.ROOT, "%.1f", player.getHealth()));
             }
         }
     }
@@ -82,7 +83,8 @@ public class CombatManager {
         int[] attackDirection = calculateAttackVector(player);
         int direction = calculateAttackDirection(attackDirection[0], attackDirection[1]);
 
-        player.startAttack(direction);
+        // The player's own cooldown gates both the swing and the damage
+        if (!player.startAttack(direction)) return;
         applyMeleeDamage(player);
     }
 
