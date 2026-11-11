@@ -198,6 +198,66 @@ class EnemyBehaviourTest {
     }
 
     @Test
+    void skeletonStopsOnADiagonalNeighbourAndNeverEntersThePlayersTile() {
+        TileMap map = grass(40);
+        Skeleton skeleton = new Skeleton(5, 5);
+        Player player = new Player(9, 9);
+
+        for (int i = 0; i < 60 * 10; i++) {
+            skeleton.update(STEP, map, player);
+            assertFalse(skeleton.getCurrentTileX() == 9 && skeleton.getCurrentTileY() == 9, "on the player's tile");
+            assertTrue(Math.hypot(skeleton.getPosX() - 9, skeleton.getPosY() - 9) >= 1.0,
+                    "closer than a tile to the player at step " + i);
+        }
+
+        int chebyshev = Math.max(Math.abs(9 - skeleton.getCurrentTileX()), Math.abs(9 - skeleton.getCurrentTileY()));
+        assertEquals(1, chebyshev);
+        assertEquals(skeleton.getCurrentTileX(), skeleton.getPosX(), 1e-9);
+        assertEquals(skeleton.getCurrentTileY(), skeleton.getPosY(), 1e-9);
+    }
+
+    @Test
+    void skeletonStaysOffThePlayersTileWhileThePlayerKeepsMoving() {
+        TileMap map = grass(40);
+        Skeleton skeleton = new Skeleton(5, 5);
+        Player player = new Player(10, 5);
+
+        for (int i = 0; i < 60 * 12; i++) {
+            if (i % 45 == 0) {
+                // The player walks back and forth across the skeleton's approach line
+                int targetX = 10 - (i / 45) % 3;
+                int targetY = 5 + (i / 45) % 2;
+                // The test never teleports the player onto the skeleton itself
+                if (targetX != skeleton.getCurrentTileX() || targetY != skeleton.getCurrentTileY()) {
+                    player.setPosition(targetX, targetY);
+                }
+            }
+            skeleton.update(STEP, map, player);
+            assertFalse(skeleton.getCurrentTileX() == player.getCurrentTileX()
+                    && skeleton.getCurrentTileY() == player.getCurrentTileY(), "on the player's tile at step " + i);
+        }
+    }
+
+    @Test
+    void skeletonFinishesItsStepOnATileCentreWhenThePlayerLeavesTheAggroRange() {
+        TileMap map = grass(40);
+        Skeleton skeleton = new Skeleton(5, 5);
+        Player player = new Player(12, 5);
+
+        for (int i = 0; i < 10; i++) {
+            skeleton.update(STEP, map, player);
+        }
+        assertTrue(skeleton.getPosX() > 5 && skeleton.getPosX() < 6, "precondition: mid-step");
+        player.setPosition(39, 39);
+        for (int i = 0; i < 60; i++) {
+            skeleton.update(STEP, map, player);
+        }
+
+        assertEquals(Math.rint(skeleton.getPosX()), skeleton.getPosX(), 1e-9);
+        assertEquals(Math.rint(skeleton.getPosY()), skeleton.getPosY(), 1e-9);
+    }
+
+    @Test
     void skeletonStrikesInMeleeOncePerCooldown() {
         TileMap map = grass(40);
         Skeleton skeleton = new Skeleton(5, 5);
