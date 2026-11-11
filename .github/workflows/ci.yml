@@ -29,4 +29,8 @@ jobs:
           java-version: '25'
           cache: maven
       - name: Build and test
+        if: runner.os != 'Linux'
         run: mvn -B verify
+      - name: Build and test under a virtual display
+        if: runner.os == 'Linux'
+        run: xvfb-run -a mvn -B verify
