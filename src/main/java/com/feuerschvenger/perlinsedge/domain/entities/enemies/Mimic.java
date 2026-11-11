@@ -58,11 +58,24 @@ public class Mimic extends Enemy {
     // ==================================================================
 
     /**
+     * A hit wakes the mimic even from outside its activation range.
+     *
+     * @param amount Damage amount to apply
+     */
+    @Override
+    public void takeDamage(double amount) {
+        if (!isDead) {
+            activate();
+        }
+        super.takeDamage(amount);
+    }
+
+    /**
      * Activates the Mimic when discovered by the player.
      * Triggers aggressive behavior and combat mode.
      */
     public void activate() {
-        if (getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
+        if (getMovementStrategy() instanceof MimicMovementStrategy mimicMovement && !mimicMovement.isAggroed()) {
             mimicMovement.setAggroed(true);
             log.debug("Mimic activated at ({}, {})", getPosX(), getPosY());
         }

@@ -17,6 +17,7 @@ public final class Pathfinder {
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
 
     private final TileMap map;
+    private int lastExpandedNodes;
 
     /**
      * Constructs a Pathfinder instance for a specific game map.
@@ -42,6 +43,27 @@ public final class Pathfinder {
      *         or null if no valid path exists
      */
     public List<PathNode> findPath(int startX, int startY, int targetX, int targetY) {
+        return findPath(startX, startY, targetX, targetY, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Finds a path like {@link #findPath(int, int, int, int)} but gives up once the search has expanded
+     * {@code maxExpandedNodes} tiles. Searching for an unreachable target otherwise expands every reachable tile
+     * of the map, so callers that search often bound the work with this cap.
+     *
+     * @param startX           Starting X coordinate
+     * @param startY           Starting Y coordinate
+     * @param targetX          Target X coordinate
+     * @param targetY          Target Y coordinate
+     * @param maxExpandedNodes largest number of tiles the search may expand, must be positive
+     * @return the path excluding the start position, or null if none exists within the cap
+     */
+    public List<PathNode> findPath(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
+        if (maxExpandedNodes <= 0) {
+            throw new IllegalArgumentException("maxExpandedNodes must be positive");
+        }
+        lastExpandedNodes = 0;
+
         // Validate start and target positions
         if (!isWalkable(startX, startY) || !isWalkable(targetX, targetY)) {
             return null;
@@ -72,11 +94,20 @@ public final class Pathfinder {
                 return reconstructPath(cameFrom, current);
             }
 
+            if (++lastExpandedNodes > maxExpandedNodes) {
+                return null;
+            }
+
             // Explore all possible neighbor directions
             exploreNeighbors(current, targetX, targetY, openSet, cameFrom, gScores);
         }
 
         return null; // No valid path exists
+    }
+
+    /** @return number of tiles the most recent search expanded, 0 before any search */
+    public int getLastExpandedNodes() {
+        return lastExpandedNodes;
     }
 
     // ==================================================================

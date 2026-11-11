@@ -83,6 +83,7 @@ public class AppConfig {
         // Enemy settings
         private static final int baseSlimesCount = 30;
         private static final int baseMimicsCount = 3;
+        private static final int baseSkeletonsCount = 6;
         private static final int minEnemyDistance = 30;
         private static final int maxPositioningAttempts = 3000;
 
@@ -109,6 +110,7 @@ public class AppConfig {
         public void setCurrentMapType(MapType mapType) { this.currentMapType = mapType; }
         public int getBaseSlimesCount() { return baseSlimesCount; }
         public int getBaseMimicsCount() { return baseMimicsCount; }
+        public int getBaseSkeletonsCount() { return baseSkeletonsCount; }
         public int getMinEnemyDistance() { return minEnemyDistance; }
         public int getMaxPositioningAttempts() { return maxPositioningAttempts; }
         public float getTemperatureNoiseFrequency() { return temperatureNoiseFrequency; }

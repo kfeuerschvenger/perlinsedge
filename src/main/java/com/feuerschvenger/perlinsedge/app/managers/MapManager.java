@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.events.IMapGenerationListener;
@@ -126,6 +127,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
         int[] playerPosition = getPlayerPosition();
         spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map);
         spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map);
+        spawnEnemyType(enemies, Skeleton.class, AppConfig.getInstance().world().getBaseSkeletonsCount(), playerPosition, map);
 
         gameState.setEnemies(enemies);
         logSpawnSummary(enemies.size());
@@ -154,6 +156,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
     private Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
         if (type == Slime.class) return new Slime(x, y);
         if (type == Mimic.class) return new Mimic(x, y);
+        if (type == Skeleton.class) return new Skeleton(x, y);
         throw new IllegalArgumentException("Unsupported enemy type: " + type);
     }
 
