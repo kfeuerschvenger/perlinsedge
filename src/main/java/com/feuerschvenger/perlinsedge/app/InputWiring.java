@@ -13,6 +13,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
+import com.feuerschvenger.perlinsedge.infra.fx.input.ScrollInterceptor;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
@@ -28,7 +29,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.function.IntPredicate;
 
 /**
  * Registers the mouse, drag-and-drop and keyboard handlers of the game and translates
@@ -102,9 +102,9 @@ public class InputWiring {
     /**
      * Lets a handler use the mouse wheel before the camera does.
      *
-     * @param interceptor receives -1 or 1 per wheel notch and returns true when it used the notch
+     * @param interceptor receives the wheel delta and the Ctrl state, and returns true when it used the event
      */
-    public void registerWheelInterceptor(IntPredicate interceptor) {
+    public void registerWheelInterceptor(ScrollInterceptor interceptor) {
         inputHandler.setScrollInterceptor(interceptor);
     }
 

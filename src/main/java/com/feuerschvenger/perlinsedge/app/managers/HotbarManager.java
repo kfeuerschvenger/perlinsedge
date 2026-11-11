@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
+import com.feuerschvenger.perlinsedge.infra.fx.input.WheelAccumulator;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingHotbarPanel;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,6 +15,7 @@ public class HotbarManager {
     private final BuildingHotbarPanel buildingHotbarPanel;
     private final BuildingManager buildingManager;
     private final GameStateManager gameState;
+    private final WheelAccumulator wheel = new WheelAccumulator();
 
     /**
      * Initializes the hotbar manager with required dependencies.
@@ -49,6 +51,7 @@ public class HotbarManager {
      * Clears any active building selection.
      */
     public void hideHotbar() {
+        wheel.reset();
         buildingHotbarPanel.setVisible(false);
         buildingHotbarPanel.setManaged(false);
         buildingManager.setSelectedBuildingType(null); // Clear selection
@@ -69,17 +72,24 @@ public class HotbarManager {
     }
 
     /**
-     * Uses a mouse wheel notch to flip the hotbar page while in building mode.
-     * The notch is left to the camera when the game is not in building mode or the hotbar has a single page.
+     * Uses the mouse wheel to flip the hotbar page while in building mode.
+     * Wheel deltas are accumulated so that one gesture on a touchpad or an inertial wheel flips one page per
+     * {@link WheelAccumulator#STEP_THRESHOLD} units instead of one per event. The event is left to the camera when the
+     * game is not in building mode, the hotbar has a single page, or Ctrl is held to zoom.
      *
-     * @param delta -1 for the previous page, 1 for the next one
-     * @return true when the notch changed the page and must not zoom the camera
+     * @param deltaY the vertical wheel delta, positive when the wheel turns up or away
+     * @param ctrlDown true when Ctrl is held
+     * @return true when the event belongs to the hotbar and must not zoom the camera
      */
-    public boolean handleWheel(int delta) {
-        if (!isInBuildingMode() || !buildingHotbarPanel.hasMultiplePages()) {
+    public boolean handleWheel(double deltaY, boolean ctrlDown) {
+        if (ctrlDown || !isInBuildingMode() || !buildingHotbarPanel.hasMultiplePages()) {
+            wheel.reset();
             return false;
         }
-        buildingHotbarPanel.changePage(delta);
+        int step = wheel.add(deltaY);
+        if (step != 0) {
+            buildingHotbarPanel.changePage(-step);
+        }
         return true;
     }
 
