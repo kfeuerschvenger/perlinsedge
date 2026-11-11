@@ -62,7 +62,7 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
             path.clear();
             path.addAll(found);
             // The path ends on the tile of the player, the skeleton stops one tile short of it
-            if (!path.isEmpty()) {
+            if (!path.isEmpty() && isPlayerTile(path.getLast(), player)) {
                 path.removeLast();
             }
         }
@@ -72,10 +72,14 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
         double remaining = MOVE_SPEED * deltaTime;
         while (remaining > 0 && !path.isEmpty()) {
             PathNode next = path.peek();
-            if (next.x == player.getCurrentTileX() && next.y == player.getCurrentTileY()) {
+            if (isPlayerTile(next, player)) {
                 turnBackToTileCentre(enemy);
                 next = path.peek();
                 if (next == null) {
+                    return;
+                }
+                if (isPlayerTile(next, player)) {
+                    path.clear();
                     return;
                 }
             }
@@ -121,6 +125,10 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
         if (isMidStep(enemy)) {
             path.add(new PathNode(enemy.getCurrentTileX(), enemy.getCurrentTileY()));
         }
+    }
+
+    private static boolean isPlayerTile(PathNode node, Player player) {
+        return node.x == player.getCurrentTileX() && node.y == player.getCurrentTileY();
     }
 
     private static boolean isMidStep(Enemy enemy) {

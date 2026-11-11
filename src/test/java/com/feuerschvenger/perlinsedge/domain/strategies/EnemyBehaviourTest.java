@@ -235,6 +235,9 @@ class EnemyBehaviourTest {
             skeleton.update(STEP, map, player);
             assertFalse(skeleton.getCurrentTileX() == player.getCurrentTileX()
                     && skeleton.getCurrentTileY() == player.getCurrentTileY(), "on the player's tile at step " + i);
+            assertTrue(Math.hypot(skeleton.getPosX() - player.getCurrentTileX(),
+                            skeleton.getPosY() - player.getCurrentTileY()) >= 1.0 - 1e-9,
+                    "physically overlapping the player at step " + i);
         }
     }
 
