@@ -3,15 +3,8 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
-import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
 /**
@@ -19,21 +12,13 @@ import javafx.scene.text.Text;
  * Provides a consistent UI panel for showing name, description, quantities, and ingredients.
  */
 public class ItemInfoPanel extends VBox {
-    // UI styling constants
-    private static final Color PANEL_BG_COLOR = Color.rgb(0, 0, 0, 0.7);
-    private static final Color TEXT_COLOR = Color.WHITE;
-    private static final Color SECONDARY_TEXT_COLOR = TEXT_COLOR.darker();
-    private static final int PANEL_PADDING = 15;
-    private static final int CONTENT_SPACING = 5;
-    private static final int PANEL_CORNER_RADIUS = 10;
+    // Layout constants; the colours, fonts and background come from the theme
+    private static final int PANEL_PADDING = 16;
+    private static final int CONTENT_SPACING = 6;
     private static final double PREF_WIDTH = 200;
     private static final double MIN_WIDTH = 150;
     private static final double MAX_WIDTH = 250;
 
-    // Text styling constants
-    private static final String FONT_FAMILY = "Arial";
-    private static final Font TITLE_FONT = Font.font(FONT_FAMILY, FontWeight.BOLD, 18);
-    private static final Font DESCRIPTION_FONT = Font.font(FONT_FAMILY, 14);
     private static final String DEFAULT_TITLE = "Select an Item";
 
     // UI components
@@ -54,11 +39,8 @@ public class ItemInfoPanel extends VBox {
      */
     private void configureLayout() {
         setAlignment(Pos.TOP_LEFT);
-        setPadding(new Insets(PANEL_PADDING));
+        getStyleClass().add(UiTheme.PANEL);
         setSpacing(CONTENT_SPACING);
-        setBackground(new Background(new BackgroundFill(
-                PANEL_BG_COLOR, new CornerRadii(PANEL_CORNER_RADIUS), Insets.EMPTY
-        )));
         setPrefWidth(PREF_WIDTH);
         setMinWidth(MIN_WIDTH);
         setMaxWidth(MAX_WIDTH);
@@ -68,8 +50,8 @@ public class ItemInfoPanel extends VBox {
      * Initializes and configures UI components.
      */
     private void initializeComponents() {
-        titleText = createStyledText(TITLE_FONT, TEXT_COLOR, DEFAULT_TITLE);
-        descriptionText = createStyledText(DESCRIPTION_FONT, SECONDARY_TEXT_COLOR, "");
+        titleText = createStyledText(UiTheme.HEADING, UiTheme.caps(DEFAULT_TITLE));
+        descriptionText = createStyledText(UiTheme.MUTED, "");
 
         // Set consistent wrapping width based on panel dimensions
         double wrappingWidth = PREF_WIDTH - PANEL_PADDING * 2;
@@ -80,15 +62,13 @@ public class ItemInfoPanel extends VBox {
     /**
      * Creates a styled text component with consistent configuration.
      *
-     * @param font Text font
-     * @param color Text color
+     * @param styleClass Theme style class of the text
      * @param content Initial text content
      * @return Configured Text component
      */
-    private Text createStyledText(Font font, Color color, String content) {
+    private Text createStyledText(String styleClass, String content) {
         Text text = new Text(content);
-        text.setFont(font);
-        text.setFill(color);
+        text.getStyleClass().add(styleClass);
         return text;
     }
 
@@ -103,7 +83,7 @@ public class ItemInfoPanel extends VBox {
             return;
         }
 
-        titleText.setText(formatItemTitle(item));
+        titleText.setText(UiTheme.caps(formatItemTitle(item)));
         descriptionText.setText(item.getDescription());
     }
 
@@ -128,7 +108,7 @@ public class ItemInfoPanel extends VBox {
             return;
         }
 
-        titleText.setText(recipe.getName());
+        titleText.setText(UiTheme.caps(recipe.getName()));
         descriptionText.setText(formatRecipeDetails(recipe));
     }
 
@@ -170,7 +150,7 @@ public class ItemInfoPanel extends VBox {
      * Clears all displayed information and resets to default state.
      */
     public void clearInfo() {
-        titleText.setText(DEFAULT_TITLE);
+        titleText.setText(UiTheme.caps(DEFAULT_TITLE));
         descriptionText.setText("");
     }
 

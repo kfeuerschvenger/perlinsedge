@@ -5,7 +5,13 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 
@@ -15,10 +21,6 @@ import javafx.scene.paint.Color;
 public final class FxEnemyDrawingHelper {
     // Animation constants
     private static final double JUMP_SCALE_FACTOR = 0.2;
-    private static final double SHADOW_OFFSET_FACTOR = 0.1;
-    private static final double SHADOW_OPACITY = 0.8;
-    private static final double SHADOW_SIZE_FACTOR = 1.2;
-    private static final double SHADOW_HEIGHT_FACTOR = 0.8;
     private static final double GROUNDED_WIDTH_FACTOR = 1.2;
     private static final double GROUNDED_HEIGHT_FACTOR = 0.8;
 
@@ -26,6 +28,9 @@ public final class FxEnemyDrawingHelper {
     private static final AppConfig CONFIG = AppConfig.getInstance();
     private static final double BASE_SLIME_SIZE = 20.0;
     private static final double HALF = 0.5;
+    /** Diameter of the circle drawn for an enemy without art, in pixels at zoom 1. */
+    private static final double GENERIC_ENEMY_SIZE = 30.0;
+    private static final double GENERIC_SHADOW_FRACTION = 0.8;
 
     private FxEnemyDrawingHelper() {} // Prevent instantiation
 
@@ -45,46 +50,66 @@ public final class FxEnemyDrawingHelper {
         final double baseDrawY = tileTopY + (halfTileHeight * 1.5) + slime.getRenderOffsetY();
         final double slimeSize = BASE_SLIME_SIZE * zoom;
 
-        // Get the movement strategy to check jump state
-        EnemyMovementStrategy movementStrategy = slime.getMovementStrategy();
-        SlimeMovementStrategy slimeMove = null;
-        if (movementStrategy instanceof SlimeMovementStrategy) {
-            slimeMove = (SlimeMovementStrategy) movementStrategy;
+        final SlimeMovementStrategy slimeMove = movementOf(slime);
+        final boolean jumping = slimeMove != null && slimeMove.isJumping();
+        final Image frame = SpriteManager.getInstance().getSlimeFrame(
+                SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
+
+        if (frame != null) {
+            // The sprite rests on the point the oval is centred on, whole pixels
+            final double scale = ZoomSteps.artScale(zoom);
+            final double width = frame.getWidth() * scale;
+            final double height = frame.getHeight() * scale;
+            gc.drawImage(frame, Math.rint(tileTopX - width / 2), Math.rint(baseDrawY - height), width, height);
+            return;
         }
 
-        // Render shadow first (fixed positioning)
-        drawSlimeShadow(gc, tileTopX, baseDrawY, slimeSize, slime, slimeMove); // Pass slimeMove
-        // Render slime body on top
-        drawSlimeBody(gc, tileTopX, baseDrawY, slimeSize, slime, slimeMove); // Pass slimeMove
+        drawSlimeBody(gc, tileTopX, baseDrawY, slimeSize, slime, slimeMove);
     }
 
     /**
-     * Renders the slime's shadow with proper positioning and opacity.
-     * @param slimeMove The SlimeMovementStrategy instance to get jump state.
+     * Adds the slime's ground shadow to the shadow pass, shrinking and fading it with the jump height.
+     * The shadow is centred on the ground point under the sprite, which does not move while the slime jumps.
+     *
+     * @param shadows   the shadows of the frame
+     * @param tileTopX  tile's top vertex X coordinate
+     * @param tileTopY  tile's top vertex Y coordinate
+     * @param zoom      current zoom factor
+     * @param slime     the slime
      */
-    private static void drawSlimeShadow(GraphicsContext gc, double centerX, double centerY,
-                                        double size, Slime slime, SlimeMovementStrategy slimeMove) {
-        final double shadowWidth = size * SHADOW_SIZE_FACTOR;
-        final double shadowHeight = size * SHADOW_HEIGHT_FACTOR;
-        final double shadowOffset = size * SHADOW_OFFSET_FACTOR;
+    public static void addSlimeShadow(ShadowList shadows, double tileTopX, double tileTopY, double zoom, Slime slime) {
+        final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
+        final double baseDrawY = tileTopY + (halfTileHeight * 1.5) + slime.getRenderOffsetY();
+        final SlimeMovementStrategy slimeMove = movementOf(slime);
+        final boolean jumping = slimeMove != null && slimeMove.isJumping();
+        // Height above the resting position, which is where the shadow stays
+        final double jumpHeight = jumping
+                ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
+        final double scale = ZoomSteps.artScale(zoom);
+        final Image frame = SpriteManager.getInstance().getSlimeFrame(0);
+        final double size = frame != null ? frame.getWidth() * scale * GroundShadow.SPRITE_ENEMY_FRACTION : BASE_SLIME_SIZE * zoom;
+        shadows.add(tileTopX, baseDrawY + jumpHeight,
+                SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR) / scale,
+                SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
+    }
 
-        // Calculate shadow position (centered with offset)
-        // If jumping, the shadow should remain on the ground.
-        final double shadowX = centerX - (shadowWidth * HALF) + shadowOffset;
-        final double shadowY = centerY - (shadowHeight * HALF) + shadowOffset; // This centerY already includes getRenderOffsetY
+    /**
+     * Adds the ground shadow of an enemy drawn as a generic circle, centred under the circle.
+     *
+     * @param shadows the shadows of the frame
+     * @param screenX screen X of the enemy
+     * @param screenY screen Y of the enemy
+     * @param zoom    current zoom factor
+     */
+    public static void addGenericShadow(ShadowList shadows, double screenX, double screenY, double zoom) {
+        final double size = GENERIC_ENEMY_SIZE * zoom;
+        shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.artScale(zoom), 1.0);
+    }
 
-        // Create shadow color with proper opacity
-        final Color baseShadowColor = FxColors.toFx(slime.getColor()).darker().darker();
-        final Color shadowColor = new Color(
-                baseShadowColor.getRed(),
-                baseShadowColor.getGreen(),
-                baseShadowColor.getBlue(),
-                SHADOW_OPACITY
-        );
-
-        // Render shadow
-        gc.setFill(shadowColor);
-        gc.fillOval(shadowX, shadowY, shadowWidth, shadowHeight);
+    /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */
+    private static SlimeMovementStrategy movementOf(Slime slime) {
+        final EnemyMovementStrategy movementStrategy = slime.getMovementStrategy();
+        return movementStrategy instanceof SlimeMovementStrategy move ? move : null;
     }
 
     /**
@@ -127,7 +152,7 @@ public final class FxEnemyDrawingHelper {
      * @param enemy The Enemy entity to draw.
      */
     public static void drawGenericEnemy(GraphicsContext gc, double screenX, double screenY, double zoom, Enemy enemy) {
-        double size = 30 * zoom;
+        double size = GENERIC_ENEMY_SIZE * zoom;
         gc.setFill(FxColors.toFx(enemy.getColor()));
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1 * zoom);

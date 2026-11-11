@@ -20,9 +20,6 @@ import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -45,27 +42,13 @@ public class InventoryPanel extends BorderPane {
     public static final int DEFAULT_CAPACITY = 9;
 
     // Layout dimensions
-    private static final int SLOT_SIZE = 40;
+    private static final int SLOT_SIZE = 44;
+    /** Item icon size: the 16 px art at 2x, so every art pixel stays a whole square block. */
     static final int ITEM_SIZE = 32;
-    private static final int PANEL_PADDING = 20;
     private static final int ITEM_SPACING = 10;
-    private static final int PANEL_CORNER_RADIUS = 10;
-    private static final int SLOT_CORNER_RADIUS = 3;
-
-    // Font sizes
-    private static final int TITLE_FONT_SIZE = 24;
-    private static final int QUANTITY_FONT_SIZE = 12;
-
-    // Colors
-    private static final Color PANEL_BG_COLOR = Color.rgb(0, 0, 0, 0.7);
-    private static final Color SLOT_BG_COLOR = Color.rgb(70, 70, 70, 0.8);
-    private static final Color SLOT_BORDER_COLOR = Color.rgb(100, 100, 100, 0.8);
-    private static final Color TEXT_COLOR = Color.WHITE;
-    private static final Color DRAG_HIGHLIGHT_COLOR = Color.YELLOW;
-    private static final Color SELECTED_SLOT_COLOR = Color.GOLD;
+    private static final int COUNT_MARGIN = 3;
 
     // Text constants
-    private static final String FONT_FAMILY = "Arial";
     private static final String PLAYER_INVENTORY_TITLE = "Player Inventory";
     private static final String CHEST_INVENTORY_TITLE = "Chest Inventory";
 
@@ -101,10 +84,7 @@ public class InventoryPanel extends BorderPane {
     }
 
     private void configurePanel() {
-        setPadding(new Insets(PANEL_PADDING));
-        setBackground(new Background(new BackgroundFill(
-                PANEL_BG_COLOR, new CornerRadii(PANEL_CORNER_RADIUS), Insets.EMPTY
-        )));
+        getStyleClass().add(UiTheme.PANEL);
         setPrefSize(800, 300);
     }
 
@@ -170,9 +150,8 @@ public class InventoryPanel extends BorderPane {
     }
 
     private Label createTitle(String text) {
-        Label label = new Label(text);
-        label.setFont(new Font(FONT_FAMILY, TITLE_FONT_SIZE));
-        label.setTextFill(TEXT_COLOR);
+        Label label = new Label(UiTheme.caps(text));
+        label.getStyleClass().add(UiTheme.PILL);
         return label;
     }
 
@@ -198,31 +177,19 @@ public class InventoryPanel extends BorderPane {
         slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
         slot.setMinSize(SLOT_SIZE, SLOT_SIZE);
         slot.setMaxSize(SLOT_SIZE, SLOT_SIZE);
-
-        slot.setBackground(new Background(new BackgroundFill(
-                SLOT_BG_COLOR, new CornerRadii(SLOT_CORNER_RADIUS), Insets.EMPTY
-        )));
-
-        slot.setBorder(new Border(new BorderStroke(
-                SLOT_BORDER_COLOR, BorderStrokeStyle.SOLID,
-                new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(1)
-        )));
+        slot.getStyleClass().add(UiTheme.SLOT);
     }
 
     /** Highlights a slot as a valid drop target. */
     void showDropHighlight(StackPane slot) {
-        slot.setBorder(new Border(new BorderStroke(
-                DRAG_HIGHLIGHT_COLOR, BorderStrokeStyle.SOLID,
-                new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(2))
-        ));
+        UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        UiTheme.setClass(slot, UiTheme.SLOT_DROP, true);
     }
 
     /** Restores a slot's default border. */
     void restoreSlotBorder(StackPane slot) {
-        slot.setBorder(new Border(new BorderStroke(
-                SLOT_BORDER_COLOR, BorderStrokeStyle.SOLID,
-                new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(1))
-        ));
+        UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
     }
 
     /** Retrieves an item from a specific slot in a container. */
@@ -330,7 +297,10 @@ public class InventoryPanel extends BorderPane {
         Item item = getItemInSlot(index, container);
 
         if (item != null) {
-            slot.getChildren().addAll(createItemImage(item), createQuantityText(item));
+            slot.getChildren().add(createItemImage(item));
+            if (item.getQuantity() > 1) {
+                slot.getChildren().add(createCountLabel(item));
+            }
         }
     }
 
@@ -457,10 +427,8 @@ public class InventoryPanel extends BorderPane {
 
     private void applySlotHighlight(StackPane slot, boolean highlight) {
         if (highlight) {
-            slot.setBorder(new Border(new BorderStroke(
-                    SELECTED_SLOT_COLOR, BorderStrokeStyle.SOLID,
-                    new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(2))
-            ));
+            UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
+            UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, true);
         } else {
             restoreSlotBorder(slot);
         }
@@ -471,17 +439,18 @@ public class InventoryPanel extends BorderPane {
         imageView.setFitWidth(ITEM_SIZE);
         imageView.setFitHeight(ITEM_SIZE);
         imageView.setPreserveRatio(true);
+        imageView.setSmooth(false);
         return imageView;
     }
 
-    private Text createQuantityText(Item item) {
-        if (item == null || item.getQuantity() <= 1) {
-            return new Text("");
-        }
-        Text text = new Text(String.valueOf(item.getQuantity()));
-        text.setFont(new Font(FONT_FAMILY, QUANTITY_FONT_SIZE));
-        text.setFill(TEXT_COLOR);
-        return text;
+    /** The stack size in the pixel font with a 1 px dark shadow, at the bottom right corner of the slot. */
+    private Label createCountLabel(Item item) {
+        Label count = new Label(String.valueOf(item.getQuantity()));
+        count.getStyleClass().add(UiTheme.COUNT);
+        count.setMouseTransparent(true);
+        StackPane.setAlignment(count, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(count, new Insets(0, COUNT_MARGIN, 0, 0));
+        return count;
     }
 
     /** Retrieves an item's image representation, generating a fallback when no sprite exists. */

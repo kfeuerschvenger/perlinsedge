@@ -5,12 +5,9 @@ import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import javafx.collections.FXCollections;
-import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
 import javafx.util.StringConverter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -73,9 +70,7 @@ public class MapConfigPanel extends VBox {
     }
 
     private void initUI(MapType initialMapType) {
-        setPadding(new Insets(10, 10, 10, 10));
-        Color bkg = Color.rgb(0, 0, 0, 0.6);
-        setBackground(new Background(new BackgroundFill(bkg, new javafx.scene.layout.CornerRadii(5), Insets.EMPTY)));
+        getStyleClass().add(UiTheme.PANEL);
         setLayoutX(10);
         setLayoutY(10);
 
@@ -86,13 +81,7 @@ public class MapConfigPanel extends VBox {
             @Override
             protected void updateItem(MapType item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setStyle(null);
-                } else {
-                    setText(mapTypeConverter.toString(item));
-                    setStyle("-fx-font-size: 14px; -fx-text-fill: white; -fx-background-color: #333;");
-                }
+                setText(empty || item == null ? null : mapTypeConverter.toString(item));
             }
         });
 
@@ -100,24 +89,13 @@ public class MapConfigPanel extends VBox {
             @Override
             protected void updateItem(MapType item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setStyle(null);
-                } else {
-                    setText(mapTypeConverter.toString(item));
-                    setStyle("-fx-font-size: 14px; -fx-text-fill: white; -fx-background-color: #333;");
-                    setOnMouseEntered(e -> setStyle("-fx-font-size: 14px; -fx-text-fill: white; -fx-background-color: #555;"));
-                    setOnMouseExited(e -> setStyle("-fx-font-size: 14px; -fx-text-fill: white; -fx-background-color: #333;"));
-                }
+                setText(empty || item == null ? null : mapTypeConverter.toString(item));
             }
         });
-
-        mapTypeComboBox.setStyle("-fx-background-color: #333;");
 
         mapTypeComboBox.setValue(initialMapType);
 
         seedInputField = new TextField(String.valueOf(currentSeed));
-        seedInputField.setStyle("-fx-font-size: 14px; -fx-background-color: #333; -fx-text-fill: white;");
 
         HBox topRow = new HBox(8);
         topRow.getChildren().addAll(mapTypeComboBox, seedInputField);
@@ -325,16 +303,12 @@ public class MapConfigPanel extends VBox {
     }
 
     private Label createValueLabel(double initialValue) {
-        Label label = new Label(decimalFormat.format(initialValue));
-        label.setFont(new Font("Arial", 14));
-        label.setTextFill(Color.WHITE);
-        return label;
+        return new Label(decimalFormat.format(initialValue));
     }
 
     private HBox createSliderRow(String labelText, Slider slider, Label valueLabel) {
-        Label label = new Label(labelText);
-        label.setFont(new Font("Arial", 14));
-        label.setTextFill(Color.WHITE);
+        Label label = new Label(UiTheme.caps(labelText));
+        label.getStyleClass().add(UiTheme.MUTED);
         return new HBox(10, label, slider, valueLabel);
     }
 
@@ -343,7 +317,7 @@ public class MapConfigPanel extends VBox {
             @Override
             public String toString(MapType mapType) {
                 if (mapType == null) return "";
-                return mapType.name().charAt(0) + mapType.name().substring(1).toLowerCase().replace('_', ' ');
+                return mapType.getDisplayName();
             }
 
             @Override

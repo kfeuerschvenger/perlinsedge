@@ -32,7 +32,7 @@ Geek out with our built-in debug modes. Toggle these cheats: I mean, features: w
 
 When you launch the game, you'll be greeted with the Main Menu. Click **New Game** to open the Map Selection screen, where you can choose from six distinct worlds:
 
-- **Dark Forest**
+- **Dense Forest**
 - **Swamp**
 - **Desert**
 - **Tundra**
@@ -148,6 +148,7 @@ perlins-edge/
 - Passive animals (flee when hurt), neutral animals (fight back if attacked)
 - More enemy types, day/night-specific spawns
 - Portals to other dimensions
+- Magic and sinister biomes, for example an enchanted forest and a cursed swamp, with their own palettes and creatures, kept separate from the realistic biomes
 - Weather changes (rain, sandstorms, snowstorms)
 - Lighting & shadows system
 - Dropped items despawn timer
@@ -175,6 +176,8 @@ Ensure your code adheres to the project's style conventions and that all tests p
 ## License
 
 MIT License. See `LICENSE` for details.
+
+Third-party assets keep their own licenses, listed in `docs/ASSETS-LICENSES.md`. The GUI font is Pixelify Sans, under the SIL Open Font License 1.1.
 
 ## Contact
 

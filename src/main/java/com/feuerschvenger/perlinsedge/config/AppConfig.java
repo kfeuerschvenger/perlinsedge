@@ -56,6 +56,7 @@ public class AppConfig {
         private static final double initialZoom = 1.0;
         private static final double minZoom = 1.0;
         private static final double maxZoom = 2.0;
+        private static final double zoomStep = 0.5;
         private static final double panSpeed = 30.0;
 
         // Getters
@@ -65,6 +66,8 @@ public class AppConfig {
         public double getInitialZoom() { return initialZoom; }
         public double getMinZoom() { return minZoom; }
         public double getMaxZoom() { return maxZoom; }
+        /** @return the distance between two zoom levels */
+        public double getZoomStep() { return zoomStep; }
         public double getPanSpeed() { return panSpeed; }
     }
 
@@ -78,7 +81,7 @@ public class AppConfig {
 
         // Map properties
         private long defaultSeed = System.currentTimeMillis();
-        private MapType currentMapType = MapType.DARK_FOREST;
+        private MapType currentMapType = MapType.DENSE_FOREST;
 
         // Enemy settings
         private static final int baseSlimesCount = 30;
@@ -124,19 +127,20 @@ public class AppConfig {
 
         public float getTreeDensity() {
             return switch (currentMapType) {
-                case DARK_FOREST -> 0.478f;
-                case SWAMP -> 0.35f;
-                case DESERT -> 0.25f;
-                case TUNDRA -> 0.23f;
-                case MEDITERRANEAN -> 0.45f;
-                case ISLANDS -> 0.35f;
+                case DENSE_FOREST -> 0.32f;
+                case SWAMP -> 0.32f;
+                case DESERT -> 0.10f;
+                case TUNDRA -> 0.34f;
+                case MEDITERRANEAN -> 0.17f;
+                case ISLANDS -> 0.19f;
+                case RIVERS -> 0.30f;
                 default -> baseTreeDensity;
             };
         }
 
         public float getRiverDensity() {
             return switch (currentMapType) {
-                case DARK_FOREST -> 0.01f;
+                case DENSE_FOREST -> 0.01f;
                 case SWAMP -> 0.025f;
                 case DESERT -> 0.003f;
                 case RIVERS -> 0.04f;
@@ -177,16 +181,16 @@ public class AppConfig {
         public final SpriteSheetConfig spriteSheet = new SpriteSheetConfig();
 
         public static class SpriteSheetConfig {
-            // Sprite sheet properties
-            public final String path = "/assets/entities/player/8-Direction-Character.png";
-            public final int spriteWidth = 13;
-            public final int spriteHeight = 17;
+            // Sprite sheet properties: 8 direction columns by 3 frame rows of 16x24 cells
+            public final String path = "/assets/entities/player.png";
+            public final int spriteWidth = 16;
+            public final int spriteHeight = 24;
             public final int columns = 8;
             public final int rows = 3;
-            public final int startX = 1;
-            public final int startY = 30;
+            public final int startX = 0;
+            public final int startY = 0;
             public final int columnOffset = 16;
-            public final int[] rowYCoordinates = {30, 53, 78};
+            public final int[] rowYCoordinates = {0, 24, 48};
         }
     }
 

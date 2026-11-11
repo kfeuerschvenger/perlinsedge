@@ -25,9 +25,7 @@ public class Player extends Entity implements Container {
 
     // Animation configuration
     private static final double ANIMATION_FRAME_DURATION = 0.1;
-    private static final int IDLE_FRAME = 1;
-    private static final int WALKING_FRAME_START = 0;
-    private static final int WALKING_FRAME_END = 2;
+    private static final int IDLE_FRAME = WalkCycle.IDLE;
     public static final double RENDER_OFFSET_Y = 0;
 
     // Health configuration
@@ -57,6 +55,7 @@ public class Player extends Entity implements Container {
     private boolean isAttacking = false;
     private double attackAnimationTime = 0;
     private int attackDirection = -1;
+    private double secondsSinceHurt = Double.POSITIVE_INFINITY;
 
     // Inventory
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
@@ -67,6 +66,7 @@ public class Player extends Entity implements Container {
     // Animation state
     private int direction = DIR_UP;
     private int animationFrame = IDLE_FRAME;
+    private int animationStep = 0;
     private double animationTimer = 0;
 
     // ==================================================================
@@ -141,6 +141,8 @@ public class Player extends Entity implements Container {
      * @param targetY Target Y coordinate
      */
     public void moveTo(TileMap map, int targetX, int targetY) {
+        // A dead player stays where it fell until the respawn
+        if (isDead) return;
         // Skip if already at target position
         if (isAtPosition(targetX, targetY)) return;
 
@@ -153,6 +155,44 @@ public class Player extends Entity implements Container {
         }
 
         startNewPath(path);
+    }
+
+    /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
+    @Override
+    public void handleDeath() {
+        super.handleDeath();
+        clearPath();
+    }
+
+    /**
+     * Applies damage and restarts the hurt clock, which the renderer reads to flash and shake the sprite.
+     * Every source of damage to the player goes through this method, so none of them needs to know about the reaction.
+     *
+     * @param amount damage to apply; zero or less changes nothing
+     */
+    @Override
+    public void takeDamage(double amount) {
+        if (isDead || amount <= 0) {
+            return;
+        }
+        super.takeDamage(amount);
+        secondsSinceHurt = 0;
+    }
+
+    /**
+     * Returns the time since the player last took damage.
+     *
+     * @return seconds, infinite when the player was never hurt or has respawned since
+     */
+    public double getSecondsSinceHurt() {
+        return secondsSinceHurt;
+    }
+
+    /** Forgets the last hit when the player respawns, so the reaction does not play on the new life. */
+    @Override
+    public void revive(int x, int y) {
+        super.revive(x, y);
+        secondsSinceHurt = Double.POSITIVE_INFINITY;
     }
 
     public boolean isMoving() {
@@ -476,6 +516,7 @@ public class Player extends Entity implements Container {
         updateAnimation(deltaTime);
         updateCooldowns(deltaTime);
         updateAttackAnimation(deltaTime);
+        secondsSinceHurt += deltaTime;
     }
 
     // ==================================================================
@@ -600,8 +641,8 @@ public class Player extends Entity implements Container {
         if (isMoving()) {
             animationTimer += deltaTime;
             if (animationTimer >= ANIMATION_FRAME_DURATION) {
-                animationFrame = (animationFrame == WALKING_FRAME_END) ?
-                        WALKING_FRAME_START : animationFrame + 1;
+                animationStep = (animationStep + 1) % WalkCycle.length();
+                animationFrame = WalkCycle.frameAt(animationStep);
                 animationTimer = 0;
             }
         } else {
@@ -611,6 +652,7 @@ public class Player extends Entity implements Container {
 
     private void resetToIdleAnimation() {
         animationFrame = IDLE_FRAME;
+        animationStep = 0;
         animationTimer = 0;
     }
 

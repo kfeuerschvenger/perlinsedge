@@ -46,7 +46,7 @@ public final class TileFactory {
         float variedHeight = applyHeightVariation(x, y, height, seed);
 
         switch (mapType) {
-            case DARK_FOREST:   return createDarkForestTile(variedHeight, moisture);
+            case DENSE_FOREST:   return createDenseForestTile(variedHeight, moisture);
             case SWAMP:         return createSwampTile(variedHeight, moisture);
             case ISLANDS:       return createIslandsTile(variedHeight);
             case DESERT:        return createDesertTile(variedHeight, moisture);
@@ -69,9 +69,9 @@ public final class TileFactory {
     }
 
     /**
-     * Tile generation for Dark Forest biome.
+     * Tile generation for Dense Forest biome.
      */
-    private static TileType createDarkForestTile(float height, float moisture) {
+    private static TileType createDenseForestTile(float height, float moisture) {
         if (height < DEEP_WATER_THRESHOLD) return TileType.DEEP_WATER;
         if (height < SHALLOW_WATER_THRESHOLD) return TileType.SHALLOW_WATER;
         if (height < SAND_THRESHOLD) return TileType.SAND;

@@ -1,8 +1,8 @@
 package com.feuerschvenger.perlinsedge.ui.view.utils;
 
 import javafx.geometry.Insets;
+import com.feuerschvenger.perlinsedge.ui.view.UiTheme;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,7 +16,6 @@ public final class GridUtils {
     // Layout configuration constants
     private static final int GRID_PADDING = 10;
     private static final int GRID_SPACING = 5;
-    private static final Color GRID_BG_COLOR = Color.rgb(50, 50, 50, 0.5);
     private static final int PLAYER_COLS = 6; // Fixed column count for player inventory
     private static final int PLAYER_ROWS = 3; // Fixed row count for player inventory
     private static final int MAX_NON_PLAYER_COLS = 6; // Maximum columns for secondary containers
@@ -76,7 +75,7 @@ public final class GridUtils {
         grid.setHgap(GRID_SPACING);
         grid.setVgap(GRID_SPACING);
         grid.setPadding(new Insets(GRID_PADDING));
-        grid.setBackground(new Background(new BackgroundFill(GRID_BG_COLOR, new CornerRadii(5), Insets.EMPTY)));
+        grid.getStyleClass().add(UiTheme.GRID);
         return grid;
     }
 

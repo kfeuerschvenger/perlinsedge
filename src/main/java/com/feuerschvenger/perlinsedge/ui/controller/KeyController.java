@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import com.feuerschvenger.perlinsedge.domain.events.IKeyListener;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -26,6 +27,7 @@ public class KeyController implements IKeyListener {
     private final Runnable toggleBuildingModeAction;
     private final Consumer<Integer> onNumberKeyPress;
     private final Consumer<Integer> onHotbarPageChange;
+    private BooleanSupplier inputBlocked;
 
     /**
      * Constructs a KeyController with the specified actions for various key events.
@@ -60,8 +62,27 @@ public class KeyController implements IKeyListener {
         this.onHotbarPageChange = onHotbarPageChange;
     }
 
+    /**
+     * Sets the condition under which gameplay keys are ignored. Pause, centring the camera and the debug keys stay
+     * available.
+     *
+     * @param inputBlocked true while gameplay input must be ignored, null never blocks
+     */
+    public void setInputBlocked(BooleanSupplier inputBlocked) {
+        this.inputBlocked = inputBlocked;
+    }
+
+    /** Tells whether a panel that covers the world currently takes the gameplay keys. */
+    private boolean isGameplayBlocked() {
+        return inputBlocked != null && inputBlocked.getAsBoolean();
+    }
+
     @Override
     public void onKeyAction(GameKey key) {
+
+        if (isGameplayBlocked() && (key.isDigit() || isGameplayKey(key))) {
+            return;
+        }
 
         // Number keys select hotbar slots 1 to 9
         if (key.isDigit()) {
@@ -120,6 +141,14 @@ public class KeyController implements IKeyListener {
             default:
                 break;
         }
+    }
+
+    /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
+    private static boolean isGameplayKey(GameKey key) {
+        return switch (key) {
+            case SPACE, I, B, PAGE_UP, PAGE_DOWN -> true;
+            default -> false;
+        };
     }
 
     /**

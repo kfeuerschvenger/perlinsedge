@@ -1,18 +1,17 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
 
 /**
  * Panel for displaying the pause menu in the game.
  * Contains buttons for resuming, saving, loading, and exiting the game.
  */
 public class PauseMenuPanel extends VBox {
+    private static final double BUTTON_WIDTH = 240;
+
     private final Button resumeButton;
     private final Button saveButton;
     private final Button loadButton;
@@ -28,34 +27,22 @@ public class PauseMenuPanel extends VBox {
     public PauseMenuPanel() {
         // Set panel layout properties
         setAlignment(Pos.CENTER);
-        setPadding(new Insets(20));
-        setSpacing(20);
-        setStyle("-fx-background-color: rgba(0, 0, 0, 0.7);");
+        setSpacing(16);
+        getStyleClass().add(UiTheme.PANEL);
 
         // Create title text
-        Text title = new Text("Game Paused");
-        title.setFont(Font.font(24));
-        title.setFill(Color.WHITE);
+        Label title = new Label(UiTheme.caps("Game Paused"));
+        title.getStyleClass().add(UiTheme.HEADING);
 
         // Create buttons
-        resumeButton = new Button("Resume Game");
-        saveButton = new Button("Save Game");
-        loadButton = new Button("Load Game");
-        backToMainMenuButton = new Button("Back to Main Menu");
-        exitButton = new Button("Exit to Desktop");
-
-        // Set a common preferred width for all buttons
-        double buttonWidth = 200;
-        resumeButton.setPrefWidth(buttonWidth);
-        saveButton.setPrefWidth(buttonWidth);
-        loadButton.setPrefWidth(buttonWidth);
-        backToMainMenuButton.setPrefWidth(buttonWidth);
-        exitButton.setPrefWidth(buttonWidth);
+        resumeButton = createButton("Resume Game");
+        saveButton = createButton("Save Game");
+        loadButton = createButton("Load Game");
+        backToMainMenuButton = createButton("Back to Main Menu");
+        exitButton = createButton("Exit to Desktop");
 
         saveButton.setDisable(true);
-        saveButton.setTextFill(Color.GRAY);
         loadButton.setDisable(true);
-        loadButton.setTextFill(Color.GRAY);
 
         // Add elements to the layout
         getChildren().addAll(title, resumeButton, saveButton, loadButton, backToMainMenuButton, exitButton);
@@ -69,6 +56,13 @@ public class PauseMenuPanel extends VBox {
                 onBackToMainMenuAction.run();
             }
         });
+    }
+
+    /** Creates a menu button with the shared width and an upper case label. */
+    private static Button createButton(String text) {
+        Button button = new Button(UiTheme.caps(text));
+        button.setPrefWidth(BUTTON_WIDTH);
+        return button;
     }
 
     // Event handler methods

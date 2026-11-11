@@ -4,27 +4,32 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
-import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
-import javafx.scene.paint.Color;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * Centralized sprite management system for loading, caching, and providing access
- * to game assets with proper positioning offsets and fallback mechanisms.
+ * Loads the pixel art once and hands it out by game type.
+ * Art is looked up by name under {@link AssetPaths}, and a variant number that is missing ends the list, so adding a
+ * file needs no code change. Anything without art answers null and the caller draws its stand-in shape. Every missing
+ * asset is logged once at load, never per frame.
  */
 @Slf4j
 public final class SpriteManager {
-    private static final String ASSETS_BASE_PATH = "/assets/";
-    private static final String DEFAULT_MAP_TYPE = "default";
-    private static final double DEFAULT_SPRITE_SIZE = 32.0;
-    private static final Color FALLBACK_COLOR = Color.RED;
-    private static final Color MISSING_SPRITE_COLOR = Color.GRAY;
+    private static final int MAX_VARIANTS = 99;
+    private static final List<String> RESOURCE_FOLDERS = List.of(
+            AssetPaths.DEFAULT_FOLDER, "dense_forest", "swamp", "desert", "tundra", AssetPaths.SHARED_FOLDER);
 
     /**
      * Metadata container for sprites including image data and vertical offset.
@@ -32,10 +37,34 @@ public final class SpriteManager {
     public static final class SpriteMetadata {
         private final Image image;
         private final double verticalOffset;
+        private final int dropArtPixels;
+        private final int contactArtPixels;
+        private final String kind;
 
         public SpriteMetadata(Image image, double verticalOffset) {
+            this(image, verticalOffset, 0, 0, null);
+        }
+
+        /**
+         * Creates the metadata of a resource sprite.
+         *
+         * @param image            the sprite
+         * @param verticalOffset   the offset of an item icon, zero for a resource
+         * @param dropArtPixels    how far the sprite is drawn below the default anchor, see {@link ResourceAnchor}
+         * @param contactArtPixels how far below the tile centre the lowest painted pixel lies, where the shadow is centred
+         * @param kind             the art kind of the sprite, for example palm, or null for an item icon
+         */
+        public SpriteMetadata(Image image, double verticalOffset, int dropArtPixels, int contactArtPixels, String kind) {
             this.image = image;
             this.verticalOffset = verticalOffset;
+            this.dropArtPixels = dropArtPixels;
+            this.contactArtPixels = contactArtPixels;
+            this.kind = kind;
+        }
+
+        /** @return the art kind of the sprite, for example palm, or null for an item icon */
+        public String getKind() {
+            return kind;
         }
 
         public Image getImage() {
@@ -45,6 +74,16 @@ public final class SpriteManager {
         public double getVerticalOffset() {
             return verticalOffset;
         }
+
+        /** @return how far the sprite is drawn below the default anchor, in art pixels */
+        public int getDropArtPixels() {
+            return dropArtPixels;
+        }
+
+        /** @return how far below the tile centre the lowest painted pixel lies, in art pixels */
+        public int getContactArtPixels() {
+            return contactArtPixels;
+        }
     }
 
     // Singleton instance holder
@@ -52,15 +91,23 @@ public final class SpriteManager {
         static final SpriteManager INSTANCE = new SpriteManager();
     }
 
-    private final Map<MapType, Map<ResourceType, List<SpriteMetadata>>> resourceSprites;
-    private final Map<String, List<List<Image>>> entitySprites;
-    private final EnumMap<ItemType, SpriteMetadata> itemSprites;
+    private final Map<MapType, Map<ResourceType, List<SpriteMetadata>>> resourceSprites = new EnumMap<>(MapType.class);
+    private final Map<String, List<List<Image>>> entitySprites = new HashMap<>();
+    private final Map<String, List<Image>> tileSprites = new HashMap<>();
+    private final Map<ItemType, SpriteMetadata> itemSprites = new EnumMap<>(ItemType.class);
+    private final Map<String, Image> decalSprites = new HashMap<>();
+    private final Map<String, Image> waterSprites = new HashMap<>();
+    private final Map<String, Image> faceStrips = new HashMap<>();
+    private List<Image> shimmerLines = List.of();
+    private List<Image> slimeFrames = List.of();
 
     private SpriteManager() {
-        this.resourceSprites = new EnumMap<>(MapType.class);
-        this.entitySprites = new HashMap<>();
-        this.itemSprites = new EnumMap<>(ItemType.class);
-        initializeSpriteSystem();
+        loadTileSprites();
+        loadDecalSprites();
+        loadWaterSprites();
+        loadResourceSprites();
+        loadEntitySprites();
+        loadItemSprites();
     }
 
     /**
@@ -72,166 +119,201 @@ public final class SpriteManager {
         return InstanceHolder.INSTANCE;
     }
 
-    /**
-     * Initializes the sprite loading system.
-     */
-    private void initializeSpriteSystem() {
-        loadResourceSprites();
-        loadEntitySprites();
-        loadItemSprites();
-    }
+    // ==================================================================
+    //  LOADING
+    // ==================================================================
 
-    /**
-     * Loads all resource sprites organized by map type.
-     */
-    private void loadResourceSprites() {
-        // Common sprites for most map types
-        Map<ResourceType, List<SpriteMetadata>> commonSprites = createCommonResourceSprites();
-
-        // Map-specific sprite configurations
-        resourceSprites.put(MapType.DARK_FOREST, commonSprites);
-        resourceSprites.put(MapType.RIVERS, commonSprites);
-        resourceSprites.put(MapType.MEDITERRANEAN, commonSprites);
-        resourceSprites.put(MapType.ISLANDS, commonSprites);
-        resourceSprites.put(MapType.DESERT, createDesertResourceSprites());
-        resourceSprites.put(MapType.SWAMP, createSwampResourceSprites());
-        resourceSprites.put(MapType.TUNDRA, createTundraResourceSprites());
-    }
-
-    /**
-     * Creates common resource sprites shared by multiple map types.
-     */
-    private Map<ResourceType, List<SpriteMetadata>> createCommonResourceSprites() {
-        Map<ResourceType, List<SpriteMetadata>> sprites = new EnumMap<>(ResourceType.class);
-
-        addResourceVariants(
-                sprites, ResourceType.TREE, DEFAULT_MAP_TYPE,
-                List.of("Tree", "Autumn_tree", "Burned_tree", "Christmas_tree"),
-                List.of(3, 3, 3, 3),
-                List.of(-10.0, -10.0, -10.0, -10.0)
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.STONE, DEFAULT_MAP_TYPE,
-                "Rock1_", 5, "_no_shadow", -5.0
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.CRYSTALS, DEFAULT_MAP_TYPE,
-                "Yellow_crystal", 4, null, -5.0
-        );
-
-        return sprites;
-    }
-
-    /**
-     * Creates desert-specific resource sprites.
-     */
-    private Map<ResourceType, List<SpriteMetadata>> createDesertResourceSprites() {
-        Map<ResourceType, List<SpriteMetadata>> sprites = new EnumMap<>(ResourceType.class);
-
-        addResourceVariants(
-                sprites, ResourceType.TREE, "desert",
-                List.of("Cactus1_", "Cactus2_", "Palm_tree1_", "Palm_tree2_"),
-                List.of(3, 3, 3, 3),
-                List.of(-5.0, -5.0, -10.0, -10.0)
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.STONE, "desert",
-                "Rock6_", 5, "_no_shadow", -5.0
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.CRYSTALS, "desert",
-                "Red_crystal", 4, null, -5.0
-        );
-
-        return sprites;
-    }
-
-    /**
-     * Creates swamp-specific resource sprites.
-     */
-    private Map<ResourceType, List<SpriteMetadata>> createSwampResourceSprites() {
-        Map<ResourceType, List<SpriteMetadata>> sprites = new EnumMap<>(ResourceType.class);
-
-        addResourceVariants(
-                sprites, ResourceType.TREE, "swamp",
-                List.of("Curved_tree", "Moss_tree", "White_tree", "Willow"),
-                List.of(3, 3, 2, 3),
-                List.of(-10.0, -10.0, -10.0, -10.0)
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.STONE, "swamp",
-                "Rock4_", 5, "_no_shadow", -5.0
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.CRYSTALS, "swamp",
-                "Yellow-green_crystal", 4, null, -5.0
-        );
-
-        return sprites;
-    }
-
-    /**
-     * Creates tundra-specific resource sprites.
-     */
-    private Map<ResourceType, List<SpriteMetadata>> createTundraResourceSprites() {
-        Map<ResourceType, List<SpriteMetadata>> sprites = new EnumMap<>(ResourceType.class);
-
-        addResourceVariants(
-                sprites, ResourceType.TREE, "tundra",
-                List.of("Snow_christmass_tree", "Snow_tree"),
-                List.of(3, 3),
-                List.of(-10.0, -10.0)
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.STONE, "tundra",
-                "Rokc3_snow_shadow_dark", 5, null, -5.0
-        );
-
-        addResourceSprites(
-                sprites, ResourceType.CRYSTALS, "tundra",
-                "White_crystal", 4, null, -5.0
-        );
-
-        return sprites;
-    }
-
-    /**
-     * Loads entity sprites from configuration.
-     */
-    private void loadEntitySprites() {
-        AppConfig.PlayerConfig.SpriteSheetConfig config =
-                AppConfig.getInstance().player().spriteSheet;
-
-        try (InputStream is = getResourceStream(config.path)) {
-            if (is == null) {
-                throw new IllegalStateException("Player spritesheet not found: " + config.path);
+    /** Loads the block variants and the face strip of every tile art, skipping the arts that have no files. */
+    private void loadTileSprites() {
+        for (String art : AssetPaths.allTileArts()) {
+            List<Image> variants = loadTileVariants(art);
+            if (variants.isEmpty()) {
+                log.info("No tile art {}, the procedural tile is drawn", art);
+            } else {
+                tileSprites.put(art, variants);
             }
-
-            Image playerSheet = new Image(is);
-            validateSpritesheetDimensions(playerSheet, config);
-            entitySprites.put("player", extractSpritesheetFrames(playerSheet, config));
-        } catch (Exception e) {
-            log.warn("Error loading player spritesheet {}, using fallback frames: {}", config.path, e.getMessage());
-            entitySprites.put("player", createFallbackFrames(config));
+            final Image strip = loadImage(AssetPaths.faceStrip(art));
+            if (strip != null) {
+                faceStrips.put(art, strip);
+            }
         }
     }
 
-    /**
-     * Loads all item sprites.
-     */
-    private void loadItemSprites() {
-        String itemsBasePath = ASSETS_BASE_PATH + "entities/items/";
+    /** Loads the ground decal sprites and logs the names that have no art. */
+    private void loadDecalSprites() {
+        List<String> missing = new ArrayList<>();
+        for (String name : GroundDecals.ALL) {
+            Image image = loadImage(AssetPaths.decal(name));
+            if (image == null) {
+                missing.add(name);
+            } else {
+                decalSprites.put(name, image);
+            }
+        }
+        if (!missing.isEmpty()) {
+            log.info("No decal art for {}, those decals are skipped", missing);
+        }
+    }
 
+    /** Loads the translucent water sheets and the shimmer lines, leaving the shimmer empty when a line is missing. */
+    private void loadWaterSprites() {
+        Set<String> arts = new LinkedHashSet<>();
+        for (TileType type : TileType.values()) {
+            String art = AssetPaths.waterArt(type);
+            if (art != null) {
+                arts.add(art);
+            }
+        }
+        for (String art : arts) {
+            Image image = loadImage(AssetPaths.waterTop(art));
+            if (image == null) {
+                log.info("No water art {}, those tiles are drawn without water", art);
+            } else {
+                waterSprites.put(art, image);
+            }
+        }
+        List<Image> lines = new ArrayList<>();
+        for (int line = 0; line < WaterShimmer.MAX_LINES; line++) {
+            Image image = loadImage(AssetPaths.shimmer(line));
+            if (image == null) {
+                log.info("No shimmer art for line {}, the water is drawn without highlights", line);
+                return;
+            }
+            lines.add(image);
+        }
+        shimmerLines = List.copyOf(lines);
+    }
+
+    /** Loads the numbered variants of a tile art until a number is missing. */
+    private List<Image> loadTileVariants(String art) {
+        List<Image> variants = new ArrayList<>();
+        for (int variant = 1; variant <= MAX_VARIANTS; variant++) {
+            Image image = loadImage(AssetPaths.tile(art, variant));
+            if (image == null) {
+                break;
+            }
+            variants.add(image);
+        }
+        return variants;
+    }
+
+    /**
+     * Loads the resource art of every biome folder, then resolves for each map type the list its resources draw from:
+     * the biome folder first, then the default folder, then the shared one.
+     */
+    private void loadResourceSprites() {
+        Map<String, Map<ResourceType, List<SpriteMetadata>>> byFolder = new HashMap<>();
+        for (String folder : RESOURCE_FOLDERS) {
+            Map<ResourceType, List<SpriteMetadata>> perType = new EnumMap<>(ResourceType.class);
+            for (ResourceType type : ResourceType.values()) {
+                perType.put(type, loadResourceVariants(folder, type));
+            }
+            byFolder.put(folder, perType);
+        }
+
+        List<String> withoutArt = new ArrayList<>();
+        for (MapType mapType : MapType.values()) {
+            String biome = AssetPaths.biomeFolder(mapType);
+            Map<ResourceType, List<SpriteMetadata>> resolved = new EnumMap<>(ResourceType.class);
+            for (ResourceType type : ResourceType.values()) {
+                List<SpriteMetadata> list = firstNotEmpty(
+                        byFolder.get(biome).get(type),
+                        byFolder.get(AssetPaths.DEFAULT_FOLDER).get(type),
+                        byFolder.get(AssetPaths.SHARED_FOLDER).get(type));
+                resolved.put(type, list);
+                if (list.isEmpty()) {
+                    withoutArt.add(mapType + "/" + type);
+                }
+            }
+            resourceSprites.put(mapType, resolved);
+        }
+        if (!withoutArt.isEmpty()) {
+            log.info("No resource art for {}, stand-in shapes are drawn", withoutArt);
+        }
+    }
+
+    /** Returns the first list that holds a sprite, or an empty list when every candidate is empty. */
+    @SafeVarargs
+    private static List<SpriteMetadata> firstNotEmpty(List<SpriteMetadata>... candidates) {
+        for (List<SpriteMetadata> candidate : candidates) {
+            if (!candidate.isEmpty()) {
+                return candidate;
+            }
+        }
+        return List.of();
+    }
+
+    /** Loads every kind of a resource type from one biome folder, numbered variants of each until a number is missing. */
+    private List<SpriteMetadata> loadResourceVariants(String folder, ResourceType type) {
+        List<SpriteMetadata> variants = new ArrayList<>();
+        for (String kind : AssetPaths.resourceKinds(type)) {
+            for (int variant = 1; variant <= MAX_VARIANTS; variant++) {
+                Image image = loadImage(AssetPaths.resource(folder, kind, variant));
+                if (image == null) {
+                    break;
+                }
+                variants.add(new SpriteMetadata(image, 0.0,
+                        ResourceAnchor.dropArtPixels(kind, bottomPadding(image)), ResourceAnchor.contactArtPixels(kind), kind));
+            }
+        }
+        return variants;
+    }
+
+    /** Counts the fully transparent rows under the lowest painted pixel of an image. */
+    private static int bottomPadding(Image image) {
+        final PixelReader reader = image.getPixelReader();
+        final int width = (int) image.getWidth();
+        return ResourceAnchor.bottomPadding((int) image.getHeight(), row -> {
+            for (int x = 0; x < width; x++) {
+                if ((reader.getArgb(x, row) >>> 24) != 0) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    /** Loads the player sheet frames and the slime strip frames, each left empty when its art is missing. */
+    private void loadEntitySprites() {
+        AppConfig.PlayerConfig.SpriteSheetConfig config = AppConfig.getInstance().player().spriteSheet;
+        Image sheet = loadImage(config.path);
+        if (sheet == null) {
+            log.info("No player sheet at {}, the stand-in circle is drawn", config.path);
+        } else if (sheet.getWidth() < config.startX + config.columns * config.columnOffset
+                || sheet.getHeight() < config.rowYCoordinates[config.rows - 1] + config.spriteHeight) {
+            log.warn("Player sheet {} is {}x{}, too small for {} columns by {} rows, the stand-in circle is drawn",
+                    config.path, sheet.getWidth(), sheet.getHeight(), config.columns, config.rows);
+        } else {
+            entitySprites.put("player", extractSpritesheetFrames(sheet, config));
+        }
+
+        Image strip = loadImage(AssetPaths.SLIME_STRIP);
+        if (strip == null) {
+            log.info("No slime strip at {}, the stand-in oval is drawn", AssetPaths.SLIME_STRIP);
+            return;
+        }
+        int frameWidth = (int) (strip.getWidth() / SpriteLayout.SLIME_FRAMES);
+        List<Image> frames = new ArrayList<>();
+        for (int i = 0; i < SpriteLayout.SLIME_FRAMES; i++) {
+            frames.add(new WritableImage(strip.getPixelReader(), i * frameWidth, 0, frameWidth, (int) strip.getHeight()));
+        }
+        slimeFrames = List.copyOf(frames);
+    }
+
+    /** Loads the icon of every item type, keeping an entry without image for the types that have no art. */
+    private void loadItemSprites() {
+        List<String> missing = new ArrayList<>();
         for (ItemType type : ItemType.values()) {
-            String fullPath = itemsBasePath + type.getSpritePath() + ".png";
-            itemSprites.put(type, loadImageMetadata(fullPath, 0.0));
+            String path = AssetPaths.item(type);
+            Image image = loadImage(path);
+            itemSprites.put(type, new SpriteMetadata(image, 0.0));
+            if (image == null) {
+                missing.add(type.name());
+            }
+        }
+        if (!missing.isEmpty()) {
+            log.info("{} item icons have no art, stand-in shapes are drawn", missing.size());
+            log.debug("Items without art: {}", missing);
         }
     }
 
@@ -240,56 +322,164 @@ public final class SpriteManager {
     // ==================================================================
 
     /**
-     * Retrieves a resource sprite with proper vertical offset.
+     * Retrieves the tile sprite for a tile of any map, choosing the variant from its coordinates.
+     *
+     * @param type the tile type
+     * @param x    the tile column
+     * @param y    the tile row
+     * @return the sprite, or null when the type has no art
+     */
+    public Image getTileSprite(TileType type, int x, int y) {
+        return getTileSprite(null, type, x, y);
+    }
+
+    /**
+     * Retrieves the tile sprite for a tile of a map type, choosing the variant from its coordinates.
+     * The map type picks the biome art, for example dunes for grassy land in the desert.
+     *
+     * @param mapType the map type, or null for the art every map shares
+     * @param type    the tile type
+     * @param x       the tile column
+     * @param y       the tile row
+     * @return the sprite, or null when the type has no art
+     */
+    public Image getTileSprite(MapType mapType, TileType type, int x, int y) {
+        List<Image> variants = tileSprites.get(AssetPaths.tileArt(mapType, type));
+        if (variants == null) {
+            return null;
+        }
+        return variants.get(SpriteVariants.forTile(x, y, variants.size()));
+    }
+
+    /**
+     * Retrieves a decal sprite.
+     *
+     * @param name the decal name, see {@link GroundDecals}
+     * @return the sprite, or null when the name is null or has no art
+     */
+    public Image getDecalSprite(String name) {
+        return name == null ? null : decalSprites.get(name);
+    }
+
+    /**
+     * Retrieves the face strip of a tile art: the part of its side faces that a lower neighbour exposes below the
+     * face of the tile sprite.
+     *
+     * @param art the tile art name, see {@link AssetPaths#tileArt}
+     * @return the strip, or null when the name is null or has no strip
+     */
+    public Image getFaceStrip(String art) {
+        return art == null ? null : faceStrips.get(art);
+    }
+
+    /**
+     * Retrieves a translucent water layer.
+     *
+     * @param art the water art name, see {@link AssetPaths#waterArt}
+     * @return the top diamond to draw over the bed, or null when the name is null or has no art
+     */
+    public Image getWaterSprite(String art) {
+        return art == null ? null : waterSprites.get(art);
+    }
+
+    /**
+     * Retrieves the sprite of one shimmer line.
+     *
+     * @param line the line index, below {@link WaterShimmer#MAX_LINES}
+     * @return the sprite, or null when there is no shimmer art
+     */
+    public Image getShimmerSprite(int line) {
+        return line >= 0 && line < shimmerLines.size() ? shimmerLines.get(line) : null;
+    }
+
+    /**
+     * Retrieves a resource sprite.
      *
      * @param mapType Current map type
      * @param resourceType Resource type
-     * @param visualSeed Seed for consistent variant selection
+     * @param x Tile column of the resource
+     * @param y Tile row of the resource
+     * @param worldSeed Seed of the world, which with the coordinates fixes the variant
      * @return Sprite metadata or null if not found
      */
-    public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, long visualSeed) {
-        Map<ResourceType, List<SpriteMetadata>> mapSprites = resourceSprites.getOrDefault(
-                mapType, resourceSprites.get(MapType.DARK_FOREST)
-        );
+    public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, int x, int y, long worldSeed) {
+        return getResourceSprite(mapType, resourceType, x, y, worldSeed, null);
+    }
 
-        if (mapSprites == null) return null;
-
+    /**
+     * Retrieves a resource sprite of a preferred art kind, for example a palm for a tree near water in the desert.
+     * The variant among the sprites of that kind is chosen like any other, from the coordinates and the world seed.
+     *
+     * @param mapType Current map type
+     * @param resourceType Resource type
+     * @param x Tile column of the resource
+     * @param y Tile row of the resource
+     * @param worldSeed Seed of the world, which with the coordinates fixes the variant
+     * @param preferredKind the art kind to draw, or null for any kind of the resource; a kind the biome has no art for is ignored
+     * @return Sprite metadata or null if not found
+     */
+    public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, int x, int y, long worldSeed,
+                                            String preferredKind) {
+        Map<ResourceType, List<SpriteMetadata>> mapSprites = resourceSprites.get(mapType);
+        if (mapSprites == null) {
+            return null;
+        }
         List<SpriteMetadata> variants = mapSprites.get(resourceType);
-        if (variants == null || variants.isEmpty()) return null;
-
-        return variants.get(new Random(visualSeed).nextInt(variants.size()));
+        if (variants == null || variants.isEmpty()) {
+            return null;
+        }
+        if (preferredKind != null) {
+            // The lists are a handful of sprites, so counting and picking inside them allocates nothing
+            int matching = 0;
+            for (int i = 0, count = variants.size(); i < count; i++) {
+                if (preferredKind.equals(variants.get(i).getKind())) {
+                    matching++;
+                }
+            }
+            if (matching > 0) {
+                int pick = SpriteVariants.forResource(worldSeed, x, y, matching);
+                for (int i = 0, count = variants.size(); i < count; i++) {
+                    if (preferredKind.equals(variants.get(i).getKind()) && pick-- == 0) {
+                        return variants.get(i);
+                    }
+                }
+            }
+        }
+        return variants.get(SpriteVariants.forResource(worldSeed, x, y, variants.size()));
     }
 
     /**
      * Retrieves an entity sprite frame.
      *
      * @param entityKey Entity identifier ("player")
-     * @param row Animation row (direction)
-     * @param col Animation column (frame)
-     * @return Requested sprite frame or fallback if not found
+     * @param row Animation row (walk a, idle, walk b)
+     * @param col Sheet column, see {@link SpriteLayout#playerColumn}
+     * @return Requested sprite frame, or null when the entity has no art
      */
     public Image getEntitySprite(String entityKey, int row, int col) {
         List<List<Image>> frames = entitySprites.get(entityKey);
-        if (frames == null) {
-            log.warn("Entity sprite key not found: {}", entityKey);
-            return createSolidColorImage(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE, MISSING_SPRITE_COLOR);
+        if (frames == null || row < 0 || row >= frames.size()) {
+            return null;
         }
-
-        if (row < 0 || row >= frames.size()) {
-            return createSolidColorImage(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE, MISSING_SPRITE_COLOR);
-        }
-
         List<Image> rowFrames = frames.get(row);
-        return (col >= 0 && col < rowFrames.size()) ?
-                rowFrames.get(col) :
-                createSolidColorImage(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE, MISSING_SPRITE_COLOR);
+        return (col >= 0 && col < rowFrames.size()) ? rowFrames.get(col) : null;
+    }
+
+    /**
+     * Retrieves one frame of the slime strip.
+     *
+     * @param frame the frame, see {@link SpriteLayout#slimeFrame}
+     * @return the frame, or null when there is no slime art
+     */
+    public Image getSlimeFrame(int frame) {
+        return (frame >= 0 && frame < slimeFrames.size()) ? slimeFrames.get(frame) : null;
     }
 
     /**
      * Retrieves sprite metadata for an item type.
      *
      * @param itemType The type of item
-     * @return SpriteMetadata with image and offset
+     * @return SpriteMetadata with image and offset, the image is null when the item has no art
      */
     public SpriteMetadata getItemSprite(ItemType itemType) {
         return itemSprites.getOrDefault(itemType, new SpriteMetadata(null, 0));
@@ -299,22 +489,6 @@ public final class SpriteManager {
     //  SPRITE LOADING HELPERS
     // ==================================================================
 
-    /**
-     * Validates spritesheet dimensions against configuration.
-     */
-    private void validateSpritesheetDimensions(Image sheet, AppConfig.PlayerConfig.SpriteSheetConfig config) {
-        double minWidth = config.startX + (config.columns * config.spriteWidth);
-        double minHeight = config.rowYCoordinates[config.rows - 1] + config.spriteHeight;
-
-        if (sheet.getWidth() < minWidth || sheet.getHeight() < minHeight) {
-            log.warn("Spritesheet too small: Required {}x{}, Actual {}x{}",
-                    minWidth, minHeight, sheet.getWidth(), sheet.getHeight());
-        }
-    }
-
-    /**
-     * Extracts frames from a spritesheet.
-     */
     private List<List<Image>> extractSpritesheetFrames(Image sheet, AppConfig.PlayerConfig.SpriteSheetConfig config) {
         List<List<Image>> frames = new ArrayList<>();
         PixelReader reader = sheet.getPixelReader();
@@ -322,10 +496,9 @@ public final class SpriteManager {
         for (int row = 0; row < config.rows; row++) {
             int y = config.rowYCoordinates[row];
             List<Image> rowFrames = new ArrayList<>();
-
             for (int col = 0; col < config.columns; col++) {
                 int x = config.startX + (col * config.columnOffset);
-                rowFrames.add(extractFrame(reader, x, y, config.spriteWidth, config.spriteHeight));
+                rowFrames.add(new WritableImage(reader, x, y, config.spriteWidth, config.spriteHeight));
             }
             frames.add(rowFrames);
         }
@@ -333,121 +506,26 @@ public final class SpriteManager {
     }
 
     /**
-     * Extracts a single frame from a spritesheet.
+     * Loads an image from the classpath.
+     *
+     * @return the image, or null when the resource does not exist or cannot be decoded
      */
-    private Image extractFrame(PixelReader reader, int x, int y, int width, int height) {
-        try {
-            return new WritableImage(reader, x, y, width, height);
-        } catch (Exception e) {
-            log.warn("Error extracting frame at ({},{}): {}", x, y, e.getMessage());
-            log.debug("Frame extraction failure at ({},{})", x, y, e);
-            return createSolidColorImage(width, height, FALLBACK_COLOR);
-        }
-    }
-
-    /**
-     * Creates fallback frames for missing spritesheets.
-     */
-    private List<List<Image>> createFallbackFrames(AppConfig.PlayerConfig.SpriteSheetConfig config) {
-        List<List<Image>> frames = new ArrayList<>();
-
-        for (int row = 0; row < config.rows; row++) {
-            List<Image> rowFrames = new ArrayList<>();
-
-            for (int col = 0; col < config.columns; col++) {
-                rowFrames.add(createSolidColorImage(config.spriteWidth, config.spriteHeight, FALLBACK_COLOR));
+    private Image loadImage(String path) {
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                log.debug("Asset not found: {}", path);
+                return null;
             }
-            frames.add(rowFrames);
-        }
-        return frames;
-    }
-
-    /**
-     * Adds multiple sprite variants to a resource type.
-     */
-    private void addResourceVariants(
-            Map<ResourceType, List<SpriteMetadata>> sprites,
-            ResourceType type,
-            String folder,
-            List<String> prefixes,
-            List<Integer> counts,
-            List<Double> verticalOffsets
-    ) {
-        List<SpriteMetadata> variants = new ArrayList<>();
-
-        for (int i = 0; i < prefixes.size(); i++) {
-            variants.addAll(loadSpriteSet(
-                    folder, prefixes.get(i), counts.get(i), null, verticalOffsets.get(i)
-            ));
-        }
-        sprites.put(type, variants);
-    }
-
-    /**
-     * Adds a set of sprites for a resource type.
-     */
-    private void addResourceSprites(
-            Map<ResourceType, List<SpriteMetadata>> sprites,
-            ResourceType type,
-            String folder,
-            String prefix,
-            int count,
-            String suffix,
-            double verticalOffset
-    ) {
-        sprites.put(type, loadSpriteSet(folder, prefix, count, suffix, verticalOffset));
-    }
-
-    /**
-     * Loads a set of sprites from the filesystem.
-     */
-    private List<SpriteMetadata> loadSpriteSet(String folder, String prefix, int count,
-                                               String suffix, double verticalOffset) {
-        List<SpriteMetadata> sprites = new ArrayList<>();
-        String basePath = "resources/" + folder + "/";
-
-        for (int i = 1; i <= count; i++) {
-            String path = ASSETS_BASE_PATH + basePath + prefix + i +
-                    (suffix != null ? suffix : "") + ".png";
-            sprites.add(loadImageMetadata(path, verticalOffset));
-        }
-        return sprites;
-    }
-
-    /**
-     * Loads image metadata from a resource path.
-     */
-    private SpriteMetadata loadImageMetadata(String fullPath, double verticalOffset) {
-        try (InputStream is = getResourceStream(fullPath)) {
-            return new SpriteMetadata(is != null ? new Image(is) : null, verticalOffset);
-        } catch (Exception e) {
-            log.warn("Error loading sprite {}", fullPath, e);
-            return new SpriteMetadata(null, verticalOffset);
-        }
-    }
-
-    /**
-     * Creates a solid color fallback image.
-     */
-    private Image createSolidColorImage(double width, double height, Color color) {
-        int w = (int) Math.max(1, width);
-        int h = (int) Math.max(1, height);
-        WritableImage img = new WritableImage(w, h);
-        PixelWriter writer = img.getPixelWriter();
-
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                writer.setColor(x, y, color);
+            Image image = new Image(is);
+            if (image.isError()) {
+                log.warn("Asset could not be decoded: {}", path, image.getException());
+                return null;
             }
+            return image;
+        } catch (Exception e) {
+            log.warn("Error loading asset {}", path, e);
+            return null;
         }
-        return img;
-    }
-
-    /**
-     * Safely retrieves a resource stream.
-     */
-    private InputStream getResourceStream(String path) {
-        return getClass().getResourceAsStream(path);
     }
 
 }

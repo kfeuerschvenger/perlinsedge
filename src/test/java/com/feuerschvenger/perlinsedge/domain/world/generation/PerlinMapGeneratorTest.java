@@ -59,7 +59,7 @@ class PerlinMapGeneratorTest {
 
     @Test
     void sameSeedAndContextProduceTheSameTerrain() {
-        assertTrue(sameTerrain(generate(defaults(MapType.DARK_FOREST, 42L)), generate(defaults(MapType.DARK_FOREST, 42L))));
+        assertTrue(sameTerrain(generate(defaults(MapType.DENSE_FOREST, 42L)), generate(defaults(MapType.DENSE_FOREST, 42L))));
     }
 
     @Test
@@ -68,7 +68,7 @@ class PerlinMapGeneratorTest {
         long high = low | (7L << 40);
 
         assertTrue((int) low == (int) high, "precondition: a narrowing cast cannot tell these seeds apart");
-        assertTrue(!sameTerrain(generate(defaults(MapType.DARK_FOREST, low)), generate(defaults(MapType.DARK_FOREST, high))));
+        assertTrue(!sameTerrain(generate(defaults(MapType.DENSE_FOREST, low)), generate(defaults(MapType.DENSE_FOREST, high))));
     }
 
     @Test
@@ -80,23 +80,23 @@ class PerlinMapGeneratorTest {
         };
         long seed = 0x1234_5678_9ABC_DEF0L;
 
-        new PerlinMapGenerator(recording).generateMap(8, 8, defaults(MapType.DARK_FOREST, seed));
+        new PerlinMapGenerator(recording).generateMap(8, 8, defaults(MapType.DENSE_FOREST, seed));
 
         assertEquals(List.of(seed, seed + 1, seed + 2, seed + 3, seed + 4, seed + 5), seeds);
     }
 
     @Test
     void heightFrequencyFromTheContextChangesTheTerrain() {
-        TileMap coarse = generate(context(MapType.DARK_FOREST, 7L, 0.01f, 4));
-        TileMap fine = generate(context(MapType.DARK_FOREST, 7L, 0.08f, 4));
+        TileMap coarse = generate(context(MapType.DENSE_FOREST, 7L, 0.01f, 4));
+        TileMap fine = generate(context(MapType.DENSE_FOREST, 7L, 0.08f, 4));
 
         assertNotEquals(java.util.Arrays.hashCode(heights(coarse)), java.util.Arrays.hashCode(heights(fine)));
     }
 
     @Test
     void heightOctavesFromTheContextChangesTheTerrain() {
-        TileMap smooth = generate(context(MapType.DARK_FOREST, 7L, 0.02f, 1));
-        TileMap detailed = generate(context(MapType.DARK_FOREST, 7L, 0.02f, 8));
+        TileMap smooth = generate(context(MapType.DENSE_FOREST, 7L, 0.02f, 1));
+        TileMap detailed = generate(context(MapType.DENSE_FOREST, 7L, 0.02f, 8));
 
         assertNotEquals(java.util.Arrays.hashCode(heights(smooth)), java.util.Arrays.hashCode(heights(detailed)));
     }
@@ -162,7 +162,7 @@ class PerlinMapGeneratorTest {
 
     @Test
     void ironOreOnlyLiesOnHillsAndMountains() {
-        for (MapType type : new MapType[]{MapType.MOUNTAINOUS, MapType.DARK_FOREST, MapType.DESERT}) {
+        for (MapType type : new MapType[]{MapType.MOUNTAINOUS, MapType.DENSE_FOREST, MapType.DESERT}) {
             for (long seed = 1; seed <= 4; seed++) {
                 TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
                         .generateMap(150, 150, defaults(type, seed));

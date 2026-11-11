@@ -33,7 +33,7 @@ public record NoiseSettings(float frequency, int octaves, FractalKind fractal, f
             case ISLANDS -> new NoiseSettings(0.005f, 5, FractalKind.FBM, 0f, DEFAULT_LACUNARITY);
             case DESERT -> new NoiseSettings(0.04f, 6, FractalKind.RIDGED, 0.6f, DEFAULT_LACUNARITY);
             case MOUNTAINOUS -> new NoiseSettings(0.01f, 8, FractalKind.RIDGED, 0.7f, DEFAULT_LACUNARITY);
-            case DARK_FOREST, SWAMP -> new NoiseSettings(0.02f, 4, FractalKind.FBM, 0.4f, DEFAULT_LACUNARITY);
+            case DENSE_FOREST, SWAMP -> new NoiseSettings(0.02f, 4, FractalKind.FBM, 0.4f, DEFAULT_LACUNARITY);
             case TUNDRA -> new NoiseSettings(0.015f, 5, FractalKind.FBM, 0.5f, DEFAULT_LACUNARITY);
             case RIVERS -> new NoiseSettings(0.01f, 6, FractalKind.FBM, 0.4f, DEFAULT_LACUNARITY);
             case MEDITERRANEAN -> new NoiseSettings(0.025f, 5, FractalKind.FBM, 0.5f, DEFAULT_LACUNARITY);

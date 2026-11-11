@@ -1,0 +1,232 @@
+package com.feuerschvenger.perlinsedge.infra.fx.utils;
+
+import com.feuerschvenger.perlinsedge.domain.world.generation.PerlinMapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ResourceKindsTest {
+
+    private static final int SIZE = 200;
+
+    private static double palmShare(boolean nearWater, long seed) {
+        int palms = 0;
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String kind = ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, nearWater, x, y, seed);
+                assertTrue(ResourceKinds.PALM.equals(kind) || ResourceKinds.CACTUS.equals(kind), String.valueOf(kind));
+                palms += ResourceKinds.PALM.equals(kind) ? 1 : 0;
+            }
+        }
+        return palms / (double) (SIZE * SIZE);
+    }
+
+    @Test
+    void onlyDesertTreesDependOnWater() {
+        assertTrue(ResourceKinds.dependsOnWater(MapType.DESERT, ResourceType.TREE));
+        assertFalse(ResourceKinds.dependsOnWater(MapType.DESERT, ResourceType.STONE));
+        for (MapType type : MapType.values()) {
+            if (type != MapType.DESERT) {
+                assertFalse(ResourceKinds.dependsOnWater(type, ResourceType.TREE), type.name());
+                assertNull(ResourceKinds.preferredKind(type, ResourceType.TREE, true, 3, 4, 1L), type.name());
+            }
+        }
+        assertNull(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.STONE, true, 3, 4, 1L));
+    }
+
+    @Test
+    void palmsGatherNearWaterAndCactiOutInTheSand() {
+        assertEquals(5.0 / 6.0, palmShare(true, 9L), 0.03);
+        assertEquals(1.0 / 6.0, palmShare(false, 9L), 0.03);
+    }
+
+    @Test
+    void eachPlaceKeepsAFewTreesOfTheOtherKind() {
+        boolean cactusNearWater = false;
+        boolean palmInTheDry = false;
+        for (int x = 0; x < 60; x++) {
+            for (int y = 0; y < 60; y++) {
+                cactusNearWater |= ResourceKinds.CACTUS.equals(
+                        ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, true, x, y, 4L));
+                palmInTheDry |= ResourceKinds.PALM.equals(
+                        ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, false, x, y, 4L));
+            }
+        }
+        assertTrue(cactusNearWater && palmInTheDry);
+    }
+
+    @Test
+    void aTreeKeepsItsKindAcrossFramesAndTheSeedReshufflesThem() {
+        assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, true, 12, 7, 5L),
+                ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, true, 12, 7, 5L));
+        int differing = 0;
+        for (int x = 0; x < 50; x++) {
+            for (int y = 0; y < 50; y++) {
+                differing += ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, true, x, y, 1L)
+                        .equals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, true, x, y, 2L)) ? 0 : 1;
+            }
+        }
+        assertTrue(differing > 100, "differing " + differing);
+    }
+
+    @Test
+    void waterIsNearWhenItLiesWithinTheGenerationReachInAnyDirection() {
+        int reach = PerlinMapGenerator.OASIS_PALM_REACH;
+        TileMap map = new TileMap(21, 21);
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.SAND));
+            }
+        }
+        map.setTile(10, 10, new Tile(10, 10, TileType.SHALLOW_WATER));
+        assertTrue(ResourceKinds.isNearWater(map, 10 + reach, 10 - reach));
+        assertTrue(ResourceKinds.isNearWater(map, 10 - reach, 10));
+        assertFalse(ResourceKinds.isNearWater(map, 10 + reach + 1, 10));
+        assertFalse(ResourceKinds.isNearWater(map, 0, 0));
+    }
+
+    private static TileMap sandMap(boolean withWater) {
+        TileMap map = new TileMap(21, 21);
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.SAND));
+            }
+        }
+        if (withWater) {
+            map.setTile(10, 10, new Tile(10, 10, TileType.SHALLOW_WATER));
+        }
+        return map;
+    }
+
+    private static TileMap sandMapWithWaterAt(int x, int y) {
+        TileMap map = sandMap(false);
+        map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+        return map;
+    }
+
+    @Test
+    void theCacheAnswersLikeTheDirectPickAndRebuildsWithTheMap() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap dry = sandMap(false);
+        TileMap wet = sandMap(true);
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, false, x, y, 3L),
+                        cache.preferredKind(dry, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+                assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, false, x, y, 3L),
+                        cache.preferredKind(dry, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+            }
+        }
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE,
+                                ResourceKinds.isNearWater(wet, x, y), x, y, 3L),
+                        cache.preferredKind(wet, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+            }
+        }
+    }
+
+    /** The kind of a tile with no water in reach is decided by the seed alone, so it shows which key the cache holds. */
+    private static String direct(boolean nearWater, int x, int y, long seed) {
+        return ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, nearWater, x, y, seed);
+    }
+
+    /**
+     * Finds a tile whose dry kind under seed 3 differs from its watered kind under seeds 3 and 4, so a stale answer
+     * cannot pass for a fresh one whichever key changed.
+     */
+    private static int[] tileWhereAStaleAnswerShowsUp() {
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                String dry = direct(false, x, y, 3L);
+                if (!dry.equals(direct(true, x, y, 3L)) && !dry.equals(direct(true, x, y, 4L))) {
+                    return new int[]{x, y};
+                }
+            }
+        }
+        throw new AssertionError("no tile tells a stale answer apart");
+    }
+
+    @Test
+    void theCacheServesTheRememberedAnswerUntilTheSeedChanges() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap map = sandMap(false);
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        String dry = cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L);
+        assertEquals(direct(false, x, y, 3L), dry);
+
+        // Water appears next to the tile after the first answer: the cache keeps the answer it already gave
+        map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+        assertTrue(ResourceKinds.isNearWater(map, x, y));
+        assertEquals(dry, cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+
+        // A new seed with the same map throws the answers away
+        assertEquals(direct(true, x, y, 4L), cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 4L));
+    }
+
+    @Test
+    void aMapTypeWithoutTheWaterRuleGetsNoKindAndTheDesertAnswerSurvivesTheDetour() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap map = sandMap(false);
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        String desert = cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L);
+        assertEquals(direct(false, x, y, 3L), desert);
+
+        // Only the desert asks about water, so another type never reads or rebuilds the remembered kinds
+        assertNull(cache.preferredKind(map, MapType.SWAMP, ResourceType.TREE, x, y, 3L));
+        assertEquals(desert, cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+    }
+
+    @Test
+    void aNewMapWithTheSameSeedAndTypeIsReadAgain() {
+        ResourceKindCache cache = new ResourceKindCache();
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        assertEquals(direct(false, x, y, 3L), cache.preferredKind(sandMap(false), MapType.DESERT, ResourceType.TREE, x, y, 3L));
+        assertEquals(direct(true, x, y, 3L), cache.preferredKind(sandMapWithWaterAt(x, y), MapType.DESERT, ResourceType.TREE, x, y, 3L));
+    }
+
+    @Test
+    void invalidatingTheCacheForgetsTheAnswersAndTheMap() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap map = sandMap(false);
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L);
+        map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+
+        cache.invalidate();
+
+        assertEquals(direct(true, x, y, 3L), cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+    }
+
+    @Test
+    void theCacheLeavesOtherBiomesAndResourcesToThePlainPick() {
+        ResourceKindCache cache = new ResourceKindCache();
+        assertNull(cache.preferredKind(sandMap(true), MapType.SWAMP, ResourceType.TREE, 3, 3, 1L));
+        assertNull(cache.preferredKind(sandMap(true), MapType.DESERT, ResourceType.STONE, 3, 3, 1L));
+    }
+
+    @Test
+    void theDesertShipsArtForBothKinds() {
+        for (String kind : new String[]{ResourceKinds.PALM, ResourceKinds.CACTUS}) {
+            assertNotNull(getClass().getResource(AssetPaths.resource("desert", kind, 1)), kind);
+            assertTrue(AssetPaths.resourceKinds(ResourceType.TREE).contains(kind), kind);
+        }
+    }
+}

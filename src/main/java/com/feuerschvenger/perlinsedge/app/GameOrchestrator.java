@@ -43,6 +43,7 @@ public class GameOrchestrator {
     private final Canvas mainCanvas;
     private final InventoryPanel inventoryPanel;
     private final MapConfigPanel mapConfigPanel;
+    private final DeathOverlay deathOverlay;
 
     private final GameLoop gameLoop;
     private boolean gameActive;
@@ -62,6 +63,7 @@ public class GameOrchestrator {
      * @param inventoryPanel      inventory view
      * @param buildingHotbarPanel building hotbar view
      * @param hintLabel           short on-screen hints for actions that did nothing
+     * @param deathOverlay        death screen shown while the player is dead
      * @param gameState           shared state, a new one is created when null
      * @param recipeManager       recipes, a new one is created when null
      */
@@ -69,7 +71,7 @@ public class GameOrchestrator {
                             FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
                             Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
                             BuildingHotbarPanel buildingHotbarPanel, HintLabel hintLabel,
-                            GameStateManager gameState, RecipeManager recipeManager) {
+                            DeathOverlay deathOverlay, GameStateManager gameState, RecipeManager recipeManager) {
         this.renderer = renderer;
         this.camera = camera;
         this.inputHandler = inputHandler;
@@ -77,6 +79,7 @@ public class GameOrchestrator {
         this.mapConfigPanel = mapConfigPanel;
         this.mainCanvas = mainCanvas;
         this.inventoryPanel = inventoryPanel;
+        this.deathOverlay = deathOverlay;
 
         this.gameState = gameState != null ? gameState : new GameStateManager();
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
@@ -136,7 +139,9 @@ public class GameOrchestrator {
     public void leaveGame() {
         stopGameLoop();
         transitions.resetUi();
+        deathOverlay.hide();
         renderer.clearBuildingPreview();
+        renderer.invalidateWorldCaches();
     }
 
     /** Starts the main game loop. */
@@ -201,7 +206,8 @@ public class GameOrchestrator {
         setupInventoryCallbacks();
         inputWiring.registerSceneDragHandlers();
         inputWiring.registerKeyboard(createKeyController());
-        inputWiring.registerWheelInterceptor(hotbarManager::handleWheel);
+        inputWiring.registerWheelInterceptor(
+                (deltaY, ctrlDown) -> !gameState.isPlayerDead() && hotbarManager.handleWheel(deltaY, ctrlDown));
         inputWiring.registerMouseHandlers();
     }
 
@@ -232,7 +238,7 @@ public class GameOrchestrator {
     }
 
     private KeyController createKeyController() {
-        return new KeyController(
+        KeyController controller = new KeyController(
                 transitions::togglePauseMenu,
                 this::centerOnPlayer,
                 this::regenerateMap,
@@ -243,6 +249,8 @@ public class GameOrchestrator {
                 hotbarManager::handleHotbarNumberSelection,
                 hotbarManager::changePage
         );
+        controller.setInputBlocked(gameState::isPlayerDead);
+        return controller;
     }
 
     private void toggleMapConfigPanelInGame() {
@@ -316,6 +324,10 @@ public class GameOrchestrator {
         gameState.incrementGameTime(deltaTime);
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        if (gameState.isPlayerDead()) {
+            // Building mode and the inventory cannot stay open under the death screen
+            transitions.setGameMode(GameMode.EXPLORATION);
+        }
         itemDropManager.update();
         combatManager.updateEnemies(deltaTime);
 
@@ -358,6 +370,7 @@ public class GameOrchestrator {
         }
 
         renderer.render(alpha, deltaTime);
+        deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());
         minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());

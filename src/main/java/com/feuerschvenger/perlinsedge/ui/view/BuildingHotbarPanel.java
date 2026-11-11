@@ -13,9 +13,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -35,15 +32,12 @@ public class BuildingHotbarPanel extends HBox {
     private BuildingType currentlySelectedBuildingType;
 
     private static final int NUM_SLOTS = 9;
-    private static final double SLOT_SIZE = 60;
-    private static final double ICON_SIZE = 48;
-
-    // Each slot style is a complete replacement, never appended to, so it cannot grow with every highlight
-    private static final String EMPTY_SLOT_CLASS = "empty-slot";
-    private static final String SLOT_STYLE =
-            "-fx-background-color: #555555; -fx-border-color: gray; -fx-border-width: 1; -fx-border-radius: 5;";
-    private static final String SLOT_SELECTED_STYLE =
-            "-fx-background-color: #555555; -fx-border-color: limegreen; -fx-border-width: 3; -fx-border-radius: 5;";
+    /** Slot edge in whole pixels; the UI layer never scales with the world zoom, so it stays this size. */
+    static final double SLOT_SIZE = 48;
+    /** Icon edge: the 16 px art at 2x, so every art pixel stays a whole square block. */
+    static final double ICON_SIZE = 32;
+    /** Gap between slots in whole pixels. */
+    static final double SLOT_GAP = 4;
 
     public BuildingHotbarPanel(RecipeManager recipeManager) {
         this.recipeManager = recipeManager;
@@ -54,11 +48,9 @@ public class BuildingHotbarPanel extends HBox {
     }
 
     private void setupLayout() {
+        // No panel behind the row: the slots float over the world, each one dark and translucent on its own
         setAlignment(Pos.BOTTOM_CENTER);
-        setPadding(new Insets(10, 0, 10, 0));
-        setSpacing(5);
-        setBackground(new Background(new BackgroundFill(Color.web("#333333", 0.8), new CornerRadii(10), Insets.EMPTY)));
-        setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, new CornerRadii(10), new BorderWidths(2))));
+        setSpacing(SLOT_GAP);
 
         setVisible(false);
         setManaged(false);
@@ -87,50 +79,44 @@ public class BuildingHotbarPanel extends HBox {
 
     private VBox createPageControls() {
         Label pageLabel = new Label((pager.getPage() + 1) + "/" + pager.getPageCount());
-        pageLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-        pageLabel.setTextFill(Color.WHITE);
+        pageLabel.getStyleClass().add(UiTheme.PILL);
 
         Button previous = new Button("<");
+        previous.getStyleClass().add(UiTheme.PAGE_BUTTON);
         previous.setFocusTraversable(false);
         previous.setOnAction(event -> changePage(-1));
         Button next = new Button(">");
+        next.getStyleClass().add(UiTheme.PAGE_BUTTON);
         next.setFocusTraversable(false);
         next.setOnAction(event -> changePage(1));
 
-        HBox buttons = new HBox(4, previous, next);
+        HBox buttons = new HBox(SLOT_GAP, previous, next);
         buttons.setAlignment(Pos.CENTER);
-        VBox controls = new VBox(4, pageLabel, buttons);
+        VBox controls = new VBox(SLOT_GAP, pageLabel, buttons);
         controls.setAlignment(Pos.CENTER);
-        controls.setPadding(new Insets(0, 8, 0, 4));
+        controls.setPadding(new Insets(0, 0, 0, SLOT_GAP));
         return controls;
     }
 
     private StackPane createHotbarSlot(int number, BuildingType type, BuildingRecipe recipe) {
-        StackPane slot = new StackPane();
-        slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
-        slot.setStyle(SLOT_STYLE);
+        StackPane slot = createSlotShell();
 
-        // Placeholder icon
+        // Placeholder icon, centred in the slot
         StackPane iconWrapper = new StackPane();
         iconWrapper.setPrefSize(ICON_SIZE, ICON_SIZE);
+        iconWrapper.setMaxSize(ICON_SIZE, ICON_SIZE);
         iconWrapper.setBackground(new Background(new BackgroundFill(
                 FxColors.toFx(type.getBaseColor().withOpacityFactor(0.5)),
-                new CornerRadii(5),
+                new CornerRadii(4),
                 Insets.EMPTY
         )));
 
-        Label typeLabel = new Label(type.getDisplayName().substring(0, Math.min(4, type.getDisplayName().length())));
-        typeLabel.setFont(Font.font("Arial", FontWeight.BOLD, 10));
-        typeLabel.setTextFill(Color.WHITE);
+        Label typeLabel = new Label(UiTheme.caps(type.getDisplayName().substring(0, Math.min(4, type.getDisplayName().length()))));
+        typeLabel.getStyleClass().add(UiTheme.SLOT_LABEL);
         iconWrapper.getChildren().add(typeLabel);
         slot.getChildren().add(iconWrapper);
 
-        // Slot number
-        Label numberLabel = new Label(String.valueOf(number));
-        numberLabel.setFont(Font.font("Arial", FontWeight.BLACK, 16));
-        numberLabel.setStyle("-fx-text-fill: white; -fx-background-color: rgba(0,0,0,0.5);");
-        StackPane.setAlignment(numberLabel, Pos.TOP_LEFT);
-        slot.getChildren().add(numberLabel);
+        slot.getChildren().add(createNumberLabel(number));
 
         // Tooltip
         StringBuilder tooltipText = new StringBuilder();
@@ -140,7 +126,7 @@ public class BuildingHotbarPanel extends HBox {
             tooltipText.append(ingredient).append("\n");
         }
 
-        Tooltip tooltip = new Tooltip(tooltipText.toString());
+        Tooltip tooltip = new Tooltip(UiTheme.caps(tooltipText.toString()));
         Tooltip.install(slot, tooltip);
 
         // Click handler
@@ -153,27 +139,43 @@ public class BuildingHotbarPanel extends HBox {
     }
 
     private StackPane createEmptyHotbarSlot(int number) {
-        StackPane slot = new StackPane();
-        slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
-        slot.getStyleClass().add(EMPTY_SLOT_CLASS);
-        slot.setStyle("-fx-background-color: #444444; -fx-border-color: darkgray; -fx-border-style: dashed;");
-
-        Label numberLabel = new Label(String.valueOf(number));
-        numberLabel.setFont(Font.font("Arial", FontWeight.BLACK, 16));
-        numberLabel.setTextFill(Color.web("#888888"));
-        StackPane.setAlignment(numberLabel, Pos.TOP_LEFT);
-        slot.getChildren().add(numberLabel);
-
+        StackPane slot = createSlotShell();
+        slot.getStyleClass().add(UiTheme.SLOT_EMPTY);
+        slot.getChildren().add(createNumberLabel(number));
         return slot;
     }
 
-    /** Gives the selected slot the highlight and every other building slot the plain look. */
+    /** A square slot of the fixed size, dark and translucent with a 1 px darker edge. */
+    private static StackPane createSlotShell() {
+        StackPane slot = new StackPane();
+        slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
+        slot.setMinSize(SLOT_SIZE, SLOT_SIZE);
+        slot.setMaxSize(SLOT_SIZE, SLOT_SIZE);
+        slot.getStyleClass().add(UiTheme.SLOT);
+        return slot;
+    }
+
+    /** The key number in the top left corner of a slot. */
+    private static Label createNumberLabel(int number) {
+        Label numberLabel = new Label(String.valueOf(number));
+        numberLabel.getStyleClass().add(UiTheme.SLOT_NUMBER);
+        numberLabel.setMouseTransparent(true);
+        StackPane.setAlignment(numberLabel, Pos.TOP_LEFT);
+        return numberLabel;
+    }
+
+    /** Gives the selected slot the white border and every other building slot the plain look. */
     private void highlightSelectedSlot(StackPane selectedSlot) {
         for (Node node : getChildren()) {
-            if (node instanceof StackPane slot && !slot.getStyleClass().contains(EMPTY_SLOT_CLASS)) {
-                slot.setStyle(slot == selectedSlot ? SLOT_SELECTED_STYLE : SLOT_STYLE);
+            if (isBuildingSlot(node)) {
+                UiTheme.setClass(node, UiTheme.SLOT_SELECTED, node == selectedSlot);
             }
         }
+    }
+
+    /** Tells whether a hotbar child is a slot that holds a building rather than an empty slot or a page button. */
+    private static boolean isBuildingSlot(Node node) {
+        return node instanceof StackPane slot && !slot.getStyleClass().contains(UiTheme.SLOT_EMPTY);
     }
 
     /** @return true when there are more buildings than slots, so the hotbar has pages to flip between */
@@ -231,8 +233,8 @@ public class BuildingHotbarPanel extends HBox {
 
     private void resetSlotHighlights() {
         for (Node node : getChildren()) {
-            if (node instanceof StackPane slot && !slot.getStyleClass().contains(EMPTY_SLOT_CLASS)) {
-                slot.setStyle(SLOT_STYLE);
+            if (isBuildingSlot(node)) {
+                UiTheme.setClass(node, UiTheme.SLOT_SELECTED, false);
             }
         }
     }
