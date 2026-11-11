@@ -136,7 +136,7 @@ public final class AssetPaths {
      */
     public static String biomeFolder(MapType mapType) {
         return switch (mapType) {
-            case DARK_FOREST -> "dark_forest";
+            case DENSE_FOREST -> "dense_forest";
             case SWAMP -> "swamp";
             case DESERT -> "desert";
             case TUNDRA -> "tundra";

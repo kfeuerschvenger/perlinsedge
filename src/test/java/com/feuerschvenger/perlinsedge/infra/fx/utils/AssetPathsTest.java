@@ -88,7 +88,7 @@ class AssetPathsTest {
     void everyMapTypeHasABiomeFolder() {
         assertEquals("default", AssetPaths.biomeFolder(MapType.MEDITERRANEAN));
         assertEquals("default", AssetPaths.biomeFolder(MapType.ISLANDS));
-        assertEquals("dark_forest", AssetPaths.biomeFolder(MapType.DARK_FOREST));
+        assertEquals("dense_forest", AssetPaths.biomeFolder(MapType.DENSE_FOREST));
         assertEquals("tundra", AssetPaths.biomeFolder(MapType.TUNDRA));
     }
 

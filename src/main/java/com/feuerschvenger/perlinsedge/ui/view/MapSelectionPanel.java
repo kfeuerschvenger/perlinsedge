@@ -70,7 +70,7 @@ public class MapSelectionPanel extends VBox {
 
         // Only selected maps for the grid
         MapType[] selectableMaps = {
-                MapType.DARK_FOREST,
+                MapType.DENSE_FOREST,
                 MapType.SWAMP,
                 MapType.DESERT,
                 MapType.TUNDRA,
@@ -131,7 +131,7 @@ public class MapSelectionPanel extends VBox {
      * Ensure these paths are correct and images exist in your project's resources directory.
      */
     private void setupMapThumbnails() {
-        mapThumbnails.put(MapType.DARK_FOREST, "/assets/maps/dark_forest_thumbnail.png");
+        mapThumbnails.put(MapType.DENSE_FOREST, "/assets/maps/dense_forest_thumbnail.png");
         mapThumbnails.put(MapType.SWAMP, "/assets/maps/swamp_thumbnail.png");
         mapThumbnails.put(MapType.DESERT, "/assets/maps/desert_thumbnail.png");
         mapThumbnails.put(MapType.TUNDRA, "/assets/maps/tundra_thumbnail.png");
@@ -146,7 +146,7 @@ public class MapSelectionPanel extends VBox {
      * @return The configured Button.
      */
     private Button createMapButton(MapType mapType) {
-        Button button = new Button(mapType.name().replace("_", " ")); // Displays the pretty name
+        Button button = new Button(mapType.getDisplayName()); // Displays the pretty name
         // Set maximum width/height so button fills its grid cell
         button.setMaxWidth(Double.MAX_VALUE);
         button.setMaxHeight(Double.MAX_VALUE);

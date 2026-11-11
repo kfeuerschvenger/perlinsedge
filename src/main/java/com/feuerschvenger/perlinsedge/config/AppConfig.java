@@ -80,7 +80,7 @@ public class AppConfig {
 
         // Map properties
         private long defaultSeed = System.currentTimeMillis();
-        private MapType currentMapType = MapType.DARK_FOREST;
+        private MapType currentMapType = MapType.DENSE_FOREST;
 
         // Enemy settings
         private static final int baseSlimesCount = 30;
@@ -126,7 +126,7 @@ public class AppConfig {
 
         public float getTreeDensity() {
             return switch (currentMapType) {
-                case DARK_FOREST -> 0.32f;
+                case DENSE_FOREST -> 0.32f;
                 case SWAMP -> 0.32f;
                 case DESERT -> 0.10f;
                 case TUNDRA -> 0.34f;
@@ -139,7 +139,7 @@ public class AppConfig {
 
         public float getRiverDensity() {
             return switch (currentMapType) {
-                case DARK_FOREST -> 0.01f;
+                case DENSE_FOREST -> 0.01f;
                 case SWAMP -> 0.025f;
                 case DESERT -> 0.003f;
                 case RIVERS -> 0.04f;

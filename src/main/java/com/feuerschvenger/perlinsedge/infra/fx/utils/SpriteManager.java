@@ -27,7 +27,7 @@ import java.util.Map;
 public final class SpriteManager {
     private static final int MAX_VARIANTS = 99;
     private static final List<String> RESOURCE_FOLDERS = List.of(
-            AssetPaths.DEFAULT_FOLDER, "dark_forest", "swamp", "desert", "tundra", AssetPaths.SHARED_FOLDER);
+            AssetPaths.DEFAULT_FOLDER, "dense_forest", "swamp", "desert", "tundra", AssetPaths.SHARED_FOLDER);
 
     /**
      * Metadata container for sprites including image data and vertical offset.

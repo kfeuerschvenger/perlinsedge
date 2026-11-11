@@ -343,7 +343,7 @@ public class MapConfigPanel extends VBox {
             @Override
             public String toString(MapType mapType) {
                 if (mapType == null) return "";
-                return mapType.name().charAt(0) + mapType.name().substring(1).toLowerCase().replace('_', ' ');
+                return mapType.getDisplayName();
             }
 
             @Override

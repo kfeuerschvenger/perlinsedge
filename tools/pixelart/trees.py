@@ -1,7 +1,7 @@
 """Draw the trees, bushes, rocks and iron ore resource sprites in several numbered variants.
 
 Each sprite is built from rounded lumps lit from the upper left and wrapped in the palette outline. Pines stack foliage tiers on a short trunk, round trees hold a single crown, rocks are low boulders and iron ore is a rock with rust coloured specks.
-The default folder gets tree-1 to tree-6, bush-1 to bush-3, rock-1 to rock-4 and iron-1 to iron-3. The dark_forest folder gets pines and the swamp folder gets olive round trees. The game picks up any number of variants, so adding one to SET needs no code change.
+The default folder gets tree-1 to tree-6, bush-1 to bush-3, rock-1 to rock-4 and iron-1 to iron-3. The dense_forest folder gets pines and the swamp folder gets olive round trees. The game picks up any number of variants, so adding one to SET needs no code change.
 
 usage: python -I tools/pixelart/trees.py [--out src/main/resources/assets/resources] [--preview preview.png]
 """
@@ -166,7 +166,7 @@ SET = [("default", f"tree-{i + 1}", pine, 11 + i * 7, GREEN) for i in range(4)] 
     + [("default", f"bush-{i + 1}", bush, 201 + i * 5, GREEN) for i in range(3)] \
     + [("default", f"rock-{i + 1}", rock, 501 + i * 3, STONE) for i in range(4)] \
     + [("default", f"iron-{i + 1}", iron, 601 + i * 3, STONE) for i in range(3)] \
-    + [("dark_forest", f"tree-{i + 1}", pine, 301 + i * 7, GREEN) for i in range(4)] \
+    + [("dense_forest", f"tree-{i + 1}", pine, 301 + i * 7, GREEN) for i in range(4)] \
     + [("swamp", f"tree-{i + 1}", round_tree, 401 + i * 7, OLIVE) for i in range(3)]
 
 

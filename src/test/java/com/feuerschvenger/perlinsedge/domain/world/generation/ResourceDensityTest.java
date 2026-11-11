@@ -58,7 +58,7 @@ class ResourceDensityTest {
     @Test
     void everySelectableMapKeepsMostLandOpen() {
         StringBuilder outside = new StringBuilder();
-        for (MapType type : new MapType[]{MapType.DARK_FOREST, MapType.SWAMP, MapType.ISLANDS, MapType.DESERT,
+        for (MapType type : new MapType[]{MapType.DENSE_FOREST, MapType.SWAMP, MapType.ISLANDS, MapType.DESERT,
                 MapType.TUNDRA, MapType.RIVERS, MapType.MEDITERRANEAN}) {
             double share = resourceShare(type);
             if (share < MIN_SHARE || share > MAX_SHARE) {
