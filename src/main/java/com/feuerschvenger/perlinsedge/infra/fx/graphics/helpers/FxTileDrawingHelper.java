@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
@@ -19,7 +20,6 @@ import java.util.Locale;
 public final class FxTileDrawingHelper {
     private static final double OUTLINE_WIDTH = 1.2;
     private static final double WATER_SCALE_FACTOR = 1.01;
-    private static final double HEIGHT_NORMALIZATION_FACTOR = 2.0;
     /** Half the width and height of the top diamond of a tile sprite, in art pixels. */
     private static final double DECAL_TILE_HALF_WIDTH = 16.0;
     private static final double DECAL_TILE_HALF_HEIGHT = 8.0;
@@ -31,31 +31,17 @@ public final class FxTileDrawingHelper {
     private FxTileDrawingHelper() {}
 
     /**
-     * Draws a tile in debug mode with grayscale height visualization and optional text overlay.
+     * Draws the height and resource text of the debug view on a tile whose grey diamond is already drawn.
      *
      * @param gc GraphicsContext to draw on
-     * @param x Screen X coordinate of tile center
-     * @param y Screen Y coordinate of tile center
+     * @param x Screen X coordinate of the tile top vertex
+     * @param y Screen Y coordinate of the tile top vertex
      * @param zoom Current zoom level
-     * @param tile Tile to visualize
+     * @param tile Tile to describe
      */
-    public static void drawDebugTile(GraphicsContext gc, double x, double y, double zoom, Tile tile) {
-        final AppConfig config = AppConfig.getInstance();
-        final double halfW = config.graphics().getTileHalfWidth() * zoom;
-        final double halfH = config.graphics().getTileHalfHeight() * zoom;
-        final float tileHeight = tile.getHeight();
-
-        // Calculate normalized height value (0-1 range)
-        double normalizedHeight = (tileHeight + 1.0) / HEIGHT_NORMALIZATION_FACTOR;
-        normalizedHeight = clamp(normalizedHeight);
-
-        // Draw tile shape with height-based color
-        drawDebugTileShape(gc, x, y, halfW, halfH, normalizedHeight);
-
-        // Draw debug text if enabled
-        if (config.debug().isTextEnabled()) {
-            drawDebugText(gc, x, y, zoom, halfH, normalizedHeight, tile);
-        }
+    public static void drawDebugTileText(GraphicsContext gc, double x, double y, double zoom, Tile tile) {
+        final double halfH = AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
+        drawDebugText(gc, x, y, zoom, halfH, GrayscaleTiles.normalized(tile.getHeight()), tile);
     }
 
     /**
@@ -232,21 +218,6 @@ public final class FxTileDrawingHelper {
     //  PRIVATE DRAWING HELPERS
     // ==================================================================
 
-    private static void drawDebugTileShape(GraphicsContext gc, double x, double y,
-                                           double halfW, double halfH, double normalizedHeight) {
-        gc.setFill(Color.gray(normalizedHeight));
-        gc.beginPath();
-        gc.moveTo(x, y);
-        gc.lineTo(x + halfW, y + halfH);
-        gc.lineTo(x, y + 2 * halfH);
-        gc.lineTo(x - halfW, y + halfH);
-        gc.closePath();
-        gc.fill();
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(0.5);
-        gc.stroke();
-    }
-
     private static void drawDebugText(GraphicsContext gc, double x, double y, double zoom,
                                       double halfH, double normalizedHeight, Tile tile) {
         final String heightText = String.format(Locale.ROOT, "%.2f", tile.getHeight());
@@ -330,14 +301,6 @@ public final class FxTileDrawingHelper {
             gc.setLineWidth(0.5);
             gc.stroke();
         }
-    }
-
-    // ==================================================================
-    //  UTILITY METHODS
-    // ==================================================================
-
-    private static double clamp(double value) {
-        return Math.max(0.0, Math.min(1.0, value));
     }
 
 }

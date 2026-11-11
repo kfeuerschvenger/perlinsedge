@@ -12,6 +12,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.*;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.DebugTileSprites;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
@@ -59,6 +61,9 @@ public class FxRenderer {
     private double currentFrameGameTime;
     /** The shimmer animation clock of the frame, computed once from the game time. */
     private double waterCycles;
+    /** Whether the frame draws the grey height view, read once per frame from the debug settings. */
+    private boolean grayscaleView;
+    private boolean debugTextEnabled;
     private int previewTileX = -1;
     private int previewTileY = -1;
     private BuildingType previewBuildingType;
@@ -138,6 +143,9 @@ public class FxRenderer {
         final AppConfig config = AppConfig.getInstance();
         final MapType currentMapType = config.world().getCurrentMapType();
         final boolean isGrayscaleEnabled = config.debug().isGrayscaleEnabled();
+        // The height view is a debug tool: with debug off, grayscale only hides the art and the procedural tiles show
+        this.grayscaleView = isGrayscaleEnabled && config.debug().isEnabled();
+        this.debugTextEnabled = grayscaleView && config.debug().isTextEnabled();
 
         // Tile dimensions calculations
         final double tileWidth = config.graphics().getTileWidth() * zoom;
@@ -180,7 +188,9 @@ public class FxRenderer {
                 }
 
                 // Tiles with art are drawn from their sprite, the others from the procedural shape
-                final Image tileSprite = isGrayscaleEnabled ? null : spriteManager.getTileSprite(tile.getType(), x, y);
+                final Image tileSprite = isGrayscaleEnabled
+                        ? (grayscaleView ? DebugTileSprites.get(GrayscaleTiles.levelFor(tile.getHeight())) : null)
+                        : spriteManager.getTileSprite(tile.getType(), x, y);
 
                 if (!isGrayscaleEnabled && tile.getType().isWater()) {
                     if (tileSprite != null) {
@@ -456,9 +466,11 @@ public class FxRenderer {
      * @param r    The Renderable object containing screen coordinates and flashing status.
      */
     private void drawTile(Tile tile, Renderable r) {
-        if (AppConfig.getInstance().debug().isEnabled() &&
-                AppConfig.getInstance().debug().isGrayscaleEnabled()) {
-            FxTileDrawingHelper.drawDebugTile(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
+        if (grayscaleView) {
+            FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
+            if (debugTextEnabled) {
+                FxTileDrawingHelper.drawDebugTileText(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
+            }
             return;
         }
 
