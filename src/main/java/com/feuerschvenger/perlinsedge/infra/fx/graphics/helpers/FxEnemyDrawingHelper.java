@@ -5,7 +5,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 
@@ -26,6 +30,7 @@ public final class FxEnemyDrawingHelper {
     private static final AppConfig CONFIG = AppConfig.getInstance();
     private static final double BASE_SLIME_SIZE = 20.0;
     private static final double HALF = 0.5;
+    private static final double SPRITE_SHADOW_FRACTION = 0.6;
 
     private FxEnemyDrawingHelper() {} // Prevent instantiation
 
@@ -50,6 +55,20 @@ public final class FxEnemyDrawingHelper {
         SlimeMovementStrategy slimeMove = null;
         if (movementStrategy instanceof SlimeMovementStrategy) {
             slimeMove = (SlimeMovementStrategy) movementStrategy;
+        }
+
+        final boolean jumping = slimeMove != null && slimeMove.isJumping();
+        final Image frame = SpriteManager.getInstance().getSlimeFrame(
+                SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
+
+        if (frame != null) {
+            // The sprite rests on the point the oval is centred on, whole pixels, with a shadow sized to its width
+            final double scale = ZoomSteps.artScale(zoom);
+            final double width = frame.getWidth() * scale;
+            final double height = frame.getHeight() * scale;
+            drawSlimeShadow(gc, tileTopX, baseDrawY, width * SPRITE_SHADOW_FRACTION, slime, slimeMove);
+            gc.drawImage(frame, Math.rint(tileTopX - width / 2), Math.rint(baseDrawY - height), width, height);
+            return;
         }
 
         // Render shadow first (fixed positioning)

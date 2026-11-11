@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -73,24 +74,15 @@ public final class FxItemDrawingHelper {
         double finalDrawX, finalDrawY, finalWidth, finalHeight;
 
         if (sprite != null) {
-            // Calcular el factor de escala para mantener la relación de aspecto
-            double spriteAspectRatio = sprite.getWidth() / sprite.getHeight();
-            double targetAspectRatio = targetItemWidth / targetItemHeight;
+            // The icon is drawn at the integer art scale on whole pixels, so its pixels stay crisp
+            final double scale = ZoomSteps.artScale(zoom);
+            finalWidth = sprite.getWidth() * scale;
+            finalHeight = sprite.getHeight() * scale;
 
-            if (spriteAspectRatio > targetAspectRatio) {
-                // El sprite es más ancho de lo que permite el objetivo, escalar por ancho
-                finalWidth = targetItemWidth;
-                finalHeight = targetItemWidth / spriteAspectRatio;
-            } else {
-                // El sprite es más alto de lo que permite el objetivo (o igual), escalar por alto
-                finalHeight = targetItemHeight;
-                finalWidth = targetItemHeight * spriteAspectRatio;
-            }
-
-            // Calcular la posición final centrada horizontalmente
-            finalDrawX = tileTopX - (finalWidth / 2);
-            // Ajustar la posición Y para que el ítem flote sobre el tile y aplique el offset del sprite
-            finalDrawY = baseDrawY - finalHeight + floatingOffset + (SPRITE_MANAGER.getItemSprite(itemType).getVerticalOffset() * zoom);
+            finalDrawX = Math.rint(tileTopX - (finalWidth / 2));
+            // The icon floats over the tile, bobbing on whole pixels
+            finalDrawY = Math.rint(baseDrawY - finalHeight + floatingOffset
+                    + (SPRITE_MANAGER.getItemSprite(itemType).getVerticalOffset() * zoom));
 
             gc.drawImage(sprite, finalDrawX, finalDrawY, finalWidth, finalHeight);
         } else {

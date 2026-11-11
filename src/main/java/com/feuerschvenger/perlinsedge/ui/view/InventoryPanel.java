@@ -471,6 +471,7 @@ public class InventoryPanel extends BorderPane {
         imageView.setFitWidth(ITEM_SIZE);
         imageView.setFitHeight(ITEM_SIZE);
         imageView.setPreserveRatio(true);
+        imageView.setSmooth(false);
         return imageView;
     }
 

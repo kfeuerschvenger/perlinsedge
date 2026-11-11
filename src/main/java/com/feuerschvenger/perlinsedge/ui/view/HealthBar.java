@@ -7,18 +7,22 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Custom health bar UI component with visual heart icon.
  * Features dynamic coloring based on health percentage and rounded bar design.
  */
+@Slf4j
 public class HealthBar extends VBox {
     // Constants for sizing and styling
     private static final double BAR_WIDTH = 15;
     private static final double BAR_HEIGHT = 100;
-    private static final double HEART_SIZE = 20;
+    private static final double HEART_SIZE = 32; // the 16x16 icon at 2x, so its pixels stay whole
     private static final double CORNER_RADIUS = 5;
     private static final double STROKE_WIDTH = 2;
     private static final double SPACING = 2;
@@ -34,11 +38,11 @@ public class HealthBar extends VBox {
     private static final Color BACKGROUND_COLOR = Color.GRAY;
     private static final Color STROKE_COLOR = Color.BLACK;
 
-    // Resource path
-    private static final String HEART_ICON_PATH = "/assets/gui/heart.png";
-
     private final Rectangle healthRect;
     private final Rectangle backgroundRect;
+    private final ImageView heartIcon;
+    private final Map<HeartState, Image> heartImages = new EnumMap<>(HeartState.class);
+    private HeartState heartState;
 
     public HealthBar() {
         // Configure container
@@ -49,7 +53,7 @@ public class HealthBar extends VBox {
         // Create health bar components
         backgroundRect = createBackgroundRect();
         healthRect = createHealthRect();
-        ImageView heartIcon = createHeartIcon();
+        heartIcon = createHeartIcon();
 
         // Assemble health bar
         StackPane healthBarContainer = new StackPane();
@@ -72,6 +76,7 @@ public class HealthBar extends VBox {
         double healthPercentage = calculateHealthPercentage(currentHealth, maxHealth);
         updateBarDimensions(healthPercentage);
         updateBarColor(healthPercentage);
+        updateHeart(HeartState.of(healthPercentage));
     }
 
     // ==================================================================
@@ -101,26 +106,53 @@ public class HealthBar extends VBox {
         ImageView icon = new ImageView();
         icon.setFitWidth(HEART_SIZE);
         icon.setFitHeight(HEART_SIZE);
+        icon.setSmooth(false);
 
-        try (InputStream is = getClass().getResourceAsStream(HEART_ICON_PATH)) {
-            if (is != null) {
-                icon.setImage(new Image(is));
-            } else {
-                createFallbackHeartIcon(icon);
+        for (HeartState state : HeartState.values()) {
+            Image image = loadHeart(state);
+            if (image != null) {
+                heartImages.put(state, image);
             }
-        } catch (Exception e) {
-            createFallbackHeartIcon(icon);
         }
-
+        heartState = HeartState.FULL;
+        icon.setImage(imageFor(heartState, icon));
         return icon;
     }
 
-    private void createFallbackHeartIcon(ImageView icon) {
-        // Create a simple heart shape as fallback
+    private void updateHeart(HeartState state) {
+        if (state != heartState) {
+            heartState = state;
+            heartIcon.setImage(imageFor(state, heartIcon));
+        }
+    }
+
+    private Image imageFor(HeartState state, ImageView icon) {
+        Image image = heartImages.get(state);
+        if (image != null) {
+            return image;
+        }
+        // Without art the placeholder is built once and kept for every state
+        return heartImages.computeIfAbsent(state, ignored -> createFallbackHeartImage());
+    }
+
+    private Image loadHeart(HeartState state) {
+        try (InputStream is = getClass().getResourceAsStream(state.getPath())) {
+            if (is == null) {
+                log.debug("Heart icon not found: {}", state.getPath());
+                return null;
+            }
+            return new Image(is);
+        } catch (Exception e) {
+            log.warn("Heart icon could not be loaded: {}", state.getPath(), e);
+            return null;
+        }
+    }
+
+    private Image createFallbackHeartImage() {
         Rectangle heartPlaceholder = new Rectangle(HEART_SIZE, HEART_SIZE, Color.PINK);
         heartPlaceholder.setArcWidth(HEART_SIZE / 2);
         heartPlaceholder.setArcHeight(HEART_SIZE / 2);
-        icon.setImage(heartPlaceholder.snapshot(null, null));
+        return heartPlaceholder.snapshot(null, null);
     }
 
     private double calculateHealthPercentage(double current, double max) {

@@ -339,6 +339,7 @@ public class CraftingListPanel extends VBox {
             imageView.setFitWidth(ITEM_IMAGE_SIZE);
             imageView.setFitHeight(ITEM_IMAGE_SIZE);
             imageView.setPreserveRatio(true);
+            imageView.setSmooth(false);
             return imageView;
         }
 

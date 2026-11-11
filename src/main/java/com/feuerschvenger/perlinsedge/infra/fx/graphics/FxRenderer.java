@@ -11,7 +11,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.model.*;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -101,6 +103,7 @@ public class FxRenderer {
      */
     public void render(double alpha, double deltaTime) {
         clearCanvas();
+        gc.setImageSmoothing(false);
         renderQueue.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
@@ -119,6 +122,7 @@ public class FxRenderer {
         final double halfTileWidth = config.graphics().getTileHalfWidth() * zoom;
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
         final double waterDepthOffset = halfTileHeight * 0.5;
+        final double waterSpriteSink = AssetPaths.WATER_SINK_PIXELS * ZoomSteps.artScale(zoom);
         final int mapWidth = map.getWidth();
         final int mapHeight = map.getHeight();
 
@@ -144,13 +148,16 @@ public class FxRenderer {
                     continue;
                 }
 
+                // Tiles with art are drawn from their sprite, the others from the procedural shape
+                final Image tileSprite = isGrayscaleEnabled ? null : spriteManager.getTileSprite(tile.getType(), x, y);
+
                 // Adjust water tiles
                 if (!isGrayscaleEnabled && tile.getType().isWater()) {
-                    screenY += waterDepthOffset;
+                    screenY += tileSprite != null ? waterSpriteSink : waterDepthOffset;
                 }
 
                 // Add tile to render queue
-                renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, null, false, tile);
+                renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
 
                 // Add resource if present
                 final Resource resource = tile.getWorldResource();
@@ -198,13 +205,12 @@ public class FxRenderer {
         if (player != null) {
             final double playerX = (player.getInterpolatedX(alpha) - player.getInterpolatedY(alpha)) * halfTileWidth + offsetX;
             final double playerY = (player.getInterpolatedX(alpha) + player.getInterpolatedY(alpha)) * halfTileHeight + offsetY;
+            // A missing sheet leaves the sprite null and the player is drawn as the stand-in circle
             final Image playerSprite = spriteManager.getEntitySprite(
-                    "player", player.getAnimationFrame(), player.getDirection()
+                    "player", player.getAnimationFrame(), SpriteLayout.playerColumn(player.getDirection())
             );
-            if (playerSprite != null) {
-                final double playerDepth = playerY + (config.graphics().getTileHalfHeight() * zoom * 1.5);
-                renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
-            }
+            final double playerDepth = playerY + (config.graphics().getTileHalfHeight() * zoom * 1.5);
+            renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
         }
 
         // Add enemies to render queue
@@ -400,7 +406,11 @@ public class FxRenderer {
             gc.setEffect(flashEffect);
         }
 
-        FxTileDrawingHelper.drawTileShape(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
+        if (r.sprite() != null) {
+            FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
+        } else {
+            FxTileDrawingHelper.drawTileShape(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
+        }
         if (saveCount > 0) {
             gc.restore();
         }

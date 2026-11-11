@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
@@ -95,7 +96,24 @@ public final class FxTileDrawingHelper {
     }
 
     /**
-     * Draws a resource sprite positioned correctly on an isometric tile.
+     * Draws a tile sprite whose top vertex sits on the given point.
+     * The sprite is drawn at an integer scale on whole pixels, so its pixels stay crisp and neighbours meet exactly.
+     *
+     * @param gc GraphicsContext to draw on
+     * @param tileSprite the 32 pixel wide block sprite, top diamond first and side faces below
+     * @param screenX Screen X coordinate of the tile top vertex
+     * @param screenY Screen Y coordinate of the tile top vertex
+     * @param zoom Current zoom level
+     */
+    public static void drawTileSprite(GraphicsContext gc, Image tileSprite, double screenX, double screenY, double zoom) {
+        final double scale = ZoomSteps.artScale(zoom);
+        final double width = tileSprite.getWidth() * scale;
+        final double height = tileSprite.getHeight() * scale;
+        gc.drawImage(tileSprite, Math.rint(screenX - width / 2), Math.rint(screenY), width, height);
+    }
+
+    /**
+     * Draws a resource sprite with its bottom centre on the tile centre.
      *
      * @param gc GraphicsContext to draw on
      * @param screenX Screen X coordinate of tile top vertex
@@ -108,14 +126,13 @@ public final class FxTileDrawingHelper {
 
         final AppConfig config = AppConfig.getInstance();
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
-        final double spriteWidth = resourceSprite.getWidth() * zoom;
-        final double spriteHeight = resourceSprite.getHeight() * zoom;
+        final double scale = ZoomSteps.artScale(zoom);
+        final double spriteWidth = resourceSprite.getWidth() * scale;
+        final double spriteHeight = resourceSprite.getHeight() * scale;
 
-        final double baseY = screenY + halfTileHeight + 4;
-        final double drawX = screenX - (spriteWidth / 2);
-        final double drawY = baseY - spriteHeight;
-
-        gc.drawImage(resourceSprite, drawX, drawY, spriteWidth, spriteHeight);
+        final double baseY = screenY + halfTileHeight;
+        gc.drawImage(resourceSprite, Math.rint(screenX - spriteWidth / 2), Math.rint(baseY - spriteHeight),
+                spriteWidth, spriteHeight);
     }
 
     /**

@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
@@ -32,6 +33,10 @@ public final class FxPlayerDrawingHelper {
     public static void drawPlayer(GraphicsContext gc, double tileTopX, double tileTopY,
                                   double zoom, Player player, Image playerSprite) {
         try {
+            if (playerSprite == null) {
+                renderFallbackPlayer(gc, tileTopX, tileTopY, zoom);
+                return;
+            }
             renderPlayerSprite(gc, tileTopX, tileTopY, zoom, player, playerSprite);
         } catch (Exception e) {
             renderFallbackPlayer(gc, tileTopX, tileTopY, zoom);
@@ -51,11 +56,13 @@ public final class FxPlayerDrawingHelper {
     private static void renderPlayerSprite(GraphicsContext gc, double tileTopX, double tileTopY,
                                            double zoom, Player player, Image playerSprite) {
         final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
-        final double spriteWidth = playerSprite.getWidth() * zoom;
-        final double spriteHeight = playerSprite.getHeight() * zoom;
+        final double scale = ZoomSteps.artScale(zoom);
+        final double spriteWidth = playerSprite.getWidth() * scale;
+        final double spriteHeight = playerSprite.getHeight() * scale;
 
-        final double drawX = tileTopX - (spriteWidth * SPRITE_CENTER_OFFSET);
-        final double drawY = tileTopY - spriteHeight + halfTileHeight;
+        // Bottom centre of the sprite on the tile centre, on whole pixels
+        final double drawX = Math.rint(tileTopX - (spriteWidth * SPRITE_CENTER_OFFSET));
+        final double drawY = Math.rint(tileTopY - spriteHeight + halfTileHeight);
 
         if (player.isAttacking()) {
             applyAttackTransformation(gc, drawX, drawY, spriteWidth, spriteHeight);
