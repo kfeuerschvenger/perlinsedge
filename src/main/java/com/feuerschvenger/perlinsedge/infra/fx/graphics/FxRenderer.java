@@ -528,7 +528,7 @@ public class FxRenderer {
         }
         gc.setGlobalAlpha(1.0);
 
-        final Image lilyPad = spriteManager.getDecalSprite(GroundDecals.lilyPadFor(tile.getType(), x, y, seed));
+        final Image lilyPad = spriteManager.getDecalSprite(GroundDecals.lilyPadFor(gameState.getCurrentMap(), tile.getType(), x, y, seed));
         if (lilyPad != null) {
             FxTileDrawingHelper.drawDecal(gc, lilyPad, r.screenX(), r.screenY(), zoom,
                     GroundDecals.offsetU(x, y, seed), GroundDecals.offsetV(x, y, seed));

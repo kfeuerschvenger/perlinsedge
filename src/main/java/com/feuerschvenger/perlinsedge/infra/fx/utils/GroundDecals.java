@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 import java.util.List;
@@ -33,8 +35,11 @@ public final class GroundDecals {
     /** One shallow or coast water tile in this many holds an underwater decal. */
     static final int UNDERWATER_ONE_IN = 6;
 
-    /** One shallow water tile in this many holds a lily pad. */
+    /** One shallow water tile in this many, near land, holds a lily pad. */
     static final int LILY_PAD_ONE_IN = 12;
+
+    /** Shallow water farther than this many tiles from land holds no lily pad. */
+    static final int LILY_PAD_LAND_RADIUS = 2;
 
     /** One tile in this many holds a decal on green ground. */
     static final int GREEN_ONE_IN = 4;
@@ -110,23 +115,47 @@ public final class GroundDecals {
 
     /**
      * Picks the lily pad floating on a water tile, which the renderer draws on the surface above the water.
-     * Deep water, rivers and coasts hold none.
+     * Deep water, rivers and coasts hold none, and neither does shallow water farther than
+     * {@link #LILY_PAD_LAND_RADIUS} tiles from land, so the open sea stays clear. The land test only runs for the tiles
+     * that were picked to hold a pad, so most tiles cost one hash.
      *
+     * @param map  the map the tile belongs to
      * @param type the tile type
      * @param x    the tile column
      * @param y    the tile row
      * @param seed the world seed
-     * @return the decal name, or null when the tile is not shallow water or holds none
+     * @return the decal name, or null when the tile is not shallow water near land or holds none
      */
-    public static String lilyPadFor(TileType type, int x, int y, long seed) {
+    public static String lilyPadFor(TileMap map, TileType type, int x, int y, long seed) {
         if (type != TileType.SHALLOW_WATER) {
             return null;
         }
         long h = mix(x, y, seed, SALT_LILY_PAD);
-        if (Math.floorMod(h, (long) LILY_PAD_ONE_IN) != 0) {
+        if (Math.floorMod(h, (long) LILY_PAD_ONE_IN) != 0 || !isNearLand(map, x, y, LILY_PAD_LAND_RADIUS)) {
             return null;
         }
         return LILY_PADS.get((int) Math.floorMod(h >>> 20, (long) LILY_PADS.size()));
+    }
+
+    /**
+     * Tells whether a land tile lies within a number of tiles of a tile, counting a diagonal step as one tile.
+     *
+     * @param map    the map
+     * @param x      the tile column
+     * @param y      the tile row
+     * @param radius how many tiles away to look
+     * @return true when a land tile inside the map is within the radius
+     */
+    public static boolean isNearLand(TileMap map, int x, int y, int radius) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                final Tile tile = map.getTile(x + dx, y + dy);
+                if (tile != null && tile.getType().isLand()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

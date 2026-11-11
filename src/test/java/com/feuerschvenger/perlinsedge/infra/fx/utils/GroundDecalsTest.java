@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
@@ -7,6 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -110,24 +113,70 @@ class GroundDecalsTest {
         assertTrue(GroundDecals.ALL.containsAll(seen));
     }
 
-    @Test
-    void lilyPadsFloatOnAboutOneShallowTileInTwelveAndNeverOnDeepWater() {
-        int hits = 0;
-        Set<String> seen = new HashSet<>();
+    /** A map of shallow water whose first column is land, so only the columns next to it are near land. */
+    private static TileMap shoreMap(TileType water) {
+        TileMap map = new TileMap(SIZE, SIZE);
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) {
-                String name = GroundDecals.lilyPadFor(TileType.SHALLOW_WATER, x, y, 11L);
+                map.setTile(x, y, new Tile(x, y, x == 0 ? TileType.GRASS : water));
+            }
+        }
+        return map;
+    }
+
+    @Test
+    void lilyPadsFloatOnAboutOneShallowTileInTwelveNearLandAndNeverOnDeepWater() {
+        TileMap shallow = shoreMap(TileType.SHALLOW_WATER);
+        TileMap deep = shoreMap(TileType.DEEP_WATER);
+        int hits = 0;
+        int nearTiles = 0;
+        Set<String> seen = new HashSet<>();
+        for (int x = 1; x <= GroundDecals.LILY_PAD_LAND_RADIUS; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                nearTiles++;
+                String name = GroundDecals.lilyPadFor(shallow, TileType.SHALLOW_WATER, x, y, 11L);
                 if (name != null) {
                     hits++;
                     seen.add(name);
                 }
-                assertNull(GroundDecals.lilyPadFor(TileType.DEEP_WATER, x, y, 11L));
-                assertNull(GroundDecals.lilyPadFor(TileType.GRASS, x, y, 11L));
             }
         }
-        assertEquals(1.0 / 12.0, hits / (double) (SIZE * SIZE), 0.02);
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                assertNull(GroundDecals.lilyPadFor(deep, TileType.DEEP_WATER, x, y, 11L));
+                assertNull(GroundDecals.lilyPadFor(shallow, TileType.GRASS, x, y, 11L));
+            }
+        }
+        assertEquals(1.0 / 12.0, hits / (double) nearTiles, 0.03);
         assertEquals(new HashSet<>(GroundDecals.LILY_PADS), seen);
         assertTrue(GroundDecals.ALL.containsAll(seen));
+    }
+
+    @Test
+    void shallowWaterFartherThanTwoTilesFromLandHoldsNoLilyPad() {
+        TileMap map = shoreMap(TileType.SHALLOW_WATER);
+        for (int x = GroundDecals.LILY_PAD_LAND_RADIUS + 1; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                assertNull(GroundDecals.lilyPadFor(map, TileType.SHALLOW_WATER, x, y, 11L), x + "," + y);
+            }
+        }
+    }
+
+    @Test
+    void landWithinTheRadiusIsFoundInAnyDirectionAndAtTheMapEdge() {
+        TileMap map = new TileMap(9, 9);
+        for (int x = 0; x < 9; x++) {
+            for (int y = 0; y < 9; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+            }
+        }
+        map.setTile(4, 4, new Tile(4, 4, TileType.SAND));
+        assertTrue(GroundDecals.isNearLand(map, 2, 2, 2));
+        assertTrue(GroundDecals.isNearLand(map, 6, 3, 2));
+        assertFalse(GroundDecals.isNearLand(map, 1, 4, 2));
+        assertFalse(GroundDecals.isNearLand(map, 4, 7, 2));
+        assertFalse(GroundDecals.isNearLand(map, 0, 0, 2));
+        assertTrue(GroundDecals.isNearLand(map, 0, 0, 4));
     }
 
     @Test
