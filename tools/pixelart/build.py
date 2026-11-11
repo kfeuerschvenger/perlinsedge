@@ -3,7 +3,7 @@
 Usage: python -I tools/pixelart/build.py --raw <dir> [--out <dir>]
 
 The raw folder is local and never committed. The tool is idempotent: it rebuilds every output it finds an input for,
-so it can be re-run whenever raw files are added or replaced. The land tiles, the decals, the water layers and the tree, bush, rock and iron ore sprites are not built here: tiles.py and trees.py draw them.
+so it can be re-run whenever raw files are added or replaced. The land tiles, the decals, the water layers and the tree, bush, rock, iron ore, palm and cactus sprites are not built here: tiles.py and trees.py draw them.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
-DEFAULT_RAW = REPO / "docs" / "private" / "assets-raw" / "batch1"
 DEFAULT_OUT = REPO / "src" / "main" / "resources" / "assets"
 PALETTE_FILE = HERE / "palette.hex"
 
@@ -37,9 +36,7 @@ OUTLINE = "1d1830"
 RESOURCE_SIZES = {
     "tree": (32, 48),
     "willow": (40, 48),
-    "palm": (32, 48),
     "pine": (28, 48),
-    "cactus": (24, 40),
     "bush": (24, 20),
     "shrub": (24, 20),
     "fern": (16, 14),
@@ -50,7 +47,7 @@ RESOURCE_SIZES = {
 }
 
 # Resource kinds trees.py draws, so a raw file of one of them is ignored and never overwrites the drawn sprite.
-DRAWN_KINDS = {"tree", "bush", "rock", "iron"}
+DRAWN_KINDS = {"tree", "bush", "rock", "iron", "palm", "cactus"}
 
 # Slime squash and stretch, as (width, height) factors of the content box, one per frame.
 SLIME_SHAPES = [(1.0, 0.875), (1.1, 0.69), (0.9, 1.0), (0.85, 1.0), (0.95, 0.9), (1.1, 0.75)]
@@ -184,10 +181,17 @@ def build_resources(raw: Path, out: Path, quant: Quantiser) -> int:
     return count
 
 
+def note_if_clipped(file: Path, content: Image.Image) -> None:
+    """Prints a note when the content is larger than the item canvas and so gets clipped."""
+    if content.width > ITEM_SIZE or content.height > ITEM_SIZE:
+        print(f"  note: {file.parent.name}/{file.name} content {content.width}x{content.height} exceeds {ITEM_SIZE}x{ITEM_SIZE} and is clipped")
+
+
 def build_items(raw: Path, out: Path, quant: Quantiser) -> int:
     count = 0
     for file in sorted((raw / "items").glob("*.png")):
         content = crop_to_content(load(file, quant))
+        note_if_clipped(file, content)
         canvas = Image.new("RGBA", (ITEM_SIZE, ITEM_SIZE), (0, 0, 0, 0))
         canvas.paste(content, ((ITEM_SIZE - content.width) // 2, (ITEM_SIZE - content.height) // 2))
         save(canvas, out / "items" / file.name)
@@ -200,6 +204,7 @@ def build_gui(raw: Path, out: Path, quant: Quantiser) -> int:
     folder = raw / "gui"
     for file in sorted(folder.glob("*.png")):
         content = crop_to_content(load(file, quant))
+        note_if_clipped(file, content)
         canvas = Image.new("RGBA", (ITEM_SIZE, ITEM_SIZE), (0, 0, 0, 0))
         canvas.paste(content, ((ITEM_SIZE - content.width) // 2, (ITEM_SIZE - content.height) // 2))
         save(canvas, out / "gui" / file.name)
@@ -222,7 +227,7 @@ def build_entities(raw: Path, out: Path, quant: Quantiser) -> int:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Quantise and size raw pixel art into the game assets.")
-    parser.add_argument("--raw", type=Path, default=DEFAULT_RAW, help="folder with the raw generated images")
+    parser.add_argument("--raw", type=Path, required=True, help="folder with the raw generated images")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="assets folder the game loads from")
     args = parser.parse_args(argv)
     if not args.raw.is_dir():

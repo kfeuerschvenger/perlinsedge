@@ -3,7 +3,7 @@
 Each sprite is built from rounded lumps lit from the upper left and wrapped in the palette outline. Pines stack foliage tiers on a short trunk, round trees hold a single crown, rocks are low boulders and iron ore is a rock with rust coloured specks.
 Every variant gets a small hue and lightness tint so trees and rocks of one kind do not all share a colour. The default folder gets pines and round trees, bushes, rocks and iron ore; dense_forest gets pines, swamp olive round trees, desert sandstone rocks, palms and cacti, and tundra snow capped rocks and pines. The game picks up any number of variants, so adding one to SET needs no code change.
 
-usage: python -I tools/pixelart/trees.py [--out src/main/resources/assets/resources] [--preview preview.png]
+usage: python -I tools/pixelart/trees.py [--out <assets/resources folder>] [--preview preview.png]
 """
 import argparse
 import colorsys
@@ -14,6 +14,7 @@ from pathlib import Path
 from PIL import Image
 
 OUTLINE = (0x1d, 0x18, 0x30)
+DEFAULT_OUT = Path(__file__).resolve().parent.parent.parent / "src" / "main" / "resources" / "assets" / "resources"
 
 
 def hexc(value):
@@ -308,7 +309,7 @@ SET = variants("default", "tree", pine, 11, GREEN, 5) \
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--out", default="src/main/resources/assets/resources")
+    parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--preview")
     args = parser.parse_args()
     images = [(folder, name, maker(seed, ramp)) for folder, name, maker, seed, ramp in SET]
@@ -324,4 +325,5 @@ def main():
     print(f"resources {len(images)}")
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -8,7 +8,7 @@ Turns the raw images generated for the game into the sprites it loads. The raw f
 python -I tools/pixelart/build.py --raw <dir>
 ```
 
-Requires Python 3.12 and Pillow. `--out <dir>` changes the output folder, by default the game's `assets` folder. The tool is idempotent: it rebuilds every output it finds an input for, so run it again whenever raw files are added or replaced.
+Requires Python 3.12 and Pillow. `--raw` is required and points at your local raw folder. `--out <dir>` changes the output folder, by default the game's `assets` folder. The tool is idempotent: it rebuilds every output it finds an input for, so run it again whenever raw files are added or replaced.
 
 ```mermaid
 flowchart LR
@@ -40,7 +40,7 @@ python -I tools/pixelart/tiles.py
 python -I tools/pixelart/trees.py
 ```
 
-`trees.py` draws the tree, bush, rock and iron ore sprites with no raw input, into `assets/resources/<biome>/<kind>-<n>.png`. The default folder gets six trees (four tiered pines and two round trees), three bushes, four rocks and three iron ore rocks with rust specks. The dense_forest folder gets four pines and the swamp folder three olive round trees. A biome folder without a sprite of a kind uses the default folder, so only the biomes that look different need their own files. The game reads numbered variants of a kind until a number is missing, and each resource picks one from its tile coordinates and the world seed, so a tree keeps its look across frames and reloads. Adding a variant is one more entry in `SET` and needs no code change. `build.py` skips the `tree`, `bush`, `rock` and `iron` kinds, so running it never overwrites them. Crystals and every other kind still come from the raw folder.
+`trees.py` draws the tree, bush, rock, iron ore, palm and cactus sprites with no raw input, into `assets/resources/<biome>/<kind>-<n>.png`. The default folder gets eight trees (five tiered pines and three round trees), three bushes, four rocks and three iron ore rocks with rust specks. The dense_forest folder gets six pines and the swamp folder four olive round trees. The desert folder gets four sandstone rocks, four palms and four cacti. The tundra folder gets four snow capped rocks and four snowy pines. Every variant of a kind gets its own small hue and lightness tint. A biome folder without a sprite of a kind uses the default folder, so only the biomes that look different need their own files. The game reads numbered variants of a kind until a number is missing, and each resource picks one from its tile coordinates and the world seed, so a tree keeps its look across frames and reloads. Adding a variant is one more entry in `SET` and needs no code change. `build.py` skips the `tree`, `bush`, `rock`, `iron`, `palm` and `cactus` kinds, so running it never overwrites them. Crystals and every other kind still come from the raw folder.
 
 `--preview <file>` renders every sprite side by side instead of writing the assets.
 
@@ -48,7 +48,7 @@ python -I tools/pixelart/trees.py
 
 | Raw input | Output |
 |---|---|
-| `resources/<biome>/<kind>-<n>.png`, any kind except tree, bush, rock and iron | `assets/resources/<biome>/<kind>-<n>.png` |
+| `resources/<biome>/<kind>-<n>.png`, any kind except tree, bush, rock, iron, palm and cactus | `assets/resources/<biome>/<kind>-<n>.png` |
 | `items/<item>.png` | `assets/items/<item>.png` |
 | `gui/heart-full.png`, `heart-half.png` | `assets/gui/`, plus a derived `heart-empty.png` when no raw one exists |
 | `entities/slime-<n>.png` | `assets/entities/slime-<n>.png`, a 6 frame strip |
