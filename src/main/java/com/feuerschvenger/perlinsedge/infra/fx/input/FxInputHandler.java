@@ -74,9 +74,10 @@ public class FxInputHandler {
                 && scrollInterceptor.intercept(event.getDeltaY(), event.isControlDown())) {
             return;
         }
-        int step = zoomWheel.add(event.getDeltaY());
-        if (step != 0) {
-            camera.zoomStep(step, event.getX(), event.getY(), mainGameCanvas);
+        int steps = zoomWheel.add(event.getDeltaY());
+        int direction = Integer.signum(steps);
+        for (int i = 0; i < Math.abs(steps); i++) {
+            camera.zoomStep(direction, event.getX(), event.getY(), mainGameCanvas);
         }
     }
 

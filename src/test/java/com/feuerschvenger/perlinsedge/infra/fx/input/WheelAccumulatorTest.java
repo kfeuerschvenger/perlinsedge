@@ -61,4 +61,46 @@ class WheelAccumulatorTest {
         assertEquals(0, wheel.add(0));
         assertEquals(1, wheel.add(10));
     }
+
+    @Test
+    void aPartialSumIsForgottenAfterTheWheelWasIdle() {
+        long[] now = {0};
+        WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
+
+        assertEquals(0, wheel.add(30));
+        now[0] += WheelAccumulator.IDLE_RESET_NANOS + 1;
+
+        assertEquals(0, wheel.add(30), "the stale 30 must not complete this notch");
+        assertEquals(1, wheel.add(10), "the fresh sum still counts");
+    }
+
+    @Test
+    void aPartialSumSurvivesInputThatKeepsComingWithinTheIdleWindow() {
+        long[] now = {0};
+        WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
+
+        assertEquals(0, wheel.add(15));
+        now[0] += WheelAccumulator.IDLE_RESET_NANOS;
+        assertEquals(0, wheel.add(15));
+        now[0] += WheelAccumulator.IDLE_RESET_NANOS;
+
+        assertEquals(1, wheel.add(15), "each event came within the window, so the sum is kept");
+    }
+
+    @Test
+    void aLargeDeltaYieldsSeveralStepsAndCarriesTheRemainder() {
+        long[] now = {0};
+        WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
+
+        assertEquals(2, wheel.add(100), "100 units are two whole steps");
+        assertEquals(1, wheel.add(20), "the 20 units left over complete the next step");
+    }
+
+    @Test
+    void aLargeDeltaDownwardsYieldsNegativeSteps() {
+        WheelAccumulator wheel = new WheelAccumulator(() -> 0L);
+
+        assertEquals(-3, wheel.add(-125));
+        assertEquals(-1, wheel.add(-35), "the 5 units left over are carried in the same direction");
+    }
 }
