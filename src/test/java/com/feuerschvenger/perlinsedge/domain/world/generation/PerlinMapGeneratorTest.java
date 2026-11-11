@@ -3,7 +3,9 @@ package com.feuerschvenger.perlinsedge.domain.world.generation;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.api.Test;
 
@@ -122,6 +124,27 @@ class PerlinMapGeneratorTest {
         return total;
     }
 
+    private static int ironOnNonRockyTiles(TileMap map, int size) {
+        int misplaced = 0;
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                Tile tile = map.getTile(x, y);
+                Resource resource = tile.getWorldResource();
+                boolean rocky = tile.getType() == TileType.HILL || tile.getType() == TileType.MOUNTAIN;
+                if (resource != null && resource.getType() == ResourceType.IRON_ORE && !rocky) {
+                    misplaced++;
+                }
+            }
+        }
+        return misplaced;
+    }
+
+    private static MapGenerationContext withStoneThreshold(MapType type, long seed, float stoneThreshold) {
+        NoiseSettings profile = NoiseSettings.heightProfile(type);
+        return new MapGenerationContext(type, seed, profile.frequency(), profile.octaves(), 0.02f, 3, 0.03f, 3,
+                0.06f, stoneThreshold, 0.09f, 0.80f, 0.3f, 0.0f);
+    }
+
     @Test
     void ironOreIsGeneratedOnRockyMaps() {
         int iron = 0;
@@ -135,6 +158,31 @@ class PerlinMapGeneratorTest {
 
         assertTrue(iron > 0, "iron ore must be obtainable");
         assertTrue(stone > 0, "stone is still generated");
+    }
+
+    @Test
+    void ironOreOnlyLiesOnHillsAndMountains() {
+        for (MapType type : new MapType[]{MapType.MOUNTAINOUS, MapType.DARK_FOREST, MapType.DESERT}) {
+            for (long seed = 1; seed <= 4; seed++) {
+                TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
+                        .generateMap(150, 150, defaults(type, seed));
+
+                assertEquals(0, ironOnNonRockyTiles(map, 150), type + " seed " + seed);
+            }
+        }
+    }
+
+    @Test
+    void ironOreStillAppearsWhenTheStoneThresholdIsRaisedToItsLimit() {
+        int iron = 0;
+        for (long seed = 1; seed <= 6; seed++) {
+            TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
+                    .generateMap(150, 150, withStoneThreshold(MapType.MOUNTAINOUS, seed, 0.85f));
+            iron += count(map, ResourceType.IRON_ORE, 150);
+            assertEquals(0, ironOnNonRockyTiles(map, 150), "seed " + seed);
+        }
+
+        assertTrue(iron > 0, "the iron band follows the threshold instead of vanishing with it");
     }
 
     @Test
