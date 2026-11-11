@@ -28,16 +28,17 @@ class ScreenCullingTest {
 
     @Test
     void aDeepBedWhoseLandTopIsAboveTheEdgeStillReachesIntoView() {
-        // The deep bed is drawn 20 art pixels below the land top, plus the block of 21: 82 screen pixels at this scale
+        // The deep bed is drawn the deepest sink below the land top, so the tile reaches into view from further up
         double landTop = -(TILE_HEIGHT * 2) - 10;
-        assertTrue(landTop + TILE_HEIGHT * 2 < 0, "the old test culled this tile");
+        assertTrue(landTop + TILE_HEIGHT * 2 < 0, "a margin of the tile height alone would cull this tile");
         assertTrue(visible(landTop));
     }
 
     @Test
     void theMarginEndsWhereTheBedCanNoLongerBeSeen() {
-        double blockBottom = (ScreenCulling.MAX_SINK_ART_PIXELS + 21) * ART_SCALE;
-        assertTrue(visible(-blockBottom + 1));
-        assertFalse(visible(-(TILE_HEIGHT * 2 + ScreenCulling.MAX_SINK_ART_PIXELS * ART_SCALE) - 1));
+        double margin = TILE_HEIGHT * 2 + ScreenCulling.MAX_SINK_ART_PIXELS * ART_SCALE;
+        assertTrue(visible(-margin + 1));
+        assertFalse(visible(-margin));
+        assertFalse(visible(-margin - 1));
     }
 }
