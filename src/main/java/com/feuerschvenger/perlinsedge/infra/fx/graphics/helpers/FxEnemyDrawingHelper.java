@@ -19,10 +19,6 @@ import javafx.scene.paint.Color;
 public final class FxEnemyDrawingHelper {
     // Animation constants
     private static final double JUMP_SCALE_FACTOR = 0.2;
-    private static final double SHADOW_OFFSET_FACTOR = 0.1;
-    private static final double SHADOW_OPACITY = 0.8;
-    private static final double SHADOW_SIZE_FACTOR = 1.2;
-    private static final double SHADOW_HEIGHT_FACTOR = 0.8;
     private static final double GROUNDED_WIDTH_FACTOR = 1.2;
     private static final double GROUNDED_HEIGHT_FACTOR = 0.8;
 
@@ -58,6 +54,10 @@ public final class FxEnemyDrawingHelper {
         }
 
         final boolean jumping = slimeMove != null && slimeMove.isJumping();
+        // Height above the resting position, which is where the shadow stays
+        final double jumpHeight = jumping
+                ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
+        final double groundY = baseDrawY + jumpHeight;
         final Image frame = SpriteManager.getInstance().getSlimeFrame(
                 SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
 
@@ -66,44 +66,42 @@ public final class FxEnemyDrawingHelper {
             final double scale = ZoomSteps.artScale(zoom);
             final double width = frame.getWidth() * scale;
             final double height = frame.getHeight() * scale;
-            drawSlimeShadow(gc, tileTopX, baseDrawY, width * SPRITE_SHADOW_FRACTION, slime, slimeMove);
+            drawSlimeShadow(gc, tileTopX, groundY, width * SPRITE_SHADOW_FRACTION, jumpHeight, slime);
             gc.drawImage(frame, Math.rint(tileTopX - width / 2), Math.rint(baseDrawY - height), width, height);
             return;
         }
 
-        // Render shadow first (fixed positioning)
-        drawSlimeShadow(gc, tileTopX, baseDrawY, slimeSize, slime, slimeMove); // Pass slimeMove
+        // Render shadow first, on the ground
+        drawSlimeShadow(gc, tileTopX, groundY, slimeSize, jumpHeight, slime);
         // Render slime body on top
         drawSlimeBody(gc, tileTopX, baseDrawY, slimeSize, slime, slimeMove); // Pass slimeMove
     }
 
     /**
-     * Renders the slime's shadow with proper positioning and opacity.
-     * @param slimeMove The SlimeMovementStrategy instance to get jump state.
+     * Renders the slime's shadow on the ground point, shrinking and fading it with the jump height.
+     *
+     * @param gc         GraphicsContext to render on
+     * @param centerX    ground point X
+     * @param groundY    ground point Y, which does not move while the slime jumps
+     * @param size       size the shadow is proportioned to
+     * @param jumpHeight how far the slime is above the ground, in pixels
+     * @param slime      the slime, for its colour
      */
-    private static void drawSlimeShadow(GraphicsContext gc, double centerX, double centerY,
-                                        double size, Slime slime, SlimeMovementStrategy slimeMove) {
-        final double shadowWidth = size * SHADOW_SIZE_FACTOR;
-        final double shadowHeight = size * SHADOW_HEIGHT_FACTOR;
-        final double shadowOffset = size * SHADOW_OFFSET_FACTOR;
+    private static void drawSlimeShadow(GraphicsContext gc, double centerX, double groundY,
+                                        double size, double jumpHeight, Slime slime) {
+        final SlimeShadow.Geometry shadow =
+                SlimeShadow.at(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
 
-        // Calculate shadow position (centered with offset)
-        // If jumping, the shadow should remain on the ground.
-        final double shadowX = centerX - (shadowWidth * HALF) + shadowOffset;
-        final double shadowY = centerY - (shadowHeight * HALF) + shadowOffset; // This centerY already includes getRenderOffsetY
-
-        // Create shadow color with proper opacity
         final Color baseShadowColor = FxColors.toFx(slime.getColor()).darker().darker();
-        final Color shadowColor = new Color(
+        gc.setFill(new Color(
                 baseShadowColor.getRed(),
                 baseShadowColor.getGreen(),
                 baseShadowColor.getBlue(),
-                SHADOW_OPACITY
-        );
-
-        // Render shadow
-        gc.setFill(shadowColor);
-        gc.fillOval(shadowX, shadowY, shadowWidth, shadowHeight);
+                shadow.opacity()
+        ));
+        gc.fillOval(centerX + shadow.centreX() - shadow.width() * HALF,
+                groundY + shadow.centreY() - shadow.height() * HALF,
+                shadow.width(), shadow.height());
     }
 
     /**
