@@ -46,18 +46,17 @@ public class InventoryManager {
      * Removes a specific item instance from the player's inventory.
      *
      * @param item The exact item instance to remove (by reference equality)
+     * @return true if the item was in the inventory and has been removed
      */
-    public void removeItemFromPlayerInventory(Item item) {
+    public boolean removeItemFromPlayerInventory(Item item) {
         Player player = getPlayer();
-        if (player == null) return;
+        if (player == null) return false;
 
-        for (int i = 0; i < player.getCapacity(); i++) {
-            if (player.getItemAt(i) == item) { // Reference comparison
-                player.setItemAt(i, null);
-                updateInventoryDisplay();
-                return;
-            }
+        boolean removed = ContainerManager.removeInstance(player, item);
+        if (removed) {
+            updateInventoryDisplay();
         }
+        return removed;
     }
 
     /**
@@ -74,8 +73,11 @@ public class InventoryManager {
      * 2. Adds crafted item to inventory
      */
     private void executeCrafting(Player player, Recipe recipe) {
-        player.craftItem(recipe);
-        logCraftSuccess(recipe);
+        if (player.craftItem(recipe)) {
+            logCraftSuccess(recipe);
+        } else {
+            log.debug("Craft refused for {}: no room for the output", recipe.getName());
+        }
     }
 
     /**

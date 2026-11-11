@@ -17,7 +17,7 @@ public interface Container {
     /**
      * Retrieves all items in the container.
      *
-     * @return A copy of the current inventory (prevents external modification)
+     * @return A copy of the current inventory with one entry per slot, null for an empty slot
      */
     List<Item> getItems();
 
@@ -50,6 +50,7 @@ public interface Container {
 
     /**
      * Attempts to add an item to the container.
+     * The quantity of the given item is reduced by the amount that was stored, so what is left is what did not fit.
      *
      * @param item Item to add (non-null, positive quantity)
      * @return True if any portion was added, false if no space
@@ -58,10 +59,11 @@ public interface Container {
 
     /**
      * Attempts to remove a quantity of an item from the container.
+     * All or nothing: when the container holds less than the requested quantity, nothing is removed.
      *
      * @param itemToRemove Type of item to remove
      * @param quantity Number of items to remove (positive)
-     * @return True if full quantity was removed, false otherwise
+     * @return True if the full quantity was removed, false if nothing was removed
      */
     boolean removeItem(Item itemToRemove, int quantity);
 

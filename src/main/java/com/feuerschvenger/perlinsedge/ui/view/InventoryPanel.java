@@ -230,8 +230,7 @@ public class InventoryPanel extends BorderPane {
         if (container == null || slotIndex < 0 || slotIndex >= container.getCapacity()) {
             return null;
         }
-        List<Item> items = container.getItems();
-        return (slotIndex < items.size()) ? items.get(slotIndex) : null;
+        return container.getItemAt(slotIndex);
     }
 
     /** Context object for inventory slots, stored as the slot user data. */

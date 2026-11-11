@@ -191,11 +191,16 @@ public class GameOrchestrator {
 
         inventoryPanel.setOnItemDroppedOutside(item -> {
             Player player = gameState.getPlayer();
-            if (player != null) {
-                inventoryManager.removeItemFromPlayerInventory(item);
+            if (player == null) return;
+
+            // The stack leaves whichever container holds it; nothing is dropped when no container does,
+            // otherwise a second drop event for the same stack would duplicate it.
+            boolean removed = inventoryManager.removeItemFromPlayerInventory(item)
+                    || containerManager.removeFromOpenContainer(item);
+            if (removed) {
                 itemDropManager.createDroppedItem(item, player);
-                Platform.runLater(inventoryPanel::updateInventoryDisplay);
             }
+            Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
 
         inventoryPanel.setOnCraftRecipe(recipe -> {

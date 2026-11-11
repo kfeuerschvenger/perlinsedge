@@ -3,7 +3,6 @@ package com.feuerschvenger.perlinsedge.domain.entities;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -132,13 +131,11 @@ class PlayerInventoryTest {
         assertFalse(player.removeItem(new Item(ItemType.STONE, 1), 10));
     }
 
-    @Disabled("bug: Player.removeItem consumes the available part and then returns false when the quantity is "
-            + "insufficient, instead of leaving the inventory untouched")
     @Test
     void removeIsAtomicWhenQuantityIsInsufficient() {
         player.addItem(new Item(ItemType.STONE, 4));
 
-        player.removeItem(new Item(ItemType.STONE, 1), 10);
+        assertFalse(player.removeItem(new Item(ItemType.STONE, 1), 10));
 
         assertEquals(4, count(ItemType.STONE));
     }
