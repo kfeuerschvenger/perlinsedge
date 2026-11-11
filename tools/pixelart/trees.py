@@ -1,11 +1,12 @@
 """Draw the trees, bushes, rocks and iron ore resource sprites in several numbered variants.
 
 Each sprite is built from rounded lumps lit from the upper left and wrapped in the palette outline. Pines stack foliage tiers on a short trunk, round trees hold a single crown, rocks are low boulders and iron ore is a rock with rust coloured specks.
-The default folder gets tree-1 to tree-6, bush-1 to bush-3, rock-1 to rock-4 and iron-1 to iron-3. The dense_forest folder gets pines and the swamp folder gets olive round trees. The game picks up any number of variants, so adding one to SET needs no code change.
+Every variant gets a small hue and lightness tint so trees and rocks of one kind do not all share a colour. The default folder gets pines and round trees, bushes, rocks and iron ore; dense_forest gets pines, swamp olive round trees, desert sandstone rocks and tundra snow capped rocks and pines. The game picks up any number of variants, so adding one to SET needs no code change.
 
 usage: python -I tools/pixelart/trees.py [--out src/main/resources/assets/resources] [--preview preview.png]
 """
 import argparse
+import colorsys
 import random
 from pathlib import Path
 
@@ -23,6 +24,31 @@ GREEN = ["#337a47", "#459b4c", "#76b04c", "#b3d05e"]
 OLIVE = ["#43553f", "#6c8268", "#a7b074", "#b3d05e"]
 TRUNK = ["#4e2f36", "#7a4a3a", "#a0643f"]
 STONE = ["#4a4868", "#7d7a8c", "#aeadb8", "#dcecf8"]
+SANDSTONE = ["#7b6040", "#a2825a", "#dba867", "#f4d890"]
+SNOW = ["#bcd0e6", "#fcf4e4"]
+
+# small hue and lightness shifts so variants of one kind do not all share a colour
+TINTS = [(0.0, 0.0), (0.025, 0.03), (-0.02, -0.035), (0.04, -0.01), (-0.035, 0.02), (0.015, -0.05)]
+
+
+def tint(ramp, shift):
+    """Shifts every colour of a ramp by a hue and lightness delta, keeping the ramp order."""
+    dh, dl = shift
+    out = []
+    for colour in ramp:
+        r, g, b = (c / 255 for c in hexc(colour))
+        h, l, s = colorsys.rgb_to_hls(r, g, b)
+        r, g, b = colorsys.hls_to_rgb((h + dh) % 1.0, min(1.0, max(0.0, l + dl)), s)
+        out.append("#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255)))
+    return out
+
+
+def snow_cap(cv, depth=2):
+    """Paints the topmost painted pixels of every column with snow, the very top one brightest."""
+    for x in range(cv.w):
+        painted = [y for y in range(cv.h) if cv.px[y][x] is not None]
+        for i, y in enumerate(painted[:depth]):
+            cv.px[y][x] = hexc(SNOW[1] if i == 0 else SNOW[0])
 
 
 class Canvas:
@@ -155,19 +181,44 @@ def rock(seed, ramp, w=24, h=20, ore=None):
     return cv.image()
 
 
+def snowy(maker, depth=2):
+    """Wraps a maker so its sprite gets a snow cap of the given depth before the outline."""
+    def make(seed, ramp):
+        original = Canvas.outline
+
+        def outline_with_snow(cv):
+            snow_cap(cv, depth)
+            original(cv)
+
+        Canvas.outline = outline_with_snow
+        try:
+            return maker(seed, ramp)
+        finally:
+            Canvas.outline = original
+    return make
+
+
 def iron(seed, ramp):
     """Draws a rock with rust coloured ore specks."""
     return rock(seed, ramp, ore=("#9c4247", "#d4705c"))
 
 
 # (folder, name, maker, seed, ramp)
-SET = [("default", f"tree-{i + 1}", pine, 11 + i * 7, GREEN) for i in range(4)] \
-    + [("default", f"tree-{i + 5}", round_tree, 101 + i * 7, GREEN) for i in range(2)] \
-    + [("default", f"bush-{i + 1}", bush, 201 + i * 5, GREEN) for i in range(3)] \
-    + [("default", f"rock-{i + 1}", rock, 501 + i * 3, STONE) for i in range(4)] \
-    + [("default", f"iron-{i + 1}", iron, 601 + i * 3, STONE) for i in range(3)] \
-    + [("dense_forest", f"tree-{i + 1}", pine, 301 + i * 7, GREEN) for i in range(4)] \
-    + [("swamp", f"tree-{i + 1}", round_tree, 401 + i * 7, OLIVE) for i in range(3)]
+def variants(folder, kind, maker, seed, ramp, count, start=1):
+    """Numbered variants of one kind, each with its own shape seed and colour tint."""
+    return [(folder, f"{kind}-{start + i}", maker, seed + i * 7, tint(ramp, TINTS[i % len(TINTS)])) for i in range(count)]
+
+
+SET = variants("default", "tree", pine, 11, GREEN, 5) \
+    + variants("default", "tree", round_tree, 101, GREEN, 3, start=6) \
+    + variants("default", "bush", bush, 201, GREEN, 3) \
+    + variants("default", "rock", rock, 501, STONE, 4) \
+    + variants("default", "iron", iron, 601, STONE, 3) \
+    + variants("dense_forest", "tree", pine, 301, GREEN, 6) \
+    + variants("swamp", "tree", round_tree, 401, OLIVE, 4) \
+    + variants("desert", "rock", rock, 701, SANDSTONE, 4) \
+    + variants("tundra", "rock", snowy(rock, 3), 801, tint(STONE, (0.0, -0.12)), 4) \
+    + variants("tundra", "tree", snowy(pine), 901, GREEN, 4)
 
 
 def main():

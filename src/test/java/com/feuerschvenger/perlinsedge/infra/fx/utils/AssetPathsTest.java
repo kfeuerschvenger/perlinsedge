@@ -96,7 +96,7 @@ class AssetPathsTest {
 
     @Test
     void everyDrawnResourceKindShipsContiguousVariantsInTheDefaultFolder() {
-        int[] expected = {6, 3, 4, 3};
+        int[] expected = {8, 3, 4, 3};
         String[] kinds = {"tree", "bush", "rock", "iron"};
         for (int i = 0; i < kinds.length; i++) {
             for (int variant = 1; variant <= expected[i]; variant++) {
