@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDroppedOutsideCallback;
@@ -54,6 +55,44 @@ class InventoryController {
     @Getter
     @Setter
     private Recipe selectedRecipe;
+
+    // ==================================================================
+    //  Hover
+    // ==================================================================
+
+    /** Slot the mouse is over, or null. */
+    private StackPane hoveredSlot;
+
+    void handleSlotHover(StackPane slot, boolean entered) {
+        if (entered) {
+            hoveredSlot = slot;
+        } else if (hoveredSlot == slot) {
+            hoveredSlot = null;
+        }
+    }
+
+    /** Forgets the hovered slot, for when the panel closes and no mouse exit event will come. */
+    void resetHover() {
+        hoveredSlot = null;
+    }
+
+    /**
+     * The slot an action from the keyboard applies to: the one under the mouse, or the selected one when the mouse is
+     * over none.
+     *
+     * @return the slot, or null when no slot is hovered or selected
+     */
+    SlotRef hoveredOrSelectedSlot() {
+        if (hoveredSlot != null) {
+            InventoryPanel.SlotContext context = (InventoryPanel.SlotContext) hoveredSlot.getUserData();
+            return new SlotRef(context.container, context.index);
+        }
+        if (selectedSlotIndex == -1) {
+            return null;
+        }
+        Container container = selectedSlotInPlayerInventory ? gameState.getPlayer() : view.getSecondaryContainer();
+        return container == null ? null : new SlotRef(container, selectedSlotIndex);
+    }
 
     // ==================================================================
     //  Drag and drop

@@ -14,16 +14,28 @@ public final class FxKeyMapper {
     }
 
     /**
-     * Translates a JavaFX key code.
+     * Translates a JavaFX key code pressed without a modifier.
      *
      * @param code the key code from a key event
      * @return the matching game key, or empty when the game does not use the key
      */
     public static Optional<GameKey> toGameKey(KeyCode code) {
+        return toGameKey(code, false);
+    }
+
+    /**
+     * Translates a JavaFX key code. Only Q reads the Ctrl state: it throws one item, and the whole stack with Ctrl.
+     *
+     * @param code     the key code from a key event
+     * @param ctrlDown true when Ctrl is held
+     * @return the matching game key, or empty when the game does not use the key
+     */
+    public static Optional<GameKey> toGameKey(KeyCode code, boolean ctrlDown) {
         if (code == null) {
             return Optional.empty();
         }
         return Optional.ofNullable(switch (code) {
+            case Q -> ctrlDown ? GameKey.DROP_STACK : GameKey.DROP_ONE;
             case ESCAPE -> GameKey.ESCAPE;
             case SPACE -> GameKey.SPACE;
             case I -> GameKey.I;

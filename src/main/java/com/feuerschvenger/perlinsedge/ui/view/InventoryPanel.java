@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxItemDrawingHelper;
@@ -169,6 +170,8 @@ public class InventoryPanel extends BorderPane {
         slot.setOnDragExited(e -> restoreSlotBorder(slot));
         slot.setOnDragDropped(e -> controller.handleDragDropped(e, slot));
         slot.setOnMouseClicked(controller::handleSlotClick);
+        slot.setOnMouseEntered(e -> controller.handleSlotHover(slot, true));
+        slot.setOnMouseExited(e -> controller.handleSlotHover(slot, false));
 
         return slot;
     }
@@ -391,6 +394,7 @@ public class InventoryPanel extends BorderPane {
         highlightSlot(controller.getSelectedSlotIndex(), false);
         controller.setSelectedSlotIndex(-1);
         controller.setSelectedRecipe(null);
+        controller.resetHover();
     }
 
     // ==================================================================
@@ -511,6 +515,15 @@ public class InventoryPanel extends BorderPane {
      */
     public void setCraftingRecipes(List<Recipe> recipes) {
         craftingListPanel.setRecipes(recipes);
+    }
+
+    /**
+     * The slot an action from the keyboard applies to.
+     *
+     * @return the slot under the mouse, else the selected slot, or null when there is neither
+     */
+    public SlotRef getHoveredOrSelectedSlot() {
+        return controller.hoveredOrSelectedSlot();
     }
 
     /** @return the callback run when an item is dropped on a slot */

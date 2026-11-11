@@ -39,7 +39,7 @@ public class FxInputHandler {
 
         scene.setOnKeyPressed(event -> {
             if (keyListener != null) {
-                FxKeyMapper.toGameKey(event.getCode()).ifPresent(keyListener::onKeyAction);
+                FxKeyMapper.toGameKey(event.getCode(), event.isControlDown()).ifPresent(keyListener::onKeyAction);
             }
         });
 

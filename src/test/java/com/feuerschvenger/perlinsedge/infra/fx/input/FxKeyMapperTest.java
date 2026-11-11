@@ -34,9 +34,24 @@ class FxKeyMapperTest {
     }
 
     @Test
-    void leavesQAndEUnmappedSoTheyStayFree() {
-        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q).isEmpty());
+    void qThrowsOneItemAndCtrlQThrowsTheStack() {
+        assertEquals(Optional.of(GameKey.DROP_ONE), FxKeyMapper.toGameKey(KeyCode.Q));
+        assertEquals(Optional.of(GameKey.DROP_ONE), FxKeyMapper.toGameKey(KeyCode.Q, false));
+        assertEquals(Optional.of(GameKey.DROP_STACK), FxKeyMapper.toGameKey(KeyCode.Q, true));
+    }
+
+    @Test
+    void eStaysUnmappedSoItIsFreeForOtherActions() {
         assertTrue(FxKeyMapper.toGameKey(KeyCode.E).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, true).isEmpty());
+    }
+
+    @Test
+    void ctrlChangesNothingForTheKeysOtherThanQ() {
+        assertEquals(Optional.of(GameKey.I), FxKeyMapper.toGameKey(KeyCode.I, true));
+        assertEquals(Optional.of(GameKey.DIGIT_4), FxKeyMapper.toGameKey(KeyCode.DIGIT4, true));
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Z, true).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(null, true).isEmpty());
     }
 
     @Test

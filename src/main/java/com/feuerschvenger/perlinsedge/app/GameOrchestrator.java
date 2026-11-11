@@ -35,6 +35,7 @@ public class GameOrchestrator {
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
     private final HotbarManager hotbarManager;
+    private final DropKeyHandler dropKeys;
 
     private final FxRenderer renderer;
     private final FxCamera camera;
@@ -91,6 +92,7 @@ public class GameOrchestrator {
         mapManager = new MapManager(this.gameState, mapConfigPanel);
         ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
+        dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot, itemDropManager);
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
@@ -252,6 +254,7 @@ public class GameOrchestrator {
                 hotbarManager::handleHotbarNumberSelection,
                 hotbarManager::changePage
         );
+        controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setInputBlocked(gameState::isPlayerDead);
         return controller;
     }
