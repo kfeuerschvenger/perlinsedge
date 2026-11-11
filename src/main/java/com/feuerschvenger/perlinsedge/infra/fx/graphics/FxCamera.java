@@ -28,7 +28,7 @@ public class FxCamera extends Camera {
         double proposedX = x + dx;
         double proposedY = y + dy;
 
-        Bounds bounds = calculateBounds(canvas);
+        Bounds bounds = calculateBounds(canvas.getWidth(), canvas.getHeight());
         double clampedX = clamp(proposedX, bounds.minX(), bounds.maxX());
         double clampedY = clamp(proposedY, bounds.minY(), bounds.maxY());
 
@@ -43,13 +43,27 @@ public class FxCamera extends Camera {
     /**
      * Moves the zoom one whole step while keeping the focus point still.
      * The zoom only takes the levels of {@link ZoomSteps}, so the art stays at an integer scale, and the camera offset
-     * is rounded to whole pixels so every sprite lands on the pixel grid.
+     * is rounded to whole pixels so every sprite lands on the pixel grid and then kept inside the map bounds of the new zoom.
      *
      * @param direction positive to zoom in, negative to zoom out
      * @param centerX   X coordinate of the zoom focus
      * @param centerY   Y coordinate of the zoom focus
+     * @param canvas    reference canvas for viewport dimensions
      */
-    public void zoomStep(int direction, double centerX, double centerY) {
+    public void zoomStep(int direction, double centerX, double centerY, Canvas canvas) {
+        zoomStep(direction, centerX, centerY, canvas.getWidth(), canvas.getHeight());
+    }
+
+    /**
+     * Moves the zoom one whole step like {@link #zoomStep(int, double, double, Canvas)}, for a viewport given by its size.
+     *
+     * @param direction      positive to zoom in, negative to zoom out
+     * @param centerX        X coordinate of the zoom focus
+     * @param centerY        Y coordinate of the zoom focus
+     * @param viewportWidth  viewport width
+     * @param viewportHeight viewport height
+     */
+    public void zoomStep(int direction, double centerX, double centerY, double viewportWidth, double viewportHeight) {
         double originalZoom = zoom;
         double targetZoom = ZoomSteps.move(zoom, direction,
                 config.core().getMinZoom(), config.core().getMaxZoom(), config.core().getZoomStep());
@@ -57,9 +71,10 @@ public class FxCamera extends Camera {
         if (targetZoom == originalZoom) return;
 
         double scale = targetZoom / originalZoom;
-        x = Math.rint((x - centerX) * scale + centerX);
-        y = Math.rint((y - centerY) * scale + centerY);
         zoom = targetZoom;
+        final Bounds bounds = calculateBounds(viewportWidth, viewportHeight);
+        x = Math.rint(clamp((x - centerX) * scale + centerX, bounds.minX(), bounds.maxX()));
+        y = Math.rint(clamp((y - centerY) * scale + centerY, bounds.minY(), bounds.maxY()));
     }
 
     /**
@@ -125,13 +140,10 @@ public class FxCamera extends Camera {
         );
     }
 
-    private Bounds calculateBounds(Canvas canvas) {
+    private Bounds calculateBounds(double viewportWidth, double viewportHeight) {
         CornerPoints corners = computeCornerPoints(zoom);
         double totalWidth = corners.maxX() - corners.minX();
         double totalHeight = corners.maxY() - corners.minY();
-
-        double viewportWidth = canvas.getWidth();
-        double viewportHeight = canvas.getHeight();
 
         double minX, maxX, minY, maxY;
 

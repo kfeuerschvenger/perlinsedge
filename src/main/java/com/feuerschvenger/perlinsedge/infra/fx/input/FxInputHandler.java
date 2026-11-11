@@ -76,7 +76,7 @@ public class FxInputHandler {
         }
         int step = zoomWheel.add(event.getDeltaY());
         if (step != 0) {
-            camera.zoomStep(step, event.getX(), event.getY());
+            camera.zoomStep(step, event.getX(), event.getY(), mainGameCanvas);
         }
     }
 
