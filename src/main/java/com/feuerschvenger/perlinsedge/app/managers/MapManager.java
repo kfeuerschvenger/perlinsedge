@@ -11,9 +11,11 @@ import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGeneratorFactory;
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +50,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
     public MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel) {
         this.gameState = gameState;
         this.mapConfigPanel = mapConfigPanel;
-        this.mapGeneratorFactory = new MapGeneratorFactory();
+        this.mapGeneratorFactory = new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY);
     }
 
     /**
@@ -60,11 +62,12 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
      */
     public MapGenerationContext createMapContext(MapType mapType, long seed) {
         AppConfig.WorldConfig worldConfig = AppConfig.getInstance().world();
+        NoiseSettings heightProfile = NoiseSettings.heightProfile(mapType);
         return new MapGenerationContext(
                 mapType,
                 seed,
-                worldConfig.getHeightNoiseFrequency(),
-                worldConfig.getHeightNoiseOctaves(),
+                heightProfile.frequency(),
+                heightProfile.octaves(),
                 worldConfig.getTemperatureNoiseFrequency(),
                 worldConfig.getTemperatureNoiseOctaves(),
                 worldConfig.getMoistureNoiseFrequency(),

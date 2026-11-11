@@ -3,9 +3,6 @@ package com.feuerschvenger.perlinsedge.domain.world.generation;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.generation.util.TileFactory;
 import com.feuerschvenger.perlinsedge.domain.world.model.*;
-import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLite;
-import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
-import com.feuerschvenger.perlinsedge.infra.noise.INoiseGenerator;
 
 import java.util.*;
 
@@ -20,13 +17,15 @@ public class PerlinMapGenerator implements IMapGenerator {
     // Configuration holder
     AppConfig.GenerationConfig config = AppConfig.getInstance().generationConfig();
 
+    private final NoiseSourceFactory noiseFactory;
+
     // Noise generator cache
-    private INoiseGenerator heightNoise;
-    private INoiseGenerator temperatureNoise;
-    private INoiseGenerator moistureNoise;
-    private INoiseGenerator stoneNoise;
-    private INoiseGenerator crystalsNoise;
-    private INoiseGenerator treeNoise;
+    private NoiseSource heightNoise;
+    private NoiseSource temperatureNoise;
+    private NoiseSource moistureNoise;
+    private NoiseSource stoneNoise;
+    private NoiseSource crystalsNoise;
+    private NoiseSource treeNoise;
 
     // River generation constants
     private static final int[][] RIVER_DIRECTIONS = {
@@ -40,6 +39,15 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final float ISLAND_FALLOFF_POWER = 2.0f;
 
     private float[][] islandCenters;
+
+    /**
+     * Creates a generator.
+     *
+     * @param noiseFactory builds the noise fields, which keeps the noise library outside the domain
+     */
+    public PerlinMapGenerator(NoiseSourceFactory noiseFactory) {
+        this.noiseFactory = Objects.requireNonNull(noiseFactory, "noiseFactory");
+    }
 
     @Override
     public TileMap generateMap(int width, int height, MapGenerationContext context) {
@@ -89,19 +97,13 @@ public class PerlinMapGenerator implements IMapGenerator {
         treeNoise = createNoiseGenerator(config.getSeed() + 5, config.getTreeNoiseConfig());
     }
 
-    private INoiseGenerator createNoiseGenerator(long seed, AppConfig.NoiseConfig noiseConfig) {
-        INoiseGenerator generator = new FastNoiseLiteAdapter((int) seed);
-        generator.setNoiseType(FastNoiseLite.NoiseType.Perlin);
-        generator.setFrequency(noiseConfig.getFrequency());
-
-        if (noiseConfig.getOctaves() > 0) {
-            generator.setFractalType(noiseConfig.getFractalType());
-            generator.setFractalOctaves(noiseConfig.getOctaves());
-            generator.setFractalGain(noiseConfig.getGain());
-            generator.setFractalLacunarity(noiseConfig.getLacunarity());
-        }
-
-        return generator;
+    private NoiseSource createNoiseGenerator(long seed, AppConfig.NoiseConfig noiseConfig) {
+        return noiseFactory.create(seed, new NoiseSettings(
+                noiseConfig.getFrequency(),
+                noiseConfig.getOctaves(),
+                noiseConfig.getFractalType(),
+                noiseConfig.getGain(),
+                noiseConfig.getLacunarity()));
     }
 
     // ==================================================================
@@ -177,16 +179,16 @@ public class PerlinMapGenerator implements IMapGenerator {
         float treeDensityFactor = 1.0f;
         switch (config.getMapType()) {
             case MEDITERRANEAN:
-                treeDensityFactor = 1.8f;  // Más árboles en Mediterranean
+                treeDensityFactor = 1.8f;  // More trees in Mediterranean
                 break;
             case TUNDRA:
-                treeDensityFactor = 1.5f;  // Más árboles en Tundra
+                treeDensityFactor = 1.5f;  // More trees in Tundra
                 break;
             case DESERT:
-                treeDensityFactor = 1.3f;  // Más árboles en Desierto
+                treeDensityFactor = 1.3f;  // More trees in Desert
                 break;
             case ISLANDS:
-                treeDensityFactor = 1.6f;  // Más árboles en Islas
+                treeDensityFactor = 1.6f;  // More trees on Islands
                 break;
         }
 
@@ -207,13 +209,13 @@ public class PerlinMapGenerator implements IMapGenerator {
             float treeValue = normalizeNoise(treeNoise.getNoise(x, y));
             float threshold = 1.0f - (config.getTreeDensity() * treeDensityFactor);
 
-            // Para desierto, árboles solo en oasis (GRASS)
+            // Desert: trees only in oases (GRASS)
             if (config.getMapType() == MapType.DESERT) {
                 if (tile.getType() == TileType.GRASS && treeValue > threshold) {
                     tile.setWorldResource(new Resource(ResourceType.TREE, config.getRandom().nextLong()));
                 }
             }
-            // Para otros biomas
+            // Other biomes
             else if (treeValue > threshold) {
                 tile.setWorldResource(new Resource(ResourceType.TREE, config.getRandom().nextLong()));
             }
@@ -279,13 +281,13 @@ public class PerlinMapGenerator implements IMapGenerator {
 
                 if (tileHeight < -0.6f) {
                     tile.setType(TileType.DEEP_WATER);
-                    tile.setWorldResource(null); // Solo eliminar recurso en agua
+                    tile.setWorldResource(null); // Resources are only removed on water
                 } else if (tileHeight < -0.4f) {
                     tile.setType(TileType.SHALLOW_WATER);
-                    tile.setWorldResource(null); // Solo eliminar recurso en agua
+                    tile.setWorldResource(null); // Resources are only removed on water
                 } else if (tileHeight < -0.2f) {
                     tile.setType(TileType.SAND);
-                    // ¡NO eliminar recursos en arena/tierra!
+                    // Resources on sand and land are kept
                 }
             }
         }
@@ -303,14 +305,14 @@ public class PerlinMapGenerator implements IMapGenerator {
 
                 if (tileHeight < -0.4f) {
                     tile.setType(TileType.DEEP_WATER);
-                    tile.setWorldResource(null); // Solo eliminar recurso en agua
+                    tile.setWorldResource(null); // Resources are only removed on water
                 } else if (tileHeight < -0.2f) {
                     if (tempValue < 0.3f) {
                         tile.setType(TileType.ICE);
-                        tile.setWorldResource(null); // Solo eliminar recurso en hielo/agua
+                        tile.setWorldResource(null); // Resources are only removed on ice and water
                     } else {
                         tile.setType(TileType.SHALLOW_WATER);
-                        tile.setWorldResource(null); // Solo eliminar recurso en agua
+                        tile.setWorldResource(null); // Resources are only removed on water
                     }
                 }
             }

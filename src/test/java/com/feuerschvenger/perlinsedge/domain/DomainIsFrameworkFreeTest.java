@@ -34,8 +34,7 @@ class DomainIsFrameworkFreeTest {
      * same file still fails the build. An entry whose file no longer has an exempt reference fails the build too,
      * so the debt list can only shrink. Do not add entries.
      */
-    private static final Map<String, String> KNOWN_OUTER_LAYER_DEBT =
-            Map.of("world/generation/PerlinMapGenerator.java", "com.feuerschvenger.perlinsedge.infra.noise");
+    private static final Map<String, String> KNOWN_OUTER_LAYER_DEBT = Map.of();
 
     @Test
     void domainSourcesNeverUseJavaFx() throws IOException {

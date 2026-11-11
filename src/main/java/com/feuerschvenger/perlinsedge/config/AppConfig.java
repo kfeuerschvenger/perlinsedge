@@ -1,9 +1,10 @@
 package com.feuerschvenger.perlinsedge.config;
 
+import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
-import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLite;
 
 import java.util.Random;
 
@@ -85,9 +86,7 @@ public class AppConfig {
         private static final int minEnemyDistance = 30;
         private static final int maxPositioningAttempts = 3000;
 
-        // Noise parameters
-        private static final float heightNoiseFrequency = 0.01f;
-        private static final int heightNoiseOctaves = 3;
+        // Noise parameters (the height noise comes from NoiseSettings.heightProfile)
         private static final float temperatureNoiseFrequency = 0.02f;
         private static final int temperatureNoiseOctaves = 3;
         private static final float moistureNoiseFrequency = 0.03f;
@@ -112,8 +111,6 @@ public class AppConfig {
         public int getBaseMimicsCount() { return baseMimicsCount; }
         public int getMinEnemyDistance() { return minEnemyDistance; }
         public int getMaxPositioningAttempts() { return maxPositioningAttempts; }
-        public float getHeightNoiseFrequency() { return heightNoiseFrequency; }
-        public int getHeightNoiseOctaves() { return heightNoiseOctaves; }
         public float getTemperatureNoiseFrequency() { return temperatureNoiseFrequency; }
         public int getTemperatureNoiseOctaves() { return temperatureNoiseOctaves; }
         public float getMoistureNoiseFrequency() { return moistureNoiseFrequency; }
@@ -129,8 +126,8 @@ public class AppConfig {
                 case SWAMP -> 0.35f;
                 case DESERT -> 0.25f;
                 case TUNDRA -> 0.23f;
-                case MEDITERRANEAN -> 0.45f;  // Aumentado de 0.05f
-                case ISLANDS -> 0.35f;        // Aumentado para islas
+                case MEDITERRANEAN -> 0.45f;
+                case ISLANDS -> 0.35f;
                 default -> baseTreeDensity;
             };
         }
@@ -239,7 +236,7 @@ public class AppConfig {
     public static class NoiseConfig {
         float frequency;
         int octaves;
-        FastNoiseLite.FractalType fractalType;
+        FractalKind fractalType = FractalKind.NONE;
         float gain;
         float lacunarity;
 
@@ -259,11 +256,11 @@ public class AppConfig {
             this.octaves = octaves;
         }
 
-        public FastNoiseLite.FractalType getFractalType() {
+        public FractalKind getFractalType() {
             return fractalType;
         }
 
-        public void setFractalType(FastNoiseLite.FractalType fractalType) {
+        public void setFractalType(FractalKind fractalType) {
             this.fractalType = fractalType;
         }
 
@@ -314,7 +311,10 @@ public class AppConfig {
             this.crystalsThreshold = context.getCrystalsThreshold();
 
             // Configure noise parameters
-            this.heightNoiseConfig = createHeightNoiseConfig();
+            this.heightNoiseConfig = createHeightNoiseConfig(
+                    context.getHeightNoiseFrequency(),
+                    context.getHeightNoiseOctaves()
+            );
             this.temperatureNoiseConfig = createNoiseConfig(
                     context.getTemperatureNoiseFrequency(),
                     context.getTemperatureNoiseOctaves()
@@ -328,55 +328,18 @@ public class AppConfig {
             this.treeNoiseConfig = createTreeNoiseConfig();
         }
 
-        private NoiseConfig createHeightNoiseConfig() {
+        /**
+         * Height noise: the frequency and octaves come from the context, so the tuning panel affects the terrain,
+         * while the fractal kind, gain and lacunarity come from the map type profile.
+         */
+        private NoiseConfig createHeightNoiseConfig(float frequency, int octaves) {
+            NoiseSettings profile = NoiseSettings.heightProfile(mapType);
             NoiseConfig cfg = new NoiseConfig();
-            cfg.frequency = 0.02f; // Default
-
-            switch (mapType) {
-                case ISLANDS:
-                    cfg.frequency = 0.005f;
-                    cfg.octaves = 5;
-                    cfg.fractalType = FastNoiseLite.FractalType.FBm;
-                    break;
-                case DESERT:
-                    cfg.frequency = 0.04f;
-                    cfg.octaves = 6;
-                    cfg.fractalType = FastNoiseLite.FractalType.Ridged;
-                    cfg.gain = 0.6f;
-                    break;
-                case MOUNTAINOUS:
-                    cfg.frequency = 0.01f;
-                    cfg.octaves = 8;
-                    cfg.fractalType = FastNoiseLite.FractalType.Ridged;
-                    cfg.gain = 0.7f;
-                    break;
-                case DARK_FOREST:
-                case SWAMP:
-                    cfg.frequency = 0.02f;
-                    cfg.octaves = 4;
-                    cfg.fractalType = FastNoiseLite.FractalType.FBm;
-                    cfg.gain = 0.4f;
-                    break;
-                case TUNDRA:
-                    cfg.frequency = 0.015f;
-                    cfg.octaves = 5;
-                    cfg.fractalType = FastNoiseLite.FractalType.FBm;
-                    cfg.gain = 0.5f;
-                    break;
-                case RIVERS:
-                    cfg.frequency = 0.01f;
-                    cfg.octaves = 6;
-                    cfg.fractalType = FastNoiseLite.FractalType.FBm;
-                    cfg.gain = 0.4f;
-                    break;
-                case MEDITERRANEAN:
-                    cfg.frequency = 0.025f;
-                    cfg.octaves = 5;
-                    cfg.fractalType = FastNoiseLite.FractalType.FBm;
-                    cfg.gain = 0.5f;
-                    break;
-            }
-            cfg.lacunarity = 2.0f;
+            cfg.frequency = frequency;
+            cfg.octaves = octaves;
+            cfg.fractalType = profile.fractal();
+            cfg.gain = profile.gain();
+            cfg.lacunarity = profile.lacunarity();
             return cfg;
         }
 
@@ -390,7 +353,7 @@ public class AppConfig {
             NoiseConfig cfg = new NoiseConfig();
             cfg.frequency = frequency;
             cfg.octaves = octaves;
-            cfg.fractalType = FastNoiseLite.FractalType.FBm;
+            cfg.fractalType = FractalKind.FBM;
             cfg.gain = 0.5f;
             cfg.lacunarity = 2.0f;
             return cfg;
