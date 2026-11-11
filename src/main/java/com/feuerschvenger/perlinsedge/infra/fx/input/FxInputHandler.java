@@ -23,6 +23,7 @@ public class FxInputHandler {
 
     private IKeyListener keyListener;
     private ScrollInterceptor scrollInterceptor;
+    private final WheelAccumulator zoomWheel = new WheelAccumulator();
 
     /**
      * Constructs a new FxInputHandler for handling input events in the game.
@@ -73,8 +74,10 @@ public class FxInputHandler {
                 && scrollInterceptor.intercept(event.getDeltaY(), event.isControlDown())) {
             return;
         }
-        double zoomFactor = event.getDeltaY() > 0 ? 1.05 : 0.95;
-        camera.zoom(zoomFactor, event.getX(), event.getY());
+        int step = zoomWheel.add(event.getDeltaY());
+        if (step != 0) {
+            camera.zoomStep(step, event.getX(), event.getY());
+        }
     }
 
     /**

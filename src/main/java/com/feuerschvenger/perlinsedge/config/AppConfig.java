@@ -56,6 +56,7 @@ public class AppConfig {
         private static final double initialZoom = 1.0;
         private static final double minZoom = 1.0;
         private static final double maxZoom = 2.0;
+        private static final double zoomStep = 0.5;
         private static final double panSpeed = 30.0;
 
         // Getters
@@ -65,6 +66,7 @@ public class AppConfig {
         public double getInitialZoom() { return initialZoom; }
         public double getMinZoom() { return minZoom; }
         public double getMaxZoom() { return maxZoom; }
+        public double getZoomStep() { return zoomStep; }
         public double getPanSpeed() { return panSpeed; }
     }
 

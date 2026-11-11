@@ -13,7 +13,7 @@ public class FxCamera extends Camera {
     private final AppConfig config;
 
     public FxCamera(double x, double y, double zoom) {
-        super(x, y, zoom);
+        super(Math.rint(x), Math.rint(y), zoom);
         this.config = AppConfig.getInstance();
     }
 
@@ -32,6 +32,8 @@ public class FxCamera extends Camera {
         double clampedX = clamp(proposedX, bounds.minX(), bounds.maxX());
         double clampedY = clamp(proposedY, bounds.minY(), bounds.maxY());
 
+        clampedX = Math.rint(clampedX);
+        clampedY = Math.rint(clampedY);
         if (clampedX != x || clampedY != y) {
             x = clampedX;
             y = clampedY;
@@ -39,23 +41,24 @@ public class FxCamera extends Camera {
     }
 
     /**
-     * Zooms the camera while maintaining focus point.
+     * Moves the zoom one whole step while keeping the focus point still.
+     * The zoom only takes the levels of {@link ZoomSteps}, so the art stays at an integer scale, and the camera offset
+     * is rounded to whole pixels so every sprite lands on the pixel grid.
      *
-     * @param factor zoom multiplier (1.1 to zoom in, 0.9 to zoom out)
-     * @param centerX X coordinate of zoom focus
-     * @param centerY Y coordinate of zoom focus
+     * @param direction positive to zoom in, negative to zoom out
+     * @param centerX   X coordinate of the zoom focus
+     * @param centerY   Y coordinate of the zoom focus
      */
-    public void zoom(double factor, double centerX, double centerY) {
+    public void zoomStep(int direction, double centerX, double centerY) {
         double originalZoom = zoom;
-        double targetZoom = clamp(zoom * factor,
-                config.core().getMinZoom(),
-                config.core().getMaxZoom());
+        double targetZoom = ZoomSteps.move(zoom, direction,
+                config.core().getMinZoom(), config.core().getMaxZoom(), config.core().getZoomStep());
 
         if (targetZoom == originalZoom) return;
 
         double scale = targetZoom / originalZoom;
-        x = (x - centerX) * scale + centerX;
-        y = (y - centerY) * scale + centerY;
+        x = Math.rint((x - centerX) * scale + centerX);
+        y = Math.rint((y - centerY) * scale + centerY);
         zoom = targetZoom;
     }
 
