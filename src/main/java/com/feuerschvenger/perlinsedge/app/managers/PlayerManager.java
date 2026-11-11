@@ -90,6 +90,8 @@ public class PlayerManager {
             log.info("Player revived at {},{}", startPosition[0], startPosition[1]);
         }
 
+        // A pending respawn would otherwise teleport the freshly placed, living player when it expires
+        gameState.setPlayerRespawnTimer(-1);
         updatePlayerUI();
         gameState.setShouldCenterCamera(true);
     }
