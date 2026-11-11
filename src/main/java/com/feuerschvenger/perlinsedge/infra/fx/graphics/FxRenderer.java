@@ -206,7 +206,7 @@ public class FxRenderer {
                 // Add resource if present
                 final Resource resource = tile.getWorldResource();
                 if (tile.hasResource() && !isGrayscaleEnabled && resource != null) {
-                    boolean isFlashing = resource.isFlashing();
+                    boolean isFlashing = resource.isFlashing(currentFrameGameTime);
                     // A desert tree is a palm near water and a cactus in the dry sand; the look-around only runs for it
                     final String preferredKind = resourceKinds.preferredKind(map, currentMapType, resource.getType(),
                             x, y, worldSeed);

@@ -19,11 +19,9 @@ public class Resource {
     private final ResourceType type;
     private final long visualSeed;  // For sprite variations
 
-    private boolean flashing = false;
     private boolean struck = false;
-    private long flashStartTime;
     private double hitGameTime;
-    private static final long FLASH_DURATION_NS = 200_000_000;
+    private static final double FLASH_DURATION_SECONDS = 0.2;
 
     // State Management
     private int currentHealth;
@@ -69,30 +67,29 @@ public class Resource {
      * @param gameTime the game time of the hit in seconds
      */
     public void startFlashing(double gameTime) {
-        this.flashing = true;
-        this.flashStartTime = System.nanoTime();
         this.struck = true;
         this.hitGameTime = gameTime;
     }
 
     /**
-     * Returns how long ago the resource was last struck on the game clock, so the renderer can shake it.
+     * Returns how long ago the resource was last struck on the game clock, so the renderer can shake it. A hit stamped
+     * ahead of the clock belongs to a game that was reset, so it counts as never struck.
      *
      * @param gameTime the current game time in seconds
-     * @return the elapsed game seconds, or infinity when it was never struck
+     * @return the elapsed game seconds, or infinity when it was never struck or the clock is behind the hit
      */
     public double secondsSinceHit(double gameTime) {
-        return struck ? Math.max(0.0, gameTime - hitGameTime) : Double.POSITIVE_INFINITY;
+        return struck && gameTime >= hitGameTime ? gameTime - hitGameTime : Double.POSITIVE_INFINITY;
     }
 
-    public boolean isFlashing() {
-        if (!flashing) return false;
-        long elapsed = System.nanoTime() - flashStartTime;
-        if (elapsed >= FLASH_DURATION_NS) {
-            flashing = false;
-            return false;
-        }
-        return true;
+    /**
+     * Tells whether the hit flash is still showing, measured on the game clock so it pauses together with the shake.
+     *
+     * @param gameTime the current game time in seconds
+     * @return true while the flash lasts
+     */
+    public boolean isFlashing(double gameTime) {
+        return secondsSinceHit(gameTime) < FLASH_DURATION_SECONDS;
     }
 
     // ==================================================================
