@@ -60,7 +60,7 @@ public final class SpriteManager {
     private final Map<TileType, List<Image>> tileSprites = new EnumMap<>(TileType.class);
     private final Map<ItemType, SpriteMetadata> itemSprites = new EnumMap<>(ItemType.class);
     private final Map<String, Image> decalSprites = new HashMap<>();
-    private final Map<TileType, Image> waterSprites = new EnumMap<>(TileType.class);
+    private final Map<String, Image> waterSprites = new HashMap<>();
     private List<Image> shimmerLines = List.of();
     private List<Image> slimeFrames = List.of();
 
@@ -118,16 +118,20 @@ public final class SpriteManager {
     }
 
     private void loadWaterSprites() {
+        List<String> arts = new ArrayList<>();
         for (TileType type : TileType.values()) {
             String art = AssetPaths.waterArt(type);
-            if (art == null) {
-                continue;
+            if (art != null) {
+                arts.add(art);
             }
+        }
+        arts.add(AssetPaths.DEEP_EDGE_WATER);
+        for (String art : arts) {
             Image image = loadImage(AssetPaths.waterTop(art));
             if (image == null) {
-                log.info("No water art for {}, the bed tile is drawn without water", type);
+                log.info("No water art {}, those tiles are drawn without water", art);
             } else {
-                waterSprites.put(type, image);
+                waterSprites.put(art, image);
             }
         }
         List<Image> lines = new ArrayList<>();
@@ -286,13 +290,13 @@ public final class SpriteManager {
     }
 
     /**
-     * Retrieves the translucent water layer of a water tile type.
+     * Retrieves a translucent water layer.
      *
-     * @param type the tile type
-     * @return the top diamond to draw over the bed, or null when the type has no water art
+     * @param art the water art name, see {@link WaterTones#artFor}
+     * @return the top diamond to draw over the bed, or null when the name is null or has no art
      */
-    public Image getWaterSprite(TileType type) {
-        return waterSprites.get(type);
+    public Image getWaterSprite(String art) {
+        return art == null ? null : waterSprites.get(art);
     }
 
     /**

@@ -69,7 +69,36 @@ class AssetPathsTest {
             int alpha = image.getRGB(16, 8) >>> 24;
             assertTrue(alpha > 80 && alpha < 220, art + " alpha " + alpha);
         }
-        assertTrue((read(AssetPaths.waterTop("deep")).getRGB(16, 8) >>> 24) > (read(AssetPaths.waterTop("shallow")).getRGB(16, 8) >>> 24));
+    }
+
+    @Test
+    void theShallowCoastAndRiverSheetsLetTheBedShowThrough() throws IOException {
+        for (String art : new String[]{"shallow", "coast", "river"}) {
+            double opacity = (read(AssetPaths.waterTop(art)).getRGB(16, 8) >>> 24) / 255.0;
+            assertTrue(opacity >= 0.35 && opacity <= 0.45, art + " opacity " + opacity);
+        }
+    }
+
+    @Test
+    void deepWaterGetsMoreOpaqueStepByStepFromTheShallows() throws IOException {
+        int shallow = read(AssetPaths.waterTop("shallow")).getRGB(16, 8) >>> 24;
+        int edge = read(AssetPaths.waterTop(AssetPaths.DEEP_EDGE_WATER)).getRGB(16, 8) >>> 24;
+        int deep = read(AssetPaths.waterTop("deep")).getRGB(16, 8) >>> 24;
+        assertTrue(shallow < edge && edge < deep, shallow + " " + edge + " " + deep);
+    }
+
+    @Test
+    void theBedsShowTheirGridEdgeSoItReadsThroughTheWater() throws IOException {
+        for (String art : new String[]{"bed", "bed-deep"}) {
+            BufferedImage bed = read(AssetPaths.tile(art, 1));
+            int centre = bed.getRGB(16, 8) & 0xFFFFFF;
+            int edge = bed.getRGB(16, 0) & 0xFFFFFF;
+            assertTrue(brightness(edge) < brightness(centre) * 0.85, art);
+        }
+    }
+
+    private static int brightness(int rgb) {
+        return ((rgb >> 16) & 0xFF) + ((rgb >> 8) & 0xFF) + (rgb & 0xFF);
     }
 
     @Test
@@ -119,12 +148,12 @@ class AssetPathsTest {
     }
 
     @Test
-    void theShippedLandTilesAreBlocksAndTheBedsAreFlatDiamonds() throws IOException {
+    void theShippedLandTilesAndTheBedsAreAllBlocks() throws IOException {
         for (TileType type : TileType.values()) {
             String art = AssetPaths.tileArt(type);
             BufferedImage image = read(AssetPaths.tile(art, 1));
             assertEquals(32, image.getWidth(), art);
-            assertEquals(type.isWater() ? 16 : 21, image.getHeight(), art);
+            assertEquals(21, image.getHeight(), art);
         }
     }
 

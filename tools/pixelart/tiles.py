@@ -2,7 +2,8 @@
 
 Each land tile is a 32x21 block: a 32x16 top diamond in one flat colour with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face below.
 Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, flowers, mushrooms and seaweed.
-Water is a flat opaque bed diamond per bed kind, sunk a full land face below the land tops, and a translucent top diamond per water type drawn over it, plus three thin highlight lines the game fades in and out.
+Water lies over a bed that is a real sunk land block per bed kind, with its grid edge and side faces, sunk a full land face below the land tops, and a translucent top diamond per water type is drawn over it, plus three thin highlight lines the game fades in and out.
+The water sheet is only about 40 percent opaque so the bed, its grid and its decals read through it, and deep water that touches shallow water uses an intermediate tone so the colour does not jump.
 The water diamond is two pixels narrower on its right side than a land diamond, so neighbouring water tiles meet without overlapping and the translucent sheet has no doubled seams.
 
 usage: python -I tools/pixelart/tiles.py [--out src/main/resources/assets] [--preview preview.png]
@@ -36,9 +37,17 @@ LAND = {
     "snow": ("#eef4fa", "#bcd0e6", "#9fb4e0"),
     "ice": ("#c8e4f2", "#9fb4e0", "#7a8cc8"),
     "swamp": ("#6c8a4e", "#55432f", "#43553f"),
+    # warmer and a little darker than sand, drawn for grassy land types on a desert map
+    "dune": ("#e3b66f", "#cf9a5c", "#b5814b"),
+    # sunk land blocks under the water: sand for shallow, coast and river water, darker stone sand for deep water
+    "bed": ("#d8bf86", "#b8975f", "#9a7d4d"),
+    "bed-deep": ("#8a7a64", "#6f6150", "#574c3e"),
 }
 GRID = 0.09
 LIP = 0.18
+# the grid line of a bed is drawn stronger so it is still visible after the water is drawn over it
+BED_GRID = 0.3
+GRID_OF = {"bed": BED_GRID, "bed-deep": BED_GRID}
 
 
 def in_top(x, y):
@@ -62,13 +71,13 @@ def on_upper_edge(x, y):
     return y < TOP_H // 2 and in_top(x, y) and not in_top(x, y - 1)
 
 
-def land_tile(top, left, right):
+def land_tile(top, left, right, grid=GRID):
     top, left, right = hexc(top), hexc(left), hexc(right)
     img = Image.new("RGBA", (TILE_W, TOP_H + FACE_H), (0, 0, 0, 0))
     for y in range(TOP_H + FACE_H):
         for x in range(TILE_W):
             if in_top(x, y):
-                colour = darken(top, GRID) if on_upper_edge(x, y) else top
+                colour = darken(top, grid) if on_upper_edge(x, y) else top
             elif in_block(x, y):
                 face = left if x < TILE_W // 2 else right
                 colour = darken(top, LIP) if in_top(x, y - 1) else face
@@ -106,16 +115,13 @@ DECALS = {
 
 
 # top colour and opacity of the translucent water drawn over the bed
+# deep-edge is the tone of deep water that touches shallow or coast water, between the two
 WATER = {
-    "shallow": ("#14a8d0", 0.58),
-    "coast": ("#25bcd0", 0.55),
-    "river": ("#1f90c4", 0.58),
-    "deep": ("#1a4a8a", 0.82),
-}
-# flat opaque bed diamonds: sand for the shallow, coast and river water, a darker stone sand for the deep water
-BEDS = {
-    "bed": "#cbb07a",
-    "bed-deep": "#8a7a64",
+    "shallow": ("#18b4d8", 0.40),
+    "coast": ("#2cc4d4", 0.38),
+    "river": ("#2296c8", 0.42),
+    "deep-edge": ("#1c96cc", 0.47),
+    "deep": ("#1f6cc0", 0.55),
 }
 SHIMMER_COLOUR = "#dcecf8"
 SHIMMER_WIDTHS = (6, 4, 5)
@@ -137,17 +143,6 @@ def water_top(colour, opacity):
     for y in range(TOP_H):
         for x in range(TILE_W):
             if in_water(x, y):
-                img.putpixel((x, y), fill)
-    return img
-
-
-def bed_top(colour):
-    """Draws a flat opaque 32x16 diamond with no grid line, which shows through the water above it."""
-    img = Image.new("RGBA", (TILE_W, TOP_H), (0, 0, 0, 0))
-    fill = hexc(colour) + (255,)
-    for y in range(TOP_H):
-        for x in range(TILE_W):
-            if in_top(x, y):
                 img.putpixel((x, y), fill)
     return img
 
@@ -190,7 +185,7 @@ def main():
     parser.add_argument("--preview")
     args = parser.parse_args()
     out = Path(args.out)
-    tiles = {name: land_tile(*colours) for name, colours in LAND.items()}
+    tiles = {name: land_tile(*colours, grid=GRID_OF.get(name, GRID)) for name, colours in LAND.items()}
     decals = {name: sprite(*spec) for name, spec in DECALS.items()}
     if args.preview:
         preview(tiles, decals, args.preview)
@@ -204,11 +199,10 @@ def main():
     (out / "water").mkdir(parents=True, exist_ok=True)
     for name, (colour, opacity) in WATER.items():
         water_top(colour, opacity).save(out / "water" / f"{name}.png")
-    for name, colour in BEDS.items():
-        bed_top(colour).save(out / "tiles" / f"{name}-1.png")
     for index, width in enumerate(SHIMMER_WIDTHS, start=1):
         shimmer(width).save(out / "water" / f"shimmer-{index}.png")
-    print(f"tiles {len(tiles)}, decals {len(decals)}, water {len(WATER)}, beds {len(BEDS)}, shimmer {len(SHIMMER_WIDTHS)}")
+    print(f"tiles {len(tiles)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
 
 
-main()
+if __name__ == "__main__":
+    main()

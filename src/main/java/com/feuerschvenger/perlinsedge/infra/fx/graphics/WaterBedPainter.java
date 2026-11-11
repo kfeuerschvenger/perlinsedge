@@ -12,6 +12,7 @@ import javafx.scene.image.Image;
 
 /**
  * Draws the beds under the water and the decals lying on them, before any other tile.
+ * A bed is a real land block with its grid edge and side faces, so it shows through the translucent water as ground.
  * Every bed is drawn before the first decal, and both before the translucent water of the frame, so the water is
  * painted once over a finished bed and a decal is never covered by the bed of a neighbour. A bed sits a full land face
  * below the land tops: the land blocks around the water are drawn later and cover its edge, so their side faces show as

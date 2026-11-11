@@ -45,13 +45,16 @@ public final class AssetPaths {
      */
     public static final int WATER_SURFACE_SINK_PIXELS = 3;
 
+    /** The water art of deep water that touches shallow water, an intermediate tone between the two. */
+    public static final String DEEP_EDGE_WATER = "deep-edge";
+
     private AssetPaths() {}
 
     /**
      * Returns the art name of a tile type.
      *
      * @param type the tile type
-     * @return the name, for example grass; water types answer the flat bed diamond under their water, a darker one for deep water
+     * @return the name, for example grass; water types answer the sunk land block under their water, a darker one for deep water
      */
     public static String tileArt(TileType type) {
         return switch (type) {

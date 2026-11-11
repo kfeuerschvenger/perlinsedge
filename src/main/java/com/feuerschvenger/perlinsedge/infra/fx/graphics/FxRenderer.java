@@ -21,6 +21,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterTones;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.ColorAdjust;
@@ -197,7 +198,8 @@ public class FxRenderer {
                     if (tileSprite != null) {
                         // The bed is already drawn, the queue holds the water surface, which sits above the bed
                         screenY += waterSurfaceSink;
-                        final Image waterSprite = spriteManager.getWaterSprite(tile.getType());
+                        final Image waterSprite = spriteManager.getWaterSprite(WaterTones.artFor(tile.getType(),
+                                tile.getType() == TileType.DEEP_WATER && WaterTones.touchesShallowWater(map, x, y)));
                         if (waterSprite != null) {
                             tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, waterSprite, false, tile);
                         }
