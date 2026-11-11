@@ -47,6 +47,8 @@ public class GameOrchestrator {
 
     private final GameLoop gameLoop;
     private boolean gameActive;
+    /** Interpolation factor of the last frame, reused to draw the paused frame. */
+    private double lastAlpha = 1.0;
     private final InputWiring inputWiring;
     private final GameStateTransitions transitions;
 
@@ -96,6 +98,7 @@ public class GameOrchestrator {
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
+        transitions.setOnPaused(() -> render(lastAlpha, 0));
         inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
                 resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas,
                 transitions::showOpenContainer);
@@ -355,6 +358,7 @@ public class GameOrchestrator {
      */
     private void render(double alpha, double deltaTime) {
         if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
+        lastAlpha = alpha;
 
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             int[] mouseTile = gameState.getMouseOverTile();

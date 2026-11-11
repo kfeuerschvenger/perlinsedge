@@ -150,6 +150,7 @@ public class FxRenderer {
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
         this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
+        final boolean paused = gameState.isGamePaused();
 
         TileMap map = gameState.getCurrentMap();
         final double zoom = camera.getZoom();
@@ -211,7 +212,9 @@ public class FxRenderer {
                 // Add resource if present
                 final Resource resource = tile.getWorldResource();
                 if (tile.hasResource() && !isGrayscaleEnabled && resource != null) {
-                    boolean isFlashing = resource.isFlashing(currentFrameGameTime);
+                    // The hit effects run on the game clock, which stands still while paused: the frame drawn for the
+                    // pause menu shows the resource at rest instead of a frozen white flash or a frozen sideways shake
+                    boolean isFlashing = !paused && resource.isFlashing(currentFrameGameTime);
                     // A desert tree is a palm near water and a cactus in the dry sand; the look-around only runs for it
                     final String preferredKind = resourceKinds.preferredKind(map, currentMapType, resource.getType(),
                             x, y, worldSeed);
@@ -223,7 +226,9 @@ public class FxRenderer {
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
                     // A struck resource shakes sideways for a moment, its shadow stays on the ground
                     final double artScale = ZoomSteps.artScale(zoom);
-                    final double shakeX = HitShake.screenOffset(resource.secondsSinceHit(currentFrameGameTime), artScale);
+                    final double secondsSinceHit = paused
+                            ? Double.POSITIVE_INFINITY : resource.secondsSinceHit(currentFrameGameTime);
+                    final double shakeX = HitShake.screenOffset(secondsSinceHit, artScale);
                     // A low sprite is drawn lower so its foot touches the ground, and its shadow follows that contact point
                     final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * artScale : 0.0;
                     final double contact = spriteMetadata != null ? spriteMetadata.getContactArtPixels() * artScale : 0.0;
