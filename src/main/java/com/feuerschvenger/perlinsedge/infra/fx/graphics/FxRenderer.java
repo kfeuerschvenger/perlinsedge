@@ -19,13 +19,13 @@ import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
  * Renders an isometric tile map with frustum culling optimization.
  * Handles tiles, resources, entities, and buildings with depth sorting.
+ * The drawables of a frame live in a {@link RenderQueue} whose instances are recycled, and the flash effect and the
+ * tile highlight are kept between frames, so a steady frame allocates almost nothing.
  */
 public class FxRenderer {
 
@@ -34,12 +34,17 @@ public class FxRenderer {
     private final FxCamera camera;
     private final SpriteManager spriteManager;
     private final GameStateManager gameState;
-    private final List<Renderable> renderQueue = new ArrayList<>();
+    private final RenderQueue renderQueue = new RenderQueue();
+    private final FrameStats frameStats = new FrameStats();
+    private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
     private int previewTileX = -1;
     private int previewTileY = -1;
     private BuildingType previewBuildingType;
+    private Rgba previewRgba;
     private Color previewColor;
+    private BuildingPreview cachedPreview;
+    private TileHighlight cachedHighlight;
 
     /**
      * Constructs the renderer with the given GraphicsContext and camera.
@@ -55,11 +60,20 @@ public class FxRenderer {
         this.spriteManager = SpriteManager.getInstance();
     }
 
+    private static ColorAdjust createFlashEffect() {
+        ColorAdjust effect = new ColorAdjust();
+        effect.setBrightness(0.7);
+        return effect;
+    }
+
     public void setBuildingPreview(int tileX, int tileY, BuildingType buildingType, Rgba color) {
         this.previewTileX = tileX;
         this.previewTileY = tileY;
         this.previewBuildingType = buildingType;
-        this.previewColor = FxColors.toFx(color);
+        if (previewRgba == null || !previewRgba.equals(color)) {
+            this.previewRgba = color;
+            this.previewColor = FxColors.toFx(color);
+        }
     }
 
     /** Forgets the building preview, so the normal tile highlight is drawn again. */
@@ -67,6 +81,7 @@ public class FxRenderer {
         previewTileX = -1;
         previewTileY = -1;
         previewBuildingType = null;
+        previewRgba = null;
         previewColor = null;
     }
 
@@ -87,6 +102,7 @@ public class FxRenderer {
     public void render(double alpha, double deltaTime) {
         clearCanvas();
         renderQueue.clear();
+        frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
 
         TileMap map = gameState.getCurrentMap();
@@ -134,10 +150,7 @@ public class FxRenderer {
                 }
 
                 // Add tile to render queue
-                renderQueue.add(new Renderable(
-                        screenX, screenY, screenY + halfTileHeight,
-                        tile, null, false, false, tile
-                ));
+                renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, null, false, tile);
 
                 // Add resource if present
                 final Resource resource = tile.getWorldResource();
@@ -149,19 +162,13 @@ public class FxRenderer {
                     // A resource blocks movement whether or not its image exists, so it is always queued;
                     // without an image the painter draws a stand-in shape.
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
-                    renderQueue.add(new Renderable(
-                            screenX, screenY, screenY + tileHeight * 0.5,
-                            resource.getType(), resourceImage,
-                            false, isFlashing, tile
-                    ));
+                    renderQueue.add(screenX, screenY, screenY + tileHeight * 0.5,
+                            resource.getType(), resourceImage, isFlashing, tile);
                 }
                 // Add building if present
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
-                    renderQueue.add(new Renderable(
-                            screenX, screenY, screenY + halfTileHeight,
-                            building, null, false, false, tile
-                    ));
+                    renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
                 }
             }
         }
@@ -176,31 +183,12 @@ public class FxRenderer {
                 double screenY = (mouseOverTileX + mouseOverTileY) * halfTileHeight + offsetY;
                 double centerY = screenY + config.graphics().getTileHalfHeight() * zoom;
 
-                // Mostrar previsualización de construcción si estamos en modo construcción
+                // Show the construction preview while building, the normal highlight otherwise
                 if (previewBuildingType != null && previewColor != null) {
-                    renderQueue.add(new Renderable(
-                            screenX,
-                            centerY,
-                            centerY + 1,
-                            new BuildingPreview(previewTileX, previewTileY, previewColor),
-                            null,
-                            false,
-                            false,
-                            null
-                    ));
-                }
-                // Mostrar highlight normal si no estamos construyendo
-                else {
-                    renderQueue.add(new Renderable(
-                            screenX,
-                            centerY,
-                            centerY + 1,
-                            new TileHighlight(screenX, centerY, tileWidth, tileHeight),
-                            null,
-                            false,
-                            false,
-                            null
-                    ));
+                    renderQueue.add(screenX, centerY, centerY + 1, previewFor(), null, false, null);
+                } else {
+                    renderQueue.add(screenX, centerY, centerY + 1,
+                            highlightFor(screenX, centerY, tileWidth, tileHeight), null, false, null);
                 }
             }
         }
@@ -208,59 +196,54 @@ public class FxRenderer {
         // Add player to render queue
         Player player = gameState.getPlayer();
         if (player != null) {
-            double[] playerCords = calculatePlayerPosition(player, halfTileWidth, halfTileHeight, offsetX, offsetY, alpha);
+            final double playerX = (player.getInterpolatedX(alpha) - player.getInterpolatedY(alpha)) * halfTileWidth + offsetX;
+            final double playerY = (player.getInterpolatedX(alpha) + player.getInterpolatedY(alpha)) * halfTileHeight + offsetY;
             final Image playerSprite = spriteManager.getEntitySprite(
                     "player", player.getAnimationFrame(), player.getDirection()
             );
             if (playerSprite != null) {
-                final double playerDepth = playerCords[1] + (config.graphics().getTileHalfHeight() * zoom * 1.5);
-                renderQueue.add(new Renderable(
-                        playerCords[0], playerCords[1], playerDepth,
-                        player, playerSprite, false, false, null
-                ));
+                final double playerDepth = playerY + (config.graphics().getTileHalfHeight() * zoom * 1.5);
+                renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
             }
         }
 
         // Add enemies to render queue
         List<Enemy> enemies = gameState.getEnemies();
         if (enemies != null) {
-            for (Enemy enemy : enemies) {
+            for (int i = 0, count = enemies.size(); i < count; i++) {
+                Enemy enemy = enemies.get(i);
                 if (enemy.isDead()) continue;
 
-                double[] enemyPos = enemy.getInterpolatedPosition(alpha);
-                double enemyInterpX = enemyPos[0];
-                double enemyInterpY = enemyPos[1];
+                double enemyInterpX = enemy.getInterpolatedX(alpha);
+                double enemyInterpY = enemy.getInterpolatedY(alpha);
 
                 double enemyScreenX = (enemyInterpX - enemyInterpY) * halfTileWidth + offsetX;
                 double enemyScreenY = (enemyInterpX + enemyInterpY) * halfTileHeight + offsetY;
                 double enemyDrawDepth = enemyScreenY + (halfTileHeight * 1.5);
 
-                renderQueue.add(new Renderable(
-                        enemyScreenX, enemyScreenY, enemyDrawDepth,
-                        enemy, null, false, false, null
-                ));
+                renderQueue.add(enemyScreenX, enemyScreenY, enemyDrawDepth, enemy, null, false, null);
             }
         }
 
         // Add dropped items to render queue
         List<DroppedItem> droppedItems = gameState.getDroppedItems();
         if (droppedItems != null) {
-            for (DroppedItem droppedItem : droppedItems) {
+            for (int i = 0, count = droppedItems.size(); i < count; i++) {
+                DroppedItem droppedItem = droppedItems.get(i);
                 double itemScreenX = (droppedItem.getTileX() - droppedItem.getTileY()) * halfTileWidth + offsetX;
                 double itemScreenY = (droppedItem.getTileX() + droppedItem.getTileY()) * halfTileHeight + offsetY;
                 double itemDrawDepth = itemScreenY + (halfTileHeight * 2);
 
-                renderQueue.add(new Renderable(
-                        itemScreenX, itemScreenY, itemDrawDepth,
-                        droppedItem, null, false, false, null
-                ));
+                renderQueue.add(itemScreenX, itemScreenY, itemDrawDepth, droppedItem, null, false, null);
             }
         }
 
         // Depth sort and render
-        renderQueue.sort(Comparator.comparingDouble(Renderable::drawDepth));
+        renderQueue.sortByDepth();
         gc.save();
-        renderQueue.forEach(this::drawRenderable);
+        for (int i = 0, count = renderQueue.size(); i < count; i++) {
+            drawRenderable(renderQueue.get(i));
+        }
         if (player != null) {
             renderPlayerAttack(gc, player, halfTileWidth, halfTileHeight, offsetX, offsetY);
         }
@@ -268,9 +251,34 @@ public class FxRenderer {
 
         // Draw debug info
         FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, deltaTime);
+        if (config.debug().isFpsOverlayEnabled()) {
+            FxDebugDrawingHelper.drawFpsOverlay(gc, frameStats, renderQueue.size());
+        }
     }
 
     // Helper methods --------------------------------------------------------
+
+    /** The preview of the building being placed, recreated only when the tile or the colour changes. */
+    private BuildingPreview previewFor() {
+        BuildingPreview preview = cachedPreview;
+        if (preview == null || preview.tileX() != previewTileX || preview.tileY() != previewTileY
+                || preview.color() != previewColor) {
+            preview = new BuildingPreview(previewTileX, previewTileY, previewColor);
+            cachedPreview = preview;
+        }
+        return preview;
+    }
+
+    /** The tile highlight, recreated only when the hovered tile or the zoom changes it. */
+    private TileHighlight highlightFor(double centerX, double centerY, double tileWidth, double tileHeight) {
+        TileHighlight highlight = cachedHighlight;
+        if (highlight == null || highlight.centerX() != centerX || highlight.centerY() != centerY
+                || highlight.tileWidth() != tileWidth || highlight.tileHeight() != tileHeight) {
+            highlight = new TileHighlight(centerX, centerY, tileWidth, tileHeight);
+            cachedHighlight = highlight;
+        }
+        return highlight;
+    }
 
     /**
      * Clears the entire canvas.
@@ -291,50 +299,27 @@ public class FxRenderer {
     }
 
     /**
-     * Calculates interpolated player position during movement for smooth rendering.
-     *
-     * @param player        The player entity.
-     * @param halfTileWidth Half the width of a zoomed tile.
-     * @param halfTileHeight Half the height of a zoomed tile.
-     * @param offsetX       Camera X offset.
-     * @param offsetY       Camera Y offset.
-     * @param alpha         Interpolation factor
-     * @return An array containing [screenX, screenY] of the player's position.
-     */
-    private double[] calculatePlayerPosition(Player player, double halfTileWidth, double halfTileHeight,
-                                             double offsetX, double offsetY, double alpha) {
-        double[] pos = player.getInterpolatedPosition(alpha); // Get interpolated tile coordinates
-        double x = pos[0]; // Interpolated tile X
-        double y = pos[1]; // Interpolated tile Y
-
-        // Convert interpolated tile coordinates to screen coordinates
-        return new double[] {
-                (x - y) * halfTileWidth + offsetX,
-                (x + y) * halfTileHeight + offsetY
-        };
-    }
-
-    /**
      * Dispatches the drawing call based on the type of the renderable object.
      *
      * @param r The Renderable object to draw.
      */
     private void drawRenderable(Renderable r) {
-        if (r.object() instanceof Tile tile) {
+        final Object object = r.object();
+        if (object instanceof Tile tile) {
             drawTile(tile, r);
-        } else if (r.object() instanceof ResourceType) {
+        } else if (object instanceof ResourceType) {
             drawResource(r);
-        } else if (r.object() instanceof Building building) {
+        } else if (object instanceof Building building) {
             drawBuilding(building);
-        } else if (r.object() instanceof Player) {
+        } else if (object instanceof Player) {
             drawPlayer(r);
-        } else if (r.object() instanceof Enemy) {
+        } else if (object instanceof Enemy) {
             drawEnemy(r);
-        } else if (r.object() instanceof DroppedItem) {
+        } else if (object instanceof DroppedItem) {
             drawDroppedItem(r);
-        } else if (r.object() instanceof TileHighlight h) {
+        } else if (object instanceof TileHighlight h) {
             drawHighlightTile(h);
-        } else if (r.object() instanceof BuildingPreview bp) {
+        } else if (object instanceof BuildingPreview bp) {
             drawBuildingPlacementPreview(bp);
         }
     }
@@ -393,7 +378,6 @@ public class FxRenderer {
         } else {
             FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, enemy);
         }
-        // TODO: Add other enemy types here
     }
 
     /**
@@ -413,8 +397,6 @@ public class FxRenderer {
         if (r.isFlashing()) {
             gc.save();
             saveCount++;
-            ColorAdjust flashEffect = new ColorAdjust();
-            flashEffect.setBrightness(0.7);
             gc.setEffect(flashEffect);
         }
 
@@ -434,8 +416,6 @@ public class FxRenderer {
         if (r.isFlashing()) {
             gc.save();
             saveCount++;
-            ColorAdjust flashEffect = new ColorAdjust();
-            flashEffect.setBrightness(0.7);
             gc.setEffect(flashEffect);
         }
 
@@ -486,10 +466,10 @@ public class FxRenderer {
         double[] attackPos = player.getAttackPosition();
         double x = attackPos[0];
         double y = attackPos[1];
-        // Convertir coordenadas de tile a pantalla
+        // Convert tile coordinates to screen coordinates
         double screenX = (x - y) * halfTileWidth + offsetX;
         double screenY = (x + y) * halfTileHeight + offsetY;
-        // Dibujar efecto de ataque (círculo pulsante)
+        // Draw the attack effect (a pulsing circle)
         gc.setFill(Color.rgb(255, 0, 0, 0.5 * (1 - progress)));
         gc.fillOval(
                 screenX - 10 * progress,
