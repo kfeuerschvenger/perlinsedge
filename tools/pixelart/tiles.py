@@ -1,10 +1,12 @@
 """Draw the flat land tiles, the ground decals and the water layers.
 
 Each land tile is a 32x21 block: a 32x16 top diamond in one flat colour with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face below.
-Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, flowers, mushrooms and seaweed.
-Water lies over a bed that is a real sunk land block per bed kind, with its grid edge and side faces, sunk a full land face below the land tops, and a translucent top diamond per water type is drawn over it, plus three thin highlight lines the game fades in and out.
-The water sheet is only about 40 percent opaque so the bed, its grid and its decals read through it, and deep water that touches shallow water uses an intermediate tone so the colour does not jump.
-The water diamond is two pixels narrower on its right side than a land diamond, so neighbouring water tiles meet without overlapping and the translucent sheet has no doubled seams.
+A face strip per tile kind is the next 5 pixels of that face, which the game draws under the block where a lower neighbour exposes it, once per 5 pixels of drop.
+Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, flowers and mushrooms.
+Water lies over a bed that is a sand block with the same grid edge and side faces as land, sunk 10 pixels per depth level below the land tops: level 1 for shallow, coast and river water and level 2 for deep water.
+The bed colours are mixed toward the water colour when the sprite is baked, 45 percent for level 1 and 75 percent for level 2, so the grid and the decals on the bed fade with depth instead of looking drawn over the water, and the step between two depths shows its side faces.
+One translucent sheet of the water colour is drawn over every water tile, plus three thin highlight lines the game fades in and out.
+The sheet diamond is two pixels narrower on its right side than a land diamond, so neighbouring water tiles meet without overlapping and the translucent sheet has no doubled seams.
 
 usage: python -I tools/pixelart/tiles.py [--out src/main/resources/assets] [--preview preview.png]
 """
@@ -39,15 +41,17 @@ LAND = {
     "swamp": ("#6c8a4e", "#55432f", "#43553f"),
     # warmer and a little darker than sand, drawn for grassy land types on a desert map
     "dune": ("#e3b66f", "#cf9a5c", "#b5814b"),
-    # sunk land blocks under the water: sand for shallow, coast and river water, darker stone sand for deep water
-    "bed": ("#d8bf86", "#b8975f", "#9a7d4d"),
-    "bed-deep": ("#8a7a64", "#6f6150", "#574c3e"),
+    # sunk sand blocks under the water, fogged toward the water colour by FOG_OF when baked
+    "bed": ("#f0d48e", "#dba867", "#c4925a"),
+    "bed-deep": ("#f0d48e", "#dba867", "#c4925a"),
 }
 GRID = 0.09
 LIP = 0.18
-# the grid line of a bed is drawn stronger so it is still visible after the water is drawn over it
-BED_GRID = 0.3
-GRID_OF = {"bed": BED_GRID, "bed-deep": BED_GRID}
+WATER_COLOUR = "#18a8c8"
+# share of the water colour mixed into every pixel of a bed: level 1 (shallow, coast, river) and level 2 (deep)
+FOG_OF = {"bed": 0.45, "bed-deep": 0.75}
+# the faces of a block are this tall, and a face strip continues them by this much
+FACE_STRIP_H = 5
 
 
 def in_top(x, y):
@@ -58,9 +62,15 @@ def in_top(x, y):
     return TILE_W // 2 - half <= x < TILE_W // 2 + half
 
 
-def in_block(x, y):
+def in_block(x, y, face=FACE_H):
     """Whether a pixel lies on the block silhouette: the top diamond pushed down by the face height."""
-    return any(in_top(x, y - d) for d in range(FACE_H + 1))
+    return any(in_top(x, y - d) for d in range(face + 1))
+
+
+def fog(colour, amount):
+    """Mixes a colour toward the water colour, the way depth hides a bed."""
+    water = hexc(WATER_COLOUR)
+    return tuple(round(c * (1 - amount) + w * amount) for c, w in zip(colour, water))
 
 
 def on_upper_edge(x, y):
@@ -71,7 +81,7 @@ def on_upper_edge(x, y):
     return y < TOP_H // 2 and in_top(x, y) and not in_top(x, y - 1)
 
 
-def land_tile(top, left, right, grid=GRID):
+def land_tile(top, left, right, grid=GRID, depth_fog=0.0):
     top, left, right = hexc(top), hexc(left), hexc(right)
     img = Image.new("RGBA", (TILE_W, TOP_H + FACE_H), (0, 0, 0, 0))
     for y in range(TOP_H + FACE_H):
@@ -83,7 +93,27 @@ def land_tile(top, left, right, grid=GRID):
                 colour = darken(top, LIP) if in_top(x, y - 1) else face
             else:
                 continue
+            if depth_fog:
+                colour = fog(colour, depth_fog)
             img.putpixel((x, y), colour + (255,))
+    return img
+
+
+def face_strip(left, right, depth_fog=0.0):
+    """Draws the part of a taller block's faces below the face of a land tile, in the colours of that tile.
+
+    The strip is as wide as the tile and as tall as a block with a face of FACE_H + FACE_STRIP_H, with only the new face pixels filled, so it is drawn at the origin of the tile and one more strip is drawn 5 pixels lower for each further 5 pixels of drop.
+    The game draws one half of it, the left or the right, under a tile whose lower neighbour on that side exposes the face.
+    """
+    left, right = hexc(left), hexc(right)
+    img = Image.new("RGBA", (TILE_W, TOP_H + FACE_H + FACE_STRIP_H), (0, 0, 0, 0))
+    for y in range(img.height):
+        for x in range(TILE_W):
+            if in_block(x, y, FACE_H + FACE_STRIP_H) and not in_block(x, y):
+                colour = left if x < TILE_W // 2 else right
+                if depth_fog:
+                    colour = fog(colour, depth_fog)
+                img.putpixel((x, y), colour + (255,))
     return img
 
 
@@ -107,21 +137,21 @@ DECALS = {
     "flower-2": (["a...", ".c.a", "..c."], {"a": "#d4705c", "c": "#337a47"}),
     "mushroom-1": ([".aa.", "abba", ".cc.", ".cc."], {"a": "#9c4247", "b": "#fcf4e4", "c": "#f4d890"}),
     "shell-1": ([".a.", "aba"], {"a": "#f4bf9a", "b": "#d4705c"}),
-    "seaweed-1": (["a..a", "a.a.", ".aa.", ".a.."], {"a": "#27706c"}),
-    "seaweed-2": (["..a", ".a.", "aa.", ".a."], {"a": "#1d4b4c"}),
     "lilypad-1": ([".aaa.", "abbba", ".aaa."], {"a": "#4f9c45", "b": "#76b04c"}),
     "lilypad-2": ([".aaap.", "abbpp.", ".aaa.."], {"a": "#4f9c45", "b": "#76b04c", "p": "#f08aa8"}),
 }
 
 
-# top colour and opacity of the translucent water drawn over the bed
-# deep-edge is the tone of deep water that touches shallow or coast water, between the two
+# decals that lie on a level 1 bed, baked in the colours the fogged bed has; they are drawn under the water sheet
+UNDERWATER = {
+    "seaweed-1": (["a..a", "a.a.", ".aa.", ".a.."], {"a": "#27706c"}),
+    "seaweed-2": (["..a", ".a.", "aa.", ".a."], {"a": "#1d4b4c"}),
+    "pebble-1": DECALS["pebble-1"],
+}
+
+# colour and opacity of the one translucent sheet drawn over every water tile
 WATER = {
-    "shallow": ("#18b4d8", 0.40),
-    "coast": ("#2cc4d4", 0.38),
-    "river": ("#2296c8", 0.42),
-    "deep-edge": ("#1c96cc", 0.47),
-    "deep": ("#1f6cc0", 0.55),
+    "sheet": (WATER_COLOUR, 0.30),
 }
 SHIMMER_COLOUR = "#dcecf8"
 SHIMMER_WIDTHS = (6, 4, 5)
@@ -185,8 +215,12 @@ def main():
     parser.add_argument("--preview")
     args = parser.parse_args()
     out = Path(args.out)
-    tiles = {name: land_tile(*colours, grid=GRID_OF.get(name, GRID)) for name, colours in LAND.items()}
+    tiles = {name: land_tile(*colours, depth_fog=FOG_OF.get(name, 0.0)) for name, colours in LAND.items()}
+    faces = {name: face_strip(colours[1], colours[2], depth_fog=FOG_OF.get(name, 0.0)) for name, colours in LAND.items()}
     decals = {name: sprite(*spec) for name, spec in DECALS.items()}
+    for name, (rows, palette) in UNDERWATER.items():
+        fogged = {key: "#%02x%02x%02x" % fog(hexc(value), FOG_OF["bed"]) for key, value in palette.items()}
+        decals[f"under-{name}"] = sprite(rows, fogged)
     if args.preview:
         preview(tiles, decals, args.preview)
         return
@@ -194,6 +228,9 @@ def main():
     (out / "decals").mkdir(parents=True, exist_ok=True)
     for name, img in tiles.items():
         img.save(out / "tiles" / f"{name}-1.png")
+    (out / "faces").mkdir(parents=True, exist_ok=True)
+    for name, img in faces.items():
+        img.save(out / "faces" / f"{name}.png")
     for name, img in decals.items():
         img.save(out / "decals" / f"{name}.png")
     (out / "water").mkdir(parents=True, exist_ok=True)
@@ -201,7 +238,7 @@ def main():
         water_top(colour, opacity).save(out / "water" / f"{name}.png")
     for index, width in enumerate(SHIMMER_WIDTHS, start=1):
         shimmer(width).save(out / "water" / f"shimmer-{index}.png")
-    print(f"tiles {len(tiles)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
+    print(f"tiles {len(tiles)}, faces {len(faces)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
 
 
 if __name__ == "__main__":

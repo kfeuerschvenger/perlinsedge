@@ -25,8 +25,8 @@ public final class GroundDecals {
     /** Names of the decals drawn on dune tiles. */
     static final List<String> DUNE_DECALS = List.of("pebble-1", "pebble-2");
 
-    /** Names of the decals drawn on the sand bed under shallow water. */
-    static final List<String> UNDERWATER_DECALS = List.of("seaweed-1", "seaweed-2", "pebble-1");
+    /** Names of the decals drawn on the sand bed under shallow water, baked in the colours of that bed seen through the water. */
+    static final List<String> UNDERWATER_DECALS = List.of("under-seaweed-1", "under-seaweed-2", "under-pebble-1");
 
     /** Names of the lily pads that float on the surface of shallow water. */
     static final List<String> LILY_PADS = List.of("lilypad-1", "lilypad-2");
@@ -34,7 +34,7 @@ public final class GroundDecals {
     /** Every decal name the ground, a water bed or a water surface can show, for the loader. */
     public static final List<String> ALL = List.of(
             "tuft-1", "tuft-2", "tuft-3", "pebble-1", "pebble-2", "flower-1", "flower-2", "mushroom-1", "shell-1",
-            "seaweed-1", "seaweed-2", "lilypad-1", "lilypad-2");
+            "under-seaweed-1", "under-seaweed-2", "under-pebble-1", "lilypad-1", "lilypad-2");
 
     /** One shallow or coast water tile in this many holds an underwater decal. */
     static final int UNDERWATER_ONE_IN = 6;

@@ -14,8 +14,10 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Loads the pixel art once and hands it out by game type.
@@ -92,6 +94,7 @@ public final class SpriteManager {
     private final Map<ItemType, SpriteMetadata> itemSprites = new EnumMap<>(ItemType.class);
     private final Map<String, Image> decalSprites = new HashMap<>();
     private final Map<String, Image> waterSprites = new HashMap<>();
+    private final Map<String, Image> faceStrips = new HashMap<>();
     private List<Image> shimmerLines = List.of();
     private List<Image> slimeFrames = List.of();
 
@@ -125,6 +128,10 @@ public final class SpriteManager {
             } else {
                 tileSprites.put(art, variants);
             }
+            final Image strip = loadImage(AssetPaths.faceStrip(art));
+            if (strip != null) {
+                faceStrips.put(art, strip);
+            }
         }
     }
 
@@ -144,14 +151,13 @@ public final class SpriteManager {
     }
 
     private void loadWaterSprites() {
-        List<String> arts = new ArrayList<>();
+        Set<String> arts = new LinkedHashSet<>();
         for (TileType type : TileType.values()) {
             String art = AssetPaths.waterArt(type);
             if (art != null) {
                 arts.add(art);
             }
         }
-        arts.add(AssetPaths.DEEP_EDGE_WATER);
         for (String art : arts) {
             Image image = loadImage(AssetPaths.waterTop(art));
             if (image == null) {
@@ -345,9 +351,20 @@ public final class SpriteManager {
     }
 
     /**
+     * Retrieves the face strip of a tile art: the part of its side faces that a lower neighbour exposes below the
+     * face of the tile sprite.
+     *
+     * @param art the tile art name, see {@link AssetPaths#tileArt}
+     * @return the strip, or null when the name is null or has no strip
+     */
+    public Image getFaceStrip(String art) {
+        return art == null ? null : faceStrips.get(art);
+    }
+
+    /**
      * Retrieves a translucent water layer.
      *
-     * @param art the water art name, see {@link WaterTones#artFor}
+     * @param art the water art name, see {@link AssetPaths#waterArt}
      * @return the top diamond to draw over the bed, or null when the name is null or has no art
      */
     public Image getWaterSprite(String art) {

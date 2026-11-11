@@ -40,17 +40,8 @@ public final class AssetPaths {
     /** The empty heart icon. */
     public static final String HEART_EMPTY = BASE + "gui/heart-empty.png";
 
-    /** Rows of art pixels the bed of a water tile sinks below the land tops: a full land face, so the bed meets the foot of the banks. */
-    public static final int BED_SINK_PIXELS = 5;
-
-    /**
-     * Rows of art pixels the water surface sinks below the land tops.
-     * It is above the bed, so the land faces around the water show as banks over the waterline.
-     */
-    public static final int WATER_SURFACE_SINK_PIXELS = 3;
-
-    /** The water art of deep water that touches shallow water, an intermediate tone between the two. */
-    public static final String DEEP_EDGE_WATER = "deep-edge";
+    /** The art of the one translucent sheet every water tile is covered with. */
+    public static final String WATER_SHEET = "sheet";
 
     /** The grassy land types, which look wrong on a map whose ground is sand or snow. */
     private static final List<TileType> GRASSY = List.of(
@@ -75,7 +66,7 @@ public final class AssetPaths {
      * Returns the art name of a tile type.
      *
      * @param type the tile type
-     * @return the name, for example grass; water types answer the sunk land block under their water, a darker one for deep water
+     * @return the name, for example grass; water types answer the sunk sand block under their water, fogged more for deep water
      */
     public static String tileArt(TileType type) {
         return switch (type) {
@@ -126,18 +117,23 @@ public final class AssetPaths {
 
     /**
      * Returns the name of the translucent water layer drawn over the sand bed of a water tile.
+     * Every water type shares one sheet, the depth shows in the bed.
      *
      * @param type the tile type
-     * @return the name, for example shallow, or null when the type is not water
+     * @return {@link #WATER_SHEET}, or null when the type is not water
      */
     public static String waterArt(TileType type) {
-        return switch (type) {
-            case SHALLOW_WATER -> "shallow";
-            case DEEP_WATER -> "deep";
-            case RIVER -> "river";
-            case COAST -> "coast";
-            default -> null;
-        };
+        return type.isWater() ? WATER_SHEET : null;
+    }
+
+    /**
+     * Returns the path of the face strip of a tile art, the part of its side faces below the face of the tile sprite.
+     *
+     * @param art the art name from {@link #tileArt}
+     * @return the classpath location
+     */
+    public static String faceStrip(String art) {
+        return BASE + "faces/" + art + ".png";
     }
 
     /**

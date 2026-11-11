@@ -81,13 +81,11 @@ class AssetPathsTest {
     }
 
     @Test
-    void everyWaterTileSitsOnABedWhoseWaterSitsAboveIt() {
-        assertTrue(AssetPaths.WATER_SURFACE_SINK_PIXELS < AssetPaths.BED_SINK_PIXELS);
-        assertTrue(AssetPaths.WATER_SURFACE_SINK_PIXELS > 0);
+    void everyWaterTileSitsOnASandBedUnderOneSharedSheet() {
         for (TileType type : TileType.values()) {
             if (type.isWater()) {
                 assertEquals(type == TileType.DEEP_WATER ? "bed-deep" : "bed", AssetPaths.tileArt(type), type.name());
-                assertNotNull(AssetPaths.waterArt(type), type.name());
+                assertEquals(AssetPaths.WATER_SHEET, AssetPaths.waterArt(type), type.name());
             } else {
                 assertNull(AssetPaths.waterArt(type), type.name());
             }
@@ -95,48 +93,77 @@ class AssetPathsTest {
     }
 
     @Test
-    void theShippedWaterLayersAreTranslucentTopDiamonds() throws IOException {
-        for (TileType type : TileType.values()) {
-            String art = AssetPaths.waterArt(type);
-            if (art == null) {
-                continue;
+    void theShippedWaterSheetIsAThirtyPercentTopDiamondOfTheWaterColour() throws IOException {
+        BufferedImage image = read(AssetPaths.waterTop(AssetPaths.WATER_SHEET));
+        assertEquals(32, image.getWidth());
+        assertEquals(16, image.getHeight());
+        int argb = image.getRGB(16, 8);
+        assertEquals(255 * 0.30, argb >>> 24, 1.0);
+        assertEquals(0x18a8c8, argb & 0xFFFFFF);
+    }
+
+    /** Mixes a channel the way the pixel tool fogs a bed. */
+    private static int fog(int channel, int water, double amount) {
+        return (int) Math.round(channel * (1 - amount) + water * amount);
+    }
+
+    @Test
+    void theBedsAreSandBlocksFoggedTowardTheWaterColourByDepth() throws IOException {
+        // The sand top is 0xf0d48e and the water 0x18a8c8, every pixel of the bed is mixed, the grid line included
+        int[] sand = {0xf0, 0xd4, 0x8e};
+        int[] water = {0x18, 0xa8, 0xc8};
+        double[] amounts = {0.45, 0.75};
+        String[] arts = {"bed", "bed-deep"};
+        for (int i = 0; i < arts.length; i++) {
+            int centre = read(AssetPaths.tile(arts[i], 1)).getRGB(16, 8) & 0xFFFFFF;
+            for (int channel = 0; channel < 3; channel++) {
+                int actual = (centre >> (16 - 8 * channel)) & 0xFF;
+                assertEquals(fog(sand[channel], water[channel], amounts[i]), actual, arts[i] + " channel " + channel);
             }
-            BufferedImage image = read(AssetPaths.waterTop(art));
-            assertEquals(32, image.getWidth(), art);
-            assertEquals(16, image.getHeight(), art);
-            int alpha = image.getRGB(16, 8) >>> 24;
-            assertTrue(alpha > 80 && alpha < 220, art + " alpha " + alpha);
         }
     }
 
     @Test
-    void theShallowCoastAndRiverSheetsLetTheBedShowThrough() throws IOException {
-        for (String art : new String[]{"shallow", "coast", "river"}) {
-            double opacity = (read(AssetPaths.waterTop(art)).getRGB(16, 8) >>> 24) / 255.0;
-            assertTrue(opacity >= 0.35 && opacity <= 0.45, art + " opacity " + opacity);
-        }
-    }
-
-    @Test
-    void deepWaterGetsMoreOpaqueStepByStepFromTheShallows() throws IOException {
-        int shallow = read(AssetPaths.waterTop("shallow")).getRGB(16, 8) >>> 24;
-        int edge = read(AssetPaths.waterTop(AssetPaths.DEEP_EDGE_WATER)).getRGB(16, 8) >>> 24;
-        int deep = read(AssetPaths.waterTop("deep")).getRGB(16, 8) >>> 24;
-        assertTrue(shallow < edge && edge < deep, shallow + " " + edge + " " + deep);
-    }
-
-    @Test
-    void theBedsShowTheirGridEdgeSoItReadsThroughTheWater() throws IOException {
+    void theBedsKeepTheGridEdgeOfLandSoItFadesWithDepthInsteadOfSittingOnTheWater() throws IOException {
         for (String art : new String[]{"bed", "bed-deep"}) {
             BufferedImage bed = read(AssetPaths.tile(art, 1));
             int centre = bed.getRGB(16, 8) & 0xFFFFFF;
             int edge = bed.getRGB(16, 0) & 0xFFFFFF;
-            assertTrue(brightness(edge) < brightness(centre) * 0.85, art);
+            assertTrue(brightness(edge) < brightness(centre), art);
         }
+        assertTrue(brightness(read(AssetPaths.tile("bed-deep", 1)).getRGB(16, 8) & 0xFFFFFF)
+                != brightness(read(AssetPaths.tile("bed", 1)).getRGB(16, 8) & 0xFFFFFF));
     }
 
     private static int brightness(int rgb) {
         return ((rgb >> 16) & 0xFF) + ((rgb >> 8) & 0xFF) + (rgb & 0xFF);
+    }
+
+    @Test
+    void everyTileArtShipsAFaceStripThatContinuesItsFacesBelowTheBlock() throws IOException {
+        for (String art : AssetPaths.allTileArts()) {
+            BufferedImage block = read(AssetPaths.tile(art, 1));
+            BufferedImage strip = read(AssetPaths.faceStrip(art));
+            assertEquals(32, strip.getWidth(), art);
+            assertEquals(block.getHeight() + TileDepths.FACE_PIXELS, strip.getHeight(), art);
+            int leftFace = block.getRGB(4, 13) & 0xFFFFFF;
+            int rightFace = block.getRGB(27, 13) & 0xFFFFFF;
+            int stripPixels = 0;
+            for (int y = 0; y < strip.getHeight(); y++) {
+                for (int x = 0; x < 32; x++) {
+                    int argb = strip.getRGB(x, y);
+                    if ((argb >>> 24) == 0) {
+                        continue;
+                    }
+                    stripPixels++;
+                    boolean covered = y < block.getHeight() && (block.getRGB(x, y) >>> 24) != 0;
+                    assertFalse(covered, art + " strip pixel over the block at " + x + "," + y);
+                    assertEquals(x < 16 ? leftFace : rightFace, argb & 0xFFFFFF, art + " " + x + "," + y);
+                }
+            }
+            // Five new rows in each of the 32 columns
+            assertEquals(32 * TileDepths.FACE_PIXELS, stripPixels, art);
+        }
     }
 
     @Test
@@ -197,7 +224,7 @@ class AssetPathsTest {
 
     @Test
     void theShippedWaterDiamondsTileWithoutOverlap() throws IOException {
-        BufferedImage water = read(AssetPaths.waterTop("shallow"));
+        BufferedImage water = read(AssetPaths.waterTop(AssetPaths.WATER_SHEET));
         BufferedImage bed = read(AssetPaths.tile("bed", 1));
         int overlaps = 0;
         for (int y = 0; y < 16; y++) {
