@@ -77,6 +77,52 @@ class KeyControllerTest {
     }
 
     @Test
+    void gameplayKeysAreIgnoredWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
+                () -> { }, () -> { }, () -> calls.add("inventory"), () -> calls.add("attack"),
+                () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
+        blocked.setInputBlocked(() -> true);
+
+        blocked.onKeyAction(GameKey.SPACE);
+        blocked.onKeyAction(GameKey.I);
+        blocked.onKeyAction(GameKey.B);
+        blocked.onKeyAction(GameKey.DIGIT_2);
+        blocked.onKeyAction(GameKey.PAGE_UP);
+        blocked.onKeyAction(GameKey.PAGE_DOWN);
+
+        assertTrue(calls.isEmpty(), calls.toString());
+    }
+
+    @Test
+    void pauseAndCameraKeysWorkWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
+                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, n -> { }, p -> { });
+        blocked.setInputBlocked(() -> true);
+
+        blocked.onKeyAction(GameKey.ESCAPE);
+        blocked.onKeyAction(GameKey.C);
+
+        assertEquals(List.of("pause", "centre"), calls);
+    }
+
+    @Test
+    void gameplayKeysWorkAgainOnceInputIsUnblocked() {
+        List<String> calls = new ArrayList<>();
+        boolean[] blocked = {true};
+        KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { },
+                () -> calls.add("attack"), () -> { }, n -> { }, p -> { });
+        keys.setInputBlocked(() -> blocked[0]);
+
+        keys.onKeyAction(GameKey.SPACE);
+        blocked[0] = false;
+        keys.onKeyAction(GameKey.SPACE);
+
+        assertEquals(List.of("attack"), calls);
+    }
+
+    @Test
     void missingActionsAreIgnored() {
         KeyController bare = new KeyController(null, null, null, null, null, null, null, null, null);
 

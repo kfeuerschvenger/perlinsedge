@@ -51,6 +51,7 @@ public class GameApplication extends Application {
     private MapConfigPanel mapConfigPanel;
     private BuildingHotbarPanel hotbarPanel;
     private HintLabel hintLabel;
+    private DeathOverlay deathOverlay;
 
     @Override
     public void start(Stage primaryStage) {
@@ -270,7 +271,7 @@ public class GameApplication extends Application {
         createPlayerUIComponents();
 
         // Add components to layer
-        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel, hintLabel);
+        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel, hintLabel, deathOverlay);
         return layer;
     }
 
@@ -321,6 +322,11 @@ public class GameApplication extends Application {
                 rootPane.widthProperty().subtract(hintLabel.widthProperty()).divide(2)
         );
         hintLabel.layoutYProperty().bind(rootPane.heightProperty().multiply(0.7));
+
+        // Death screen (full screen, above the other panels)
+        deathOverlay = new DeathOverlay();
+        deathOverlay.prefWidthProperty().bind(rootPane.widthProperty());
+        deathOverlay.prefHeightProperty().bind(rootPane.heightProperty());
     }
 
     /**
@@ -347,6 +353,7 @@ public class GameApplication extends Application {
                     inventoryPanel,
                     hotbarPanel,
                     hintLabel,
+                    deathOverlay,
                     gameStateManager,
                     recipeManager
             );

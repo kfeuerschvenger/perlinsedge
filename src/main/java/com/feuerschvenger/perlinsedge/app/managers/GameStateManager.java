@@ -73,6 +73,11 @@ public class GameStateManager {
         currentGameMode = GameMode.EXPLORATION;
     }
 
+    /** @return true while the player exists and is dead, which is when gameplay input is ignored */
+    public boolean isPlayerDead() {
+        return player != null && player.isDead();
+    }
+
     /**
      * Advances the game clock by the specified time delta.
      * @param deltaTime Time elapsed since last update (in seconds)

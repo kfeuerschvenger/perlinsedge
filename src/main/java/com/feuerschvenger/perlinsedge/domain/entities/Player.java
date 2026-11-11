@@ -140,6 +140,8 @@ public class Player extends Entity implements Container {
      * @param targetY Target Y coordinate
      */
     public void moveTo(TileMap map, int targetX, int targetY) {
+        // A dead player stays where it fell until the respawn
+        if (isDead) return;
         // Skip if already at target position
         if (isAtPosition(targetX, targetY)) return;
 
@@ -152,6 +154,13 @@ public class Player extends Entity implements Container {
         }
 
         startNewPath(path);
+    }
+
+    /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
+    @Override
+    public void handleDeath() {
+        super.handleDeath();
+        clearPath();
     }
 
     public boolean isMoving() {

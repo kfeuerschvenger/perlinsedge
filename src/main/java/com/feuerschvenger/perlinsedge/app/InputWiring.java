@@ -180,7 +180,7 @@ public class InputWiring {
     }
 
     private void handleCanvasClick(MouseEvent event) {
-        if (gameState.isGamePaused()) return;
+        if (gameState.isGamePaused() || gameState.isPlayerDead()) return;
 
         int[] tileCoords = getClickedTile(event.getX(), event.getY());
         int tileX = tileCoords[0];

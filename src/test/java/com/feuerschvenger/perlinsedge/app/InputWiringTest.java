@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
 import javafx.event.Event;
@@ -83,6 +84,35 @@ class InputWiringTest {
         click(minimapCanvas);
 
         assertEquals(0, state.pausedChecks.get());
+    }
+
+    /** A running game with a dead player that counts how often a click looks at the map. */
+    private static final class DeadPlayerGameState extends GameStateManager {
+        final AtomicInteger mapReads = new AtomicInteger();
+
+        @Override
+        public boolean isPlayerDead() {
+            return true;
+        }
+
+        @Override
+        public TileMap getCurrentMap() {
+            mapReads.incrementAndGet();
+            return null;
+        }
+    }
+
+    @Test
+    void clicksAreIgnoredWhileThePlayerIsDead() {
+        DeadPlayerGameState dead = new DeadPlayerGameState();
+        FxCamera camera = new FxCamera(100, 100, 1.0);
+        InputWiring deadWiring = new InputWiring(dead, null, null, null, null, null, camera, null,
+                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas, () -> { });
+        deadWiring.registerMouseHandlers();
+
+        click(mainCanvas);
+
+        assertEquals(0, dead.mapReads.get());
     }
 
     @Test
