@@ -25,9 +25,7 @@ public class Player extends Entity implements Container {
 
     // Animation configuration
     private static final double ANIMATION_FRAME_DURATION = 0.1;
-    private static final int IDLE_FRAME = 1;
-    private static final int WALKING_FRAME_START = 0;
-    private static final int WALKING_FRAME_END = 2;
+    private static final int IDLE_FRAME = WalkCycle.IDLE;
     public static final double RENDER_OFFSET_Y = 0;
 
     // Health configuration
@@ -67,6 +65,7 @@ public class Player extends Entity implements Container {
     // Animation state
     private int direction = DIR_UP;
     private int animationFrame = IDLE_FRAME;
+    private int animationStep = 0;
     private double animationTimer = 0;
 
     // ==================================================================
@@ -600,8 +599,8 @@ public class Player extends Entity implements Container {
         if (isMoving()) {
             animationTimer += deltaTime;
             if (animationTimer >= ANIMATION_FRAME_DURATION) {
-                animationFrame = (animationFrame == WALKING_FRAME_END) ?
-                        WALKING_FRAME_START : animationFrame + 1;
+                animationStep = (animationStep + 1) % WalkCycle.length();
+                animationFrame = WalkCycle.frameAt(animationStep);
                 animationTimer = 0;
             }
         } else {
@@ -611,6 +610,7 @@ public class Player extends Entity implements Container {
 
     private void resetToIdleAnimation() {
         animationFrame = IDLE_FRAME;
+        animationStep = 0;
         animationTimer = 0;
     }
 

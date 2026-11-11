@@ -15,7 +15,8 @@ flowchart LR
   R[raw folder] --> Q[quantise to palette.hex]
   Q --> T[tiles: clip to block]
   Q --> S[resources and items: crop and pad]
-  Q --> E[slime strip and player sheet]
+  Q --> E[slime strip]
+  P[player.py] --> O
   Q --> G[hearts]
   T --> O[src/main/resources/assets]
   S --> O
@@ -32,7 +33,7 @@ flowchart LR
 | `items/<item>.png` | `assets/items/<item>.png` |
 | `gui/heart-full.png`, `heart-half.png` | `assets/gui/`, plus a derived `heart-empty.png` when no raw one exists |
 | `entities/slime-<n>.png` | `assets/entities/slime-<n>.png`, a 6 frame strip |
-| `player/explorer.zip` | `assets/entities/player.png`, a 256x168 sheet |
+| none, drawn by `player.py` | `assets/entities/player.png`, a 128x72 sheet |
 
 Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `tile-grass-3.png` or `tree-4.png` needs no code change.
 
@@ -43,22 +44,13 @@ Item files are named after the lower case `ItemType` constant. The game picks up
 - Resources are cropped to their content and centred on the bottom row of the canvas for their kind, for example 32x48 for a tree and 24x20 for a rock. Content larger than the canvas keeps its own size.
 - Items and hearts are centred on 16x16.
 - The slime strip has six frames of 20x16 made by squashing and stretching the single raw frame: rest, crouch, stretch, apex, fall, landing.
-- The player sheet has 8 columns by 3 rows of 32x56 cells, which hold the 68x68 frames cropped to their content at native pixel size. The rows are walk a, idle and walk b. Walk a is the second frame of a four frame walk and walk b the fourth, and idle is the rotation. A direction without walk frames uses its rotation for all three rows, and a missing east or west is mirrored from the other side.
+- The player sheet has 8 columns by 3 rows of 16x24 cells, drawn by `player.py` from rectangles with no raw input. The rows are walk a, idle and walk b.
 
 ## Player columns
 
-The columns follow the screen compass, in the order up, up right, right, down right, down, down left, left, up left. Only four poses exist, so a diagonal reuses the horizontal pose of its side.
+The columns follow the game directions, starting at up left: up left, up, up right, right, down right, down, down left, left. The back views have no eyes, the left and right columns are profiles with a leg stride, and the walking rows bob the figure up by one pixel.
 
 ```mermaid
 flowchart LR
-  C0[0 up] --> north
-  C1[1 up right] --> east
-  C2[2 right] --> east
-  C3[3 down right] --> east
-  C4[4 down] --> south
-  C5[5 down left] --> west
-  C6[6 left] --> west
-  C7[7 up left] --> west
+  C0[0 up left] --> C1[1 up] --> C2[2 up right] --> C3[3 right] --> C4[4 down right] --> C5[5 down] --> C6[6 down left] --> C7[7 left]
 ```
-
-The poses share one crop, one ground line and one centre, so a walk cycle does not jitter.

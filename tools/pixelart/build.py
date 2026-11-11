@@ -11,8 +11,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import tempfile
-import zipfile
 from pathlib import Path
 
 from PIL import Image
@@ -23,6 +21,11 @@ DEFAULT_RAW = REPO / "docs" / "private" / "assets-raw" / "batch1"
 DEFAULT_OUT = REPO / "src" / "main" / "resources" / "assets"
 PALETTE_FILE = HERE / "palette.hex"
 
+# Isolated mode leaves the script folder off the import path, and player.py lives next to this file.
+sys.path.insert(0, str(HERE))
+
+from player import build_player_sheet  # noqa: E402
+
 ALPHA_CUTOFF = 128
 TILE_W = 32
 TILE_TOP_H = 16
@@ -30,9 +33,6 @@ LAND_FACE = 5
 WATER_FACE = 3
 MOUNTAIN_FACE = 10
 ITEM_SIZE = 16
-PLAYER_CELL = (32, 56)
-PLAYER_COLUMNS = 8
-PLAYER_ROWS = 3
 SLIME_CELL = (20, 16)
 SLIME_FRAMES = 6
 EMPTY_HEART_FILL = "4a4868"
@@ -53,11 +53,6 @@ RESOURCE_SIZES = {
     "iron": (24, 20),
     "crystal": (24, 24),
 }
-
-# Sheet column to the cardinal pose it shows. Columns follow the screen compass: UP, UP_RIGHT, RIGHT, DOWN_RIGHT,
-# DOWN, DOWN_LEFT, LEFT, UP_LEFT. A diagonal reuses the horizontal pose of its side, east on the right and west on
-# the left, so the facing never flips between a cardinal and its diagonal neighbour.
-COLUMN_POSES = ["north", "east", "east", "east", "south", "west", "west", "west"]
 
 # Slime squash and stretch, as (width, height) factors of the content box, one per frame.
 SLIME_SHAPES = [(1.0, 0.875), (1.1, 0.69), (0.9, 1.0), (0.85, 1.0), (0.95, 0.9), (1.1, 0.75)]
@@ -189,98 +184,6 @@ def clip_block(raw: Image.Image, face: int) -> Image.Image:
 # Entities
 # ----------------------------------------------------------------------------------------------------------------
 
-def mirror(image: Image.Image) -> Image.Image:
-    return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-
-
-def fit_frames(frames: dict[str, Image.Image], cell: tuple[int, int], quant: Quantiser) -> dict[str, Image.Image]:
-    """Crops all poses to one shared region and places them in the cell on one ground line and one centre.
-
-    Poses keep their native pixels, so a pose never moves relative to the others and a walk cycle does not jitter.
-    Only content larger than the cell is scaled down, by one shared factor, with premultiplied resampling; the result
-    goes back through the palette and the binary alpha.
-    """
-    boxes = {key: content_box(img) for key, img in frames.items()}
-    centre = next(iter(frames.values())).width / 2
-    left = min(box[0] for box in boxes.values())
-    right = max(box[2] for box in boxes.values())
-    top = min(box[1] for box in boxes.values())
-    bottom = max(box[3] for box in boxes.values())
-    half = max(centre - left, right - centre)
-    region = (int(centre - half), top, int(centre + half + 0.999), bottom)
-    scale = min(cell[0] / (region[2] - region[0]), cell[1] / (region[3] - region[1]), 1.0)
-    out = {}
-    for key, img in frames.items():
-        crop = img.crop(region).convert("RGBa")
-        size = (max(1, round(crop.width * scale)), max(1, round(crop.height * scale)))
-        small = crop.resize(size, Image.Resampling.LANCZOS).convert("RGBA") if scale < 1.0 else crop.convert("RGBA")
-        small = quant.apply(small)
-        cell_img = Image.new("RGBA", cell, (0, 0, 0, 0))
-        cell_img.paste(small, ((cell[0] - small.width) // 2, cell[1] - small.height))
-        out[key] = cell_img
-    return out
-
-
-def read_player_poses(zip_path: Path, work: Path) -> tuple[dict[str, Image.Image], dict[str, list[Image.Image]]]:
-    """Reads the rotations and the walk frames per cardinal direction from the character archive."""
-    with zipfile.ZipFile(zip_path) as archive:
-        archive.extractall(work)
-    rotations: dict[str, Image.Image] = {}
-    walks: dict[str, list[Image.Image]] = {}
-    for state in sorted(p for p in work.iterdir() if p.is_dir()):
-        for direction in ("south", "east", "north", "west"):
-            rot = state / "rotations" / f"{direction}.png"
-            if rot.is_file() and direction not in rotations:
-                rotations[direction] = Image.open(rot).convert("RGBA")
-        animations = state / "animations"
-        if not animations.is_dir():
-            continue
-        for animation in sorted(p for p in animations.iterdir() if p.is_dir() and "walk" in p.name.lower()):
-            for direction in ("south", "east", "north", "west"):
-                folder = animation / direction
-                files = sorted(folder.glob("frame_*.png")) if folder.is_dir() else []
-                if files and direction not in walks:
-                    walks[direction] = [Image.open(f).convert("RGBA") for f in files]
-    return rotations, walks
-
-
-def complete_poses(rotations: dict[str, Image.Image], walks: dict[str, list[Image.Image]]) -> None:
-    """Fills a missing east or west from its mirror, in place."""
-    for direction, opposite in (("west", "east"), ("east", "west")):
-        if direction not in rotations and opposite in rotations:
-            rotations[direction] = mirror(rotations[opposite])
-        if direction not in walks and opposite in walks:
-            walks[direction] = [mirror(f) for f in walks[opposite]]
-
-
-def build_player_sheet(zip_path: Path, quant: Quantiser) -> Image.Image:
-    """Builds the 8 column by 3 row sheet: walk a, idle, walk b."""
-    with tempfile.TemporaryDirectory(prefix="pixelart-player-") as tmp:
-        rotations, walks = read_player_poses(zip_path, Path(tmp))
-    complete_poses(rotations, walks)
-    missing = [d for d in ("south", "east", "north", "west") if d not in rotations]
-    if missing:
-        raise SystemExit(f"player archive has no rotation for: {', '.join(missing)}")
-
-    frames: dict[str, Image.Image] = {}
-    for direction, rotation in rotations.items():
-        walk = walks.get(direction)
-        if walk:
-            frames[f"{direction}:a"] = walk[len(walk) // 4]
-            frames[f"{direction}:b"] = walk[3 * len(walk) // 4]
-        else:
-            frames[f"{direction}:a"] = rotation
-            frames[f"{direction}:b"] = rotation
-        frames[f"{direction}:idle"] = rotation
-    cells = fit_frames(frames, PLAYER_CELL, quant)
-
-    sheet = Image.new("RGBA", (PLAYER_CELL[0] * PLAYER_COLUMNS, PLAYER_CELL[1] * PLAYER_ROWS), (0, 0, 0, 0))
-    for column, pose in enumerate(COLUMN_POSES):
-        for row, tag in enumerate(("a", "idle", "b")):
-            sheet.paste(cells[f"{pose}:{tag}"], (column * PLAYER_CELL[0], row * PLAYER_CELL[1]))
-    return sheet
-
-
 def build_slime_strip(raw: Image.Image) -> Image.Image:
     """Builds a squash and stretch strip from one frame: rest, crouch, stretch, apex, fall, landing."""
     content = crop_to_content(raw)
@@ -386,11 +289,8 @@ def build_entities(raw: Path, out: Path, quant: Quantiser) -> int:
     for file in sorted((raw / "entities").glob("slime-*.png")):
         save(build_slime_strip(load(file, quant)), out / "entities" / file.name)
         count += 1
-    archive = raw / "player" / "explorer.zip"
-    if archive.is_file():
-        save(build_player_sheet(archive, quant), out / "entities" / "player.png")
-        count += 1
-    return count
+    save(build_player_sheet(), out / "entities" / "player.png")
+    return count + 1
 
 
 def main(argv: list[str]) -> int:
