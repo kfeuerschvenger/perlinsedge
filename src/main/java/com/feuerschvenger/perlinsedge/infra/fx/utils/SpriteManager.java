@@ -81,7 +81,7 @@ public final class SpriteManager {
 
     private final Map<MapType, Map<ResourceType, List<SpriteMetadata>>> resourceSprites = new EnumMap<>(MapType.class);
     private final Map<String, List<List<Image>>> entitySprites = new HashMap<>();
-    private final Map<TileType, List<Image>> tileSprites = new EnumMap<>(TileType.class);
+    private final Map<String, List<Image>> tileSprites = new HashMap<>();
     private final Map<ItemType, SpriteMetadata> itemSprites = new EnumMap<>(ItemType.class);
     private final Map<String, Image> decalSprites = new HashMap<>();
     private final Map<String, Image> waterSprites = new HashMap<>();
@@ -111,17 +111,12 @@ public final class SpriteManager {
     // ==================================================================
 
     private void loadTileSprites() {
-        Map<String, List<Image>> byArt = new HashMap<>();
-        for (TileType type : TileType.values()) {
-            String art = AssetPaths.tileArt(type);
-            if (art == null) {
-                continue;
-            }
-            List<Image> variants = byArt.computeIfAbsent(art, this::loadTileVariants);
+        for (String art : AssetPaths.allTileArts()) {
+            List<Image> variants = loadTileVariants(art);
             if (variants.isEmpty()) {
-                log.info("No tile art for {}, the procedural tile is drawn", type);
+                log.info("No tile art {}, the procedural tile is drawn", art);
             } else {
-                tileSprites.put(type, variants);
+                tileSprites.put(art, variants);
             }
         }
     }
@@ -303,7 +298,7 @@ public final class SpriteManager {
     // ==================================================================
 
     /**
-     * Retrieves the tile sprite for a tile, choosing the variant from its coordinates.
+     * Retrieves the tile sprite for a tile of any map, choosing the variant from its coordinates.
      *
      * @param type the tile type
      * @param x    the tile column
@@ -311,7 +306,21 @@ public final class SpriteManager {
      * @return the sprite, or null when the type has no art
      */
     public Image getTileSprite(TileType type, int x, int y) {
-        List<Image> variants = tileSprites.get(type);
+        return getTileSprite(null, type, x, y);
+    }
+
+    /**
+     * Retrieves the tile sprite for a tile of a map type, choosing the variant from its coordinates.
+     * The map type picks the biome art, for example dunes for grassy land in the desert.
+     *
+     * @param mapType the map type, or null for the art every map shares
+     * @param type    the tile type
+     * @param x       the tile column
+     * @param y       the tile row
+     * @return the sprite, or null when the type has no art
+     */
+    public Image getTileSprite(MapType mapType, TileType type, int x, int y) {
+        List<Image> variants = tileSprites.get(AssetPaths.tileArt(mapType, type));
         if (variants == null) {
             return null;
         }

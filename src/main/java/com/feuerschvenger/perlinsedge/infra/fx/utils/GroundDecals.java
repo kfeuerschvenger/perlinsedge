@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -20,6 +21,9 @@ public final class GroundDecals {
 
     /** Names of the decals drawn on sand and beach. */
     static final List<String> SAND_DECALS = List.of("shell-1", "pebble-1");
+
+    /** Names of the decals drawn on dune tiles. */
+    static final List<String> DUNE_DECALS = List.of("pebble-1", "pebble-2");
 
     /** Names of the decals drawn on the sand bed under shallow water. */
     static final List<String> UNDERWATER_DECALS = List.of("seaweed-1", "seaweed-2", "pebble-1");
@@ -71,15 +75,35 @@ public final class GroundDecals {
      * @return the decal name, or null when the tile holds none
      */
     public static String decalFor(TileType type, int x, int y, long seed) {
+        return decalFor(null, type, x, y, seed);
+    }
+
+    /**
+     * Picks the decal of a tile of a map type, from the pool of the ground the tile is drawn as.
+     * A grassy tile drawn as sand dunes holds pebbles instead of tufts and flowers, and one drawn as snow holds nothing,
+     * so the decals follow the biome art rather than the tile type.
+     *
+     * @param mapType the map type, or null for the art every map shares
+     * @param type    the tile type
+     * @param x       the tile column
+     * @param y       the tile row
+     * @param seed    the world seed
+     * @return the decal name, or null when the tile holds none
+     */
+    public static String decalFor(MapType mapType, TileType type, int x, int y, long seed) {
         List<String> pool;
         int oneIn;
-        switch (type) {
-            case GRASS, FOREST, SAVANNA, HILL, SWAMP -> {
+        switch (AssetPaths.tileArt(mapType, type)) {
+            case "grass", "forest", "savanna", "hill", "swamp" -> {
                 pool = GREEN_DECALS;
                 oneIn = GREEN_ONE_IN;
             }
-            case SAND, BEACH -> {
+            case "sand" -> {
                 pool = SAND_DECALS;
+                oneIn = SAND_ONE_IN;
+            }
+            case "dune" -> {
+                pool = DUNE_DECALS;
                 oneIn = SAND_ONE_IN;
             }
             default -> {

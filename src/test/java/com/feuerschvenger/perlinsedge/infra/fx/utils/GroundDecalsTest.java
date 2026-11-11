@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -48,6 +49,42 @@ class GroundDecalsTest {
     void aboutOneSandTileInEightHoldsADecal() {
         assertEquals(0.125, share(TileType.SAND, 7L), 0.02);
         assertEquals(0.125, share(TileType.BEACH, 7L), 0.02);
+    }
+
+    @Test
+    void grassyTilesInTheDesertHoldOnlyPebblesLikeDunes() {
+        Set<String> seen = new HashSet<>();
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String name = GroundDecals.decalFor(MapType.DESERT, TileType.HILL, x, y, 7L);
+                if (name != null) {
+                    seen.add(name);
+                }
+            }
+        }
+        assertEquals(new HashSet<>(GroundDecals.DUNE_DECALS), seen);
+        assertTrue(GroundDecals.ALL.containsAll(seen));
+    }
+
+    @Test
+    void grassyTilesInTheTundraHoldNoDecalsLikeSnow() {
+        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.HILL}) {
+            for (int x = 0; x < 60; x++) {
+                for (int y = 0; y < 60; y++) {
+                    assertNull(GroundDecals.decalFor(MapType.TUNDRA, type, x, y, 7L), type.name());
+                }
+            }
+        }
+    }
+
+    @Test
+    void otherMapsKeepTheDecalsOfTheTileType() {
+        for (int x = 0; x < 60; x++) {
+            for (int y = 0; y < 60; y++) {
+                assertEquals(GroundDecals.decalFor(TileType.GRASS, x, y, 7L),
+                        GroundDecals.decalFor(MapType.MEDITERRANEAN, TileType.GRASS, x, y, 7L));
+            }
+        }
     }
 
     @Test

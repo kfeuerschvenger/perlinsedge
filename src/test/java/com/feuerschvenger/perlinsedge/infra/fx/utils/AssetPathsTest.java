@@ -36,6 +36,44 @@ class AssetPathsTest {
     }
 
     @Test
+    void grassyLandIsDrawnAsDunesInTheDesertAndAsSnowInTheTundra() {
+        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.HILL, TileType.SWAMP}) {
+            assertEquals("dune", AssetPaths.tileArt(MapType.DESERT, type), type.name());
+            assertEquals("snow", AssetPaths.tileArt(MapType.TUNDRA, type), type.name());
+            assertEquals(AssetPaths.tileArt(type), AssetPaths.tileArt(MapType.MEDITERRANEAN, type), type.name());
+            assertEquals(AssetPaths.tileArt(type), AssetPaths.tileArt(null, type), type.name());
+        }
+    }
+
+    @Test
+    void biomeArtLeavesTheTypesThatAreNotGrassyAlone() {
+        for (MapType map : MapType.values()) {
+            for (TileType type : new TileType[]{TileType.SAND, TileType.BEACH, TileType.MOUNTAIN, TileType.SNOW,
+                    TileType.ICE, TileType.DEEP_WATER, TileType.SHALLOW_WATER}) {
+                assertEquals(AssetPaths.tileArt(type), AssetPaths.tileArt(map, type), map + " " + type);
+            }
+        }
+    }
+
+    @Test
+    void everyTileArtAMapCanDrawIsShippedAsACompleteBlock() throws IOException {
+        assertTrue(AssetPaths.allTileArts().containsAll(java.util.Set.of("dune", "snow", "grass", "bed", "bed-deep")));
+        for (String art : AssetPaths.allTileArts()) {
+            BufferedImage image = read(AssetPaths.tile(art, 1));
+            assertEquals(32, image.getWidth(), art);
+            assertEquals(21, image.getHeight(), art);
+        }
+    }
+
+    @Test
+    void theDuneIsWarmerAndDarkerThanSand() throws IOException {
+        int dune = read(AssetPaths.tile("dune", 1)).getRGB(16, 8) & 0xFFFFFF;
+        int sand = read(AssetPaths.tile("sand", 1)).getRGB(16, 8) & 0xFFFFFF;
+        assertTrue(brightness(dune) < brightness(sand));
+        assertTrue(((dune >> 16) & 0xFF) > (dune & 0xFF) + 60, "a warm tone keeps red well above blue");
+    }
+
+    @Test
     void everyTileTypeHasArt() {
         for (TileType type : TileType.values()) {
             assertNotNull(AssetPaths.tileArt(type), type.name());

@@ -61,6 +61,8 @@ public class FxRenderer {
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
+    /** The map type of the frame, which picks the biome art of the ground and its decals. */
+    private MapType activeMapType;
     /** The shimmer animation clock of the frame, computed once from the game time. */
     private double waterCycles;
     /** Whether the frame draws the grey height view, read once per frame from the debug settings. */
@@ -144,6 +146,7 @@ public class FxRenderer {
         final double offsetY = camera.getY();
         final AppConfig config = AppConfig.getInstance();
         final MapType currentMapType = config.world().getCurrentMapType();
+        this.activeMapType = currentMapType;
         final boolean isGrayscaleEnabled = config.debug().isGrayscaleEnabled();
         // The height view is a debug tool: with debug off, grayscale only hides the art and the procedural tiles show
         this.grayscaleView = isGrayscaleEnabled && config.debug().isEnabled();
@@ -192,7 +195,7 @@ public class FxRenderer {
                 // Tiles with art are drawn from their sprite, the others from the procedural shape
                 final Image tileSprite = isGrayscaleEnabled
                         ? (grayscaleView ? DebugTileSprites.get(GrayscaleTiles.levelFor(tile.getHeight())) : null)
-                        : spriteManager.getTileSprite(tile.getType(), x, y);
+                        : spriteManager.getTileSprite(currentMapType, tile.getType(), x, y);
 
                 if (!isGrayscaleEnabled && tile.getType().isWater()) {
                     if (tileSprite != null) {
@@ -548,7 +551,7 @@ public class FxRenderer {
             return;
         }
         final long seed = gameState.getWorldSeed();
-        final Image decal = spriteManager.getDecalSprite(GroundDecals.decalFor(tile.getType(), tile.getX(), tile.getY(), seed));
+        final Image decal = spriteManager.getDecalSprite(GroundDecals.decalFor(activeMapType, tile.getType(), tile.getX(), tile.getY(), seed));
         if (decal == null) {
             return;
         }

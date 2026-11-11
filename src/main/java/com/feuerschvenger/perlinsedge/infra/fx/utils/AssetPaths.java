@@ -5,7 +5,11 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
+import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Classpath locations of the art and the rules that map game types to them.
@@ -48,7 +52,24 @@ public final class AssetPaths {
     /** The water art of deep water that touches shallow water, an intermediate tone between the two. */
     public static final String DEEP_EDGE_WATER = "deep-edge";
 
+    /** The grassy land types, which look wrong on a map whose ground is sand or snow. */
+    private static final List<TileType> GRASSY = List.of(
+            TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.HILL, TileType.SWAMP);
+
+    /** The tile art a map type draws in place of the shared art of a tile type. */
+    private static final Map<MapType, Map<TileType, String>> BIOME_TILE_ART = Map.of(
+            MapType.DESERT, overrides("dune"),
+            MapType.TUNDRA, overrides("snow"));
+
     private AssetPaths() {}
+
+    private static Map<TileType, String> overrides(String art) {
+        final Map<TileType, String> map = new EnumMap<>(TileType.class);
+        for (TileType type : GRASSY) {
+            map.put(type, art);
+        }
+        return Map.copyOf(map);
+    }
 
     /**
      * Returns the art name of a tile type.
@@ -70,6 +91,37 @@ public final class AssetPaths {
             case ICE -> "ice";
             case SWAMP -> "swamp";
         };
+    }
+
+    /**
+     * Returns the art name of a tile type on a map type.
+     * Some biomes draw their grassy land in the ground of the biome: sand dunes in the desert and snow in the tundra.
+     * The overrides are data in {@link #BIOME_TILE_ART}, so a biome needs no code to change what a type looks like.
+     *
+     * @param mapType the map type, or null for the art every map shares
+     * @param type    the tile type
+     * @return the art name
+     */
+    public static String tileArt(MapType mapType, TileType type) {
+        final Map<TileType, String> overrides = mapType == null ? null : BIOME_TILE_ART.get(mapType);
+        final String override = overrides == null ? null : overrides.get(type);
+        return override != null ? override : tileArt(type);
+    }
+
+    /**
+     * Returns every tile art name a map type or the shared rules can draw, for the loader.
+     *
+     * @return the distinct names
+     */
+    public static Set<String> allTileArts() {
+        final Set<String> arts = new LinkedHashSet<>();
+        for (TileType type : TileType.values()) {
+            arts.add(tileArt(type));
+        }
+        for (Map<TileType, String> overrides : BIOME_TILE_ART.values()) {
+            arts.addAll(overrides.values());
+        }
+        return arts;
     }
 
     /**
