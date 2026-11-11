@@ -51,8 +51,13 @@ public final class AssetPaths {
         return switch (type) {
             case GRASS -> "grass";
             case FOREST -> "forest";
-            case SAND, BEACH -> "sand";
+            case SAVANNA -> "savanna";
             case HILL -> "hill";
+            case SAND, BEACH -> "sand";
+            case MOUNTAIN -> "mountain";
+            case SNOW -> "snow";
+            case ICE -> "ice";
+            case SWAMP -> "swamp";
             case SHALLOW_WATER -> "water-shallow";
             case DEEP_WATER -> "water-deep";
             default -> null;

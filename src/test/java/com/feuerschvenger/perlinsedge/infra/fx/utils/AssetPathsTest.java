@@ -22,22 +22,37 @@ class AssetPathsTest {
     @Test
     void tilesWithArtMapToTheirName() {
         assertEquals("grass", AssetPaths.tileArt(TileType.GRASS));
+        assertEquals("forest", AssetPaths.tileArt(TileType.FOREST));
+        assertEquals("savanna", AssetPaths.tileArt(TileType.SAVANNA));
+        assertEquals("hill", AssetPaths.tileArt(TileType.HILL));
         assertEquals("sand", AssetPaths.tileArt(TileType.SAND));
         assertEquals("sand", AssetPaths.tileArt(TileType.BEACH));
+        assertEquals("mountain", AssetPaths.tileArt(TileType.MOUNTAIN));
+        assertEquals("snow", AssetPaths.tileArt(TileType.SNOW));
+        assertEquals("ice", AssetPaths.tileArt(TileType.ICE));
+        assertEquals("swamp", AssetPaths.tileArt(TileType.SWAMP));
         assertEquals("water-deep", AssetPaths.tileArt(TileType.DEEP_WATER));
     }
 
     @Test
+    void everyLandTileHasArt() {
+        for (TileType type : TileType.values()) {
+            if (type.isLand()) {
+                assertNotNull(AssetPaths.tileArt(type), type.name());
+            }
+        }
+    }
+
+    @Test
     void tilesWithoutArtKeepTheProceduralDrawing() {
-        for (TileType type : new TileType[]{TileType.SWAMP, TileType.SNOW, TileType.ICE, TileType.MOUNTAIN,
-                TileType.RIVER, TileType.COAST}) {
+        for (TileType type : new TileType[]{TileType.RIVER, TileType.COAST}) {
             assertNull(AssetPaths.tileArt(type), type.name());
         }
     }
 
     @Test
     void pathsFollowTheToolLayout() {
-        assertEquals("/assets/tiles/grass-2.png", AssetPaths.tile("grass", 2));
+        assertEquals("/assets/tiles/grass-1.png", AssetPaths.tile("grass", 1));
         assertEquals("/assets/items/wood_log.png", AssetPaths.item(ItemType.WOOD_LOG));
         assertEquals("/assets/resources/default/tree-1.png", AssetPaths.resource("default", "tree", 1));
     }

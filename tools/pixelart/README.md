@@ -13,34 +13,39 @@ Requires Python 3.12 and Pillow. `--out <dir>` changes the output folder, by def
 ```mermaid
 flowchart LR
   R[raw folder] --> Q[quantise to palette.hex]
-  Q --> T[tiles: clip to block]
   Q --> S[resources and items: crop and pad]
   Q --> E[slime strip]
   P[player.py] --> O
   Q --> G[hearts]
-  T --> O[src/main/resources/assets]
+  L[tiles.py] --> O[src/main/resources/assets]
   S --> O
   E --> O
   G --> O
 ```
 
+## Land tiles and decals
+
+```bash
+python -I tools/pixelart/tiles.py
+```
+
+`tiles.py` draws everything the ground is made of, with no raw input. Each land tile is a 32x21 block: a flat single colour top diamond with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face. It writes `assets/tiles/<name>-1.png` for grass, forest, savanna, hill, sand, mountain, snow, ice and swamp, and the small decal sprites to `assets/decals/<name>.png`. `build.py` does not touch tiles or decals, so running it never overwrites them. `--preview <file>` renders a patch of every tile with decals scattered on it instead of writing the assets.
+
 ## Raw layout
 
 | Raw input | Output |
 |---|---|
-| `tiles/tile-<name>-<n>.png` | `assets/tiles/<name>-<n>.png` |
 | `resources/<biome>/<kind>-<n>.png` | `assets/resources/<biome>/<kind>-<n>.png` |
 | `items/<item>.png` | `assets/items/<item>.png` |
 | `gui/heart-full.png`, `heart-half.png` | `assets/gui/`, plus a derived `heart-empty.png` when no raw one exists |
 | `entities/slime-<n>.png` | `assets/entities/slime-<n>.png`, a 6 frame strip |
 | none, drawn by `player.py` | `assets/entities/player.png`, a 128x72 sheet |
 
-Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `tile-grass-3.png` or `tree-4.png` needs no code change.
+Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `tree-4.png` or a second tile variant `grass-2.png` needs no code change.
 
 ## What the tool does
 
 - Every image is snapped to the 40 colours in `palette.hex` by nearest RGB distance, with no dithering, and its alpha becomes binary.
-- Terrain is rebuilt as a 32x16 top diamond plus side faces, 5 pixels thick for land and 3 for water. The faces are re-cut from the bottom of the raw faces and everything outside the block silhouette is dropped, so grass tufts no longer poke out and neighbours tile exactly on the 2:1 grid.
 - Resources are cropped to their content and centred on the bottom row of the canvas for their kind, for example 32x48 for a tree and 24x20 for a rock. Content larger than the canvas keeps its own size.
 - Items and hearts are centred on 16x16.
 - The slime strip has six frames of 20x16 made by squashing and stretching the single raw frame: rest, crouch, stretch, apex, fall, landing.

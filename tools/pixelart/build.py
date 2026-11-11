@@ -3,7 +3,7 @@
 Usage: python -I tools/pixelart/build.py --raw <dir> [--out <dir>]
 
 The raw folder is local and never committed. The tool is idempotent: it rebuilds every output it finds an input for,
-so it can be re-run whenever raw files are added or replaced.
+so it can be re-run whenever raw files are added or replaced. The land tiles and the decals are not built here: tiles.py draws them.
 """
 
 from __future__ import annotations
@@ -27,11 +27,6 @@ sys.path.insert(0, str(HERE))
 from player import build_player_sheet  # noqa: E402
 
 ALPHA_CUTOFF = 128
-TILE_W = 32
-TILE_TOP_H = 16
-LAND_FACE = 5
-WATER_FACE = 3
-MOUNTAIN_FACE = 10
 ITEM_SIZE = 16
 SLIME_CELL = (20, 16)
 SLIME_FRAMES = 6
@@ -118,69 +113,6 @@ def crop_to_content(image: Image.Image) -> Image.Image:
 
 
 # ----------------------------------------------------------------------------------------------------------------
-# Terrain
-# ----------------------------------------------------------------------------------------------------------------
-
-def diamond_contains(x: int, r: int) -> bool:
-    """Whether column x of row r lies inside the 32x16 top diamond, which grows two pixels per side per row."""
-    if r < 0 or r >= TILE_TOP_H:
-        return False
-    half = 2 * (r + 1) if r < TILE_TOP_H // 2 else 2 * (TILE_TOP_H - r)
-    return TILE_W // 2 - half <= x < TILE_W // 2 + half
-
-
-def block_geometry(image: Image.Image) -> tuple[int, int]:
-    """Returns the row of the top diamond apex and the face thickness of a raw isometric block.
-
-    The block ends on a bottom vertex at the last opaque row, which fixes the lower diamond. The left and right
-    tips of the top diamond sit seven rows under its apex, and tufts only ever add pixels above the apex, so the
-    first opaque row of the two edge columns locates it.
-    """
-    alpha = image.getchannel("A")
-    rows = [y for y in range(image.height) for x in range(image.width) if alpha.getpixel((x, y)) >= ALPHA_CUTOFF]
-    bottom = max(rows)
-    lower_apex = bottom - (TILE_TOP_H - 1)
-    tips = []
-    for x in (0, image.width - 1):
-        column = [y for y in range(image.height) if alpha.getpixel((x, y)) >= ALPHA_CUTOFF]
-        if column:
-            tips.append(column[0])
-    apex = max(tips) - (TILE_TOP_H // 2 - 1)
-    return apex, max(0, lower_apex - apex)
-
-
-def face_for(name: str) -> int:
-    if name.startswith("water") or "water" in name:
-        return WATER_FACE
-    if name.startswith("mountain"):
-        return MOUNTAIN_FACE
-    return LAND_FACE
-
-
-def clip_block(raw: Image.Image, face: int) -> Image.Image:
-    """Rebuilds a raw block as a 32 x (16 + face) tile clipped to the isometric block silhouette.
-
-    The top diamond comes from the raw top, so tufts above it are dropped. The side faces come from the bottom of the
-    raw faces, which keeps the shaded stripe along the lower edge and removes the extra thickness.
-    """
-    apex, raw_face = block_geometry(raw)
-    out = Image.new("RGBA", (TILE_W, TILE_TOP_H + face), (0, 0, 0, 0))
-    src = raw.load()
-    dst = out.load()
-    for y in range(out.height):
-        for x in range(TILE_W):
-            if diamond_contains(x, y):
-                sy = apex + y
-            elif diamond_contains(x, y - face):
-                sy = y + apex + (raw_face - face)
-            else:
-                continue
-            if 0 <= sy < raw.height and x < raw.width:
-                dst[x, y] = src[x, sy]
-    return out
-
-
-# ----------------------------------------------------------------------------------------------------------------
 # Entities
 # ----------------------------------------------------------------------------------------------------------------
 
@@ -232,16 +164,6 @@ def split_variant(stem: str) -> tuple[str, str]:
     """Splits 'tree-2' into ('tree', '2'). A stem without a number keeps an empty variant."""
     head, _, tail = stem.rpartition("-")
     return (head, tail) if head and tail.isdigit() else (stem, "")
-
-
-def build_tiles(raw: Path, out: Path, quant: Quantiser) -> int:
-    count = 0
-    for file in sorted((raw / "tiles").glob("*.png")):
-        name = file.stem.removeprefix("tile-")
-        base, _ = split_variant(name)
-        save(clip_block(load(file, quant), face_for(base)), out / "tiles" / f"{name}.png")
-        count += 1
-    return count
 
 
 def build_resources(raw: Path, out: Path, quant: Quantiser) -> int:
@@ -304,7 +226,7 @@ def main(argv: list[str]) -> int:
 
     quant = Quantiser(load_palette(PALETTE_FILE))
     totals = {}
-    for label, step in (("tiles", build_tiles), ("resources", build_resources), ("items", build_items),
+    for label, step in (("resources", build_resources), ("items", build_items),
                         ("gui", build_gui), ("entities", build_entities)):
         print(label)
         totals[label] = step(args.raw, args.out, quant)
