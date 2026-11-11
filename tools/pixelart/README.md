@@ -18,6 +18,7 @@ flowchart LR
   P[player.py] --> O
   Q --> G[hearts]
   L[tiles.py] --> O[src/main/resources/assets]
+  T[trees.py] --> O
   S --> O
   E --> O
   G --> O
@@ -33,17 +34,27 @@ python -I tools/pixelart/tiles.py
 
 `--preview <file>` renders a patch of every tile with decals scattered on it instead of writing the assets.
 
+## Resources drawn by script
+
+```bash
+python -I tools/pixelart/trees.py
+```
+
+`trees.py` draws the tree, bush, rock and iron ore sprites with no raw input, into `assets/resources/<biome>/<kind>-<n>.png`. The default folder gets six trees (four tiered pines and two round trees), three bushes, four rocks and three iron ore rocks with rust specks. The dark_forest folder gets four pines and the swamp folder three olive round trees. A biome folder without a sprite of a kind uses the default folder, so only the biomes that look different need their own files. The game reads numbered variants of a kind until a number is missing, and each resource picks one from its tile coordinates and the world seed, so a tree keeps its look across frames and reloads. Adding a variant is one more entry in `SET` and needs no code change. `build.py` skips the `tree`, `bush`, `rock` and `iron` kinds, so running it never overwrites them. Crystals and every other kind still come from the raw folder.
+
+`--preview <file>` renders every sprite side by side instead of writing the assets.
+
 ## Raw layout
 
 | Raw input | Output |
 |---|---|
-| `resources/<biome>/<kind>-<n>.png` | `assets/resources/<biome>/<kind>-<n>.png` |
+| `resources/<biome>/<kind>-<n>.png`, any kind except tree, bush, rock and iron | `assets/resources/<biome>/<kind>-<n>.png` |
 | `items/<item>.png` | `assets/items/<item>.png` |
 | `gui/heart-full.png`, `heart-half.png` | `assets/gui/`, plus a derived `heart-empty.png` when no raw one exists |
 | `entities/slime-<n>.png` | `assets/entities/slime-<n>.png`, a 6 frame strip |
 | none, drawn by `player.py` | `assets/entities/player.png`, a 128x72 sheet |
 
-Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `tree-4.png` or a second tile variant `grass-2.png` needs no code change.
+Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `willow-2.png` or a second tile variant `grass-2.png` needs no code change.
 
 ## What the tool does
 

@@ -25,7 +25,7 @@ import java.util.Map;
  */
 @Slf4j
 public final class SpriteManager {
-    private static final int MAX_VARIANTS = 9;
+    private static final int MAX_VARIANTS = 99;
     private static final List<String> RESOURCE_FOLDERS = List.of(
             AssetPaths.DEFAULT_FOLDER, "dark_forest", "swamp", "desert", "tundra", AssetPaths.SHARED_FOLDER);
 
@@ -310,10 +310,12 @@ public final class SpriteManager {
      *
      * @param mapType Current map type
      * @param resourceType Resource type
-     * @param visualSeed Seed for consistent variant selection
+     * @param x Tile column of the resource
+     * @param y Tile row of the resource
+     * @param worldSeed Seed of the world, which with the coordinates fixes the variant
      * @return Sprite metadata or null if not found
      */
-    public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, long visualSeed) {
+    public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, int x, int y, long worldSeed) {
         Map<ResourceType, List<SpriteMetadata>> mapSprites = resourceSprites.get(mapType);
         if (mapSprites == null) {
             return null;
@@ -322,7 +324,7 @@ public final class SpriteManager {
         if (variants == null || variants.isEmpty()) {
             return null;
         }
-        return variants.get(SpriteVariants.forSeed(visualSeed, variants.size()));
+        return variants.get(SpriteVariants.forResource(worldSeed, x, y, variants.size()));
     }
 
     /**

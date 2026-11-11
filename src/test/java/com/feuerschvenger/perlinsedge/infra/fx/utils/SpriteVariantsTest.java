@@ -41,4 +41,53 @@ class SpriteVariantsTest {
         assertEquals(0, SpriteVariants.forTile(7, 9, 0));
         assertEquals(0, SpriteVariants.forSeed(99L, 1));
     }
+
+    @Test
+    void aResourceKeepsItsVariantForTheSameWorldAndTile() {
+        assertEquals(SpriteVariants.forResource(42L, 12, 40, 6), SpriteVariants.forResource(42L, 12, 40, 6));
+    }
+
+    @Test
+    void aResourceVariantStaysInRangeForAnyCount() {
+        for (int count = 1; count <= 12; count++) {
+            for (int x = -3; x < 30; x++) {
+                for (int y = -3; y < 30; y++) {
+                    int variant = SpriteVariants.forResource(-7L, x, y, count);
+                    assertTrue(variant >= 0 && variant < count, "variant " + variant + " of " + count);
+                }
+            }
+        }
+    }
+
+    @Test
+    void everyResourceVariantAppearsAcrossTheMap() {
+        boolean[] seen = new boolean[6];
+        for (int x = 0; x < 30; x++) {
+            for (int y = 0; y < 30; y++) {
+                seen[SpriteVariants.forResource(5L, x, y, 6)] = true;
+            }
+        }
+        for (boolean hit : seen) {
+            assertTrue(hit);
+        }
+    }
+
+    @Test
+    void anotherWorldLaysTheResourceVariantsOutDifferently() {
+        int differing = 0;
+        for (int x = 0; x < 20; x++) {
+            for (int y = 0; y < 20; y++) {
+                if (SpriteVariants.forResource(1L, x, y, 6) != SpriteVariants.forResource(2L, x, y, 6)) {
+                    differing++;
+                }
+            }
+        }
+        assertTrue(differing > 100, "differing " + differing);
+    }
+
+    @Test
+    void oneOrNoResourceVariantsAlwaysAnswerZero() {
+        assertEquals(0, SpriteVariants.forResource(9L, 3, 4, 1));
+        assertEquals(0, SpriteVariants.forResource(9L, 3, 4, 0));
+    }
 }

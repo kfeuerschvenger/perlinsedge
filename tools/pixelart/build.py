@@ -3,7 +3,7 @@
 Usage: python -I tools/pixelart/build.py --raw <dir> [--out <dir>]
 
 The raw folder is local and never committed. The tool is idempotent: it rebuilds every output it finds an input for,
-so it can be re-run whenever raw files are added or replaced. The land tiles and the decals are not built here: tiles.py draws them.
+so it can be re-run whenever raw files are added or replaced. The land tiles, the decals, the water layers and the tree, bush, rock and iron ore sprites are not built here: tiles.py and trees.py draw them.
 """
 
 from __future__ import annotations
@@ -48,6 +48,9 @@ RESOURCE_SIZES = {
     "iron": (24, 20),
     "crystal": (24, 24),
 }
+
+# Resource kinds trees.py draws, so a raw file of one of them is ignored and never overwrites the drawn sprite.
+DRAWN_KINDS = {"tree", "bush", "rock", "iron"}
 
 # Slime squash and stretch, as (width, height) factors of the content box, one per frame.
 SLIME_SHAPES = [(1.0, 0.875), (1.1, 0.69), (0.9, 1.0), (0.85, 1.0), (0.95, 0.9), (1.1, 0.75)]
@@ -170,6 +173,8 @@ def build_resources(raw: Path, out: Path, quant: Quantiser) -> int:
     count = 0
     for file in sorted((raw / "resources").glob("*/*.png")):
         kind, _ = split_variant(file.stem)
+        if kind in DRAWN_KINDS:
+            continue
         width, height = RESOURCE_SIZES.get(kind, (0, 0))
         content = crop_to_content(load(file, quant))
         if width and (content.width > width or content.height > height):

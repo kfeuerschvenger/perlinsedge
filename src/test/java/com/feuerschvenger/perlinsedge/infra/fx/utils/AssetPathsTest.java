@@ -11,6 +11,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,6 +90,23 @@ class AssetPathsTest {
         assertEquals("default", AssetPaths.biomeFolder(MapType.ISLANDS));
         assertEquals("dark_forest", AssetPaths.biomeFolder(MapType.DARK_FOREST));
         assertEquals("tundra", AssetPaths.biomeFolder(MapType.TUNDRA));
+    }
+
+    @Test
+    void everyDrawnResourceKindShipsContiguousVariantsInTheDefaultFolder() {
+        int[] expected = {6, 3, 4, 3};
+        String[] kinds = {"tree", "bush", "rock", "iron"};
+        for (int i = 0; i < kinds.length; i++) {
+            for (int variant = 1; variant <= expected[i]; variant++) {
+                assertNotNull(getClass().getResource(AssetPaths.resource("default", kinds[i], variant)), kinds[i] + "-" + variant);
+            }
+            assertNull(getClass().getResource(AssetPaths.resource("default", kinds[i], expected[i] + 1)), kinds[i] + " has a gap or an extra");
+        }
+    }
+
+    @Test
+    void ironOreIsDrawnFromItsOwnKind() {
+        assertEquals(List.of("iron"), AssetPaths.resourceKinds(ResourceType.IRON_ORE));
     }
 
     @Test

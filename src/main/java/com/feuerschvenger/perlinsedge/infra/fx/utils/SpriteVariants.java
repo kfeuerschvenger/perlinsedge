@@ -20,6 +20,21 @@ public final class SpriteVariants {
     }
 
     /**
+     * Picks a variant for the resource on a tile from its coordinates and the world seed.
+     * The same tile of the same world always answers the same index, across frames and reloads, while another world
+     * lays the variants out differently.
+     *
+     * @param worldSeed the seed of the world
+     * @param x         the tile column
+     * @param y         the tile row
+     * @param count     how many variants exist
+     * @return an index in [0, count), or 0 when count is not above one
+     */
+    public static int forResource(long worldSeed, int x, int y, int count) {
+        return forSeed(worldSeed ^ (x * 73_856_093L ^ y * 19_349_663L) * 0xD6E8FEB86659FD93L, count);
+    }
+
+    /**
      * Picks a variant from a seed.
      *
      * @param seed  any value that stays the same for the object

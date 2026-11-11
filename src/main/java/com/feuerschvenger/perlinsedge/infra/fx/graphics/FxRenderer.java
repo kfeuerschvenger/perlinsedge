@@ -141,6 +141,8 @@ public class FxRenderer {
         final int minTileY = bounds[2];
         final int maxTileY = bounds[3];
 
+        final long worldSeed = gameState.getWorldSeed();
+
         // Render tiles and resources
         for (int y = minTileY; y < maxTileY; y++) {
             for (int x = minTileX; x < maxTileX; x++) {
@@ -172,7 +174,7 @@ public class FxRenderer {
                 if (tile.hasResource() && !isGrayscaleEnabled && resource != null) {
                     boolean isFlashing = resource.isFlashing();
                     SpriteManager.SpriteMetadata spriteMetadata = spriteManager.getResourceSprite(
-                            currentMapType, resource.getType(), resource.getVisualSeed()
+                            currentMapType, resource.getType(), x, y, worldSeed
                     );
                     // A resource blocks movement whether or not its image exists, so it is always queued;
                     // without an image the painter draws a stand-in shape.
