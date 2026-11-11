@@ -45,8 +45,12 @@ public final class GameLoop {
         this.frameRenderer = frameRenderer;
     }
 
-    /** Starts the loop, or resumes it after {@link #stop()}. */
+    /**
+     * Starts the loop, or resumes it after {@link #stop()}.
+     * The accumulator is reset so the time spent stopped is not replayed as a burst of logic steps.
+     */
     public void start() {
+        stepper.reset();
         timer.start();
     }
 
