@@ -38,9 +38,10 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final int LAKE_RADIUS_MAX = 5;
     private static final float ISLAND_FALLOFF_POWER = 2.0f;
 
-    // Iron ore: hills and mountains only, a share of the stone patches there plus a band around them
-    private static final float IRON_SHARE_OF_ROCKY_STONE = 0.25f;
-    private static final float IRON_BAND_WIDTH = 0.06f;
+    // Iron ore: hills and mountains only, in a fixed band of the normalised stone noise. The band is absolute so
+    // it does not depend on the stone threshold, which the map panel lets the player move over a wide range.
+    private static final float IRON_BAND_MIN = 0.64f;
+    private static final float IRON_BAND_MAX = 0.72f;
 
     private float[][] islandCenters;
 
@@ -207,19 +208,14 @@ public class PerlinMapGenerator implements IMapGenerator {
             return;
         }
 
-        // Iron only ever sits on rocky ground: inside a patch it takes a share of the tiles, and it also
-        // covers a band just outside the patch. Both follow the stone threshold, so moving it moves the iron.
-        boolean rockyGround = isRockyGround(tile.getType());
+        // Iron only ever sits on rocky ground, in its own absolute noise band that ignores the stone threshold.
         float stoneValue = normalizeNoise(stoneNoise.getNoise(x, y));
         if (stoneValue > config.getStoneThreshold()) {
-            ResourceType rock = rockyGround && config.getRandom().nextFloat() < IRON_SHARE_OF_ROCKY_STONE
-                    ? ResourceType.IRON_ORE
-                    : ResourceType.STONE;
-            tile.setWorldResource(new Resource(rock, config.getRandom().nextLong()));
+            tile.setWorldResource(new Resource(ResourceType.STONE, config.getRandom().nextLong()));
             return;
         }
 
-        if (rockyGround && stoneValue > config.getStoneThreshold() - IRON_BAND_WIDTH) {
+        if (isRockyGround(tile.getType()) && stoneValue >= IRON_BAND_MIN && stoneValue <= IRON_BAND_MAX) {
             tile.setWorldResource(new Resource(ResourceType.IRON_ORE, config.getRandom().nextLong()));
             return;
         }

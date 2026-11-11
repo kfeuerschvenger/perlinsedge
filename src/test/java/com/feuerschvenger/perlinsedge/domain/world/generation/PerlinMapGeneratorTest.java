@@ -173,16 +173,18 @@ class PerlinMapGeneratorTest {
     }
 
     @Test
-    void ironOreStillAppearsWhenTheStoneThresholdIsRaisedToItsLimit() {
-        int iron = 0;
-        for (long seed = 1; seed <= 6; seed++) {
-            TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
-                    .generateMap(150, 150, withStoneThreshold(MapType.MOUNTAINOUS, seed, 0.85f));
-            iron += count(map, ResourceType.IRON_ORE, 150);
-            assertEquals(0, ironOnNonRockyTiles(map, 150), "seed " + seed);
-        }
+    void ironOreAppearsOnRockyTilesAtAnyStoneThreshold() {
+        for (float threshold : new float[]{0.99f, 1.1f, 3.0f}) {
+            int iron = 0;
+            for (long seed = 1; seed <= 6; seed++) {
+                TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
+                        .generateMap(150, 150, withStoneThreshold(MapType.MOUNTAINOUS, seed, threshold));
+                iron += count(map, ResourceType.IRON_ORE, 150);
+                assertEquals(0, ironOnNonRockyTiles(map, 150), "threshold " + threshold + " seed " + seed);
+            }
 
-        assertTrue(iron > 0, "the iron band follows the threshold instead of vanishing with it");
+            assertTrue(iron > 0, "iron stays obtainable at stone threshold " + threshold);
+        }
     }
 
     @Test
