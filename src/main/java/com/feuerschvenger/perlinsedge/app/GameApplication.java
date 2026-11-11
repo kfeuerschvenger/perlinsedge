@@ -9,6 +9,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.ui.view.*;
 import javafx.application.Application;
+import javafx.beans.binding.Bindings;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.KeyCombination;
@@ -26,6 +27,11 @@ import java.awt.Dimension;
  */
 @Slf4j
 public class GameApplication extends Application {
+    /** Margin between the HUD and the window edge, in whole pixels. */
+    private static final double HUD_MARGIN = 12;
+    /** Gap between the hearts and the hotbar below them. */
+    private static final double HUD_GAP = 6;
+
     // Core UI components
     private Stage primaryStage;
     private StackPane rootPane;
@@ -292,11 +298,24 @@ public class GameApplication extends Application {
      * Creates player-related UI components.
      */
     private void createPlayerUIComponents() {
-        // Health bar (bottom-left)
+        // Hotbar panel (bottom-center, a fixed margin above the bottom edge; the UI layer ignores the world zoom)
+        hotbarPanel = new BuildingHotbarPanel(recipeManager);
+        hotbarPanel.layoutXProperty().bind(
+                rootPane.widthProperty().subtract(hotbarPanel.widthProperty()).divide(2)
+        );
+        hotbarPanel.layoutYProperty().bind(
+                rootPane.heightProperty().subtract(hotbarPanel.heightProperty()).subtract(HUD_MARGIN)
+        );
+
+        // Hearts: above the hotbar and aligned to its left edge while it is shown, bottom-left otherwise
         healthBar = new HealthBar();
-        healthBar.setLayoutX(12);
+        healthBar.layoutXProperty().bind(
+                Bindings.when(hotbarPanel.visibleProperty()).then(hotbarPanel.layoutXProperty()).otherwise(HUD_MARGIN)
+        );
         healthBar.layoutYProperty().bind(
-                rootPane.heightProperty().subtract(healthBar.heightProperty()).subtract(12)
+                Bindings.when(hotbarPanel.visibleProperty())
+                        .then(hotbarPanel.layoutYProperty().subtract(healthBar.heightProperty()).subtract(HUD_GAP))
+                        .otherwise(rootPane.heightProperty().subtract(healthBar.heightProperty()).subtract(HUD_MARGIN))
         );
 
         // Inventory panel (centered)
@@ -309,13 +328,6 @@ public class GameApplication extends Application {
         );
         inventoryPanel.setVisible(false);
         inventoryPanel.setManaged(false);
-
-        // Hotbar panel (bottom-center)
-        hotbarPanel = new BuildingHotbarPanel(recipeManager);
-        hotbarPanel.layoutXProperty().bind(
-                rootPane.widthProperty().subtract(hotbarPanel.widthProperty()).divide(2)
-        );
-        hotbarPanel.setLayoutY(rootPane.getHeight() - hotbarPanel.getHeight() - 82);
 
         // Hint line (centered, above the hotbar)
         hintLabel = new HintLabel();
