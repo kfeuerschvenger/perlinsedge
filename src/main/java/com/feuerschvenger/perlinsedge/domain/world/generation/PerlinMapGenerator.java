@@ -38,6 +38,10 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final int LAKE_RADIUS_MAX = 5;
     private static final float ISLAND_FALLOFF_POWER = 2.0f;
 
+    // Iron ore: a share of every stone patch, plus the flanks of patches that lie on hills and mountains
+    private static final float IRON_SHARE_OF_STONE = 0.25f;
+    private static final float IRON_ROCKY_GROUND_THRESHOLD = 0.78f;
+
     private float[][] islandCenters;
 
     /**
@@ -138,6 +142,10 @@ public class PerlinMapGenerator implements IMapGenerator {
         }
     }
 
+    private static boolean isRockyGround(TileType type) {
+        return type == TileType.HILL || type == TileType.MOUNTAIN;
+    }
+
     private float normalizeNoise(float value) {
         return (value + 1) / 2;
     }
@@ -201,7 +209,16 @@ public class PerlinMapGenerator implements IMapGenerator {
 
         float stoneValue = normalizeNoise(stoneNoise.getNoise(x, y));
         if (stoneValue > config.getStoneThreshold()) {
-            tile.setWorldResource(new Resource(ResourceType.STONE, config.getRandom().nextLong()));
+            ResourceType rock = config.getRandom().nextFloat() < IRON_SHARE_OF_STONE
+                    ? ResourceType.IRON_ORE
+                    : ResourceType.STONE;
+            tile.setWorldResource(new Resource(rock, config.getRandom().nextLong()));
+            return;
+        }
+
+        // Rocky ground carries iron along the flanks of the stone patches
+        if (isRockyGround(tile.getType()) && stoneValue > IRON_ROCKY_GROUND_THRESHOLD) {
+            tile.setWorldResource(new Resource(ResourceType.IRON_ORE, config.getRandom().nextLong()));
             return;
         }
 

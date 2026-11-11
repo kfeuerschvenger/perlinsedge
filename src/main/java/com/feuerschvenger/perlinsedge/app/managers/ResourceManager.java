@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.config.LootManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -36,7 +37,16 @@ public class ResourceManager {
      */
     public void handleTileInteraction(Player player, Tile tile) {
         if (!isValidInteraction(player, tile)) return;
+        if (!hasRequiredTool(player, tile.getWorldResource())) return;
         handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY());
+    }
+
+    /**
+     * Checks that the player carries the tool a resource needs, such as the pickaxe for iron ore.
+     */
+    private boolean hasRequiredTool(Player player, Resource resource) {
+        ItemType tool = resource.getType().getRequiredTool();
+        return tool == null || player.canTakeItem(new Item(tool, 1), 1);
     }
 
     /**

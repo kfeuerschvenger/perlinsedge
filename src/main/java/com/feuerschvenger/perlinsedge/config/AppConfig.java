@@ -218,6 +218,7 @@ public class AppConfig {
         private static final int TREE_MAX_HEALTH = 30;
         private static final int ROCK_MAX_HEALTH = 40;
         private static final int CRYSTAL_MAX_HEALTH = 25;
+        private static final int IRON_ORE_MAX_HEALTH = 60;
         private static final int DEFAULT_MAX_HEALTH = 50;
 
         // Cooldowns
@@ -228,6 +229,7 @@ public class AppConfig {
                 case TREE -> TREE_MAX_HEALTH;
                 case STONE -> ROCK_MAX_HEALTH;
                 case CRYSTALS -> CRYSTAL_MAX_HEALTH;
+                case IRON_ORE -> IRON_ORE_MAX_HEALTH;
                 default -> DEFAULT_MAX_HEALTH;
             };
         }

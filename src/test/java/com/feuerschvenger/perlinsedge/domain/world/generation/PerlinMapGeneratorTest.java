@@ -1,6 +1,8 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.api.Test;
@@ -104,6 +106,35 @@ class PerlinMapGeneratorTest {
 
         assertEquals(0.033f, generator.getHeightNoiseFrequency());
         assertEquals(6, generator.getHeightNoiseOctaves());
+    }
+
+    private static int count(TileMap map, ResourceType type, int size) {
+        int total = 0;
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                Resource resource = map.getTile(x, y).getWorldResource();
+                if (resource != null && resource.getType() == type) {
+                    total++;
+                    assertTrue(map.getTile(x, y).getType().isLand(), "resources never sit on water");
+                }
+            }
+        }
+        return total;
+    }
+
+    @Test
+    void ironOreIsGeneratedOnRockyMaps() {
+        int iron = 0;
+        int stone = 0;
+        for (long seed = 1; seed <= 6; seed++) {
+            TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
+                    .generateMap(150, 150, defaults(MapType.MOUNTAINOUS, seed));
+            iron += count(map, ResourceType.IRON_ORE, 150);
+            stone += count(map, ResourceType.STONE, 150);
+        }
+
+        assertTrue(iron > 0, "iron ore must be obtainable");
+        assertTrue(stone > 0, "stone is still generated");
     }
 
     @Test

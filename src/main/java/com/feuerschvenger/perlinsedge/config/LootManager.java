@@ -90,6 +90,12 @@ public class LootManager {
                 new LootEntry(ItemType.FLINT, 0, 3),
                 new LootEntry(ItemType.COAL, 0, 1)
         ));
+
+        // Iron ore resource loot
+        resourceLootTables.put(ResourceType.IRON_ORE, Arrays.asList(
+                new LootEntry(ItemType.IRON_ORE, 1, 3),
+                new LootEntry(ItemType.STONE, 0, 2)
+        ));
     }
 
     /**
