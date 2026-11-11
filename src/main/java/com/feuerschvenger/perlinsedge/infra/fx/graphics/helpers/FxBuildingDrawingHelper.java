@@ -13,7 +13,7 @@ import javafx.scene.paint.Stop;
 public class FxBuildingDrawingHelper {
 
     /**
-     * Draws a generic building using its abstract draw method.
+     * Draws a building through {@link FxBuildingPainter}.
      * @param building The building to draw.
      */
     public static void drawBuilding(GraphicsContext gc, Building building,
@@ -26,7 +26,7 @@ public class FxBuildingDrawingHelper {
                 AppConfig.getInstance().graphics().getTileHalfWidth(),
                 AppConfig.getInstance().graphics().getTileHalfHeight()
         );
-        building.draw(gc, screenCords[0], screenCords[1], zoom);
+        FxBuildingPainter.draw(gc, building, screenCords[0], screenCords[1], zoom);
     }
 
     /**

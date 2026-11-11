@@ -9,6 +9,7 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
 import java.util.*;
@@ -17,6 +18,7 @@ import java.util.*;
  * Centralized sprite management system for loading, caching, and providing access
  * to game assets with proper positioning offsets and fallback mechanisms.
  */
+@Slf4j
 public final class SpriteManager {
     private static final String ASSETS_BASE_PATH = "/assets/";
     private static final String DEFAULT_MAP_TYPE = "default";
@@ -216,7 +218,7 @@ public final class SpriteManager {
             validateSpritesheetDimensions(playerSheet, config);
             entitySprites.put("player", extractSpritesheetFrames(playerSheet, config));
         } catch (Exception e) {
-            System.out.println("Error loading player spritesheet: " + config.path);
+            log.warn("Error loading player spritesheet {}, using fallback frames: {}", config.path, e.getMessage());
             entitySprites.put("player", createFallbackFrames(config));
         }
     }
@@ -269,7 +271,7 @@ public final class SpriteManager {
     public Image getEntitySprite(String entityKey, int row, int col) {
         List<List<Image>> frames = entitySprites.get(entityKey);
         if (frames == null) {
-            System.out.println("Entity sprite key not found: " + entityKey);
+            log.warn("Entity sprite key not found: {}", entityKey);
             return createSolidColorImage(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE, MISSING_SPRITE_COLOR);
         }
 
@@ -305,7 +307,7 @@ public final class SpriteManager {
         double minHeight = config.rowYCoordinates[config.rows - 1] + config.spriteHeight;
 
         if (sheet.getWidth() < minWidth || sheet.getHeight() < minHeight) {
-            System.out.printf("Spritesheet too small: Required %.0fx%.0f, Actual %.0fx%.0f%n",
+            log.warn("Spritesheet too small: Required {}x{}, Actual {}x{}",
                     minWidth, minHeight, sheet.getWidth(), sheet.getHeight());
         }
     }
@@ -337,7 +339,8 @@ public final class SpriteManager {
         try {
             return new WritableImage(reader, x, y, width, height);
         } catch (Exception e) {
-            System.out.printf("Error extracting frame at (%d,%d): %s%n", x, y, e.getMessage());
+            log.warn("Error extracting frame at ({},{}): {}", x, y, e.getMessage());
+            log.debug("Frame extraction failure at ({},{})", x, y, e);
             return createSolidColorImage(width, height, FALLBACK_COLOR);
         }
     }
@@ -418,7 +421,7 @@ public final class SpriteManager {
         try (InputStream is = getResourceStream(fullPath)) {
             return new SpriteMetadata(is != null ? new Image(is) : null, verticalOffset);
         } catch (Exception e) {
-            System.out.println("Error loading sprite: " + fullPath + " - " + e.getMessage());
+            log.warn("Error loading sprite {}", fullPath, e);
             return new SpriteMetadata(null, verticalOffset);
         }
     }

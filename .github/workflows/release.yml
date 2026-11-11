@@ -12,8 +12,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-tag:
+    name: verify tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require the tagged commit to be on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not an ancestor of origin/main"
+            exit 1
+          fi
+
   build:
     name: build (${{ matrix.os }})
+    needs: verify-tag
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -26,6 +42,17 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+      - name: Set the version from the tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '${TAG}' is not a strict vMAJOR.MINOR.PATCH release tag (suffixes are not accepted)"
+            exit 1
+          fi
+          mvn -B -ntp versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
       - name: Build and test
         run: mvn -B verify
       - name: Upload the jar
@@ -51,3 +78,5 @@ jobs:
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: dist/*.jar
+          fail_on_unmatched_files: true
+          generate_release_notes: true

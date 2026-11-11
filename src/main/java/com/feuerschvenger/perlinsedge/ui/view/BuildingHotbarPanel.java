@@ -10,6 +10,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -83,7 +84,7 @@ public class BuildingHotbarPanel extends HBox {
         StackPane iconWrapper = new StackPane();
         iconWrapper.setPrefSize(ICON_SIZE, ICON_SIZE);
         iconWrapper.setBackground(new Background(new BackgroundFill(
-                type.getBaseColor().deriveColor(0, 1, 1, 0.5),
+                FxColors.toFx(type.getBaseColor().withOpacityFactor(0.5)),
                 new CornerRadii(5),
                 Insets.EMPTY
         )));

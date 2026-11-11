@@ -2,12 +2,14 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicMovementStrategy;
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Represents a Mimic enemy that disguises itself as a chest until activated.
  * Mimics remain passive until triggered, then become aggressive toward the player.
  */
+@Slf4j
 public class Mimic extends Enemy {
     // ==================================================================
     //  Configuration Constants
@@ -17,7 +19,7 @@ public class Mimic extends Enemy {
     private static final double ATTACK_COOLDOWN = 2.0;
 
     private static final double RENDER_OFFSET_Y = -4.0; // Closer to ground for chest-like appearance
-    private static final Color BASE_COLOR = Color.BROWN.darker();
+    private static final Rgba BASE_COLOR = Rgba.BROWN.darker();
 
     // ==================================================================
     //  Constructor
@@ -62,7 +64,7 @@ public class Mimic extends Enemy {
     public void activate() {
         if (getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
             mimicMovement.setAggroed(true);
-            System.out.println("Mimic activated at (" + getPosX() + ", " + getPosY() + ")");
+            log.debug("Mimic activated at ({}, {})", getPosX(), getPosY());
         }
     }
 

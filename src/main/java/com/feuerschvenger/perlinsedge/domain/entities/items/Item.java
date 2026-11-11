@@ -1,7 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
-import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
-import javafx.scene.image.Image;
 import java.util.Objects;
 
 /**
@@ -56,11 +54,6 @@ public class Item {
     /** @return Item description */
     public String getDescription() {
         return type.getDescription();
-    }
-
-    /** @return Graphical representation of the item */
-    public Image getSprite() {
-        return SpriteManager.getInstance().getItemSprite(type).getImage();
     }
 
     /** @return True if quantity is zero or negative */

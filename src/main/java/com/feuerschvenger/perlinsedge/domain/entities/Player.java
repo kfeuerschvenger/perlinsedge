@@ -8,12 +8,15 @@ import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.*;
 
 /**
  * Represents the player character with movement, inventory, and combat capabilities.
  * Handles pathfinding, movement interpolation, inventory management, and resource interaction.
  */
+@Slf4j
 public class Player extends Entity implements Container {
     // ==================================================================
     //  Constants
@@ -183,7 +186,7 @@ public class Player extends Entity implements Container {
         int quantityActuallyPickedUp = quantityBeforePickup - item.getQuantity();
 
         if (added && quantityActuallyPickedUp > 0) {
-            System.out.println("Player picked up " + quantityActuallyPickedUp + "x " + item.getDisplayName());
+            log.debug("Player picked up {}x {}", quantityActuallyPickedUp, item.getDisplayName());
         }
         return quantityActuallyPickedUp;
     }
@@ -202,7 +205,7 @@ public class Player extends Entity implements Container {
         // Find source slot of dragged item
         int sourceSlot = findItemSlot(draggedItem);
         if (sourceSlot == -1) {
-            System.err.println("Error: Item not found in inventory");
+            log.warn("Item not found in inventory");
             return;
         }
 
@@ -260,7 +263,7 @@ public class Player extends Entity implements Container {
      */
     public void craftItem(Recipe recipe) {
         if (!canCraft(recipe)) {
-            System.err.println("Cannot craft: Missing ingredients");
+            log.warn("Cannot craft: Missing ingredients");
             return;
         }
 
@@ -298,7 +301,7 @@ public class Player extends Entity implements Container {
     @Override
     public boolean addItem(Item item) {
         if (item == null || item.getQuantity() <= 0) {
-            System.out.println("Cannot add null or zero quantity item");
+            log.debug("Cannot add null or zero quantity item");
             return false;
         }
 
@@ -333,7 +336,7 @@ public class Player extends Entity implements Container {
     @Override
     public boolean removeItem(Item itemToRemove, int quantity) {
         if (itemToRemove == null || quantity <= 0) {
-            System.out.println("Cannot remove null or zero quantity item");
+            log.debug("Cannot remove null or zero quantity item");
             return false;
         }
 

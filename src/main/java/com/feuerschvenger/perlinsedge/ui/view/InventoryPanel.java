@@ -11,7 +11,6 @@ import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDroppedOutsideCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import com.feuerschvenger.perlinsedge.ui.view.utils.GridUtils;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -20,27 +19,26 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.Dragboard;
-import javafx.scene.input.TransferMode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Manages the visual representation and interaction for inventory systems including:
+ * View of the inventory systems including:
  * <ul>
  * <li> Player inventory</li>
  * <li> Secondary containers (chests, etc.)</li>
  * <li> Crafting recipes display</li>
  * <li> Item information panel</li>
  *</ul><br>
- * Handles drag-and-drop operations, item selection, and crafting interactions.
+ * Owns the layout and drawing. Drag and drop, selection and crafting are handled by
+ * {@link InventoryController}, which also keeps the callbacks exposed here.
  */
 public class InventoryPanel extends BorderPane {
     // Constants
@@ -48,7 +46,7 @@ public class InventoryPanel extends BorderPane {
 
     // Layout dimensions
     private static final int SLOT_SIZE = 40;
-    private static final int ITEM_SIZE = 32;
+    static final int ITEM_SIZE = 32;
     private static final int PANEL_PADDING = 20;
     private static final int ITEM_SPACING = 10;
     private static final int PANEL_CORNER_RADIUS = 10;
@@ -70,14 +68,6 @@ public class InventoryPanel extends BorderPane {
     private static final String FONT_FAMILY = "Arial";
     private static final String PLAYER_INVENTORY_TITLE = "Player Inventory";
     private static final String CHEST_INVENTORY_TITLE = "Chest Inventory";
-    private static final String DRAG_FAIL_MSG = "DRAG FAIL: No image for %s";
-    private static final String DRAG_START_MSG = "DRAG START: %s from slot %d";
-    private static final String DRAG_OVER_ACCEPT_MSG = "DRAG OVER: Slot %d - accepted";
-    private static final String DRAG_OVER_REJECT_MSG = "DRAG OVER: Slot %d - rejected";
-    private static final String DRAG_DROP_MSG = "DRAG DROP: Slot %d";
-    private static final String DRAG_DROP_DETAIL_MSG = "DRAG DROP: %s from slot %d to %d";
-    private static final String SLOT_CLICK_MSG = "SLOT CLICK: Slot %d";
-    private static final String CRAFT_FAIL_MSG = "Crafting failed: %s";
 
     // UI components
     private GridPane playerInventoryGrid;
@@ -88,15 +78,9 @@ public class InventoryPanel extends BorderPane {
 
     // State management
     private final GameStateManager gameState;
+    private final InventoryController controller;
+    @Getter(lombok.AccessLevel.PACKAGE)
     private Container secondaryContainer;
-    private Recipe selectedRecipe;
-    private int selectedSlotIndex = -1;
-    private boolean selectedSlotIsPlayerInventory = true;
-
-    // Callbacks
-    private ItemTransferCallback onItemDroppedInsideCallback;
-    private ItemDroppedOutsideCallback onItemDroppedOutsideCallback;
-    private CraftRecipeCallback onCraftRecipeCallback;
 
     /**
      * Initializes the inventory panel with game state reference.
@@ -105,6 +89,7 @@ public class InventoryPanel extends BorderPane {
      */
     public InventoryPanel(GameStateManager gameStateManager) {
         this.gameState = Objects.requireNonNull(gameStateManager, "Game state manager cannot be null");
+        this.controller = new InventoryController(this, gameState);
         this.secondaryContainer = null;
 
         configurePanel();
@@ -115,9 +100,6 @@ public class InventoryPanel extends BorderPane {
         setManaged(false);
     }
 
-    /**
-     * Configures the panel's base layout and styling.
-     */
     private void configurePanel() {
         setPadding(new Insets(PANEL_PADDING));
         setBackground(new Background(new BackgroundFill(
@@ -126,9 +108,6 @@ public class InventoryPanel extends BorderPane {
         setPrefSize(800, 300);
     }
 
-    /**
-     * Initializes all UI components and layouts.
-     */
     private void initializeComponents() {
         // Item information panel (left section)
         itemInfoPanel = new ItemInfoPanel();
@@ -147,9 +126,6 @@ public class InventoryPanel extends BorderPane {
         BorderPane.setMargin(rightContainer, new Insets(0, 0, 0, ITEM_SPACING));
     }
 
-    /**
-     * Creates the center container with player inventory.
-     */
     private VBox createCenterContainer() {
         VBox container = new VBox(ITEM_SPACING);
         container.setAlignment(Pos.CENTER);
@@ -165,13 +141,6 @@ public class InventoryPanel extends BorderPane {
         return container;
     }
 
-    /**
-     * Creates inventory slots for a container.
-     *
-     * @param capacity Number of slots to create
-     * @param container Container associated with slots
-     * @return List of created slots
-     */
     private List<StackPane> createInventorySlots(int capacity, Container container) {
         List<StackPane> slots = new ArrayList<>(capacity);
         for (int i = 0; i < capacity; i++) {
@@ -180,14 +149,10 @@ public class InventoryPanel extends BorderPane {
         return slots;
     }
 
-    /**
-     * Creates the right container with crafting panel.
-     */
     private VBox createRightContainer() {
         VBox container = new VBox(ITEM_SPACING);
         container.setAlignment(Pos.TOP_CENTER);
 
-        // Crafting recipes section
         craftingListPanel = new CraftingListPanel();
         craftingListPanel.setPrefWidth(375);
 
@@ -199,21 +164,11 @@ public class InventoryPanel extends BorderPane {
         return container;
     }
 
-    /**
-     * Sets up event handlers and callbacks.
-     */
     private void setupEventHandlers() {
-        // Recipe selection and crafting
-        craftingListPanel.setOnRecipeSelected(this::handleRecipeSelected);
-        craftingListPanel.setOnCraftButtonClicked(this::handleCraftButtonClick);
+        craftingListPanel.setOnRecipeSelected(controller::handleRecipeSelected);
+        craftingListPanel.setOnCraftButtonClicked(controller::handleCraftButtonClick);
     }
 
-    /**
-     * Creates a styled title label.
-     *
-     * @param text Title text
-     * @return Configured label
-     */
     private Label createTitle(String text) {
         Label label = new Label(text);
         label.setFont(new Font(FONT_FAMILY, TITLE_FONT_SIZE));
@@ -221,31 +176,24 @@ public class InventoryPanel extends BorderPane {
         return label;
     }
 
-    /**
-     * Creates an inventory slot with drag-and-drop and click handlers.
-     *
-     * @param slotIndex Slot position index
-     * @param container Container this slot belongs to
-     * @return Configured slot pane
-     */
+    // ==================================================================
+    //  Slots
+    // ==================================================================
+
     private StackPane createInventorySlot(int slotIndex, Container container) {
         StackPane slot = new StackPane();
         configureSlotLayout(slot);
         slot.setUserData(new SlotContext(slotIndex, container));
 
-        // Event handlers
-        slot.setOnDragDetected(e -> handleDragDetected(e, slot, slotIndex, container));
-        slot.setOnDragOver(e -> handleDragOver(e, slot, slotIndex));
+        slot.setOnDragDetected(e -> controller.handleDragDetected(e, slot, slotIndex, container));
+        slot.setOnDragOver(e -> controller.handleDragOver(e, slot, slotIndex));
         slot.setOnDragExited(e -> restoreSlotBorder(slot));
-        slot.setOnDragDropped(e -> handleDragDropped(e, slot));
-        slot.setOnMouseClicked(this::handleSlotClick);
+        slot.setOnDragDropped(e -> controller.handleDragDropped(e, slot));
+        slot.setOnMouseClicked(controller::handleSlotClick);
 
         return slot;
     }
 
-    /**
-     * Configures the layout and styling of a slot.
-     */
     private void configureSlotLayout(StackPane slot) {
         slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
         slot.setMinSize(SLOT_SIZE, SLOT_SIZE);
@@ -261,135 +209,24 @@ public class InventoryPanel extends BorderPane {
         )));
     }
 
-    /**
-     * Handles drag initiation for items.
-     */
-    private void handleDragDetected(javafx.scene.input.MouseEvent event, StackPane slot,
-                                    int slotIndex, Container container) {
-        Item item = getItemInSlot(slotIndex, container);
-        if (item == null || item.getQuantity() <= 0) return;
-
-        Image dragImage = getItemImage(item);
-        if (dragImage == null) {
-            System.out.printf((DRAG_FAIL_MSG) + "%n", item.getDisplayName());
-            return;
-        }
-
-        Dragboard db = slot.startDragAndDrop(TransferMode.MOVE);
-        ClipboardContent content = new ClipboardContent();
-        content.putString("item");
-        db.setContent(content);
-
-        slot.getProperties().put("draggedItem", item);
-        slot.getProperties().put("draggedFromContainer", container);
-        slot.getProperties().put("draggedFromSlotIndex", slotIndex);
-
-        // Create drag image
-        Canvas snapshotCanvas = new Canvas(ITEM_SIZE, ITEM_SIZE);
-        GraphicsContext gc = snapshotCanvas.getGraphicsContext2D();
-        gc.drawImage(dragImage, 0, 0, ITEM_SIZE, ITEM_SIZE);
-        db.setDragView(snapshotCanvas.snapshot(null, null), event.getX(), event.getY());
-
-        System.out.printf((DRAG_START_MSG) + "%n", item.getDisplayName(), slotIndex);
-        event.consume();
+    /** Highlights a slot as a valid drop target. */
+    void showDropHighlight(StackPane slot) {
+        slot.setBorder(new Border(new BorderStroke(
+                DRAG_HIGHLIGHT_COLOR, BorderStrokeStyle.SOLID,
+                new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(2))
+        ));
     }
 
-    /**
-     * Handles drag-over events for potential drop targets.
-     */
-    private void handleDragOver(javafx.scene.input.DragEvent event, StackPane slot, int slotIndex) {
-        if (event.getGestureSource() != slot && event.getDragboard().hasString()) {
-            slot.setBorder(new Border(new BorderStroke(
-                    DRAG_HIGHLIGHT_COLOR, BorderStrokeStyle.SOLID,
-                    new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(2))
-            ));
-            event.acceptTransferModes(TransferMode.MOVE);
-            System.out.printf((DRAG_OVER_ACCEPT_MSG) + "%n", slotIndex);
-        } else {
-            System.out.printf((DRAG_OVER_REJECT_MSG) + "%n", slotIndex);
-        }
-        event.consume();
-    }
-
-    /**
-     * Restores a slot's default border.
-     */
-    private void restoreSlotBorder(StackPane slot) {
+    /** Restores a slot's default border. */
+    void restoreSlotBorder(StackPane slot) {
         slot.setBorder(new Border(new BorderStroke(
                 SLOT_BORDER_COLOR, BorderStrokeStyle.SOLID,
                 new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(1))
         ));
     }
 
-    /**
-     * Handles item drop events.
-     */
-    private void handleDragDropped(javafx.scene.input.DragEvent event, StackPane slot) {
-        restoreSlotBorder(slot);
-        System.out.printf((DRAG_DROP_MSG) + "%n", ((SlotContext) slot.getUserData()).index);
-
-        Dragboard db = event.getDragboard();
-        boolean success = false;
-
-        if (db.hasString() && event.getGestureSource() instanceof Node sourceNode) {
-            Item draggedItem = (Item) sourceNode.getProperties().get("draggedItem");
-            Container sourceContainer = (Container) sourceNode.getProperties().get("draggedFromContainer");
-            Integer sourceSlotIndex = (Integer) sourceNode.getProperties().get("draggedFromSlotIndex");
-            SlotContext targetContext = (SlotContext) slot.getUserData();
-
-            if (validateDragOperation(draggedItem, sourceContainer, sourceSlotIndex)) {
-                System.out.printf((DRAG_DROP_DETAIL_MSG) + "%n",
-                        draggedItem.getDisplayName(), sourceSlotIndex, targetContext.index);
-
-                if (onItemDroppedInsideCallback != null) {
-                    onItemDroppedInsideCallback.transfer(
-                            sourceSlotIndex, sourceContainer,
-                            targetContext.index, targetContext.container,
-                            draggedItem
-                    );
-                    success = true;
-                }
-            }
-        }
-
-        event.setDropCompleted(success);
-        event.consume();
-    }
-
-    /**
-     * Validates drag operation parameters.
-     */
-    private boolean validateDragOperation(Item draggedItem, Container sourceContainer, Integer sourceSlotIndex) {
-        if (draggedItem == null) {
-            System.out.println("DRAG DROP: Missing dragged item");
-            return false;
-        }
-        if (sourceContainer == null) {
-            System.out.println("DRAG DROP: Missing source container");
-            return false;
-        }
-        if (sourceSlotIndex == null) {
-            System.out.println("DRAG DROP: Missing source slot index");
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Handles slot click events.
-     */
-    private void handleSlotClick(javafx.scene.input.MouseEvent event) {
-        SlotContext context = (SlotContext) ((Node) event.getSource()).getUserData();
-        System.out.printf((SLOT_CLICK_MSG) + "%n", context.index);
-
-        handleSlotSelection(context.index, context.container == gameState.getPlayer());
-        event.consume();
-    }
-
-    /**
-     * Retrieves an item from a specific slot in a container.
-     */
-    private Item getItemInSlot(int slotIndex, Container container) {
+    /** Retrieves an item from a specific slot in a container. */
+    Item getItemInSlot(int slotIndex, Container container) {
         if (container == null || slotIndex < 0 || slotIndex >= container.getCapacity()) {
             return null;
         }
@@ -397,10 +234,8 @@ public class InventoryPanel extends BorderPane {
         return (slotIndex < items.size()) ? items.get(slotIndex) : null;
     }
 
-    /**
-     * Context object for inventory slots.
-     */
-    private static class SlotContext {
+    /** Context object for inventory slots, stored as the slot user data. */
+    static class SlotContext {
         int index;
         Container container;
 
@@ -410,9 +245,11 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
-    /**
-     * Updates the inventory display based on current state.
-     */
+    // ==================================================================
+    //  Display updates
+    // ==================================================================
+
+    /** Updates the inventory display based on current state. */
     public void updateInventoryDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
 
@@ -423,24 +260,18 @@ public class InventoryPanel extends BorderPane {
         updateInformationDisplay();
     }
 
-    /**
-     * Updates the information panel based on current selection.
-     */
     private void updateInformationDisplay() {
-        if (selectedSlotIndex != -1) {
+        if (controller.getSelectedSlotIndex() != -1) {
             updateItemSelectionDisplay();
-        } else if (selectedRecipe != null) {
-            itemInfoPanel.displayRecipe(selectedRecipe);
+        } else if (controller.getSelectedRecipe() != null) {
+            itemInfoPanel.displayRecipe(controller.getSelectedRecipe());
         } else {
             itemInfoPanel.clearInfo();
         }
     }
 
-    /**
-     * Updates display for item slot selection.
-     */
     private void updateItemSelectionDisplay() {
-        Container currentContainer = selectedSlotIsPlayerInventory ?
+        Container currentContainer = controller.isSelectedSlotInPlayerInventory() ?
                 gameState.getPlayer() : secondaryContainer;
 
         if (currentContainer == null) {
@@ -448,27 +279,32 @@ public class InventoryPanel extends BorderPane {
             return;
         }
 
-        Item currentItem = getItemInSlot(selectedSlotIndex, currentContainer);
+        Item currentItem = getItemInSlot(controller.getSelectedSlotIndex(), currentContainer);
         if (currentItem != null) {
             itemInfoPanel.displayItem(currentItem);
-            highlightSlot(selectedSlotIndex, true);
+            highlightSlot(controller.getSelectedSlotIndex(), true);
         } else {
             clearSelection();
         }
     }
 
-    /**
-     * Clears current selection state.
-     */
-    private void clearSelection() {
-        highlightSlot(selectedSlotIndex, false);
-        selectedSlotIndex = -1;
+    /** Clears the slot selection and the information panel. */
+    void clearSelection() {
+        highlightSlot(controller.getSelectedSlotIndex(), false);
+        controller.setSelectedSlotIndex(-1);
         itemInfoPanel.clearInfo();
     }
 
-    /**
-     * Updates grid contents for a container.
-     */
+    /** Shows a recipe in the information panel. */
+    void showRecipeInfo(Recipe recipe) {
+        itemInfoPanel.displayRecipe(recipe);
+    }
+
+    /** @return the recipe selected in the crafting list, or null */
+    Recipe getSelectedCraftingRecipe() {
+        return craftingListPanel.getSelectedRecipe();
+    }
+
     private void updateGridContents(GridPane grid, Container container) {
         int cols = grid.getColumnConstraints().size();
 
@@ -484,18 +320,12 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
-    /**
-     * Updates a slot's context data.
-     */
     private void updateSlotContext(StackPane slot, int index, Container container) {
         SlotContext context = (SlotContext) slot.getUserData();
         context.index = index;
         context.container = container;
     }
 
-    /**
-     * Updates a slot's visual representation.
-     */
     private void updateSlotVisuals(StackPane slot, int index, Container container) {
         slot.getChildren().clear();
         Item item = getItemInSlot(index, container);
@@ -505,9 +335,11 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
-    /**
-     * Opens the player inventory display.
-     */
+    // ==================================================================
+    //  Open and close
+    // ==================================================================
+
+    /** Opens the player inventory display. */
     public void openPlayerInventory() {
         this.secondaryContainer = null;
         cleanRightContainer();
@@ -518,6 +350,8 @@ public class InventoryPanel extends BorderPane {
 
     /**
      * Opens a dual inventory display (player + secondary container).
+     *
+     * @param otherContainer the secondary container, such as a chest
      */
     public void openDualInventory(Container otherContainer) {
         this.secondaryContainer = Objects.requireNonNull(otherContainer, "Secondary container cannot be null");
@@ -528,24 +362,16 @@ public class InventoryPanel extends BorderPane {
         setManaged(true);
     }
 
-    /**
-     * Initializes the secondary inventory grid.
-     */
     private void initializeSecondaryInventory() {
         List<StackPane> slots = createInventorySlots(secondaryContainer.getCapacity(), secondaryContainer);
         secondaryInventoryGrid = GridUtils.createGrid(slots);
     }
 
-    /**
-     * Configures layout for dual inventory mode.
-     */
     private void configureDualInventoryLayout() {
-        // Clear right container
         VBox rightContainer = (VBox) getRight();
         rightContainer.getChildren().clear();
         rightContainer.getChildren().addAll(secondaryInventoryLabel, secondaryInventoryGrid);
 
-        // Configure center container
         HBox centerContainer = new HBox(20);
         centerContainer.setAlignment(Pos.CENTER);
         centerContainer.getChildren().addAll(
@@ -554,23 +380,17 @@ public class InventoryPanel extends BorderPane {
         );
         setCenter(centerContainer);
 
-        // Hide crafting panel
         craftingListPanel.setVisible(false);
         craftingListPanel.setManaged(false);
     }
 
-    /**
-     * Creates a titled inventory box.
-     */
     private VBox createInventoryBox(String title, GridPane grid) {
         VBox box = new VBox(10);
         box.getChildren().addAll(createTitle(title), grid);
         return box;
     }
 
-    /**
-     * Closes the inventory panel and resets state.
-     */
+    /** Closes the inventory panel and resets state. */
     public void closeInventory() {
         this.secondaryContainer = null;
         resetLayout();
@@ -579,25 +399,17 @@ public class InventoryPanel extends BorderPane {
         setManaged(false);
     }
 
-    /**
-     * Resets the layout to default configuration.
-     */
     private void resetLayout() {
-        // Restore center layout
         VBox centerContainer = new VBox(ITEM_SPACING);
         centerContainer.setAlignment(Pos.CENTER);
         centerContainer.getChildren().addAll(createTitle(PLAYER_INVENTORY_TITLE), playerInventoryGrid);
         setCenter(centerContainer);
 
-        // Restore right container
         cleanRightContainer();
         craftingListPanel.setVisible(true);
         craftingListPanel.setManaged(true);
     }
 
-    /**
-     * Clears the right container of secondary inventory elements.
-     */
     private void cleanRightContainer() {
         if (getRight() instanceof VBox rightContainer) {
             rightContainer.getChildren().removeAll(secondaryInventoryLabel, secondaryInventoryGrid);
@@ -605,93 +417,27 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
-    /**
-     * Clears panel state and selection.
-     */
     private void clearState() {
         itemInfoPanel.clearInfo();
-        highlightSlot(selectedSlotIndex, false);
-        selectedSlotIndex = -1;
-        selectedRecipe = null;
+        highlightSlot(controller.getSelectedSlotIndex(), false);
+        controller.setSelectedSlotIndex(-1);
+        controller.setSelectedRecipe(null);
     }
 
-    // Event handler methods ==================================================
+    // ==================================================================
+    //  Slot highlight and item visuals
+    // ==================================================================
 
     /**
-     * Handles slot selection logic.
-     */
-    private void handleSlotSelection(int clickedSlotIndex, boolean isPlayerInventorySlot) {
-        Container container = isPlayerInventorySlot ? gameState.getPlayer() : secondaryContainer;
-        Item item = getItemInSlot(clickedSlotIndex, container);
-
-        if (item != null) {
-            updateSlotSelection(clickedSlotIndex, isPlayerInventorySlot);
-            selectedRecipe = null;
-        } else {
-            clearSelection();
-        }
-        Platform.runLater(this::updateInventoryDisplay);
-    }
-
-    /**
-     * Updates state for new slot selection.
-     */
-    private void updateSlotSelection(int slotIndex, boolean isPlayerInventory) {
-        // Clear previous selection
-        if (selectedSlotIndex != -1) {
-            highlightSlot(selectedSlotIndex, false);
-        }
-
-        // Set new selection
-        selectedSlotIndex = slotIndex;
-        selectedSlotIsPlayerInventory = isPlayerInventory;
-        highlightSlot(selectedSlotIndex, true);
-    }
-
-    /**
-     * Handles recipe selection.
-     */
-    private void handleRecipeSelected(Recipe recipe) {
-        // Clear item selection
-        if (selectedSlotIndex != -1) {
-            highlightSlot(selectedSlotIndex, false);
-            selectedSlotIndex = -1;
-        }
-
-        this.selectedRecipe = recipe;
-        itemInfoPanel.displayRecipe(recipe);
-    }
-
-    /**
-     * Handles craft button click.
-     */
-    private void handleCraftButtonClick() {
-        Recipe recipe = craftingListPanel.getSelectedRecipe();
-        if (recipe == null) {
-            System.err.printf((CRAFT_FAIL_MSG) + "%n", "No recipe selected");
-            return;
-        }
-        if (onCraftRecipeCallback == null) {
-            System.err.printf((CRAFT_FAIL_MSG) + "%n", "Callback not set");
-            return;
-        }
-
-        onCraftRecipeCallback.craft(recipe);
-        updateInventoryDisplay();
-    }
-
-    // UI helper methods ======================================================
-
-    /**
-     * Highlights or unhighlights a slot.
+     * Highlights or unhighlights a slot of the grid that holds the current selection.
      *
-     * @param index Slot index to modify
+     * @param index     Slot index to modify
      * @param highlight True to highlight, false to restore
      */
-    private void highlightSlot(int index, boolean highlight) {
+    void highlightSlot(int index, boolean highlight) {
         if (index < 0) return;
 
-        GridPane targetGrid = selectedSlotIsPlayerInventory ?
+        GridPane targetGrid = controller.isSelectedSlotInPlayerInventory() ?
                 playerInventoryGrid : secondaryInventoryGrid;
 
         if (targetGrid == null) return;
@@ -710,9 +456,6 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
-    /**
-     * Applies highlight styling to a slot.
-     */
     private void applySlotHighlight(StackPane slot, boolean highlight) {
         if (highlight) {
             slot.setBorder(new Border(new BorderStroke(
@@ -720,16 +463,10 @@ public class InventoryPanel extends BorderPane {
                     new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(2))
             ));
         } else {
-            slot.setBorder(new Border(new BorderStroke(
-                    SLOT_BORDER_COLOR, BorderStrokeStyle.SOLID,
-                    new CornerRadii(SLOT_CORNER_RADIUS), new BorderWidths(1))
-            ));
+            restoreSlotBorder(slot);
         }
     }
 
-    /**
-     * Creates an item image view.
-     */
     private ImageView createItemImage(Item item) {
         ImageView imageView = new ImageView(getItemImage(item));
         imageView.setFitWidth(ITEM_SIZE);
@@ -738,9 +475,6 @@ public class InventoryPanel extends BorderPane {
         return imageView;
     }
 
-    /**
-     * Creates quantity text display.
-     */
     private Text createQuantityText(Item item) {
         if (item == null || item.getQuantity() <= 1) {
             return new Text("");
@@ -751,27 +485,18 @@ public class InventoryPanel extends BorderPane {
         return text;
     }
 
-    // Utility methods ========================================================
-
-    /**
-     * Retrieves an item's image representation.
-     */
-    private Image getItemImage(Item item) {
+    /** Retrieves an item's image representation, generating a fallback when no sprite exists. */
+    Image getItemImage(Item item) {
         if (item == null) return null;
 
-        // Try getting sprite first
         SpriteManager.SpriteMetadata metadata = SpriteManager.getInstance().getItemSprite(item.getType());
         if (metadata != null && metadata.getImage() != null) {
             return metadata.getImage();
         }
 
-        // Generate fallback
         return generateFallbackImage(item.getType());
     }
 
-    /**
-     * Generates a fallback image for an item type.
-     */
     private Image generateFallbackImage(ItemType itemType) {
         Canvas canvas = new Canvas(ITEM_SIZE, ITEM_SIZE);
         GraphicsContext gc = canvas.getGraphicsContext2D();
@@ -780,32 +505,54 @@ public class InventoryPanel extends BorderPane {
         return canvas.snapshot(null, null);
     }
 
-    // Callback setters =======================================================
+    // ==================================================================
+    //  Public API delegated to the controller
+    // ==================================================================
 
+    /**
+     * Sets the callback run when an item is dropped on a slot.
+     *
+     * @param callback the callback
+     */
     public void setOnItemDroppedInside(ItemTransferCallback callback) {
-        this.onItemDroppedInsideCallback = callback;
+        controller.setOnItemDroppedInsideCallback(callback);
     }
 
+    /**
+     * Sets the callback run when an item is dropped outside the inventory.
+     *
+     * @param callback the callback
+     */
     public void setOnItemDroppedOutside(ItemDroppedOutsideCallback callback) {
-        this.onItemDroppedOutsideCallback = callback;
+        controller.setOnItemDroppedOutsideCallback(callback);
     }
 
+    /**
+     * Sets the callback run when the craft button is pressed.
+     *
+     * @param callback the callback
+     */
     public void setOnCraftRecipe(CraftRecipeCallback callback) {
-        this.onCraftRecipeCallback = callback;
+        controller.setOnCraftRecipeCallback(callback);
     }
 
+    /**
+     * Sets the recipes shown in the crafting list.
+     *
+     * @param recipes the recipes
+     */
     public void setCraftingRecipes(List<Recipe> recipes) {
         craftingListPanel.setRecipes(recipes);
     }
 
-    // Getters for callbacks ==================================================
-
+    /** @return the callback run when an item is dropped on a slot */
     public ItemTransferCallback getOnItemDroppedInsideCallback() {
-        return onItemDroppedInsideCallback;
+        return controller.getOnItemDroppedInsideCallback();
     }
 
+    /** @return the callback run when an item is dropped outside the inventory */
     public ItemDroppedOutsideCallback getOnItemDroppedOutsideCallback() {
-        return onItemDroppedOutsideCallback;
+        return controller.getOnItemDroppedOutsideCallback();
     }
 
 }

@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
-import javafx.scene.paint.Color;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
  * Defines all building types available in the game with their properties.
@@ -15,23 +15,23 @@ public enum BuildingType {
     // ==================================================================
     WALL(
             "A sturdy wall block, keeping out the baddies and making your fortress strong.",
-            Color.GRAY
+            Rgba.GRAY
     ),
     DOOR(
             "A door that swings open to new adventures, or slams shut on pesky intruders.",
-            Color.BROWN
+            Rgba.BROWN
     ),
     BRIDGE(
             "A bridge block, connecting distant lands and making travel a breeze.",
-            Color.DARKGOLDENROD
+            Rgba.DARK_GOLDENROD
     ),
     DOCK(
             "A dock for fishing, docking boats, or just hanging out by the water.",
-            Color.DARKBLUE
+            Rgba.DARK_BLUE
     ),
     FENCE(
             "A fence to keep the critters out and your garden safe from nibblers.",
-            Color.BROWN.brighter()
+            Rgba.BROWN.brighter()
     ),
 
     // ==================================================================
@@ -39,19 +39,19 @@ public enum BuildingType {
     // ==================================================================
     CHEST(
             "A reliable chest, ideal for stashing treasures and hoarding snacks.",
-            Color.BROWN.darker()
+            Rgba.BROWN.darker()
     ),
     FURNACE(
             "A blazing furnace, ready to melt down ore or cook a midnight snack.",
-            Color.DARKRED
+            Rgba.DARK_RED
     ),
     ANVIL(
             "The trusty anvil for forging weapons, tools, and heroic dreams.",
-            Color.DIMGRAY
+            Rgba.DIM_GRAY
     ),
     WORKBENCH(
             "A humble workbench, where ideas take shape and stuff gets crafted.",
-            Color.PERU
+            Rgba.PERU
     ),
 
     // ==================================================================
@@ -59,11 +59,11 @@ public enum BuildingType {
     // ==================================================================
     STANDING_TORCH(
             "A beacon in the dark, lighting the way for weary adventurers.",
-            Color.ORANGE
+            Rgba.ORANGE
     ),
     CAMPFIRE(
             "A cozy campfire, perfect for warmth and swapping survival stories.",
-            Color.RED
+            Rgba.RED
     ),
 
     // ==================================================================
@@ -71,7 +71,7 @@ public enum BuildingType {
     // ==================================================================
     BED(
             "A soft bed that guarantees rest after a long day of exploration.",
-            Color.LIGHTPINK
+            Rgba.LIGHT_PINK
     );
 
     // ==================================================================
@@ -79,7 +79,7 @@ public enum BuildingType {
     // ==================================================================
     private final String displayName;
     private final String description;
-    private final Color baseColor;
+    private final Rgba baseColor;
 
     // ==================================================================
     //  Constructor
@@ -91,7 +91,7 @@ public enum BuildingType {
      * @param description Flavor text explaining the building's purpose
      * @param baseColor   Primary color for visual representation
      */
-    BuildingType(String description, Color baseColor) {
+    BuildingType(String description, Rgba baseColor) {
         this.description = description;
         this.baseColor = baseColor;
         this.displayName = generateDisplayName(name());
@@ -112,7 +112,7 @@ public enum BuildingType {
     }
 
     /** @return Base color for visual representation */
-    public Color getBaseColor() {
+    public Rgba getBaseColor() {
         return baseColor;
     }
 

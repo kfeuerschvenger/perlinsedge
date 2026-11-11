@@ -1,10 +1,13 @@
 package com.feuerschvenger.perlinsedge.domain.entities;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Base class for all game entities (Player, Enemies, NPCs, etc.).
  * Provides core functionality for positioning, health management, death handling,
  * and smooth rendering through position interpolation.
  */
+@Slf4j
 public abstract class Entity {
     // ==================================================================
     //  Direction Constants (8-way movement)
@@ -131,7 +134,7 @@ public abstract class Entity {
         if (isDead) return;
 
         isDead = true;
-        System.out.println(this.getClass().getSimpleName() + " has died!");
+        log.info("{} has died", this.getClass().getSimpleName());
     }
 
     /**
@@ -144,7 +147,7 @@ public abstract class Entity {
         isDead = false;
         health = maxHealth;
         setPosition(x, y);
-        System.out.println(this.getClass().getSimpleName() + " respawned at (" + x + ", " + y + ")");
+        log.info("{} respawned at ({}, {})", this.getClass().getSimpleName(), x, y);
     }
 
     // ==================================================================

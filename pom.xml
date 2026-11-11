@@ -24,6 +24,7 @@
     <maven-shade-plugin.version>3.6.2</maven-shade-plugin.version>
 
     <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
+    <versions-maven-plugin.version>2.25.1</versions-maven-plugin.version>
 
     <!-- JavaFX native classifier. Set by the OS profiles below, override with -Djavafx.platform=linux.
          The sentinel makes the build fail on an unsupported platform instead of picking the wrong natives. -->
@@ -85,6 +86,16 @@
   </dependencies>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <!-- Release workflow sets the version from the tag with versions:set -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>${versions-maven-plugin.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

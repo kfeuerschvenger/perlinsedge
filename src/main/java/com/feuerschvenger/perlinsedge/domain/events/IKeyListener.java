@@ -1,12 +1,15 @@
 package com.feuerschvenger.perlinsedge.domain.events;
 
-import javafx.scene.input.KeyCode;
-
 /**
  * Interface to listen for key actions in the game.
  */
 public interface IKeyListener {
 
-    void onKeyAction(KeyCode code);
+    /**
+     * Called when a key the game cares about is pressed.
+     *
+     * @param key the pressed key
+     */
+    void onKeyAction(GameKey key);
 
 }

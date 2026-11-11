@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import javafx.scene.canvas.GraphicsContext;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 
 /**
@@ -73,7 +74,7 @@ public final class FxEnemyDrawingHelper {
         final double shadowY = centerY - (shadowHeight * HALF) + shadowOffset; // This centerY already includes getRenderOffsetY
 
         // Create shadow color with proper opacity
-        final Color baseShadowColor = slime.getColor().darker().darker();
+        final Color baseShadowColor = FxColors.toFx(slime.getColor()).darker().darker();
         final Color shadowColor = new Color(
                 baseShadowColor.getRed(),
                 baseShadowColor.getGreen(),
@@ -112,7 +113,7 @@ public final class FxEnemyDrawingHelper {
         final double bodyY = centerY - (height * HALF); // centerY already includes offset for jumping
 
         // Render body
-        gc.setFill(slime.getColor());
+        gc.setFill(FxColors.toFx(slime.getColor()));
         gc.fillOval(bodyX, bodyY, width, height);
     }
 
@@ -127,7 +128,7 @@ public final class FxEnemyDrawingHelper {
      */
     public static void drawGenericEnemy(GraphicsContext gc, double screenX, double screenY, double zoom, Enemy enemy) {
         double size = 30 * zoom;
-        gc.setFill(enemy.getColor());
+        gc.setFill(FxColors.toFx(enemy.getColor()));
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1 * zoom);
         gc.fillOval(screenX - size / 2, screenY - size / 2, size, size);

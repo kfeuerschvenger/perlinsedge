@@ -1,8 +1,9 @@
 package com.feuerschvenger.perlinsedge.ui.controller;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import com.feuerschvenger.perlinsedge.domain.events.IKeyListener;
-import javafx.scene.input.KeyCode;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Consumer;
 
@@ -11,6 +12,7 @@ import java.util.function.Consumer;
  * and access various debug features.
  * Implements IKeyListener to respond to keyboard events.
  */
+@Slf4j
 public class KeyController implements IKeyListener {
 
     AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
@@ -55,29 +57,19 @@ public class KeyController implements IKeyListener {
     }
 
     @Override
-    public void onKeyAction(KeyCode code) {
+    public void onKeyAction(GameKey key) {
 
-        // --------------------------------------
-        // Handle number keys for hotbar selection (1-9)
-        // --------------------------------------
-
-        if (code.isDigitKey()) {
-            try {
-                int number = Integer.parseInt(code.getChar());
-                if (number >= 1 && number <= 9) {
-                    if (onNumberKeyPress != null) {
-                        onNumberKeyPress.accept(number);
-                    }
-                    return;
-                }
-            } catch (NumberFormatException ignored) { }
+        // Number keys select hotbar slots 1 to 9
+        if (key.isDigit()) {
+            if (onNumberKeyPress != null) {
+                onNumberKeyPress.accept(key.getDigit());
+            }
+            return;
         }
 
-        switch (code) {
+        switch (key) {
 
-            // --------------------------------------
             // ------------- Game keys --------------
-            // --------------------------------------
 
             case ESCAPE:
                 if (togglePauseMenuAction != null) togglePauseMenuAction.run();
@@ -95,9 +87,7 @@ public class KeyController implements IKeyListener {
                 if (centerCameraAction != null) centerCameraAction.run();
                 break;
 
-            // --------------------------------------
             // ----------- Debugging keys -----------
-            // --------------------------------------
 
             case F1:
                 toggleDebugMode();
@@ -114,6 +104,8 @@ public class KeyController implements IKeyListener {
             case F5:
                 generateNewRandomMap();
                 break;
+            default:
+                break;
         }
     }
 
@@ -123,7 +115,7 @@ public class KeyController implements IKeyListener {
     private void toggleDebugMode() {
         boolean newDebugState = !debug.isEnabled();
         debug.setEnabled(newDebugState);
-        System.out.println("Debug Mode: " + (newDebugState ? "ON" : "OFF"));
+        log.info("Debug Mode: {}", newDebugState ? "ON" : "OFF");
     }
 
     /**
@@ -133,7 +125,7 @@ public class KeyController implements IKeyListener {
     private void toggleGrayScaleMode() {
         boolean newGrayScaleState = !debug.isGrayscaleEnabled();
         debug.setGrayscaleEnabled(newGrayScaleState);
-        System.out.println("Gray Scale Mode: " + (newGrayScaleState ? "ENABLED" : "DISABLED"));
+        log.info("Gray Scale Mode: {}", newGrayScaleState ? "ENABLED" : "DISABLED");
     }
 
     /**
@@ -146,7 +138,7 @@ public class KeyController implements IKeyListener {
         }
         boolean newDebugTextState = !debug.isTextEnabled();
         debug.setTextEnabled(newDebugTextState);
-        System.out.println("Debug Text: " + (newDebugTextState ? "VISIBLE" : "HIDDEN"));
+        log.info("Debug Text: {}", newDebugTextState ? "VISIBLE" : "HIDDEN");
     }
 
     /**

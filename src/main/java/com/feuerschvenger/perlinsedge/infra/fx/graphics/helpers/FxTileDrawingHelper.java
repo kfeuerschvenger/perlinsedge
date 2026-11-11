@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
@@ -65,7 +66,7 @@ public final class FxTileDrawingHelper {
         double halfW = config.graphics().getTileHalfWidth() * zoom;
         double halfH = config.graphics().getTileHalfHeight() * zoom;
         final double baseHeight = config.graphics().getTileVisualBaseHeight() * zoom;
-        final Color baseColor = tile.getColor();
+        final Color baseColor = FxColors.toFx(tile.getColor());
         final boolean isWater = tile.getType().isWater();
 
         // Scale water tiles slightly larger

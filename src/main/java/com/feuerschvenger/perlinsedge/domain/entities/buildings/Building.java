@@ -1,76 +1,44 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
-import javafx.scene.canvas.GraphicsContext;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Abstract base class for all constructible structures in the game world.
  * Defines core properties and behaviors common to all buildings, including position,
- * type, physical properties, and interaction mechanics.
+ * type, physical properties, and interaction mechanics. Drawing lives in the rendering layer.
  */
+@Slf4j
+@Getter
 public abstract class Building {
-    // ==================================================================
-    //  Instance Properties
-    // ==================================================================
+    /** X-coordinate in tile units. */
     protected final int tileX;
+    /** Y-coordinate in tile units. */
     protected final int tileY;
+    /** Classification of the building. */
     protected final BuildingType type;
-    protected boolean isSolid; // Whether the building blocks movement. Not final to allow toggling (e.g., for doors)
+    /** Whether the building blocks movement. Not final to allow toggling (e.g., for doors). */
+    protected boolean isSolid;
+    /** Whether the building can be destroyed. */
     protected final boolean isDestructible;
-
-    // ==================================================================
-    //  Constructor
-    // ==================================================================
 
     /**
      * Creates a new building instance at the specified tile position.
      *
-     * @param tileX         X-coordinate in tile units
-     * @param tileY         Y-coordinate in tile units
-     * @param type          Classification of the building
-     * @param isSolid       Whether the building blocks movement
+     * @param tileX          X-coordinate in tile units
+     * @param tileY          Y-coordinate in tile units
+     * @param type           Classification of the building
+     * @param isSolid        Whether the building blocks movement
      * @param isDestructible Whether the building can be destroyed
      */
-    public Building(int tileX, int tileY, BuildingType type, boolean isSolid, boolean isDestructible) {
+    protected Building(int tileX, int tileY, BuildingType type, boolean isSolid, boolean isDestructible) {
         this.tileX = tileX;
         this.tileY = tileY;
         this.type = type;
         this.isSolid = isSolid;
         this.isDestructible = isDestructible;
     }
-
-    // ==================================================================
-    //  Accessor Methods
-    // ==================================================================
-
-    /** @return X-coordinate in tile units */
-    public int getTileX() {
-        return tileX;
-    }
-
-    /** @return Y-coordinate in tile units */
-    public int getTileY() {
-        return tileY;
-    }
-
-    /** @return Classification of the building */
-    public BuildingType getType() {
-        return type;
-    }
-
-    /** @return True if this building blocks entity movement */
-    public boolean isSolid() {
-        return isSolid;
-    }
-
-    /** @return True if this building can be destroyed */
-    public boolean isDestructible() {
-        return isDestructible;
-    }
-
-    // ==================================================================
-    //  Interaction Methods
-    // ==================================================================
 
     /**
      * Handles player interaction with this building.
@@ -79,23 +47,7 @@ public abstract class Building {
      * @return True if the interaction was handled, false to propagate
      */
     public boolean onInteract(Tile tile) {
-        System.out.printf("Interacted with %s at (%d, %d)%n",
-                type.getDisplayName(), tileX, tileY);
+        log.debug("Interacted with {} at ({}, {})", type.getDisplayName(), tileX, tileY);
         return false;
     }
-
-    // ==================================================================
-    //  Rendering Methods
-    // ==================================================================
-
-    /**
-     * Renders the building using isometric projection principles.
-     * Must be implemented by concrete building types.
-     *
-     * @param gc      Graphics context for drawing
-     * @param screenX Screen X-coordinate for tile origin
-     * @param screenY Screen Y-coordinate for tile origin
-     * @param zoom    Current zoom level
-     */
-    public abstract void draw(GraphicsContext gc, double screenX, double screenY, double zoom);
 }

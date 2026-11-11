@@ -12,10 +12,12 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.util.StringConverter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.text.DecimalFormat;
 import java.util.Random;
 
+@Slf4j
 public class MapConfigPanel extends VBox {
 
     private ComboBox<MapType> mapTypeComboBox;
@@ -188,7 +190,7 @@ public class MapConfigPanel extends VBox {
                     long newSeed = Long.parseLong(seedInputField.getText());
                     updateSeedAndNotify(newSeed, false);
                 } catch (NumberFormatException e) {
-                    System.err.println("Invalid seed input: '" + seedInputField.getText() + "'. Restoring previous seed.");
+                    log.warn("Invalid seed input: '{}'. Restoring previous seed.", seedInputField.getText());
                     seedInputField.setText(String.valueOf(currentSeed));
                 }
             }
@@ -198,7 +200,7 @@ public class MapConfigPanel extends VBox {
                 long newSeed = Long.parseLong(seedInputField.getText());
                 updateSeedAndNotify(newSeed, false);
             } catch (NumberFormatException e) {
-                System.err.println("Invalid seed input: '" + seedInputField.getText() + "'. Restoring previous seed.");
+                log.warn("Invalid seed input: '{}'. Restoring previous seed.", seedInputField.getText());
                 seedInputField.setText(String.valueOf(currentSeed));
             }
         });
