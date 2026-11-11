@@ -6,18 +6,14 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
-import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDroppedOutsideCallback;
+import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import javafx.application.Platform;
+import javafx.event.EventHandler;
 import javafx.scene.Node;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.Image;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.DragEvent;
-import javafx.scene.input.Dragboard;
+import javafx.scene.Scene;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.input.TransferMode;
 import javafx.scene.layout.StackPane;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +21,22 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Behaviour of the {@link InventoryPanel}: drag and drop between slots, slot and recipe selection,
- * and the craft action. The panel keeps the layout and drawing, this class keeps the decisions and the callbacks.
+ * Behaviour of the {@link InventoryPanel}: dragging stacks between slots and out of the panel, slot and recipe
+ * selection, and the craft action. The panel keeps the layout and drawing, this class keeps the decisions and the
+ * callbacks.
+ * <p>
+ * The drag is tracked here instead of with the platform drag and drop, which delivers no mouse events while it runs
+ * and so cannot see the right button. The press on a slot is remembered, and a filter on the scene follows the mouse
+ * from then on, wherever it goes: past a few pixels the stack is picked up, a right click throws one item and keeps
+ * the rest in hand, and releasing the left button either drops the stack on a slot or throws it into the world.
  */
 @Slf4j
 @RequiredArgsConstructor
 class InventoryController {
+    /** Distance the mouse must travel with the button held before a press on a slot becomes a drag. */
+    private static final double DRAG_THRESHOLD_PIXELS = 4.0;
+    /** Opacity of the slot a stack is being dragged from. */
+    private static final double DRAGGED_SLOT_OPACITY = 0.45;
 
     private final InventoryPanel view;
     private final GameStateManager gameState;
@@ -40,7 +46,7 @@ class InventoryController {
     private ItemTransferCallback onItemDroppedInsideCallback;
     @Getter
     @Setter
-    private ItemDroppedOutsideCallback onItemDroppedOutsideCallback;
+    private ItemDropCallback onItemDroppedCallback;
     @Setter
     private CraftRecipeCallback onCraftRecipeCallback;
 
@@ -56,12 +62,22 @@ class InventoryController {
     @Setter
     private Recipe selectedRecipe;
 
+    /** Slot the mouse is over, or null. */
+    private StackPane hoveredSlot;
+    /** Slot the left button went down on and has not come up yet, or null. */
+    private StackPane pressedSlot;
+    private double pressSceneX;
+    private double pressSceneY;
+    /** The stack in hand, or null when nothing is being dragged. */
+    private DragSession session;
+    /** Slot highlighted as the place the stack would go, or null. */
+    private StackPane highlightedTarget;
+
+    private final EventHandler<MouseEvent> sceneMouseFilter = this::handleSceneMouse;
+
     // ==================================================================
     //  Hover
     // ==================================================================
-
-    /** Slot the mouse is over, or null. */
-    private StackPane hoveredSlot;
 
     void handleSlotHover(StackPane slot, boolean entered) {
         if (entered) {
@@ -84,8 +100,7 @@ class InventoryController {
      */
     SlotRef hoveredOrSelectedSlot() {
         if (hoveredSlot != null) {
-            InventoryPanel.SlotContext context = (InventoryPanel.SlotContext) hoveredSlot.getUserData();
-            return new SlotRef(context.container, context.index);
+            return InventoryPanel.refOf(hoveredSlot);
         }
         if (selectedSlotIndex == -1) {
             return null;
@@ -95,94 +110,182 @@ class InventoryController {
     }
 
     // ==================================================================
-    //  Drag and drop
+    //  Drag
     // ==================================================================
 
-    void handleDragDetected(MouseEvent event, StackPane slot, int slotIndex, Container container) {
-        Item item = view.getItemInSlot(slotIndex, container);
-        if (item == null || item.getQuantity() <= 0) return;
+    /**
+     * Follows the mouse on a scene for as long as the panel is part of it.
+     *
+     * @param oldScene scene the panel left, or null
+     * @param newScene scene the panel joined, or null
+     */
+    void bindScene(Scene oldScene, Scene newScene) {
+        if (oldScene != null) {
+            oldScene.removeEventFilter(MouseEvent.ANY, sceneMouseFilter);
+        }
+        if (newScene != null) {
+            newScene.addEventFilter(MouseEvent.ANY, sceneMouseFilter);
+        }
+    }
 
-        Image dragImage = view.getItemImage(item);
-        if (dragImage == null) {
-            log.debug("DRAG FAIL: No image for {}", item.getDisplayName());
+    /** Remembers a left button press on a slot: it becomes a drag once the mouse has moved far enough. */
+    void handleSlotPressed(MouseEvent event, StackPane slot) {
+        if (event.getButton() != MouseButton.PRIMARY) {
             return;
         }
-
-        Dragboard db = slot.startDragAndDrop(TransferMode.MOVE);
-        ClipboardContent content = new ClipboardContent();
-        content.putString("item");
-        db.setContent(content);
-
-        slot.getProperties().put("draggedItem", item);
-        slot.getProperties().put("draggedFromContainer", container);
-        slot.getProperties().put("draggedFromSlotIndex", slotIndex);
-
-        Canvas snapshotCanvas = new Canvas(InventoryPanel.ITEM_SIZE, InventoryPanel.ITEM_SIZE);
-        GraphicsContext gc = snapshotCanvas.getGraphicsContext2D();
-        gc.drawImage(dragImage, 0, 0, InventoryPanel.ITEM_SIZE, InventoryPanel.ITEM_SIZE);
-        db.setDragView(snapshotCanvas.snapshot(null, null), event.getX(), event.getY());
-
-        log.debug("DRAG START: {} from slot {}", item.getDisplayName(), slotIndex);
-        event.consume();
+        pressedSlot = slot;
+        pressSceneX = event.getSceneX();
+        pressSceneY = event.getSceneY();
     }
 
-    void handleDragOver(DragEvent event, StackPane slot, int slotIndex) {
-        if (event.getGestureSource() != slot && event.getDragboard().hasString()) {
-            view.showDropHighlight(slot);
-            event.acceptTransferModes(TransferMode.MOVE);
-            log.trace("DRAG OVER: Slot {} - accepted", slotIndex);
-        } else {
-            log.trace("DRAG OVER: Slot {} - rejected", slotIndex);
+    /** @return true while a stack is in hand */
+    boolean isDragging() {
+        return session != null;
+    }
+
+    /** Puts a stack in hand back without changing anything, for when the panel closes mid drag. */
+    void cancelDrag() {
+        if (session != null) {
+            log.debug("DRAG CANCEL: {}", session.item().getDisplayName());
         }
-        event.consume();
+        endDrag();
+        pressedSlot = null;
     }
 
-    void handleDragDropped(DragEvent event, StackPane slot) {
-        view.restoreSlotBorder(slot);
-        log.debug("DRAG DROP: Slot {}", ((InventoryPanel.SlotContext) slot.getUserData()).index);
+    private void handleSceneMouse(MouseEvent event) {
+        if (event.getEventType() == MouseEvent.MOUSE_PRESSED) {
+            handleScenePressed(event);
+        } else if (event.getEventType() == MouseEvent.MOUSE_DRAGGED) {
+            handleSceneDragged(event);
+        } else if (event.getEventType() == MouseEvent.MOUSE_RELEASED) {
+            handleSceneReleased(event);
+        } else if (session != null && event.getButton() == MouseButton.SECONDARY) {
+            // The click that follows a right press must not select the slot under the mouse
+            event.consume();
+        }
+    }
 
-        Dragboard db = event.getDragboard();
-        boolean success = false;
+    private void handleScenePressed(MouseEvent event) {
+        if (session == null) {
+            return;
+        }
+        if (event.getButton() == MouseButton.SECONDARY) {
+            event.consume();
+            dropOneFromHand();
+        } else if (event.getButton() == MouseButton.PRIMARY) {
+            // A new left press while a stack is in hand means the release of the last drag was never seen
+            cancelDrag();
+        }
+    }
 
-        if (db.hasString() && event.getGestureSource() instanceof Node sourceNode) {
-            Item draggedItem = (Item) sourceNode.getProperties().get("draggedItem");
-            Container sourceContainer = (Container) sourceNode.getProperties().get("draggedFromContainer");
-            Integer sourceSlotIndex = (Integer) sourceNode.getProperties().get("draggedFromSlotIndex");
-            InventoryPanel.SlotContext targetContext = (InventoryPanel.SlotContext) slot.getUserData();
+    private void handleSceneDragged(MouseEvent event) {
+        if (session == null && pressedSlot != null && event.isPrimaryButtonDown()
+                && Math.hypot(event.getSceneX() - pressSceneX, event.getSceneY() - pressSceneY) >= DRAG_THRESHOLD_PIXELS) {
+            startDrag(event);
+        }
+        if (session == null) {
+            return;
+        }
+        view.moveDragGhost(event.getSceneX(), event.getSceneY());
+        highlightTargetAt(event.getSceneX(), event.getSceneY());
+    }
 
-            if (validateDragOperation(draggedItem, sourceContainer, sourceSlotIndex)) {
-                log.debug("DRAG DROP: {} from slot {} to {}",
-                        draggedItem.getDisplayName(), sourceSlotIndex, targetContext.index);
+    private void handleSceneReleased(MouseEvent event) {
+        if (event.getButton() != MouseButton.PRIMARY) {
+            if (session != null) {
+                event.consume();
+            }
+            return;
+        }
+        if (session != null) {
+            finishDrag(event);
+            event.consume();
+        }
+        pressedSlot = null;
+    }
 
+    private void startDrag(MouseEvent event) {
+        SlotRef origin = InventoryPanel.refOf(pressedSlot);
+        Item item = origin.item();
+        if (item == null || item.getQuantity() <= 0) {
+            pressedSlot = null;
+            return;
+        }
+        session = new DragSession(origin);
+        pressedSlot.setOpacity(DRAGGED_SLOT_OPACITY);
+        view.showDragGhost(item, event.getSceneX(), event.getSceneY());
+        log.debug("DRAG START: {}x {} from slot {}", item.getQuantity(), item.getDisplayName(), origin.slot());
+    }
+
+    private void finishDrag(MouseEvent event) {
+        DragSession finished = session;
+        SlotRef target = view.slotAt(event.getSceneX(), event.getSceneY());
+        endDrag();
+
+        DragSession.Release outcome = finished.release(target);
+        log.debug("DRAG RELEASE: {} {}", finished.item().getDisplayName(), outcome);
+        switch (outcome) {
+            case TRANSFER -> {
                 if (onItemDroppedInsideCallback != null) {
-                    onItemDroppedInsideCallback.transfer(
-                            sourceSlotIndex, sourceContainer,
-                            targetContext.index, targetContext.container,
-                            draggedItem
-                    );
-                    success = true;
+                    onItemDroppedInsideCallback.transfer(finished.origin().slot(), finished.origin().container(),
+                            target.slot(), target.container(), finished.item());
                 }
             }
+            case DROP_STACK -> {
+                if (onItemDroppedCallback != null) {
+                    onItemDroppedCallback.drop(finished.origin(), true);
+                }
+            }
+            case CANCEL -> { }
         }
-
-        event.setDropCompleted(success);
-        event.consume();
+        view.updateInventoryDisplay();
     }
 
-    private boolean validateDragOperation(Item draggedItem, Container sourceContainer, Integer sourceSlotIndex) {
-        if (draggedItem == null) {
-            log.debug("DRAG DROP: Missing dragged item");
-            return false;
+    /** A right click while dragging throws one item and keeps the rest in hand. */
+    private void dropOneFromHand() {
+        if (!session.isStillValid()) {
+            cancelDrag();
+            return;
         }
-        if (sourceContainer == null) {
-            log.debug("DRAG DROP: Missing source container");
-            return false;
+        boolean thrown = onItemDroppedCallback != null && onItemDroppedCallback.drop(session.origin(), false);
+        log.debug("DRAG DROP ONE: {} thrown={}", session.item().getDisplayName(), thrown);
+        if (session.isStillValid()) {
+            view.refreshDragGhost(session.item());
+        } else {
+            endDrag();
+            pressedSlot = null;
         }
-        if (sourceSlotIndex == null) {
-            log.debug("DRAG DROP: Missing source slot index");
-            return false;
+    }
+
+    private void highlightTargetAt(double sceneX, double sceneY) {
+        StackPane under = view.slotNodeAt(sceneX, sceneY);
+        if (under == pressedSlot) {
+            under = null;
         }
-        return true;
+        if (under == highlightedTarget) {
+            return;
+        }
+        clearTargetHighlight();
+        if (under != null) {
+            view.showDropHighlight(under);
+            highlightedTarget = under;
+        }
+    }
+
+    private void clearTargetHighlight() {
+        if (highlightedTarget != null) {
+            view.restoreSlotBorder(highlightedTarget);
+            highlightedTarget = null;
+        }
+    }
+
+    private void endDrag() {
+        clearTargetHighlight();
+        if (pressedSlot != null) {
+            pressedSlot.setOpacity(1.0);
+        }
+        view.hideDragGhost();
+        session = null;
     }
 
     // ==================================================================
@@ -245,6 +348,7 @@ class InventoryController {
             return;
         }
 
+        log.debug("CRAFT CLICK: {}", recipe.getName());
         onCraftRecipeCallback.craft(recipe);
         view.updateInventoryDisplay();
     }

@@ -102,7 +102,7 @@ public class GameOrchestrator {
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         transitions.setOnPaused(() -> render(lastAlpha, 0));
         inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
-                resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas,
+                resourceManager, camera, inputHandler, minimapDrawer, mainCanvas,
                 transitions::showOpenContainer);
     }
 
@@ -209,7 +209,6 @@ public class GameOrchestrator {
         log.debug("Initializing game components");
         mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
-        inputWiring.registerSceneDragHandlers();
         inputWiring.registerKeyboard(createKeyController());
         inputWiring.registerWheelInterceptor(
                 (deltaY, ctrlDown) -> !gameState.isPlayerDead() && hotbarManager.handleWheel(deltaY, ctrlDown));
@@ -222,19 +221,10 @@ public class GameOrchestrator {
             Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
 
-        inventoryPanel.setOnItemDroppedOutside(item -> {
-            Player player = gameState.getPlayer();
-            if (player == null) return;
-
-            // The stack leaves whichever container holds it; nothing is dropped when no container does,
-            // otherwise a second drop event for the same stack would duplicate it.
-            boolean removed = inventoryManager.removeItemFromPlayerInventory(item)
-                    || containerManager.removeFromOpenContainer(item);
-            if (removed) {
-                itemDropManager.throwItem(item, player);
-            }
-            Platform.runLater(inventoryPanel::updateInventoryDisplay);
-        });
+        // The stack leaves the slot it was dragged from and is thrown in front of the player in one step, so a
+        // second event for the same stack finds the slot empty and cannot duplicate it
+        inventoryPanel.setOnItemDropped((slot, wholeStack) ->
+                itemDropManager.dropFromSlot(slot.container(), slot.slot(), wholeStack));
 
         inventoryPanel.setOnCraftRecipe(recipe -> {
             inventoryManager.handleCraftRecipe(recipe);

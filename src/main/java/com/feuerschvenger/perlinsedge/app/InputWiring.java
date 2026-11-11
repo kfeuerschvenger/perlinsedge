@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
 import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -16,22 +15,15 @@ import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.infra.fx.input.ScrollInterceptor;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
-import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
-import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDroppedOutsideCallback;
 import javafx.event.EventHandler;
-import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
-import javafx.scene.input.DragEvent;
-import javafx.scene.input.Dragboard;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.input.TransferMode;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Registers the mouse, drag-and-drop and keyboard handlers of the game and translates
- * canvas events into game actions.
+ * Registers the mouse and keyboard handlers of the game and translates canvas events into game actions.
+ * Dragging items out of the inventory is handled by the inventory panel itself.
  * Handler references are kept in fields so they can be removed with {@link #unregisterMouseHandlers()}.
  */
 @Slf4j
@@ -43,7 +35,6 @@ public class InputWiring {
     private final ContainerManager containerManager;
     private final PlayerManager playerManager;
     private final ResourceManager resourceManager;
-    private final InventoryPanel inventoryPanel;
     private final FxCamera camera;
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
@@ -54,7 +45,6 @@ public class InputWiring {
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
     private final EventHandler<MouseEvent> canvasExitHandler = this::handleMouseExit;
     private final EventHandler<MouseEvent> minimapClickHandler = this::handleMinimapClick;
-    private final EventHandler<DragEvent> sceneDragDroppedHandler = this::handleSceneDragDropped;
 
     /**
      * Creates the wiring.
@@ -64,8 +54,7 @@ public class InputWiring {
      * @param containerManager open container tracking
      * @param playerManager    player movement
      * @param resourceManager  resource harvesting
-     * @param inventoryPanel   inventory view
-     * @param camera           camera used to convert screen to tile coordinates
+     * @param camera          camera used to convert screen to tile coordinates
      * @param inputHandler     keyboard and scroll input source
      * @param minimapDrawer    minimap view
      * @param mainCanvas       canvas that receives game clicks
@@ -73,7 +62,7 @@ public class InputWiring {
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
                        ContainerManager containerManager, PlayerManager playerManager,
-                       ResourceManager resourceManager, InventoryPanel inventoryPanel, FxCamera camera,
+                       ResourceManager resourceManager, FxCamera camera,
                        FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas,
                        Runnable onContainerOpened) {
         this.gameState = gameState;
@@ -81,7 +70,6 @@ public class InputWiring {
         this.containerManager = containerManager;
         this.playerManager = playerManager;
         this.resourceManager = resourceManager;
-        this.inventoryPanel = inventoryPanel;
         this.camera = camera;
         this.inputHandler = inputHandler;
         this.minimapDrawer = minimapDrawer;
@@ -105,24 +93,6 @@ public class InputWiring {
      */
     public void registerWheelInterceptor(ScrollInterceptor interceptor) {
         inputHandler.setScrollInterceptor(interceptor);
-    }
-
-    /** Configures drag-and-drop handlers on the game scene. */
-    public void registerSceneDragHandlers() {
-        Scene scene = mainCanvas.getScene();
-        if (scene == null) {
-            log.warn("Scene not available for drag handlers");
-            return;
-        }
-
-        scene.setOnDragOver(event -> {
-            if (event.getDragboard().hasString()) {
-                event.acceptTransferModes(TransferMode.ANY);
-            }
-            event.consume();
-        });
-
-        scene.setOnDragDropped(sceneDragDroppedHandler);
     }
 
     /**
@@ -152,31 +122,6 @@ public class InputWiring {
     // ==================================================================
     //  Event handlers
     // ==================================================================
-
-    private void handleSceneDragDropped(DragEvent event) {
-        Dragboard db = event.getDragboard();
-        if (!db.hasString()) {
-            event.setDropCompleted(false);
-            return;
-        }
-
-        Node sourceNode = (Node) event.getGestureSource();
-        if (sourceNode == null) {
-            event.setDropCompleted(false);
-            return;
-        }
-
-        Item draggedItem = (Item) sourceNode.getProperties().get("draggedItem");
-        ItemDroppedOutsideCallback callback = inventoryPanel.getOnItemDroppedOutsideCallback();
-
-        if (draggedItem != null && callback != null) {
-            callback.drop(draggedItem);
-            event.setDropCompleted(true);
-        } else {
-            event.setDropCompleted(false);
-        }
-        event.consume();
-    }
 
     private void handleCanvasClick(MouseEvent event) {
         if (gameState.isGamePaused() || gameState.isPlayerDead()) return;

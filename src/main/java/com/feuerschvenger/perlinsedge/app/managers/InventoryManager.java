@@ -2,7 +2,6 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,23 +39,6 @@ public class InventoryManager {
 
         executeCrafting(player, recipe);
         updateInventoryDisplay();
-    }
-
-    /**
-     * Removes a specific item instance from the player's inventory.
-     *
-     * @param item The exact item instance to remove (by reference equality)
-     * @return true if the item was in the inventory and has been removed
-     */
-    public boolean removeItemFromPlayerInventory(Item item) {
-        Player player = getPlayer();
-        if (player == null) return false;
-
-        boolean removed = ContainerManager.removeInstance(player, item);
-        if (removed) {
-            updateInventoryDisplay();
-        }
-        return removed;
     }
 
     /**
