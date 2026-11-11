@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -28,14 +27,6 @@ class DomainIsFrameworkFreeTest {
     private static final Pattern OUTER_LAYER_USAGE =
             Pattern.compile("\\bcom\\.feuerschvenger\\.perlinsedge\\.(?:app|ui|infra)\\b[\\w.]*");
 
-    /**
-     * Known layering debt, keyed by the exact path of the file relative to the domain folder.
-     * Only references that start with the listed package prefix are exempt, any other outer-layer reference in the
-     * same file still fails the build. An entry whose file no longer has an exempt reference fails the build too,
-     * so the debt list can only shrink. Do not add entries.
-     */
-    private static final Map<String, String> KNOWN_OUTER_LAYER_DEBT = Map.of();
-
     @Test
     void domainSourcesNeverUseJavaFx() throws IOException {
         List<String> offenders = new ArrayList<>();
@@ -53,31 +44,12 @@ class DomainIsFrameworkFreeTest {
         List<String> offenders = new ArrayList<>();
         for (Path file : domainFiles()) {
             String path = relative(file);
-            String exemptPrefix = KNOWN_OUTER_LAYER_DEBT.get(path);
             for (String reference : outerLayerReferences(codeOf(file))) {
-                if (exemptPrefix == null || !reference.startsWith(exemptPrefix)) {
-                    offenders.add(path + " -> " + reference);
-                }
+                offenders.add(path + " -> " + reference);
             }
         }
 
         assertTrue(offenders.isEmpty(), "Domain files depending on app, ui or infra: " + offenders);
-    }
-
-    @Test
-    void everyKnownDebtEntryStillViolatesSoTheListOnlyShrinks() throws IOException {
-        List<String> stale = new ArrayList<>();
-        for (Map.Entry<String, String> entry : KNOWN_OUTER_LAYER_DEBT.entrySet()) {
-            Path file = DOMAIN_SOURCES.resolve(entry.getKey());
-            assertTrue(Files.isRegularFile(file), "Debt entry points at a missing file: " + entry.getKey());
-            boolean stillViolates = outerLayerReferences(codeOf(file)).stream()
-                    .anyMatch(reference -> reference.startsWith(entry.getValue()));
-            if (!stillViolates) {
-                stale.add(entry.getKey());
-            }
-        }
-
-        assertTrue(stale.isEmpty(), "Remove these entries from KNOWN_OUTER_LAYER_DEBT, they no longer violate: " + stale);
     }
 
     @Test
