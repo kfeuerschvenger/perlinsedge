@@ -177,6 +177,8 @@ Ensure your code adheres to the project's style conventions and that all tests p
 
 MIT License. See `LICENSE` for details.
 
+Third-party assets keep their own licenses, listed in `docs/ASSETS-LICENSES.md`. The GUI font is Pixelify Sans, under the SIL Open Font License 1.1.
+
 ## Contact
 
 Questions or suggestions? Open an issue!

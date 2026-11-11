@@ -83,6 +83,7 @@ public class GameApplication extends Application {
 
         // Create scene with root pane
         Scene scene = new Scene(rootPane);
+        UiTheme.install(scene);
         primaryStage.setTitle("Perlin's Edge");
         primaryStage.setScene(scene);
 
