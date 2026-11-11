@@ -17,6 +17,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
@@ -218,7 +219,9 @@ public class FxRenderer {
                     // A resource blocks movement whether or not its image exists, so it is always queued;
                     // without an image the painter draws a stand-in shape.
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
-                    renderQueue.add(screenX, screenY, screenY + tileHeight * 0.5,
+                    // A struck resource shakes sideways for a moment, its shadow stays on the ground
+                    final double shakeX = HitShake.screenOffset(resource.secondsSinceHit(), ZoomSteps.artScale(zoom));
+                    renderQueue.add(screenX + shakeX, screenY, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
                     shadows.add(screenX, screenY + halfTileHeight,
                             GroundShadow.widthFor(resource.getType(),

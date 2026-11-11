@@ -20,6 +20,7 @@ public class Resource {
     private final long visualSeed;  // For sprite variations
 
     private boolean flashing = false;
+    private boolean struck = false;
     private long flashStartTime; // Cambiado a long
     private static final long FLASH_DURATION_NS = 200_000_000;
 
@@ -64,6 +65,16 @@ public class Resource {
     public void startFlashing() {
         this.flashing = true;
         this.flashStartTime = System.nanoTime();
+        this.struck = true;
+    }
+
+    /**
+     * Returns how long ago the resource was last struck, so the renderer can shake it.
+     *
+     * @return the elapsed seconds, or infinity when it was never struck
+     */
+    public double secondsSinceHit() {
+        return struck ? (System.nanoTime() - flashStartTime) / 1_000_000_000.0 : Double.POSITIVE_INFINITY;
     }
 
     public boolean isFlashing() {
