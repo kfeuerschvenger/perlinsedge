@@ -222,10 +222,14 @@ public class FxRenderer {
                     // without an image the painter draws a stand-in shape.
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
                     // A struck resource shakes sideways for a moment, its shadow stays on the ground
-                    final double shakeX = HitShake.screenOffset(resource.secondsSinceHit(), ZoomSteps.artScale(zoom));
-                    renderQueue.add(screenX + shakeX, screenY, screenY + tileHeight * 0.5,
+                    final double artScale = ZoomSteps.artScale(zoom);
+                    final double shakeX = HitShake.screenOffset(resource.secondsSinceHit(), artScale);
+                    // A low sprite is drawn lower so its foot touches the ground, and its shadow follows that contact point
+                    final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * artScale : 0.0;
+                    final double contact = spriteMetadata != null ? spriteMetadata.getContactArtPixels() * artScale : 0.0;
+                    renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
-                    shadows.add(screenX, screenY + halfTileHeight,
+                    shadows.add(screenX, screenY + halfTileHeight + contact,
                             GroundShadow.widthFor(resource.getType(),
                                     resourceImage != null ? resourceImage.getWidth() : FALLBACK_RESOURCE_ART_WIDTH),
                             1.0);

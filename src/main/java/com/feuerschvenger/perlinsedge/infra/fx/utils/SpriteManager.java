@@ -35,10 +35,26 @@ public final class SpriteManager {
     public static final class SpriteMetadata {
         private final Image image;
         private final double verticalOffset;
+        private final int dropArtPixels;
+        private final int contactArtPixels;
 
         public SpriteMetadata(Image image, double verticalOffset) {
+            this(image, verticalOffset, 0, 0);
+        }
+
+        /**
+         * Creates the metadata of a resource sprite.
+         *
+         * @param image            the sprite
+         * @param verticalOffset   the offset of an item icon, zero for a resource
+         * @param dropArtPixels    how far the sprite is drawn below the default anchor, see {@link ResourceAnchor}
+         * @param contactArtPixels how far below the tile centre the lowest painted pixel lies, where the shadow is centred
+         */
+        public SpriteMetadata(Image image, double verticalOffset, int dropArtPixels, int contactArtPixels) {
             this.image = image;
             this.verticalOffset = verticalOffset;
+            this.dropArtPixels = dropArtPixels;
+            this.contactArtPixels = contactArtPixels;
         }
 
         public Image getImage() {
@@ -47,6 +63,14 @@ public final class SpriteManager {
 
         public double getVerticalOffset() {
             return verticalOffset;
+        }
+
+        public int getDropArtPixels() {
+            return dropArtPixels;
+        }
+
+        public int getContactArtPixels() {
+            return contactArtPixels;
         }
     }
 
@@ -211,10 +235,25 @@ public final class SpriteManager {
                 if (image == null) {
                     break;
                 }
-                variants.add(new SpriteMetadata(image, 0.0));
+                variants.add(new SpriteMetadata(image, 0.0,
+                        ResourceAnchor.dropArtPixels(kind, bottomPadding(image)), ResourceAnchor.contactArtPixels(kind)));
             }
         }
         return variants;
+    }
+
+    /** Counts the fully transparent rows under the lowest painted pixel of an image. */
+    private static int bottomPadding(Image image) {
+        final PixelReader reader = image.getPixelReader();
+        final int width = (int) image.getWidth();
+        return ResourceAnchor.bottomPadding((int) image.getHeight(), row -> {
+            for (int x = 0; x < width; x++) {
+                if ((reader.getArgb(x, row) >>> 24) != 0) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 
     private void loadEntitySprites() {
