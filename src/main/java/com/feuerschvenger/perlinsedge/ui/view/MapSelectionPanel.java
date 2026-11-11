@@ -1,17 +1,17 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
-import javafx.beans.binding.Bindings;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -22,6 +22,7 @@ import java.util.function.Consumer;
  */
 @Slf4j
 public class MapSelectionPanel extends VBox {
+    private static final double THUMBNAIL_HEIGHT = 96;
 
     private Consumer<MapType> onMapSelected;
     private Runnable onBackAction;
@@ -36,19 +37,11 @@ public class MapSelectionPanel extends VBox {
         minWidthProperty().bind(prefWidthProperty());
         minHeightProperty().bind(prefHeightProperty());
 
-        // General styles for the panel
-        setStyle("-fx-background-color: rgba(0, 0, 0, 0.8);" +
-                "-fx-border-color: #333333;" +
-                "-fx-border-width: 2;" +
-                "-fx-padding: 20;");
+        getStyleClass().add(UiTheme.PANEL);
 
         // Title text
-        Text title = new Text("Select a Map");
-        // Bind font size to a percentage of panel height for responsiveness
-        title.fontProperty().bind(Bindings.createObjectBinding(() ->
-                        Font.font("Arial", Math.max(20, getHeight() * 0.06)), // Min 20, max 6% of height
-                heightProperty()));
-        title.setFill(Color.WHITE);
+        Label title = new Label(UiTheme.caps("Select a Map"));
+        title.getStyleClass().add(UiTheme.TITLE);
 
         // Configure map thumbnail paths
         setupMapThumbnails();
@@ -114,11 +107,6 @@ public class MapSelectionPanel extends VBox {
                 onBackAction.run();
             }
         });
-        // Bind font size for back button
-        backButton.fontProperty().bind(Bindings.createObjectBinding(() ->
-                        Font.font("Arial", Math.max(12, getHeight() * 0.03)), // Min 12, max 3% of height
-                heightProperty()));
-
 
         getChildren().addAll(title, mapGrid, backButton);
 
@@ -146,63 +134,51 @@ public class MapSelectionPanel extends VBox {
      * @return The configured Button.
      */
     private Button createMapButton(MapType mapType) {
-        Button button = new Button(mapType.getDisplayName()); // Displays the pretty name
+        Button button = new Button(UiTheme.caps(mapType.getDisplayName()));
+        button.getStyleClass().add(UiTheme.CARD);
         // Set maximum width/height so button fills its grid cell
         button.setMaxWidth(Double.MAX_VALUE);
         button.setMaxHeight(Double.MAX_VALUE);
-        // Bind font size to a percentage of button height for responsiveness
-        button.fontProperty().bind(Bindings.createObjectBinding(() ->
-                        Font.font("Arial", Math.max(14, button.getHeight() * 0.1)), // Min 14, max 10% of height
-                button.heightProperty()));
-        button.setTextFill(Color.WHITE);
-        button.setContentDisplay(javafx.scene.control.ContentDisplay.BOTTOM); // Place text below the image
+        button.setContentDisplay(ContentDisplay.TOP); // Place text below the image
 
-        // Load background image
-        String imageUrl = mapThumbnails.get(mapType);
-        if (imageUrl != null) {
-            try {
-                if (getClass().getResource(imageUrl) == null) {
-                    log.warn("Map thumbnail not found: {} (check path in src/main/resources)", imageUrl);
-                    button.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
-                } else {
-                    Image backgroundImage = new Image(getClass().getResourceAsStream(imageUrl));
-                    BackgroundImage bi = new BackgroundImage(backgroundImage,
-                            BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT,
-                            BackgroundPosition.CENTER,
-                            // Scale image to cover the button while maintaining aspect ratio
-                            new BackgroundSize(BackgroundSize.AUTO, BackgroundSize.AUTO, false, false, true, true));
-                    button.setBackground(new Background(bi));
-                }
-            } catch (Exception e) {
-                log.warn("Error loading image for {}: {}", mapType.name(), imageUrl, e);
-                button.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
-            }
-        } else {
-            button.setStyle("-fx-background-color: #444444; -fx-background-radius: 5;");
+        Image thumbnail = loadThumbnail(mapType);
+        if (thumbnail != null) {
+            ImageView view = new ImageView(thumbnail);
+            view.setPreserveRatio(true);
+            view.setSmooth(false);
+            view.setFitHeight(THUMBNAIL_HEIGHT);
+            button.setGraphic(view);
         }
-
-        // Styling and hover effects
-        button.setStyle(button.getStyle() + "; -fx-border-color: #555555; -fx-border-width: 2;");
-        button.setOnMouseEntered(e -> button.setStyle(button.getStyle().replace("#555555", "#FFFFFF"))); // Highlight border on hover
-        button.setOnMouseExited(e -> button.setStyle(button.getStyle().replace("#FFFFFF", "#555555"))); // Restore border on exit
-
         return button;
     }
 
+    /** Loads the thumbnail of a map type; a missing or unreadable file leaves the plain button. */
+    private Image loadThumbnail(MapType mapType) {
+        String imageUrl = mapThumbnails.get(mapType);
+        if (imageUrl == null) {
+            return null;
+        }
+        try (InputStream in = getClass().getResourceAsStream(imageUrl)) {
+            if (in == null) {
+                log.warn("Map thumbnail not found: {} (check path in src/main/resources)", imageUrl);
+                return null;
+            }
+            return new Image(in);
+        } catch (Exception e) {
+            log.warn("Error loading image for {}: {}", mapType.name(), imageUrl, e);
+            return null;
+        }
+    }
+
     /**
-     * Creates a standard menu button with common styling.
+     * Creates a standard menu button.
      * @param text The text for the button.
      * @return The configured Button.
      */
     private Button createMenuButton(String text) {
-        Button button = new Button(text);
-        button.setPrefWidth(150); // This will be fixed, but the overall panel scales
-        button.setPrefHeight(35);
-        button.setFont(Font.font("Arial", 16)); // Will be overridden by binding if added later
-        button.setTextFill(Color.WHITE);
-        button.setStyle("-fx-background-color: #555555; -fx-background-radius: 5;");
-        button.setOnMouseEntered(e -> button.setStyle("-fx-background-color: #777777; -fx-background-radius: 5;"));
-        button.setOnMouseExited(e -> button.setStyle("-fx-background-color: #555555; -fx-background-radius: 5;"));
+        Button button = new Button(UiTheme.caps(text));
+        button.setPrefWidth(160);
+        button.setPrefHeight(36);
         return button;
     }
 

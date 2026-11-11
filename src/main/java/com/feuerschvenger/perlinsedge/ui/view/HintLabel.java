@@ -21,8 +21,7 @@ public class HintLabel extends Label {
     public HintLabel() {
         setMouseTransparent(true);
         setOpacity(0);
-        setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"
-                + " -fx-background-color: rgba(0,0,0,0.65); -fx-background-radius: 8; -fx-padding: 6 14 6 14;");
+        getStyleClass().add(UiTheme.PILL);
 
         FadeTransition in = new FadeTransition(Duration.millis(FADE_IN_MS), this);
         in.setToValue(1);
@@ -38,7 +37,7 @@ public class HintLabel extends Label {
      * @param message text to show
      */
     public void show(String message) {
-        setText(message);
+        setText(UiTheme.caps(message));
         if (getOpacity() > 0) {
             // Already on screen: the hold restarts, but the opacity is left alone so repeated calls do not flicker
             cycle.stop();

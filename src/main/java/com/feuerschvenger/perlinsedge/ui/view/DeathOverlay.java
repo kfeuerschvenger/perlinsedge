@@ -12,9 +12,6 @@ import java.util.Locale;
  * It is hidden until the player dies. It takes mouse events, so a click on it never reaches the world behind it.
  */
 public class DeathOverlay extends VBox {
-    private static final String BACKDROP = "-fx-background-color: rgba(29,24,48,0.7);";
-    private static final String TITLE_STYLE = "-fx-text-fill: white; -fx-font-size: 64px; -fx-font-weight: bold;";
-    private static final String COUNTDOWN_STYLE = "-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;";
     private static final double SPACING = 16;
 
     private final Label countdown = new Label();
@@ -24,11 +21,11 @@ public class DeathOverlay extends VBox {
     public DeathOverlay() {
         setAlignment(Pos.CENTER);
         setSpacing(SPACING);
-        setStyle(BACKDROP);
+        getStyleClass().add(UiTheme.BACKDROP);
 
         Label title = new Label("YOU DIED");
-        title.setStyle(TITLE_STYLE);
-        countdown.setStyle(COUNTDOWN_STYLE);
+        title.getStyleClass().add(UiTheme.TITLE_DANGER);
+        countdown.getStyleClass().add(UiTheme.HEADING);
         getChildren().addAll(title, countdown);
 
         hide();

@@ -303,7 +303,7 @@
 
 .slider .axis {
     -fx-tick-label-fill: -pe-muted;
-    -fx-tick-label-font-size: 12px;
+    -fx-tick-label-font: 12px "Pixelify Sans";
     -fx-tick-length: 4;
     -fx-minor-tick-length: 2;
 }
