@@ -126,12 +126,13 @@ public class AppConfig {
 
         public float getTreeDensity() {
             return switch (currentMapType) {
-                case DARK_FOREST -> 0.478f;
-                case SWAMP -> 0.35f;
-                case DESERT -> 0.25f;
-                case TUNDRA -> 0.23f;
-                case MEDITERRANEAN -> 0.45f;
-                case ISLANDS -> 0.35f;
+                case DARK_FOREST -> 0.32f;
+                case SWAMP -> 0.32f;
+                case DESERT -> 0.10f;
+                case TUNDRA -> 0.34f;
+                case MEDITERRANEAN -> 0.17f;
+                case ISLANDS -> 0.19f;
+                case RIVERS -> 0.30f;
                 default -> baseTreeDensity;
             };
         }
