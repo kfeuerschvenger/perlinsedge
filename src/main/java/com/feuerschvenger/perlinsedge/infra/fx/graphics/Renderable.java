@@ -31,6 +31,13 @@ public final class Renderable {
         this.parentTile = parentTile;
     }
 
+    /** Drops the references to the game objects so a pooled instance does not keep them alive between frames. */
+    void clearReferences() {
+        object = null;
+        sprite = null;
+        parentTile = null;
+    }
+
     /** @return the X-coordinate on the canvas for drawing */
     public double screenX() {
         return screenX;

@@ -19,8 +19,15 @@ public final class RenderQueue {
     private final List<Renderable> pool = new ArrayList<>();
     private final List<Renderable> queue = new ArrayList<>();
 
-    /** Empties the queue for the next frame, keeping the recycled instances. */
+    /**
+     * Empties the queue for the next frame, keeping the recycled instances.
+     * The instances used by the frame drop their object, sprite and tile references, so a pooled instance never
+     * keeps a despawned enemy or a replaced map alive.
+     */
     public void clear() {
+        for (int i = 0; i < queue.size(); i++) {
+            queue.get(i).clearReferences();
+        }
         queue.clear();
     }
 

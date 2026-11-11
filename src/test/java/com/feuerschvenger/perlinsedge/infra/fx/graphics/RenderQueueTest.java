@@ -2,8 +2,12 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +91,25 @@ class RenderQueueTest {
         assertEquals(9, queue.get(0).drawDepth());
         assertEquals("b", queue.get(0).object());
         assertFalse(queue.get(0).isFlashing());
+    }
+
+    @Test
+    void clearDropsTheReferencesOfEveryUsedInstance() {
+        RenderQueue queue = new RenderQueue();
+        fill(queue, 5);
+        queue.sortByDepth();
+        List<Renderable> used = new ArrayList<>();
+        for (int i = 0; i < queue.size(); i++) {
+            used.add(queue.get(i));
+        }
+
+        queue.clear();
+
+        for (Renderable renderable : used) {
+            assertNull(renderable.object());
+            assertNull(renderable.sprite());
+            assertNull(renderable.parentTile());
+        }
     }
 
     @Test
