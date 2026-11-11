@@ -9,6 +9,7 @@ import java.util.*;
 /**
  * A* pathfinding implementation optimized for isometric grid-based worlds.
  * Features 8-directional movement, efficient path reconstruction, and walkability validation.
+ * A diagonal step is only allowed when both tiles it passes between are walkable, so paths never cut a corner.
  */
 public final class Pathfinder {
     // Reuse direction constants from IsometricUtils to prevent duplication
@@ -96,9 +97,19 @@ public final class Pathfinder {
             // Skip invalid or unwalkable positions
             if (!isWalkable(nx, ny)) continue;
 
+            // A diagonal step may not cut the corner of a blocked tile
+            if (isDiagonal(i) && !(isWalkable(current.x + MOVEMENT_DIRECTIONS[i][0], current.y)
+                    && isWalkable(current.x, current.y + MOVEMENT_DIRECTIONS[i][1]))) {
+                continue;
+            }
+
             processNeighbor(current, nx, ny, targetX, targetY,
                     i, openSet, cameFrom, gScores);
         }
+    }
+
+    private static boolean isDiagonal(int directionIndex) {
+        return MOVEMENT_DIRECTIONS[directionIndex][0] != 0 && MOVEMENT_DIRECTIONS[directionIndex][1] != 0;
     }
 
     /**
