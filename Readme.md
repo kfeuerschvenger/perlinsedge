@@ -55,7 +55,7 @@ Each map not only looks different but also features unique resources and special
 ### Building Mode
 
 - `B` toggles Building mode.
-- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages. `Q` and `E` are kept free for other actions.
+- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages. `E` is kept free for other actions.
 - Left-click to place, Right-click to demolish.
 - Color hints:
     - **Green**: Good to go.
@@ -63,11 +63,20 @@ Each map not only looks different but also features unique resources and special
     - **Red**: Nope, not here.
     - **Yellow**: Nothing selected!
 
+### Inventory
+
+- Drag a stack onto another slot to move, stack or swap it.
+- Drag a stack out of the panel (release it over anything that is not a slot) to throw the whole stack into the world.
+- Right-click while dragging to throw one item and keep dragging the rest.
+- `Q` over a slot throws one item, and `Ctrl+Q` throws the whole stack. With the mouse over no slot, they act on the selected slot.
+- Thrown items land one or two tiles ahead of you, in the direction you are facing, never inside a wall, water or a resource. Identical items thrown within a tile of each other merge into one stack.
+- You cannot pick up what you threw for two seconds, and items left on the ground vanish after five minutes of game time. Time spent paused does not count.
+
 ### Crafting
 
 1. Press `I` for inventory.
 2. Head to the Crafting list on the right.
-3. Click an item, then **Craft**... voilà!
+3. Click an item, then **Craft**... voilà! The ingredients are used up and the result goes into your bag. If something is missing, or the result does not fit, nothing is consumed and a hint says why.
 
 ## System Requirements
 
