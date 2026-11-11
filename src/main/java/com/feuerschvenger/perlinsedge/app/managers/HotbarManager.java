@@ -69,6 +69,21 @@ public class HotbarManager {
     }
 
     /**
+     * Uses a mouse wheel notch to flip the hotbar page while in building mode.
+     * The notch is left to the camera when the game is not in building mode or the hotbar has a single page.
+     *
+     * @param delta -1 for the previous page, 1 for the next one
+     * @return true when the notch changed the page and must not zoom the camera
+     */
+    public boolean handleWheel(int delta) {
+        if (!isInBuildingMode() || !buildingHotbarPanel.hasMultiplePages()) {
+            return false;
+        }
+        buildingHotbarPanel.changePage(delta);
+        return true;
+    }
+
+    /**
      * Checks if the hotbar is currently visible.
      * @return true if hotbar is visible, false otherwise
      */

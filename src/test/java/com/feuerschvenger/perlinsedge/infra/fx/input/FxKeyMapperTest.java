@@ -29,8 +29,14 @@ class FxKeyMapperTest {
 
     @Test
     void mapsTheHotbarPageKeys() {
-        assertEquals(Optional.of(GameKey.Q), FxKeyMapper.toGameKey(KeyCode.Q));
-        assertEquals(Optional.of(GameKey.E), FxKeyMapper.toGameKey(KeyCode.E));
+        assertEquals(Optional.of(GameKey.PAGE_UP), FxKeyMapper.toGameKey(KeyCode.PAGE_UP));
+        assertEquals(Optional.of(GameKey.PAGE_DOWN), FxKeyMapper.toGameKey(KeyCode.PAGE_DOWN));
+    }
+
+    @Test
+    void leavesQAndEUnmappedSoTheyStayFree() {
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E).isEmpty());
     }
 
     @Test

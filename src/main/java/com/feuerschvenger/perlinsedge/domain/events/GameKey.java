@@ -11,9 +11,9 @@ public enum GameKey {
     B,
     C,
     /** Previous page of the building hotbar. */
-    Q,
+    PAGE_UP,
     /** Next page of the building hotbar. */
-    E,
+    PAGE_DOWN,
     F1,
     F2,
     F3,

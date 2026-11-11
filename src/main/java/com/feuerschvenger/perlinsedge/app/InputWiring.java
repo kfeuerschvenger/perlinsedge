@@ -28,6 +28,8 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.IntPredicate;
+
 /**
  * Registers the mouse, drag-and-drop and keyboard handlers of the game and translates
  * canvas events into game actions.
@@ -95,6 +97,15 @@ public class InputWiring {
      */
     public void registerKeyboard(KeyController keyController) {
         inputHandler.setGameKeyListener(keyController);
+    }
+
+    /**
+     * Lets a handler use the mouse wheel before the camera does.
+     *
+     * @param interceptor receives -1 or 1 per wheel notch and returns true when it used the notch
+     */
+    public void registerWheelInterceptor(IntPredicate interceptor) {
+        inputHandler.setScrollInterceptor(interceptor);
     }
 
     /** Configures drag-and-drop handlers on the game scene. */

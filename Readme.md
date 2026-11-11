@@ -55,7 +55,7 @@ Each map not only looks different but also features unique resources and special
 ### Building Mode
 
 - `B` toggles Building mode.
-- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Q` and `E` (or the arrow buttons on the bar) flip between pages.
+- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages. `Q` and `E` are kept free for other actions.
 - Left-click to place, Right-click to demolish.
 - Color hints:
     - **Green**: Good to go.

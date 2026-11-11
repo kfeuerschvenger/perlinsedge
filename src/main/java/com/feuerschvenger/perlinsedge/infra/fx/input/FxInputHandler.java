@@ -8,6 +8,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 
 import java.util.Arrays;
+import java.util.function.IntPredicate;
 
 /**
  * Handles input events for the game, including keyboard and mouse interactions.
@@ -22,6 +23,7 @@ public class FxInputHandler {
     private final Canvas mainGameCanvas;
 
     private IKeyListener keyListener;
+    private IntPredicate scrollInterceptor;
 
     /**
      * Constructs a new FxInputHandler for handling input events in the game.
@@ -52,11 +54,26 @@ public class FxInputHandler {
     }
 
     /**
-     * Handles mouse scroll events to zoom the camera in or out.
+     * Sets a handler that gets the first chance at every wheel notch.
+     * It receives -1 for a wheel turned up or away and 1 for a wheel turned down, and returns true when it used the
+     * notch, which keeps the camera from zooming for it.
+     *
+     * @param interceptor the handler, or null to let every notch zoom
+     */
+    public void setScrollInterceptor(IntPredicate interceptor) {
+        this.scrollInterceptor = interceptor;
+    }
+
+    /**
+     * Handles mouse scroll events to zoom the camera in or out unless the interceptor used them.
      *
      * @param event The scroll event containing the scroll delta and mouse position.
      */
     private void handleScroll(ScrollEvent event) {
+        if (scrollInterceptor != null && event.getDeltaY() != 0
+                && scrollInterceptor.test(event.getDeltaY() > 0 ? -1 : 1)) {
+            return;
+        }
         double zoomFactor = event.getDeltaY() > 0 ? 1.05 : 0.95;
         camera.zoom(zoomFactor, event.getX(), event.getY());
     }

@@ -32,12 +32,19 @@ class KeyControllerTest {
     }
 
     @Test
-    void qAndEChangeTheHotbarPageBackwardsAndForwards() {
-        controller.onKeyAction(GameKey.Q);
-        controller.onKeyAction(GameKey.E);
-        controller.onKeyAction(GameKey.E);
+    void pageUpAndPageDownChangeTheHotbarPageBackwardsAndForwards() {
+        controller.onKeyAction(GameKey.PAGE_UP);
+        controller.onKeyAction(GameKey.PAGE_DOWN);
+        controller.onKeyAction(GameKey.PAGE_DOWN);
 
         assertEquals(List.of(-1, 1, 1), pageChanges);
+    }
+
+    @Test
+    void noGameKeyIsNamedQOrEBecauseTheyAreKeptFreeForOtherActions() {
+        for (GameKey key : GameKey.values()) {
+            assertFalse(key.name().equals("Q") || key.name().equals("E"), key.name());
+        }
     }
 
     @Test
@@ -73,8 +80,8 @@ class KeyControllerTest {
     void missingActionsAreIgnored() {
         KeyController bare = new KeyController(null, null, null, null, null, null, null, null, null);
 
-        bare.onKeyAction(GameKey.Q);
-        bare.onKeyAction(GameKey.E);
+        bare.onKeyAction(GameKey.PAGE_UP);
+        bare.onKeyAction(GameKey.PAGE_DOWN);
         bare.onKeyAction(GameKey.DIGIT_1);
         bare.onKeyAction(GameKey.SPACE);
     }

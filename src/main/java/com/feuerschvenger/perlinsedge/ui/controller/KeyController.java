@@ -90,10 +90,10 @@ public class KeyController implements IKeyListener {
             case C:
                 if (centerCameraAction != null) centerCameraAction.run();
                 break;
-            case Q:
+            case PAGE_UP:
                 if (onHotbarPageChange != null) onHotbarPageChange.accept(-1);
                 break;
-            case E:
+            case PAGE_DOWN:
                 if (onHotbarPageChange != null) onHotbarPageChange.accept(1);
                 break;
 

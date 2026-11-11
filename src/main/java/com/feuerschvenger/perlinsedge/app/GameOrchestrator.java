@@ -193,6 +193,7 @@ public class GameOrchestrator {
         setupInventoryCallbacks();
         inputWiring.registerSceneDragHandlers();
         inputWiring.registerKeyboard(createKeyController());
+        inputWiring.registerWheelInterceptor(hotbarManager::handleWheel);
         inputWiring.registerMouseHandlers();
     }
 
