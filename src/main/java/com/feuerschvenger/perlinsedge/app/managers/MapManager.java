@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.events.IMapGenerationListener;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
@@ -31,7 +30,7 @@ import java.util.function.Predicate;
  * Handles map creation based on configuration parameters and player position.
  */
 @Slf4j
-public class MapManager implements IConfigChangeListener, IMapGenerationListener {
+public class MapManager implements IMapGenerationListener {
     // Configuration constants
     private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
@@ -212,31 +211,6 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
                 MIN_WALKABLE_NEIGHBORS,
                 IsometricUtils.CARDINAL_DIRECTIONS
         );
-    }
-
-    /**
-     * Handles configuration changes from UI.
-     * Regenerates map with new parameters.
-     */
-    @Override
-    public void onMapConfigChanged(MapType mapType, long seed,
-                                   float heightFreq, int heightOctaves,
-                                   float tempFreq, int tempOctaves,
-                                   float moistureFreq, int moistureOctaves,
-                                   float stoneFreq, float stoneThreshold,
-                                   float crystalsFreq, float crystalsThreshold,
-                                   float treeDensity, float riverDensity) {
-        AppConfig.getInstance().world().setCurrentMapType(mapType);
-        generateNewMap(new MapGenerationContext(
-                mapType, seed,
-                heightFreq, heightOctaves,
-                tempFreq, tempOctaves,
-                moistureFreq, moistureOctaves,
-                stoneFreq, stoneThreshold,
-                crystalsFreq, crystalsThreshold,
-                treeDensity, riverDensity
-        ));
-        spawnEnemies();
     }
 
     /**

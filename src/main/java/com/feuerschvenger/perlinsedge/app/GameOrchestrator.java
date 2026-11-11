@@ -189,7 +189,7 @@ public class GameOrchestrator {
 
     private void initializeGameComponents() {
         log.debug("Initializing game components");
-        mapConfigPanel.setMapConfigListener(mapManager);
+        mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerSceneDragHandlers();
         inputWiring.registerKeyboard(createKeyController());
@@ -239,14 +239,42 @@ public class GameOrchestrator {
     private void regenerateMap() {
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
-        MapGenerationContext newContext = mapManager.createMapContext(
-                currentContext.getMapType(), new Random().nextLong()
-        );
-        mapManager.generateNewMap(newContext);
-        minimapDrawer.updateMap(gameState.getCurrentMap());
+        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
+    }
+
+    /** Applies a map configuration chosen in the map tuning panel by rebuilding the world with it. */
+    private void applyMapConfig(MapType mapType, long seed,
+                                float heightFreq, int heightOctaves,
+                                float tempFreq, int tempOctaves,
+                                float moistureFreq, int moistureOctaves,
+                                float stoneFreq, float stoneThreshold,
+                                float crystalsFreq, float crystalsThreshold,
+                                float treeDensity, float riverDensity) {
+        AppConfig.getInstance().world().setCurrentMapType(mapType);
+        rebuildWorld(new MapGenerationContext(
+                mapType, seed,
+                heightFreq, heightOctaves,
+                tempFreq, tempOctaves,
+                moistureFreq, moistureOctaves,
+                stoneFreq, stoneThreshold,
+                crystalsFreq, crystalsThreshold,
+                treeDensity, riverDensity
+        ));
+    }
+
+    /**
+     * Replaces the current map while the game keeps running.
+     * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
+     * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
+     */
+    private void rebuildWorld(MapGenerationContext context) {
+        leaveGame();
+        mapManager.generateNewMap(context);
         playerManager.initializePlayer();
         mapManager.spawnEnemies();
+        minimapDrawer.updateMap(gameState.getCurrentMap());
         centerOnPlayer();
+        startGameLoop();
     }
 
     // ==================================================================
