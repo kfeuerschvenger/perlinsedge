@@ -382,7 +382,7 @@ public class FxRenderer {
      */
     private boolean isTileVisible(double screenX, double screenY, double tileWidth, double tileHeight) {
         return ScreenCulling.isTileVisible(screenX, screenY, tileWidth, tileHeight,
-                canvas.getWidth(), canvas.getHeight());
+                canvas.getWidth(), canvas.getHeight(), ZoomSteps.artScale(camera.getZoom()));
     }
 
     /**
