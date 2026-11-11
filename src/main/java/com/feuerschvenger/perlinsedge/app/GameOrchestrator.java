@@ -90,7 +90,7 @@ public class GameOrchestrator {
         inventoryManager = new InventoryManager(this.gameState, inventoryPanel);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
         ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
-        itemDropManager = new ItemDropManager(this.gameState, inventoryPanel);
+        itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
@@ -229,7 +229,7 @@ public class GameOrchestrator {
             boolean removed = inventoryManager.removeItemFromPlayerInventory(item)
                     || containerManager.removeFromOpenContainer(item);
             if (removed) {
-                itemDropManager.createDroppedItem(item, player);
+                itemDropManager.throwItem(item, player);
             }
             Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });

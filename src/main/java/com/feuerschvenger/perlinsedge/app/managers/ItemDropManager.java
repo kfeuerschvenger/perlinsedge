@@ -1,68 +1,91 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.items.DropMerger;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
-import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemThrow;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.function.Predicate;
 
 /**
- * Manages dropped items in the game world, handling pickup mechanics, despawning, and item creation.
+ * Manages dropped items in the game world: the player throwing items out of a container, merging of nearby piles,
+ * pickup and despawning.
+ * Every time is read from the game clock of the {@link GameStateManager}, which stands still while the game is paused.
  */
 @Slf4j
 public class ItemDropManager {
-    // Configuration constants
-    private static final double DESPAWN_TIME_SECONDS = 300; // 5 minutes
-
-    // Tile validator for drop positions
-    private static final Predicate<Tile> DROP_VALIDATOR =
-            tile -> tile != null && tile.isWalkable();
-
-    // Dependencies
     private final GameStateManager gameState;
-    private final InventoryPanel inventoryPanel;
+    private final Runnable onInventoryChanged;
 
-    public ItemDropManager(GameStateManager gameState, InventoryPanel inventoryPanel) {
+    /**
+     * Creates the manager.
+     *
+     * @param gameState          shared game state
+     * @param onInventoryChanged called after the content of a container changed, so the views are redrawn
+     */
+    public ItemDropManager(GameStateManager gameState, Runnable onInventoryChanged) {
         this.gameState = gameState;
-        this.inventoryPanel = inventoryPanel;
+        this.onInventoryChanged = onInventoryChanged;
     }
 
     /**
-     * Creates a dropped item at a position adjacent to the player.
+     * Throws items out of a slot of a container into the world.
+     * Does nothing when the slot is empty or the player is missing or dead. A thrown stack lands up to two tiles away
+     * in the direction the player faces, see {@link ItemThrow}, and merges into the piles of the same type nearby.
      *
-     * @param item The item to drop
-     * @param player The player dropping the item
+     * @param container  container that holds the stack: the player inventory or an open chest
+     * @param slot       slot of the stack
+     * @param wholeStack true to throw the whole stack, false to throw one item
+     * @return true when something was thrown
      */
-    public void createDroppedItem(Item item, Player player) {
-        // Create a copy of the item to avoid reference issues
-        Item itemCopy = new Item(item.getType(), item.getQuantity());
+    public boolean dropFromSlot(Container container, int slot, boolean wholeStack) {
+        Player player = gameState.getPlayer();
+        if (player == null || player.isDead() || container == null) {
+            return false;
+        }
+        Item stack = container.getItemAt(slot);
+        if (stack == null || stack.getQuantity() <= 0) {
+            log.debug("DROP: slot {} is empty", slot);
+            return false;
+        }
 
-        int[] dropPos = IsometricUtils.findAdjacentPosition(
-                player.getCurrentTileX(),
-                player.getCurrentTileY(),
-                gameState.getCurrentMap(),
-                DROP_VALIDATOR,
-                IsometricUtils.ALL_DIRECTIONS
-        );
+        int amount = wholeStack ? stack.getQuantity() : 1;
+        if (amount >= stack.getQuantity()) {
+            container.setItemAt(slot, null);
+        } else {
+            stack.removeQuantity(amount);
+        }
+        throwItem(new Item(stack.getType(), amount), player);
+        onInventoryChanged.run();
+        return true;
+    }
 
-        DroppedItem dropped = new DroppedItem(
-                dropPos[0], dropPos[1],
-                itemCopy,
-                gameState.getGameTime(),
-                DroppedItem.DropSource.PLAYER
-        );
+    /**
+     * Throws an item from the player into the world.
+     *
+     * @param item   the thrown units, it is not stored itself
+     * @param player the thrower, whose tile and facing direction decide where the item lands
+     */
+    public void throwItem(Item item, Player player) {
+        int fromX = player.getCurrentTileX();
+        int fromY = player.getCurrentTileY();
+        int[] landing = ItemThrow.landingTile(gameState.getCurrentMap(), fromX, fromY, player.getDirection());
+        double now = gameState.getGameTime();
 
-        gameState.getDroppedItems().add(dropped);
-        log.debug("Dropped item: {} at ({}, {})",
-                item.getType().getDisplayName(), dropPos[0], dropPos[1]);
+        int remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(),
+                landing[0], landing[1], now);
+        if (remaining > 0) {
+            gameState.getDroppedItems().add(new DroppedItem(fromX, fromY, landing[0], landing[1],
+                    new Item(item.getType(), remaining), now, DroppedItem.DropSource.PLAYER));
+        }
+        log.debug("DROP: threw {}x {} from ({}, {}) to ({}, {}), {} not merged",
+                item.getQuantity(), item.getDisplayName(), fromX, fromY, landing[0], landing[1], remaining);
     }
 
     /**
@@ -73,29 +96,22 @@ public class ItemDropManager {
         checkItemPickup();
     }
 
-    /**
-     * Updates despawning logic for stale items.
-     */
     private void updateDespawning() {
         double currentTime = gameState.getGameTime();
-        List<DroppedItem> droppedItems = gameState.getDroppedItems();
-        Iterator<DroppedItem> iterator = droppedItems.iterator();
+        Iterator<DroppedItem> iterator = gameState.getDroppedItems().iterator();
 
         while (iterator.hasNext()) {
             DroppedItem item = iterator.next();
 
-            if (shouldDespawn(item, currentTime)) {
+            if (item.isExpired(currentTime)) {
                 iterator.remove();
-                logDespawn(item);
+                logDespawn(item, currentTime);
             }
         }
     }
 
-    /**
-     * Checks for and processes item pickups near the player.
-     */
     private void checkItemPickup() {
-        Player player = getPlayer();
+        Player player = gameState.getPlayer();
         if (player == null || player.isDead()) return;
 
         List<DroppedItem> droppedItems = gameState.getDroppedItems();
@@ -106,64 +122,30 @@ public class ItemDropManager {
         while (iterator.hasNext()) {
             DroppedItem item = iterator.next();
 
-            if (!isPickupValid(playerX, playerY, item)) continue;
-
-            processItemPickup(player, iterator, item);
+            if (item.canBePickedUp(playerX, playerY, gameState.getGameTime())) {
+                processItemPickup(player, iterator, item);
+            }
         }
     }
 
-    /**
-     * Validates if an item can be picked up: in range and past that item's own pickup delay.
-     */
-    private boolean isPickupValid(int playerX, int playerY, DroppedItem item) {
-        return item.canBePickedUp(playerX, playerY, gameState.getGameTime());
-    }
-
-    /**
-     * Attempts to pick up an item and updates game state accordingly.
-     */
     private void processItemPickup(Player player, Iterator<DroppedItem> iterator, DroppedItem item) {
         int quantityPickedUp = player.pickUpItem(item.getItem());
 
         if (quantityPickedUp <= 0) return;
 
         if (item.getItem().getQuantity() <= 0) {
-            iterator.remove(); // Removes item if fully picked up
+            iterator.remove();
         }
 
-        inventoryPanel.updateInventoryDisplay();
-        logPickup(item.getItem(), quantityPickedUp);
+        onInventoryChanged.run();
+        log.debug("Picked up {}x {}", quantityPickedUp, item.getItem().getDisplayName());
     }
 
-    /**
-     * Checks if an item should be despawned based on drop time.
-     */
-    private boolean shouldDespawn(DroppedItem item, double currentTime) {
-        return (currentTime - item.getDropTime()) > DESPAWN_TIME_SECONDS;
-    }
-
-    /**
-     * Retrieves the player instance if valid.
-     */
-    private Player getPlayer() {
-        return gameState.getPlayer();
-    }
-
-    /**
-     * Logs successful item pickup.
-     */
-    private void logPickup(Item item, int quantity) {
-        log.debug("Picked up {}x {}", quantity, item.getType().getDisplayName());
-    }
-
-    /**
-     * Logs item despawn event.
-     */
-    private void logDespawn(DroppedItem item) {
+    private void logDespawn(DroppedItem item, double currentTime) {
         if (log.isDebugEnabled()) {
             log.debug("Despawned {} (dropped {} minutes ago)",
                     item.getItem().getType().getDisplayName(),
-                    String.format(Locale.ROOT, "%.1f", (gameState.getGameTime() - item.getDropTime()) / 60));
+                    String.format(Locale.ROOT, "%.1f", (currentTime - item.getDropTime()) / 60));
         }
     }
 
