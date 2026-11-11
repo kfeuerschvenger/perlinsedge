@@ -18,6 +18,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.ResourceKinds;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
@@ -218,8 +219,13 @@ public class FxRenderer {
                 final Resource resource = tile.getWorldResource();
                 if (tile.hasResource() && !isGrayscaleEnabled && resource != null) {
                     boolean isFlashing = resource.isFlashing();
+                    // A desert tree is a palm near water and a cactus in the dry sand; the look-around only runs for it
+                    final String preferredKind = ResourceKinds.preferredKind(currentMapType, resource.getType(),
+                            ResourceKinds.dependsOnWater(currentMapType, resource.getType())
+                                    && ResourceKinds.isNearWater(map, x, y),
+                            x, y, worldSeed);
                     SpriteManager.SpriteMetadata spriteMetadata = spriteManager.getResourceSprite(
-                            currentMapType, resource.getType(), x, y, worldSeed
+                            currentMapType, resource.getType(), x, y, worldSeed, preferredKind
                     );
                     // A resource blocks movement whether or not its image exists, so it is always queued;
                     // without an image the painter draws a stand-in shape.

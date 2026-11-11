@@ -37,9 +37,10 @@ public final class SpriteManager {
         private final double verticalOffset;
         private final int dropArtPixels;
         private final int contactArtPixels;
+        private final String kind;
 
         public SpriteMetadata(Image image, double verticalOffset) {
-            this(image, verticalOffset, 0, 0);
+            this(image, verticalOffset, 0, 0, null);
         }
 
         /**
@@ -49,12 +50,18 @@ public final class SpriteManager {
          * @param verticalOffset   the offset of an item icon, zero for a resource
          * @param dropArtPixels    how far the sprite is drawn below the default anchor, see {@link ResourceAnchor}
          * @param contactArtPixels how far below the tile centre the lowest painted pixel lies, where the shadow is centred
+         * @param kind             the art kind of the sprite, for example palm, or null for an item icon
          */
-        public SpriteMetadata(Image image, double verticalOffset, int dropArtPixels, int contactArtPixels) {
+        public SpriteMetadata(Image image, double verticalOffset, int dropArtPixels, int contactArtPixels, String kind) {
             this.image = image;
             this.verticalOffset = verticalOffset;
             this.dropArtPixels = dropArtPixels;
             this.contactArtPixels = contactArtPixels;
+            this.kind = kind;
+        }
+
+        public String getKind() {
+            return kind;
         }
 
         public Image getImage() {
@@ -231,7 +238,7 @@ public final class SpriteManager {
                     break;
                 }
                 variants.add(new SpriteMetadata(image, 0.0,
-                        ResourceAnchor.dropArtPixels(kind, bottomPadding(image)), ResourceAnchor.contactArtPixels(kind)));
+                        ResourceAnchor.dropArtPixels(kind, bottomPadding(image)), ResourceAnchor.contactArtPixels(kind), kind));
             }
         }
         return variants;
@@ -368,6 +375,23 @@ public final class SpriteManager {
      * @return Sprite metadata or null if not found
      */
     public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, int x, int y, long worldSeed) {
+        return getResourceSprite(mapType, resourceType, x, y, worldSeed, null);
+    }
+
+    /**
+     * Retrieves a resource sprite of a preferred art kind, for example a palm for a tree near water in the desert.
+     * The variant among the sprites of that kind is chosen like any other, from the coordinates and the world seed.
+     *
+     * @param mapType Current map type
+     * @param resourceType Resource type
+     * @param x Tile column of the resource
+     * @param y Tile row of the resource
+     * @param worldSeed Seed of the world, which with the coordinates fixes the variant
+     * @param preferredKind the art kind to draw, or null for any kind of the resource; a kind the biome has no art for is ignored
+     * @return Sprite metadata or null if not found
+     */
+    public SpriteMetadata getResourceSprite(MapType mapType, ResourceType resourceType, int x, int y, long worldSeed,
+                                            String preferredKind) {
         Map<ResourceType, List<SpriteMetadata>> mapSprites = resourceSprites.get(mapType);
         if (mapSprites == null) {
             return null;
@@ -375,6 +399,23 @@ public final class SpriteManager {
         List<SpriteMetadata> variants = mapSprites.get(resourceType);
         if (variants == null || variants.isEmpty()) {
             return null;
+        }
+        if (preferredKind != null) {
+            // The lists are a handful of sprites, so counting and picking inside them allocates nothing
+            int matching = 0;
+            for (int i = 0, count = variants.size(); i < count; i++) {
+                if (preferredKind.equals(variants.get(i).getKind())) {
+                    matching++;
+                }
+            }
+            if (matching > 0) {
+                int pick = SpriteVariants.forResource(worldSeed, x, y, matching);
+                for (int i = 0, count = variants.size(); i < count; i++) {
+                    if (preferredKind.equals(variants.get(i).getKind()) && pick-- == 0) {
+                        return variants.get(i);
+                    }
+                }
+            }
         }
         return variants.get(SpriteVariants.forResource(worldSeed, x, y, variants.size()));
     }

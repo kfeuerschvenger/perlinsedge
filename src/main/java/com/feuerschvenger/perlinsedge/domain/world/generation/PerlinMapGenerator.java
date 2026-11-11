@@ -43,6 +43,16 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final float IRON_BAND_MIN = 0.64f;
     private static final float IRON_BAND_MAX = 0.72f;
 
+    // Desert: one oasis per this many tiles of map, each a pocket of shallow water of this radius in tiles
+    private static final int OASIS_AREA = 5000;
+    private static final int OASIS_RADIUS = 2;
+    private static final int OASIS_SITE_ATTEMPTS = 400;
+    // Sand within this many tiles of water carries palms, thickly; the rest carries cacti, thinly
+    public static final int OASIS_PALM_REACH = 2;
+    private static final float DESERT_DRY_FACTOR = 0.25f;
+    private static final float DESERT_WET_FACTOR = 2.5f;
+    private static final float MAX_TREE_CHANCE = 0.35f;
+
     private float[][] islandCenters;
 
     /**
@@ -84,6 +94,11 @@ public class PerlinMapGenerator implements IMapGenerator {
 
         if (config.getRiverDensity() > 0) {
             generateRiverSystems(map);
+        }
+
+        if (config.getMapType() == MapType.DESERT) {
+            carveOases(map);
+            plantDesertTrees(map);
         }
 
         return map;
@@ -224,17 +239,104 @@ public class PerlinMapGenerator implements IMapGenerator {
             float treeValue = normalizeNoise(treeNoise.getNoise(x, y));
             float threshold = 1.0f - (config.getTreeDensity() * treeDensityFactor);
 
-            // Desert: trees only in oases (GRASS)
+            // Desert: the palms and cacti are placed after the water, by plantDesertTrees
             if (config.getMapType() == MapType.DESERT) {
-                if (tile.getType() == TileType.GRASS && treeValue > threshold) {
-                    tile.setWorldResource(new Resource(ResourceType.TREE, config.getRandom().nextLong()));
-                }
+                return;
             }
-            // Other biomes
-            else if (treeValue > threshold) {
+            if (treeValue > threshold) {
                 tile.setWorldResource(new Resource(ResourceType.TREE, config.getRandom().nextLong()));
             }
         }
+    }
+
+    // ==================================================================
+    //  DESERT OASES AND TREES
+    // ==================================================================
+
+    /**
+     * Digs a few small oases into open sand: a pocket of shallow water with a deeper middle tile.
+     * The number grows with the map area and every oasis needs a clear stretch of plain sand around it, so none lands
+     * on a hill, on the shore of an existing lake or at the edge of the map.
+     */
+    private void carveOases(TileMap map) {
+        final int clearRadius = OASIS_RADIUS + 1;
+        final int margin = clearRadius + 1;
+        if (map.getWidth() <= 2 * margin || map.getHeight() <= 2 * margin) {
+            return;
+        }
+        final Random random = config.getRandom();
+        final int count = Math.max(1, map.getWidth() * map.getHeight() / OASIS_AREA);
+        for (int i = 0; i < count; i++) {
+            for (int attempt = 0; attempt < OASIS_SITE_ATTEMPTS; attempt++) {
+                final int x = margin + random.nextInt(map.getWidth() - 2 * margin);
+                final int y = margin + random.nextInt(map.getHeight() - 2 * margin);
+                if (isPlainSand(map, x, y, clearRadius)) {
+                    fillOasis(map, x, y);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static boolean isPlainSand(TileMap map, int x, int y, int radius) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                final Tile tile = map.getTile(x + dx, y + dy);
+                if (tile == null || tile.getType() != TileType.SAND) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static void fillOasis(TileMap map, int centerX, int centerY) {
+        for (int dx = -OASIS_RADIUS; dx <= OASIS_RADIUS; dx++) {
+            for (int dy = -OASIS_RADIUS; dy <= OASIS_RADIUS; dy++) {
+                final int squared = dx * dx + dy * dy;
+                if (squared > OASIS_RADIUS * OASIS_RADIUS + 1) {
+                    continue;
+                }
+                final Tile tile = map.getTile(centerX + dx, centerY + dy);
+                tile.setType(squared == 0 ? TileType.DEEP_WATER : TileType.SHALLOW_WATER);
+                tile.setWorldResource(null);
+            }
+        }
+    }
+
+    /**
+     * Scatters the palms and cacti of the desert over open sand, thinly in the dry sand and thickly within
+     * {@link #OASIS_PALM_REACH} tiles of any water, so the trees gather around the oases, lakes and rivers.
+     * The renderer draws these tree resources as palms near water and as cacti elsewhere.
+     */
+    private void plantDesertTrees(TileMap map) {
+        final Random random = config.getRandom();
+        final float dryChance = Math.min(MAX_TREE_CHANCE, config.getTreeDensity() * DESERT_DRY_FACTOR);
+        final float wetChance = Math.min(MAX_TREE_CHANCE, config.getTreeDensity() * DESERT_WET_FACTOR);
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                final Tile tile = map.getTile(x, y);
+                if (tile.getType() != TileType.SAND || tile.hasResource()) {
+                    continue;
+                }
+                final float chance = hasWaterWithin(map, x, y, OASIS_PALM_REACH) ? wetChance : dryChance;
+                if (random.nextFloat() < chance) {
+                    tile.setWorldResource(new Resource(ResourceType.TREE, random.nextLong()));
+                }
+            }
+        }
+    }
+
+    private static boolean hasWaterWithin(TileMap map, int x, int y, int radius) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                final Tile tile = map.getTile(x + dx, y + dy);
+                if (tile != null && tile.getType().isWater()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // ==================================================================
