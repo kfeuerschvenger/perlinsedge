@@ -263,6 +263,7 @@ public class BuildingManager {
             case CHEST -> new Chest(x, y, 9);
             case FURNACE -> new Furnace(x, y);
             case CAMPFIRE -> new Campfire(x, y);
+            case STANDING_TORCH -> new StandingTorch(x, y);
             case ANVIL -> new Anvil(x, y);
             case WORKBENCH -> new Workbench(x, y);
             case BED -> new Bed(x, y);
@@ -285,7 +286,7 @@ public class BuildingManager {
 
         switch (type) {
             // Land-based structures
-            case WALL, DOOR, FENCE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
+            case WALL, DOOR, FENCE, CHEST, FURNACE, CAMPFIRE, STANDING_TORCH, ANVIL, WORKBENCH, BED -> {
                 boolean validLand = tile.getType().isLand() && tile.getType().isWalkable();
                 if (!validLand) {
                     log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());

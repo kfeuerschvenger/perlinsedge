@@ -45,6 +45,7 @@ public class GameOrchestrator {
     private final MapConfigPanel mapConfigPanel;
 
     private final GameLoop gameLoop;
+    private boolean gameActive;
     private final InputWiring inputWiring;
     private final GameStateTransitions transitions;
 
@@ -60,13 +61,15 @@ public class GameOrchestrator {
      * @param healthBar           player health view
      * @param inventoryPanel      inventory view
      * @param buildingHotbarPanel building hotbar view
+     * @param hintLabel           short on-screen hints for actions that did nothing
      * @param gameState           shared state, a new one is created when null
      * @param recipeManager       recipes, a new one is created when null
      */
     public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
                             FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
                             Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingHotbarPanel buildingHotbarPanel, GameStateManager gameState, RecipeManager recipeManager) {
+                            BuildingHotbarPanel buildingHotbarPanel, HintLabel hintLabel,
+                            GameStateManager gameState, RecipeManager recipeManager) {
         this.renderer = renderer;
         this.camera = camera;
         this.inputHandler = inputHandler;
@@ -81,7 +84,7 @@ public class GameOrchestrator {
         combatManager = new CombatManager(this.gameState);
         inventoryManager = new InventoryManager(this.gameState, inventoryPanel);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
-        ResourceManager resourceManager = new ResourceManager(this.gameState);
+        ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel);
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
@@ -91,7 +94,8 @@ public class GameOrchestrator {
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
-                resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas);
+                resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas,
+                transitions::showOpenContainer);
     }
 
     // ==================================================================
@@ -105,7 +109,7 @@ public class GameOrchestrator {
      */
     public void startNewGame(MapType selectedMapType) {
         log.info("Starting new game with map type: {}", selectedMapType.name());
-        stopGameLoop();
+        leaveGame();
 
         gameState.resetGameState();
         AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
@@ -125,14 +129,31 @@ public class GameOrchestrator {
         log.info("New game started");
     }
 
+    /**
+     * Stops the loop and returns every panel and mode to the state of a fresh game.
+     * Called before a new game and when the player goes back to the main menu.
+     */
+    public void leaveGame() {
+        stopGameLoop();
+        transitions.resetUi();
+        renderer.clearBuildingPreview();
+    }
+
     /** Starts the main game loop. */
     public void startGameLoop() {
         gameLoop.start();
+        gameActive = true;
     }
 
     /** Stops the main game loop. */
     public void stopGameLoop() {
         gameLoop.stop();
+        gameActive = false;
+    }
+
+    /** @return true while a game is running, false on the main menu */
+    public boolean isGameActive() {
+        return gameActive;
     }
 
     /** Resumes the game from the paused state. */
@@ -176,10 +197,11 @@ public class GameOrchestrator {
 
     private void initializeGameComponents() {
         log.debug("Initializing game components");
-        mapConfigPanel.setMapConfigListener(mapManager);
+        mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerSceneDragHandlers();
         inputWiring.registerKeyboard(createKeyController());
+        inputWiring.registerWheelInterceptor(hotbarManager::handleWheel);
         inputWiring.registerMouseHandlers();
     }
 
@@ -191,11 +213,16 @@ public class GameOrchestrator {
 
         inventoryPanel.setOnItemDroppedOutside(item -> {
             Player player = gameState.getPlayer();
-            if (player != null) {
-                inventoryManager.removeItemFromPlayerInventory(item);
+            if (player == null) return;
+
+            // The stack leaves whichever container holds it; nothing is dropped when no container does,
+            // otherwise a second drop event for the same stack would duplicate it.
+            boolean removed = inventoryManager.removeItemFromPlayerInventory(item)
+                    || containerManager.removeFromOpenContainer(item);
+            if (removed) {
                 itemDropManager.createDroppedItem(item, player);
-                Platform.runLater(inventoryPanel::updateInventoryDisplay);
             }
+            Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
 
         inventoryPanel.setOnCraftRecipe(recipe -> {
@@ -209,25 +236,65 @@ public class GameOrchestrator {
                 transitions::togglePauseMenu,
                 this::centerOnPlayer,
                 this::regenerateMap,
-                transitions::toggleMapConfigPanel,
+                this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
                 combatManager::handlePlayerAttack,
                 transitions::toggleBuildingMode,
-                hotbarManager::handleHotbarNumberSelection
+                hotbarManager::handleHotbarNumberSelection,
+                hotbarManager::changePage
         );
     }
 
+    private void toggleMapConfigPanelInGame() {
+        if (gameActive) {
+            transitions.toggleMapConfigPanel();
+        }
+    }
+
     private void regenerateMap() {
+        if (!gameActive) return;
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
-        MapGenerationContext newContext = mapManager.createMapContext(
-                currentContext.getMapType(), new Random().nextLong()
-        );
-        mapManager.generateNewMap(newContext);
-        minimapDrawer.updateMap(gameState.getCurrentMap());
+        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
+    }
+
+    /** Applies a map configuration chosen in the map tuning panel by rebuilding the world with it. */
+    private void applyMapConfig(MapType mapType, long seed,
+                                float heightFreq, int heightOctaves,
+                                float tempFreq, int tempOctaves,
+                                float moistureFreq, int moistureOctaves,
+                                float stoneFreq, float stoneThreshold,
+                                float crystalsFreq, float crystalsThreshold,
+                                float treeDensity, float riverDensity) {
+        AppConfig.getInstance().world().setCurrentMapType(mapType);
+        rebuildWorld(new MapGenerationContext(
+                mapType, seed,
+                heightFreq, heightOctaves,
+                tempFreq, tempOctaves,
+                moistureFreq, moistureOctaves,
+                stoneFreq, stoneThreshold,
+                crystalsFreq, crystalsThreshold,
+                treeDensity, riverDensity
+        ));
+    }
+
+    /**
+     * Replaces the current map while the game keeps running.
+     * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
+     * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
+     */
+    private void rebuildWorld(MapGenerationContext context) {
+        if (!gameActive) {
+            log.debug("Ignoring a map rebuild: no game is running");
+            return;
+        }
+        leaveGame();
+        mapManager.generateNewMap(context);
         playerManager.initializePlayer();
         mapManager.spawnEnemies();
+        minimapDrawer.updateMap(gameState.getCurrentMap());
         centerOnPlayer();
+        startGameLoop();
     }
 
     // ==================================================================
@@ -247,7 +314,6 @@ public class GameOrchestrator {
         }
 
         gameState.incrementGameTime(deltaTime);
-        gameState.setAttackCooldownTimer(Math.max(0, gameState.getAttackCooldownTimer() - deltaTime));
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
         itemDropManager.update();
@@ -287,10 +353,14 @@ public class GameOrchestrator {
                     buildingManager.getSelectedBuildingType(),
                     previewColor
             );
+        } else {
+            renderer.clearBuildingPreview();
         }
 
         renderer.render(alpha, deltaTime);
+        // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());
+        minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());
         minimapDrawer.draw();
 
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {

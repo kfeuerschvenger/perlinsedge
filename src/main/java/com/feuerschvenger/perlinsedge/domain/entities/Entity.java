@@ -102,6 +102,26 @@ public abstract class Entity {
     }
 
     /**
+     * Interpolated X position, the scalar form of {@link #getInterpolatedPosition(double)} that allocates nothing.
+     *
+     * @param alpha Interpolation factor (0.0 = previous frame, 1.0 = current frame)
+     * @return interpolated X
+     */
+    public double getInterpolatedX(double alpha) {
+        return prevX + (posX - prevX) * alpha;
+    }
+
+    /**
+     * Interpolated Y position, the scalar form of {@link #getInterpolatedPosition(double)} that allocates nothing.
+     *
+     * @param alpha Interpolation factor (0.0 = previous frame, 1.0 = current frame)
+     * @return interpolated Y
+     */
+    public double getInterpolatedY(double alpha) {
+        return prevY + (posY - prevY) * alpha;
+    }
+
+    /**
      * Checks if the entity has reached its movement target.
      */
     public boolean reachedPathTarget() {

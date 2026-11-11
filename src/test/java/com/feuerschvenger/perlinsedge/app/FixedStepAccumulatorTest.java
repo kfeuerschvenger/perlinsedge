@@ -81,7 +81,7 @@ class FixedStepAccumulatorTest {
     }
 
     @Test
-    void remainderAndTimestampSurviveAGapLikeStopAndStart() {
+    void remainderAndTimestampSurviveAGapWithoutReset() {
         assertEquals(1, stepper.advance(START + 3 * UNIT));
         assertEquals(0.5, stepper.alpha(), 1e-12);
 
@@ -92,7 +92,53 @@ class FixedStepAccumulatorTest {
     }
 
     @Test
+    void resetTurnsTheNextFrameIntoAFirstFrameSoALongPauseIsNotReplayed() {
+        stepper.advance(START + 3 * UNIT);
+
+        stepper.reset();
+
+        assertFalse(stepper.hasStarted());
+        assertEquals(0.0, stepper.alpha());
+        assertEquals(0, stepper.advance(START + 1_000_000 * UNIT), "the first frame after a reset yields no steps");
+        assertEquals(0, stepper.advance(START + 1_000_000 * UNIT + UNIT), "later frames start from the new timestamp");
+        assertEquals(0.5, stepper.alpha(), 1e-12);
+    }
+
+    @Test
+    void backwardsTimestampCountsAsAZeroLengthFrame() {
+        assertEquals(1, stepper.advance(START + 3 * UNIT));
+        double alphaBefore = stepper.alpha();
+
+        assertEquals(0, stepper.advance(START + UNIT));
+
+        assertEquals(0.0, stepper.lastDelta());
+        assertEquals(alphaBefore, stepper.alpha(), 1e-12);
+        assertEquals(1, stepper.advance(START + 2 * UNIT), "time resumes from the backwards timestamp");
+        assertEquals(0.0625, stepper.lastDelta(), 1e-12);
+    }
+
+    @Test
+    void clampBelowOneStepStillProducesStepsOverSeveralFrames() {
+        FixedStepAccumulator tight = new FixedStepAccumulator(STEP, 0.0625);
+        tight.advance(START);
+
+        assertEquals(0, tight.advance(START + 100 * UNIT), "one clamped frame is shorter than a step");
+        assertEquals(0.5, tight.alpha(), 1e-12);
+        assertEquals(1, tight.advance(START + 200 * UNIT), "the remainders add up to a whole step");
+        assertEquals(0.0, tight.alpha(), 1e-12);
+    }
+
+    @Test
     void nonPositiveStepIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> new FixedStepAccumulator(0, MAX_DELTA));
+    }
+
+    @Test
+    void invalidMaxFrameDeltaIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> new FixedStepAccumulator(STEP, 0));
+        assertThrows(IllegalArgumentException.class, () -> new FixedStepAccumulator(STEP, -1));
+        assertThrows(IllegalArgumentException.class, () -> new FixedStepAccumulator(STEP, Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new FixedStepAccumulator(STEP, Double.POSITIVE_INFINITY));
     }
 }

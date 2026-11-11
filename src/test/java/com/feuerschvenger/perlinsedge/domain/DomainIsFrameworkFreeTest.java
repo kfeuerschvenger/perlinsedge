@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -21,54 +23,159 @@ class DomainIsFrameworkFreeTest {
     private static final Path DOMAIN_SOURCES =
             Path.of("src", "main", "java", "com", "feuerschvenger", "perlinsedge", "domain");
 
-    private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
-    private static final Pattern LINE_COMMENT = Pattern.compile("//[^\\n]*");
-    private static final Pattern JAVAFX_USAGE = Pattern.compile("\\bjavafx\\.");
+    private static final Pattern JAVAFX_USAGE = Pattern.compile("\\bjavafx\\.[\\w.]*");
     private static final Pattern OUTER_LAYER_USAGE =
-            Pattern.compile("\\bcom\\.feuerschvenger\\.perlinsedge\\.(app|ui|infra)\\b");
+            Pattern.compile("\\bcom\\.feuerschvenger\\.perlinsedge\\.(?:app|ui|infra)\\b[\\w.]*");
 
     @Test
     void domainSourcesNeverUseJavaFx() throws IOException {
-        List<String> offenders = offendersMatching(JAVAFX_USAGE);
+        List<String> offenders = new ArrayList<>();
+        for (Path file : domainFiles()) {
+            if (JAVAFX_USAGE.matcher(codeOf(file)).find()) {
+                offenders.add(relative(file));
+            }
+        }
 
         assertTrue(offenders.isEmpty(), "Domain files using javafx (import or qualified name): " + offenders);
     }
 
-    /**
-     * Known layering debt: the map generator builds its noise sources from the infra noise adapter.
-     * Remove this entry once the noise port lives in the domain; no other file may be added to the list.
-     */
-    private static final Set<String> KNOWN_OUTER_LAYER_DEBT = Set.of("PerlinMapGenerator.java");
-
     @Test
     void domainSourcesDoNotDependOnOuterLayers() throws IOException {
-        List<String> offenders = offendersMatching(OUTER_LAYER_USAGE).stream()
-                .filter(file -> KNOWN_OUTER_LAYER_DEBT.stream().noneMatch(file::endsWith))
-                .toList();
+        List<String> offenders = new ArrayList<>();
+        for (Path file : domainFiles()) {
+            String path = relative(file);
+            for (String reference : outerLayerReferences(codeOf(file))) {
+                offenders.add(path + " -> " + reference);
+            }
+        }
 
         assertTrue(offenders.isEmpty(), "Domain files depending on app, ui or infra: " + offenders);
     }
 
-    private static List<String> offendersMatching(Pattern pattern) throws IOException {
+    @Test
+    void commentStrippingKeepsCodeAfterAStringThatLooksLikeAComment() {
+        String source = "String url = \"http://example.com\"; int a = 1; // trailing\nint b = 2;";
+
+        String code = stripComments(source);
+
+        assertTrue(code.contains("\"http://example.com\""), code);
+        assertTrue(code.contains("int a = 1;"), code);
+        assertTrue(code.contains("int b = 2;"), code);
+        assertEquals(-1, code.indexOf("trailing"), code);
+    }
+
+    @Test
+    void commentStrippingKeepsAStringThatContainsABlockCommentOpener() {
+        String source = "String glob = \"src/**/*.java\"; import javafx.scene.Node; /* gone */ int c = 3;";
+
+        String code = stripComments(source);
+
+        assertTrue(code.contains("\"src/**/*.java\""), code);
+        assertTrue(code.contains("import javafx.scene.Node;"), code);
+        assertTrue(code.contains("int c = 3;"), code);
+        assertEquals(-1, code.indexOf("gone"), code);
+    }
+
+    @Test
+    void commentStrippingRemovesReferencesThatLiveOnlyInComments() {
+        String source = "// import javafx.scene.Node;\n/* com.feuerschvenger.perlinsedge.infra.Foo */\n"
+                + "/** {@link javafx.scene.Node} */\nclass A { char slash = '/'; char quote = '\"'; String s = \"a\\\"//b\"; }";
+
+        String code = stripComments(source);
+
+        assertTrue(outerLayerReferences(code).isEmpty(), code);
+        assertTrue(!JAVAFX_USAGE.matcher(code).find(), code);
+        assertTrue(code.contains("char slash = '/';"), code);
+        assertTrue(code.contains("String s = \"a\\\"//b\";"), code);
+    }
+
+    @Test
+    void commentStrippingHandlesTextBlocks() {
+        String source = "String t = \"\"\"\n  // not a comment\n  /* nor this */\n  \"\"\"; int d = 4; // real comment";
+
+        String code = stripComments(source);
+
+        assertTrue(code.contains("// not a comment"), code);
+        assertTrue(code.contains("/* nor this */"), code);
+        assertTrue(code.contains("int d = 4;"), code);
+        assertEquals(-1, code.indexOf("real comment"), code);
+    }
+
+    private static List<String> outerLayerReferences(String code) {
+        List<String> references = new ArrayList<>();
+        Matcher matcher = OUTER_LAYER_USAGE.matcher(code);
+        while (matcher.find()) {
+            references.add(matcher.group());
+        }
+        return references;
+    }
+
+    private static List<Path> domainFiles() throws IOException {
         assertTrue(Files.isDirectory(DOMAIN_SOURCES), "Domain sources not found at " + DOMAIN_SOURCES.toAbsolutePath());
 
         try (Stream<Path> files = Files.walk(DOMAIN_SOURCES)) {
-            return files
-                    .filter(p -> p.toString().endsWith(".java"))
-                    .filter(p -> pattern.matcher(codeOf(p)).find())
-                    .map(Path::toString)
-                    .toList();
+            return files.filter(p -> p.toString().endsWith(".java")).toList();
         }
     }
 
-    /** Source text with block and line comments removed. */
+    private static String relative(Path file) {
+        return DOMAIN_SOURCES.relativize(file).toString().replace('\\', '/');
+    }
+
     private static String codeOf(Path file) {
         try {
-            String source = Files.readString(file);
-            String withoutBlocks = BLOCK_COMMENT.matcher(source).replaceAll("");
-            return LINE_COMMENT.matcher(withoutBlocks).replaceAll("");
+            return stripComments(Files.readString(file));
         } catch (IOException e) {
             throw new IllegalStateException("Cannot read " + file, e);
         }
+    }
+
+    /**
+     * Removes line and block comments while leaving string, char and text block literals untouched,
+     * so a literal such as {@code "http://x"} or {@code "src/**"} is never mistaken for a comment.
+     */
+    static String stripComments(String source) {
+        StringBuilder out = new StringBuilder(source.length());
+        int i = 0;
+        int n = source.length();
+        while (i < n) {
+            char c = source.charAt(i);
+            if (source.startsWith("\"\"\"", i)) {
+                int end = source.indexOf("\"\"\"", i + 3);
+                int stop = end < 0 ? n : end + 3;
+                out.append(source, i, stop);
+                i = stop;
+            } else if (c == '"' || c == '\'') {
+                int stop = endOfQuoted(source, i, c);
+                out.append(source, i, stop);
+                i = stop;
+            } else if (source.startsWith("//", i)) {
+                int end = source.indexOf('\n', i);
+                i = end < 0 ? n : end;
+            } else if (source.startsWith("/*", i)) {
+                int end = source.indexOf("*/", i + 2);
+                i = end < 0 ? n : end + 2;
+                out.append(' ');
+            } else {
+                out.append(c);
+                i++;
+            }
+        }
+        return out.toString();
+    }
+
+    private static int endOfQuoted(String source, int start, char quote) {
+        int i = start + 1;
+        while (i < source.length()) {
+            char c = source.charAt(i);
+            if (c == '\\') {
+                i += 2;
+            } else if (c == quote || c == '\n') {
+                return i + 1;
+            } else {
+                i++;
+            }
+        }
+        return source.length();
     }
 }

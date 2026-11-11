@@ -24,6 +24,19 @@ class FxKeyMapperTest {
     void mapsDebugKeys() {
         assertEquals(Optional.of(GameKey.F1), FxKeyMapper.toGameKey(KeyCode.F1));
         assertEquals(Optional.of(GameKey.F5), FxKeyMapper.toGameKey(KeyCode.F5));
+        assertEquals(Optional.of(GameKey.F6), FxKeyMapper.toGameKey(KeyCode.F6));
+    }
+
+    @Test
+    void mapsTheHotbarPageKeys() {
+        assertEquals(Optional.of(GameKey.PAGE_UP), FxKeyMapper.toGameKey(KeyCode.PAGE_UP));
+        assertEquals(Optional.of(GameKey.PAGE_DOWN), FxKeyMapper.toGameKey(KeyCode.PAGE_DOWN));
+    }
+
+    @Test
+    void leavesQAndEUnmappedSoTheyStayFree() {
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E).isEmpty());
     }
 
     @Test

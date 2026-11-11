@@ -34,8 +34,6 @@ public class GameStateManager {
     @Setter(lombok.AccessLevel.NONE)
     private double gameTime = 0;
     private double playerRespawnTimer = -1;
-    private double lastDropTime = -10;
-    private double attackCooldownTimer = 0;
 
     // Input & UI State
     private int mouseOverTileX = -1;
@@ -65,8 +63,6 @@ public class GameStateManager {
         // Timer reset
         gameTime = 0;
         playerRespawnTimer = -1;
-        lastDropTime = -10;
-        attackCooldownTimer = 0;
 
         // UI/Input reset
         mouseOverTileX = -1;

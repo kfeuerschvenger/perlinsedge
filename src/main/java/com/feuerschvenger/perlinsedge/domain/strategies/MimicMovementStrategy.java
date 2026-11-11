@@ -6,9 +6,13 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
  * Implements the movement behavior for Mimic enemies.
- * Mimics are generally stationary until aggroed.
+ * Mimics are stationary until the player comes within {@link #ACTIVATION_RANGE_TILES} or hurts them, then they
+ * chase the player in a straight line.
  */
 public class MimicMovementStrategy implements EnemyMovementStrategy {
+    /** Distance in tiles at which a still mimic notices the player and springs to life. */
+    public static final double ACTIVATION_RANGE_TILES = 2.5;
+
     private boolean aggroed = false;
     private static final double MOVE_SPEED_AGGRO = 3.0; // Tiles per second when aggroed
 
@@ -20,6 +24,10 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
     public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player) {
         // Mimics are usually stationary, or move slowly when aggroed
         enemy.snapshot(); // Snapshot for interpolation
+
+        if (!aggroed && !player.isDead() && isPlayerWithinActivationRange(enemy, player)) {
+            aggroed = true;
+        }
 
         if (aggroed) {
             // Simple direct movement towards player when aggroed
@@ -48,6 +56,11 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
                 enemy.setPosY(enemy.getCurrentTileY());
             }
         }
+    }
+
+    private static boolean isPlayerWithinActivationRange(Enemy enemy, Player player) {
+        return Math.hypot(player.getCurrentTileX() - enemy.getCurrentTileX(),
+                player.getCurrentTileY() - enemy.getCurrentTileY()) <= ACTIVATION_RANGE_TILES;
     }
 
     public void setAggroed(boolean aggroed) {

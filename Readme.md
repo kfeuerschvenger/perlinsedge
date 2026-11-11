@@ -24,6 +24,7 @@ Geek out with our built-in debug modes. Toggle these cheats: I mean, features: w
 - **F3**: Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
 - **F4**: Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
 - **F5**: Regenerate Map: Smash this to get a fresh world with a random seed.
+- **F6**: FPS Overlay: A small frame counter in the top-left corner, off by default and independent of Debug Mode.
 
 ## How to Play
 
@@ -44,7 +45,7 @@ Each map not only looks different but also features unique resources and special
 ### Exploration Mode
 
 - **Move**: Right-click where you want to go.
-- **Gather**: Left-click trees, rocks, and other goodies.
+- **Gather**: Left-click trees, rocks, and other goodies. Iron ore sits in rocky ground and needs a pickaxe in your bag.
 - **Attack**: Point your cursor and press `SPACE`.
 - **Inventory**: `I` toggles your bag of holding.
 - **Pause**: `ESC` for a breather or snack.
@@ -54,7 +55,7 @@ Each map not only looks different but also features unique resources and special
 ### Building Mode
 
 - `B` toggles Building mode.
-- Use number keys (1: 9) to select a structure.
+- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages. `Q` and `E` are kept free for other actions.
 - Left-click to place, Right-click to demolish.
 - Color hints:
     - **Green**: Good to go.

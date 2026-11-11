@@ -25,6 +25,7 @@ public class KeyController implements IKeyListener {
     private final Runnable onAttack;
     private final Runnable toggleBuildingModeAction;
     private final Consumer<Integer> onNumberKeyPress;
+    private final Consumer<Integer> onHotbarPageChange;
 
     /**
      * Constructs a KeyController with the specified actions for various key events.
@@ -37,6 +38,7 @@ public class KeyController implements IKeyListener {
      * @param onAttack Action for player attack.
      * @param toggleBuildingModeAction Action to toggle the building mode.
      * @param onNumberKeyPress Action to handle number key presses for hotbar selection.
+     * @param onHotbarPageChange Action to switch the building hotbar page, receives -1 for previous and 1 for next.
      */
     public KeyController(Runnable togglePauseMenuAction,
                          Runnable centerCameraAction,
@@ -45,7 +47,8 @@ public class KeyController implements IKeyListener {
                          Runnable toggleInventoryPanelAction,
                          Runnable onAttack,
                          Runnable toggleBuildingModeAction,
-                         Consumer<Integer> onNumberKeyPress) {
+                         Consumer<Integer> onNumberKeyPress,
+                         Consumer<Integer> onHotbarPageChange) {
         this.togglePauseMenuAction = togglePauseMenuAction;
         this.centerCameraAction = centerCameraAction;
         this.generateNewMapAction = generateNewMapAction;
@@ -54,6 +57,7 @@ public class KeyController implements IKeyListener {
         this.onAttack = onAttack;
         this.toggleBuildingModeAction = toggleBuildingModeAction;
         this.onNumberKeyPress = onNumberKeyPress;
+        this.onHotbarPageChange = onHotbarPageChange;
     }
 
     @Override
@@ -86,6 +90,12 @@ public class KeyController implements IKeyListener {
             case C:
                 if (centerCameraAction != null) centerCameraAction.run();
                 break;
+            case PAGE_UP:
+                if (onHotbarPageChange != null) onHotbarPageChange.accept(-1);
+                break;
+            case PAGE_DOWN:
+                if (onHotbarPageChange != null) onHotbarPageChange.accept(1);
+                break;
 
             // ----------- Debugging keys -----------
 
@@ -104,6 +114,9 @@ public class KeyController implements IKeyListener {
             case F5:
                 generateNewRandomMap();
                 break;
+            case F6:
+                toggleFpsOverlay();
+                break;
             default:
                 break;
         }
@@ -116,6 +129,15 @@ public class KeyController implements IKeyListener {
         boolean newDebugState = !debug.isEnabled();
         debug.setEnabled(newDebugState);
         log.info("Debug Mode: {}", newDebugState ? "ON" : "OFF");
+    }
+
+    /**
+     * Toggles the FPS overlay. It is off by default and works without the debug mode.
+     */
+    private void toggleFpsOverlay() {
+        boolean newState = !debug.isFpsOverlayEnabled();
+        debug.setFpsOverlayEnabled(newState);
+        log.info("FPS Overlay: {}", newState ? "ON" : "OFF");
     }
 
     /**

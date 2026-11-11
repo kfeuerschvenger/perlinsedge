@@ -90,6 +90,43 @@ class RecipeTest {
         assertEquals(0, count(ItemType.AXE));
     }
 
+    private void fillWithCoalExceptTwoSlots() {
+        player.addItem(new Item(ItemType.STONE, 5));
+        player.addItem(new Item(ItemType.STICK, 3));
+        player.addItem(new Item(ItemType.COAL, 16 * ItemType.COAL.getMaxStackSize()));
+        assertEquals(18, player.getItems().stream().filter(java.util.Objects::nonNull).count());
+    }
+
+    @Test
+    void craftIsRefusedWhenTheOutputHasNoRoomAndNothingIsLost() {
+        fillWithCoalExceptTwoSlots();
+
+        boolean crafted = player.craftItem(axe);
+
+        assertFalse(crafted);
+        assertEquals(5, count(ItemType.STONE));
+        assertEquals(3, count(ItemType.STICK));
+        assertEquals(0, count(ItemType.AXE));
+    }
+
+    @Test
+    void craftSucceedsWhenConsumingTheIngredientsFreesTheSlotForTheOutput() {
+        player.addItem(new Item(ItemType.STONE, 3));
+        player.addItem(new Item(ItemType.STICK, 2));
+        player.addItem(new Item(ItemType.COAL, 16 * ItemType.COAL.getMaxStackSize()));
+
+        assertTrue(player.craftItem(axe));
+
+        assertEquals(1, count(ItemType.AXE));
+        assertEquals(0, count(ItemType.STONE));
+        assertEquals(0, count(ItemType.STICK));
+    }
+
+    @Test
+    void craftReportsFalseWhenIngredientsAreMissing() {
+        assertFalse(player.craftItem(axe));
+    }
+
     @Test
     void craftingYieldsTheRecipeOutputQuantity() {
         Recipe planks = new RecipeManager().getAllItemRecipes().stream()

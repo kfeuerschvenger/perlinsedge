@@ -17,7 +17,7 @@ public interface Container {
     /**
      * Retrieves all items in the container.
      *
-     * @return A copy of the current inventory (prevents external modification)
+     * @return A copy of the current inventory with one entry per slot, null for an empty slot
      */
     List<Item> getItems();
 
@@ -38,9 +38,13 @@ public interface Container {
     void setItemAt(int slotIndex, Item item);
 
     /**
-     * Replaces the entire inventory contents.
+     * Replaces the entire inventory contents, slot by slot.
+     * Entry {@code i} of the list becomes slot {@code i}, so slot positions are kept and nothing is compacted.
+     * Each entry is copied, never stored, and the given items are never modified, unlike {@link #addItem(Item)}.
+     * Null and empty entries leave their slot empty, a stack larger than the maximum stack size is cut to it,
+     * and entries beyond the capacity are ignored.
      *
-     * @param items New collection of items (filters null/empty items)
+     * @param items New contents, one entry per slot
      */
     void setItems(List<Item> items);
 
@@ -50,6 +54,9 @@ public interface Container {
 
     /**
      * Attempts to add an item to the container.
+     * Mutates its argument: the quantity of the given item is reduced by the amount that was stored, so what is
+     * left is what did not fit. Callers that need the original quantity afterwards must pass a copy.
+     * Items are stored as copies in empty slots, and stacks that already hold the type are filled first.
      *
      * @param item Item to add (non-null, positive quantity)
      * @return True if any portion was added, false if no space
@@ -58,10 +65,11 @@ public interface Container {
 
     /**
      * Attempts to remove a quantity of an item from the container.
+     * All or nothing: when the container holds less than the requested quantity, nothing is removed.
      *
      * @param itemToRemove Type of item to remove
      * @param quantity Number of items to remove (positive)
-     * @return True if full quantity was removed, false otherwise
+     * @return True if the full quantity was removed, false if nothing was removed
      */
     boolean removeItem(Item itemToRemove, int quantity);
 

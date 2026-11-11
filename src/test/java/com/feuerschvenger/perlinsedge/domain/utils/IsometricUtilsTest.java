@@ -1,8 +1,13 @@
 package com.feuerschvenger.perlinsedge.domain.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IsometricUtilsTest {
 
@@ -89,6 +94,36 @@ class IsometricUtilsTest {
     void tileToScreenHandlesNegativeTileCoordinates() {
         assertArrayEquals(new double[]{32, -16},
                 IsometricUtils.tileToScreen(-1, 0, 64, 0, 1, HALF_W, HALF_H), DELTA);
+    }
+
+    private static TileMap walkableMap(int size) {
+        TileMap map = new TileMap(size, size);
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.GRASS));
+            }
+        }
+        return map;
+    }
+
+    @Test
+    void adjacentPositionNeverReturnsTheOriginTileWhenANeighbourIsFree() {
+        TileMap map = walkableMap(3);
+
+        int[] found = IsometricUtils.findAdjacentPosition(1, 1, map, Tile::isWalkable, IsometricUtils.ALL_DIRECTIONS);
+
+        assertFalse(found[0] == 1 && found[1] == 1);
+        assertTrue(Math.abs(found[0] - 1) <= 1 && Math.abs(found[1] - 1) <= 1);
+    }
+
+    @Test
+    void adjacentPositionFallsBackToTheOriginWhenNoNeighbourIsFree() {
+        TileMap map = walkableMap(3);
+
+        int[] found = IsometricUtils.findAdjacentPosition(1, 1, map, tile -> tile.getX() == 1 && tile.getY() == 1,
+                IsometricUtils.ALL_DIRECTIONS);
+
+        assertArrayEquals(new int[]{1, 1}, found);
     }
 
     @Test

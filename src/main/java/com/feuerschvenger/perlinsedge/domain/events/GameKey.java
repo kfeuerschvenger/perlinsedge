@@ -10,11 +10,17 @@ public enum GameKey {
     I,
     B,
     C,
+    /** Previous page of the building hotbar. */
+    PAGE_UP,
+    /** Next page of the building hotbar. */
+    PAGE_DOWN,
     F1,
     F2,
     F3,
     F4,
     F5,
+    /** Toggles the FPS overlay, which is independent of the debug mode. */
+    F6,
     DIGIT_1(1),
     DIGIT_2(2),
     DIGIT_3(3),

@@ -3,7 +3,6 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.ArrayList;
@@ -37,6 +36,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private double jumpPhase; // 0.0 to 1.0 representing jump progress
 
     private final Random random;
+    private final PathPlanner pathPlanner = new PathPlanner();
 
     public SlimeMovementStrategy() {
         this.currentPath = new LinkedList<>();
@@ -50,6 +50,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player) {
         // Slime-specific movement logic
         enemy.snapshot(); // Snapshot entity's position for interpolation
+        pathPlanner.tick(deltaTime);
 
         if (shouldAggro(enemy, player)) {
             handleAggroBehavior(enemy, map, player);
@@ -85,8 +86,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         totalJumpTime = JUMP_SPEED_AGGRO;
 
         if (needsNewPath(enemy)) {
-            Pathfinder pathfinder = new Pathfinder(map);
-            List<PathNode> pathToPlayer = pathfinder.findPath(
+            // Capped, and skipped for a while after a failed search (the player may be unreachable)
+            List<PathNode> pathToPlayer = pathPlanner.findPath(
+                    map,
                     enemy.getCurrentTileX(), enemy.getCurrentTileY(),
                     player.getCurrentTileX(), player.getCurrentTileY()
             );

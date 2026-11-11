@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
+import com.feuerschvenger.perlinsedge.app.managers.HotbarPager;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
@@ -7,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
@@ -15,19 +17,20 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 /**
  * Hotbar panel for building selection in construction mode.
  * Appears at the bottom center of the screen for quick building selection.
+ * The number keys 1 to 9 pick a slot of the current page; when there are more buildings than slots,
+ * the page buttons, the Page Up and Page Down keys, or the mouse wheel switch to the next group so every
+ * building can be reached.
  */
 public class BuildingHotbarPanel extends HBox {
 
     private final RecipeManager recipeManager;
-    private final Map<Integer, BuildingType> hotbarSlots;
+    private final HotbarPager<BuildingRecipe> pager;
     private Consumer<BuildingType> onBuildingSelectedListener;
     private BuildingType currentlySelectedBuildingType;
 
@@ -35,9 +38,16 @@ public class BuildingHotbarPanel extends HBox {
     private static final double SLOT_SIZE = 60;
     private static final double ICON_SIZE = 48;
 
+    // Each slot style is a complete replacement, never appended to, so it cannot grow with every highlight
+    private static final String EMPTY_SLOT_CLASS = "empty-slot";
+    private static final String SLOT_STYLE =
+            "-fx-background-color: #555555; -fx-border-color: gray; -fx-border-width: 1; -fx-border-radius: 5;";
+    private static final String SLOT_SELECTED_STYLE =
+            "-fx-background-color: #555555; -fx-border-color: limegreen; -fx-border-width: 3; -fx-border-radius: 5;";
+
     public BuildingHotbarPanel(RecipeManager recipeManager) {
         this.recipeManager = recipeManager;
-        this.hotbarSlots = new HashMap<>();
+        this.pager = new HotbarPager<>(recipeManager.getAllBuildingRecipes(), NUM_SLOTS);
 
         setupLayout();
         populateHotbar();
@@ -55,16 +65,12 @@ public class BuildingHotbarPanel extends HBox {
     }
 
     private void populateHotbar() {
-        List<BuildingRecipe> buildingRecipes = recipeManager.getAllBuildingRecipes();
-        int slotIndex = 1;
+        List<BuildingRecipe> pageRecipes = pager.currentPage();
         getChildren().clear();
 
-        for (BuildingRecipe recipe : buildingRecipes) {
-            if (slotIndex > NUM_SLOTS) break;
-
-            BuildingType buildingType = recipe.buildingType();
-            hotbarSlots.put(slotIndex, buildingType);
-            getChildren().add(createHotbarSlot(slotIndex, buildingType, recipe));
+        int slotIndex = 1;
+        for (BuildingRecipe recipe : pageRecipes) {
+            getChildren().add(createHotbarSlot(slotIndex, recipe.buildingType(), recipe));
             slotIndex++;
         }
 
@@ -73,12 +79,36 @@ public class BuildingHotbarPanel extends HBox {
             getChildren().add(createEmptyHotbarSlot(slotIndex));
             slotIndex++;
         }
+
+        if (pager.getPageCount() > 1) {
+            getChildren().add(createPageControls());
+        }
+    }
+
+    private VBox createPageControls() {
+        Label pageLabel = new Label((pager.getPage() + 1) + "/" + pager.getPageCount());
+        pageLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        pageLabel.setTextFill(Color.WHITE);
+
+        Button previous = new Button("<");
+        previous.setFocusTraversable(false);
+        previous.setOnAction(event -> changePage(-1));
+        Button next = new Button(">");
+        next.setFocusTraversable(false);
+        next.setOnAction(event -> changePage(1));
+
+        HBox buttons = new HBox(4, previous, next);
+        buttons.setAlignment(Pos.CENTER);
+        VBox controls = new VBox(4, pageLabel, buttons);
+        controls.setAlignment(Pos.CENTER);
+        controls.setPadding(new Insets(0, 8, 0, 4));
+        return controls;
     }
 
     private StackPane createHotbarSlot(int number, BuildingType type, BuildingRecipe recipe) {
         StackPane slot = new StackPane();
         slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
-        slot.setStyle("-fx-background-color: #555555; -fx-border-color: gray; -fx-border-radius: 5;");
+        slot.setStyle(SLOT_STYLE);
 
         // Placeholder icon
         StackPane iconWrapper = new StackPane();
@@ -125,6 +155,7 @@ public class BuildingHotbarPanel extends HBox {
     private StackPane createEmptyHotbarSlot(int number) {
         StackPane slot = new StackPane();
         slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
+        slot.getStyleClass().add(EMPTY_SLOT_CLASS);
         slot.setStyle("-fx-background-color: #444444; -fx-border-color: darkgray; -fx-border-style: dashed;");
 
         Label numberLabel = new Label(String.valueOf(number));
@@ -136,15 +167,18 @@ public class BuildingHotbarPanel extends HBox {
         return slot;
     }
 
+    /** Gives the selected slot the highlight and every other building slot the plain look. */
     private void highlightSelectedSlot(StackPane selectedSlot) {
         for (Node node : getChildren()) {
-            if (node instanceof StackPane slot) {
-                String style = slot == selectedSlot ?
-                        "-fx-border-color: limegreen; -fx-border-width: 3;" :
-                        "-fx-border-color: gray; -fx-border-width: 1;";
-                slot.setStyle(slot.getStyle() + style);
+            if (node instanceof StackPane slot && !slot.getStyleClass().contains(EMPTY_SLOT_CLASS)) {
+                slot.setStyle(slot == selectedSlot ? SLOT_SELECTED_STYLE : SLOT_STYLE);
             }
         }
+    }
+
+    /** @return true when there are more buildings than slots, so the hotbar has pages to flip between */
+    public boolean hasMultiplePages() {
+        return pager.getPageCount() > 1;
     }
 
     public void selectBuildingType(BuildingType type) {
@@ -154,10 +188,16 @@ public class BuildingHotbarPanel extends HBox {
         }
     }
 
+    /**
+     * Selects the building behind a slot number of the current page.
+     * An empty or unknown slot clears the selection.
+     *
+     * @param slotNumber slot number from 1 to 9
+     */
     public void selectBuildingBySlotNumber(int slotNumber) {
-        if (hotbarSlots.containsKey(slotNumber)) {
-            BuildingType type = hotbarSlots.get(slotNumber);
-            selectBuildingType(type);
+        BuildingRecipe recipe = pager.select(slotNumber);
+        if (recipe != null) {
+            selectBuildingType(recipe.buildingType());
 
             if (slotNumber >= 1 && slotNumber <= getChildren().size()) {
                 Node node = getChildren().get(slotNumber - 1);
@@ -171,12 +211,42 @@ public class BuildingHotbarPanel extends HBox {
         }
     }
 
+    /**
+     * Shows the next or previous group of buildings. The selection is kept, and highlighted again when the
+     * selected building is on the page now shown.
+     *
+     * @param delta 1 for the next page, -1 for the previous one
+     */
+    public void changePage(int delta) {
+        if (pager.getPageCount() <= 1) return;
+
+        if (delta > 0) {
+            pager.next();
+        } else {
+            pager.previous();
+        }
+        populateHotbar();
+        highlightCurrentSelection();
+    }
+
     private void resetSlotHighlights() {
         for (Node node : getChildren()) {
-            if (node instanceof StackPane slot) {
-                slot.setStyle(slot.getStyle().replaceAll("-fx-border-color:.*?;", ""));
-                slot.setStyle(slot.getStyle() + "-fx-border-color: gray; -fx-border-width: 1;");
+            if (node instanceof StackPane slot && !slot.getStyleClass().contains(EMPTY_SLOT_CLASS)) {
+                slot.setStyle(SLOT_STYLE);
             }
+        }
+    }
+
+    private void highlightCurrentSelection() {
+        if (currentlySelectedBuildingType == null) return;
+
+        int index = 0;
+        for (BuildingRecipe recipe : pager.currentPage()) {
+            if (recipe.buildingType() == currentlySelectedBuildingType && getChildren().get(index) instanceof StackPane slot) {
+                highlightSelectedSlot(slot);
+                return;
+            }
+            index++;
         }
     }
 
@@ -186,16 +256,24 @@ public class BuildingHotbarPanel extends HBox {
         this.onBuildingSelectedListener = listener;
     }
 
+    /** Forgets the selected building and removes the highlight, without notifying the listener. */
+    public void clearSelection() {
+        currentlySelectedBuildingType = null;
+        resetSlotHighlights();
+    }
+
+    /** Rebuilds the slots, on the page that holds the selected building when there is one. */
     public void refreshHotbarDisplay() {
-        populateHotbar();
         if (currentlySelectedBuildingType != null) {
-            for (Map.Entry<Integer, BuildingType> entry : hotbarSlots.entrySet()) {
-                if (entry.getValue() == currentlySelectedBuildingType) {
-                    selectBuildingBySlotNumber(entry.getKey());
+            for (BuildingRecipe recipe : recipeManager.getAllBuildingRecipes()) {
+                if (recipe.buildingType() == currentlySelectedBuildingType) {
+                    pager.showPageOf(recipe);
                     break;
                 }
             }
         }
+        populateHotbar();
+        highlightCurrentSelection();
     }
 
 }

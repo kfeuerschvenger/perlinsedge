@@ -3,11 +3,15 @@ package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,6 +27,10 @@ class ChestTest {
         chest = new Chest(1, 2, 3);
     }
 
+    private List<Item> stacks() {
+        return chest.getItems().stream().filter(Objects::nonNull).toList();
+    }
+
     @Test
     void exposesPositionTypeAndCapacity() {
         assertEquals(1, chest.getTileX());
@@ -34,13 +42,25 @@ class ChestTest {
     }
 
     @Test
+    void getItemsHasOneEntryPerSlot() {
+        chest.setItemAt(1, new Item(ItemType.STONE, 2));
+
+        List<Item> items = chest.getItems();
+
+        assertEquals(3, items.size());
+        assertNull(items.get(0));
+        assertEquals(2, items.get(1).getQuantity());
+        assertNull(items.get(2));
+    }
+
+    @Test
     void sameTypeStacksUntilTheLimitThenUsesANewSlot() {
         chest.addItem(new Item(ItemType.STONE, STACK - 2));
         chest.addItem(new Item(ItemType.STONE, 5));
 
-        assertEquals(2, chest.getItems().size());
-        assertEquals(STACK, chest.getItems().get(0).getQuantity());
-        assertEquals(3, chest.getItems().get(1).getQuantity());
+        assertEquals(2, stacks().size());
+        assertEquals(STACK, chest.getItemAt(0).getQuantity());
+        assertEquals(3, chest.getItemAt(1).getQuantity());
     }
 
     @Test
@@ -54,22 +74,43 @@ class ChestTest {
     }
 
     @Test
-    void removeSpansStacksAndDropsEmptySlots() {
+    void removeSpansStacksAndClearsEmptySlots() {
         chest.addItem(new Item(ItemType.STONE, STACK));
         chest.addItem(new Item(ItemType.STONE, 5));
 
         assertTrue(chest.removeItem(new Item(ItemType.STONE, 1), STACK + 5));
 
-        assertEquals(0, chest.getItems().size());
+        assertEquals(0, stacks().size());
+        assertNull(chest.getItemAt(0));
     }
 
-    @Disabled("bug: Chest.addItem stores at most one stack when the quantity exceeds the stack size, the excess "
-            + "is lost and the call still returns true")
+    @Test
+    void removeIsAtomicWhenQuantityIsInsufficient() {
+        chest.addItem(new Item(ItemType.STONE, 4));
+
+        assertFalse(chest.removeItem(new Item(ItemType.STONE, 1), 10));
+
+        assertEquals(4, chest.getItemCount(new Item(ItemType.STONE, 1)));
+    }
+
     @Test
     void addingMoreThanOneStackKeepsEveryUnit() {
-        assertTrue(chest.addItem(new Item(ItemType.STONE, STACK + 5)));
+        Item incoming = new Item(ItemType.STONE, STACK + 5);
+
+        assertTrue(chest.addItem(incoming));
 
         assertEquals(STACK + 5, chest.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(0, incoming.getQuantity());
+    }
+
+    @Test
+    void whatDoesNotFitStaysOnTheIncomingItem() {
+        Item incoming = new Item(ItemType.STONE, STACK * 3 + 7);
+
+        assertTrue(chest.addItem(incoming));
+
+        assertEquals(STACK * 3, chest.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(7, incoming.getQuantity());
     }
 
     @Test
@@ -78,7 +119,7 @@ class ChestTest {
         assertNull(chest.getItemAt(3));
 
         chest.setItemAt(7, new Item(ItemType.STONE, 1));
-        assertEquals(0, chest.getItems().size());
+        assertEquals(0, stacks().size());
     }
 
     @Test
@@ -87,7 +128,7 @@ class ChestTest {
 
         chest.getItems().clear();
 
-        assertEquals(1, chest.getItems().size());
+        assertEquals(1, stacks().size());
     }
 
     @Test
@@ -104,8 +145,6 @@ class ChestTest {
         assertTrue(chest.onInteract(null));
     }
 
-    @Disabled("bug: Chest.getItemAt throws IndexOutOfBoundsException for an empty slot that is below the capacity "
-            + "(the slot check uses capacity, the list is shorter)")
     @Test
     void emptySlotBelowCapacityReturnsNull() {
         chest.addItem(new Item(ItemType.STONE, 1));
@@ -113,8 +152,6 @@ class ChestTest {
         assertNull(chest.getItemAt(2));
     }
 
-    @Disabled("bug: Chest.setItemAt silently ignores a slot that is beyond the next free one, so an item dropped "
-            + "on that slot is lost")
     @Test
     void itemCanBePlacedInAnyEmptySlot() {
         Item stone = new Item(ItemType.STONE, 4);
@@ -122,5 +159,57 @@ class ChestTest {
         chest.setItemAt(2, stone);
 
         assertSame(stone, chest.getItemAt(2));
+    }
+
+    @Test
+    void clearingASlotKeepsTheOtherSlotsInPlace() {
+        Item first = new Item(ItemType.STONE, 1);
+        Item second = new Item(ItemType.STICK, 1);
+        chest.setItemAt(0, first);
+        chest.setItemAt(1, second);
+
+        chest.setItemAt(0, null);
+
+        assertNull(chest.getItemAt(0));
+        assertSame(second, chest.getItemAt(1));
+    }
+
+    @Test
+    void setItemsReplacesTheContents() {
+        chest.addItem(new Item(ItemType.COAL, 3));
+
+        chest.setItems(List.of(new Item(ItemType.STONE, 2), new Item(ItemType.STICK, 1)));
+
+        assertEquals(0, chest.getItemCount(new Item(ItemType.COAL, 1)));
+        assertEquals(2, chest.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(1, chest.getItemCount(new Item(ItemType.STICK, 1)));
+    }
+
+    @Test
+    void setItemsKeepsSlotIndicesAndDoesNotCompact() {
+        List<Item> source = new ArrayList<>();
+        source.add(null);
+        source.add(new Item(ItemType.STONE, 2));
+        source.add(new Item(ItemType.STICK, 1));
+        source.add(new Item(ItemType.COAL, 1));
+
+        chest.setItems(source);
+
+        assertNull(chest.getItemAt(0));
+        assertEquals(ItemType.STONE, chest.getItemAt(1).getType());
+        assertEquals(ItemType.STICK, chest.getItemAt(2).getType());
+        assertEquals(0, chest.getItemCount(new Item(ItemType.COAL, 1)), "entries beyond the capacity are ignored");
+    }
+
+    @Test
+    void setItemsCopiesTheItemsAndLeavesTheSourceUntouched() {
+        Item stone = new Item(ItemType.STONE, 7);
+
+        chest.setItems(List.of(stone));
+
+        assertEquals(7, stone.getQuantity());
+        assertNotSame(stone, chest.getItemAt(0));
+        chest.getItemAt(0).addQuantity(1);
+        assertEquals(7, stone.getQuantity(), "changing the stored stack never changes the source");
     }
 }

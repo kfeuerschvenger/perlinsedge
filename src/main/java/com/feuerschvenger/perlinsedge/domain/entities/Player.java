@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -84,14 +85,17 @@ public class Player extends Entity implements Container {
      * Initiates an attack in the specified direction.
      *
      * @param direction The attack direction (using DIR_* constants)
+     * @return true if the attack started, false while the cooldown runs or the player is dead
      */
-    public void startAttack(int direction) {
-        if (attackTimer <= 0 && !isDead) {
-            isAttacking = true;
-            attackTimer = attackCooldown;
-            attackAnimationTime = 0;
-            attackDirection = direction;
+    public boolean startAttack(int direction) {
+        if (attackTimer > 0 || isDead) {
+            return false;
         }
+        isAttacking = true;
+        attackTimer = attackCooldown;
+        attackAnimationTime = 0;
+        attackDirection = direction;
+        return true;
     }
 
     public boolean isAttacking() {
@@ -260,21 +264,68 @@ public class Player extends Entity implements Container {
 
     /**
      * Crafts an item from a recipe.
+     * Nothing changes unless the ingredients are present and the whole output fits once they are consumed,
+     * so a craft never destroys items.
+     *
+     * @param recipe recipe to craft
+     * @return true when the ingredients were consumed and the output added, false when nothing changed
      */
-    public void craftItem(Recipe recipe) {
+    public boolean craftItem(Recipe recipe) {
         if (!canCraft(recipe)) {
             log.warn("Cannot craft: Missing ingredients");
-            return;
+            return false;
+        }
+        if (!outputFitsAfterConsuming(recipe)) {
+            log.debug("Cannot craft {}: no room for the output", recipe.getName());
+            return false;
         }
 
-        // Remove ingredients
         for (CraftingIngredient ingredient : recipe.getIngredients()) {
             removeItem(new Item(ingredient.itemType(), 1), ingredient.quantity());
         }
 
-        // Add crafted item
-        Item craftedItem = new Item(recipe.getOutputItemType(), recipe.getOutputQuantity());
-        addItem(craftedItem);
+        addItem(new Item(recipe.getOutputItemType(), recipe.getOutputQuantity()));
+        return true;
+    }
+
+    /**
+     * Simulates consuming the ingredients and then adding the output, without touching the inventory.
+     */
+    private boolean outputFitsAfterConsuming(Recipe recipe) {
+        ItemType[] types = new ItemType[INVENTORY_CAPACITY];
+        int[] quantities = new int[INVENTORY_CAPACITY];
+        for (int i = 0; i < INVENTORY_CAPACITY; i++) {
+            Item item = inventory.get(i);
+            if (item != null) {
+                types[i] = item.getType();
+                quantities[i] = item.getQuantity();
+            }
+        }
+
+        for (CraftingIngredient ingredient : recipe.getIngredients()) {
+            int remaining = ingredient.quantity();
+            for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
+                if (types[i] == ingredient.itemType()) {
+                    int taken = Math.min(quantities[i], remaining);
+                    quantities[i] -= taken;
+                    remaining -= taken;
+                    if (quantities[i] == 0) {
+                        types[i] = null;
+                    }
+                }
+            }
+        }
+
+        int maxStack = recipe.getOutputItemType().getMaxStackSize();
+        int room = 0;
+        for (int i = 0; i < INVENTORY_CAPACITY; i++) {
+            if (types[i] == null) {
+                room += maxStack;
+            } else if (types[i] == recipe.getOutputItemType()) {
+                room += maxStack - quantities[i];
+            }
+        }
+        return room >= recipe.getOutputQuantity();
     }
 
     // ==================================================================
@@ -340,6 +391,11 @@ public class Player extends Entity implements Container {
             return false;
         }
 
+        if (getItemCount(itemToRemove) < quantity) {
+            log.debug("Cannot remove {}x {}: not enough in the inventory", quantity, itemToRemove.getDisplayName());
+            return false;
+        }
+
         int remaining = quantity;
         for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             Item current = inventory.get(i);
@@ -354,7 +410,7 @@ public class Player extends Entity implements Container {
             }
         }
 
-        return remaining == 0; // Return true if all requested quantity was removed
+        return true;
     }
 
     @Override
@@ -396,9 +452,12 @@ public class Player extends Entity implements Container {
     @Override
     public void setItems(List<Item> items) {
         clearInventory();
-        items.stream()
-                .filter(Objects::nonNull)
-                .forEach(this::addItem);
+        for (int i = 0; i < items.size() && i < INVENTORY_CAPACITY; i++) {
+            Item source = items.get(i);
+            if (source != null && source.getQuantity() > 0) {
+                inventory.set(i, new Item(source.getType(), Math.min(source.getQuantity(), source.getMaxStackSize())));
+            }
+        }
     }
 
     // ==================================================================

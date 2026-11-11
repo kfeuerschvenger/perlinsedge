@@ -4,16 +4,18 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.events.IMapGenerationListener;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGeneratorFactory;
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +30,7 @@ import java.util.function.Predicate;
  * Handles map creation based on configuration parameters and player position.
  */
 @Slf4j
-public class MapManager implements IConfigChangeListener, IMapGenerationListener {
+public class MapManager implements IMapGenerationListener {
     // Configuration constants
     private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
@@ -48,7 +50,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
     public MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel) {
         this.gameState = gameState;
         this.mapConfigPanel = mapConfigPanel;
-        this.mapGeneratorFactory = new MapGeneratorFactory();
+        this.mapGeneratorFactory = new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY);
     }
 
     /**
@@ -60,11 +62,12 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
      */
     public MapGenerationContext createMapContext(MapType mapType, long seed) {
         AppConfig.WorldConfig worldConfig = AppConfig.getInstance().world();
+        NoiseSettings heightProfile = NoiseSettings.heightProfile(mapType);
         return new MapGenerationContext(
                 mapType,
                 seed,
-                worldConfig.getHeightNoiseFrequency(),
-                worldConfig.getHeightNoiseOctaves(),
+                heightProfile.frequency(),
+                heightProfile.octaves(),
                 worldConfig.getTemperatureNoiseFrequency(),
                 worldConfig.getTemperatureNoiseOctaves(),
                 worldConfig.getMoistureNoiseFrequency(),
@@ -99,7 +102,9 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
 
     /**
      * Callback when map generation completes.
-     * Resets game state and spawns enemies.
+     * Stores the map and clears the entities that belonged to the previous one.
+     * Enemies are not spawned here: the caller spawns them once the player has a position on the new map,
+     * which keeps them from being placed twice and from landing next to the player.
      */
     @Override
     public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
@@ -107,7 +112,6 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
 
-        spawnEnemies();
         mapConfigPanel.updateValuesFromGenerator(generator);
     }
 
@@ -122,6 +126,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
         int[] playerPosition = getPlayerPosition();
         spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map);
         spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map);
+        spawnEnemyType(enemies, Skeleton.class, AppConfig.getInstance().world().getBaseSkeletonsCount(), playerPosition, map);
 
         gameState.setEnemies(enemies);
         logSpawnSummary(enemies.size());
@@ -150,6 +155,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
     private Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
         if (type == Slime.class) return new Slime(x, y);
         if (type == Mimic.class) return new Mimic(x, y);
+        if (type == Skeleton.class) return new Skeleton(x, y);
         throw new IllegalArgumentException("Unsupported enemy type: " + type);
     }
 
@@ -205,30 +211,6 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
                 MIN_WALKABLE_NEIGHBORS,
                 IsometricUtils.CARDINAL_DIRECTIONS
         );
-    }
-
-    /**
-     * Handles configuration changes from UI.
-     * Regenerates map with new parameters.
-     */
-    @Override
-    public void onMapConfigChanged(MapType mapType, long seed,
-                                   float heightFreq, int heightOctaves,
-                                   float tempFreq, int tempOctaves,
-                                   float moistureFreq, int moistureOctaves,
-                                   float stoneFreq, float stoneThreshold,
-                                   float crystalsFreq, float crystalsThreshold,
-                                   float treeDensity, float riverDensity) {
-        AppConfig.getInstance().world().setCurrentMapType(mapType);
-        generateNewMap(new MapGenerationContext(
-                mapType, seed,
-                heightFreq, heightOctaves,
-                tempFreq, tempOctaves,
-                moistureFreq, moistureOctaves,
-                stoneFreq, stoneThreshold,
-                crystalsFreq, crystalsThreshold,
-                treeDensity, riverDensity
-        ));
     }
 
     /**

@@ -7,16 +7,17 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Represents a chest building that provides storage functionality.
- * Implements the Container interface for item storage management.
+ * Items live in a fixed number of slots, an empty slot holds null, so a slot index keeps its meaning
+ * when other slots are emptied.
  */
 @Slf4j
 public class Chest extends Building implements Container {
-    private final List<Item> inventory;
+    private final List<Item> slots;
     @Getter
     private final int capacity;
 
@@ -29,7 +30,7 @@ public class Chest extends Building implements Container {
      */
     public Chest(int tileX, int tileY, int capacity) {
         super(tileX, tileY, BuildingType.CHEST, true, true);
-        this.inventory = new ArrayList<>();
+        this.slots = new ArrayList<>(Collections.nCopies(capacity, null));
         this.capacity = capacity;
     }
 
@@ -39,76 +40,85 @@ public class Chest extends Building implements Container {
 
     @Override
     public List<Item> getItems() {
-        return new ArrayList<>(inventory); // Defensive copy
+        return new ArrayList<>(slots); // Defensive copy, one entry per slot
     }
 
     @Override
     public Item getItemAt(int slotIndex) {
         if (!isValidSlot(slotIndex)) return null;
-        return inventory.get(slotIndex);
+        return slots.get(slotIndex);
     }
 
     @Override
     public void setItemAt(int slotIndex, Item item) {
         if (!isValidSlot(slotIndex)) return;
-
-        if (slotIndex < inventory.size()) {
-            inventory.set(slotIndex, item);
-        } else if (slotIndex == inventory.size() && hasAvailableSlot()) {
-            inventory.add(item);
-        }
+        slots.set(slotIndex, item);
     }
 
     @Override
     public boolean addItem(Item item) {
         if (item == null || item.getQuantity() <= 0) return false;
 
-        // Try to stack with existing items
-        int remaining = stackIntoExistingItems(item);
-        if (remaining == 0) return true;
+        int originalQuantity = item.getQuantity();
+        int remaining = originalQuantity;
 
-        // Add to new slot if space available
-        return addToNewSlot(new Item(item.getType(), remaining));
+        for (int i = 0; i < capacity && remaining > 0; i++) {
+            Item existing = slots.get(i);
+            if (canStack(existing, item)) {
+                int transfer = Math.min(existing.getMaxStackSize() - existing.getQuantity(), remaining);
+                existing.addQuantity(transfer);
+                remaining -= transfer;
+            }
+        }
+
+        for (int i = 0; i < capacity && remaining > 0; i++) {
+            if (slots.get(i) == null) {
+                int stackSize = Math.min(remaining, item.getMaxStackSize());
+                slots.set(i, new Item(item.getType(), stackSize));
+                remaining -= stackSize;
+            }
+        }
+
+        item.setQuantity(remaining);
+        return remaining < originalQuantity;
     }
 
     @Override
     public boolean removeItem(Item itemToRemove, int quantity) {
         if (itemToRemove == null || quantity <= 0) return false;
+        if (getItemCount(itemToRemove) < quantity) return false;
 
         int remaining = quantity;
-        for (int i = 0; i < inventory.size() && remaining > 0; i++) {
-            Item item = inventory.get(i);
-            if (item.getType() == itemToRemove.getType()) {
+        for (int i = 0; i < capacity && remaining > 0; i++) {
+            Item item = slots.get(i);
+            if (item != null && item.getType() == itemToRemove.getType()) {
                 int toRemove = Math.min(item.getQuantity(), remaining);
                 item.removeQuantity(toRemove);
                 remaining -= toRemove;
 
                 if (item.isEmpty()) {
-                    inventory.remove(i);
-                    i--; // Adjust index after removal
+                    slots.set(i, null);
                 }
             }
         }
 
-        return remaining == 0;
+        return true;
     }
 
     @Override
     public int getItemCount(Item item) {
-        return inventory.stream()
-                .filter(i -> i.getType() == item.getType())
+        if (item == null) return 0;
+        return slots.stream()
+                .filter(i -> i != null && i.getType() == item.getType())
                 .mapToInt(Item::getQuantity)
                 .sum();
     }
 
     @Override
     public boolean hasSpace(Item item) {
-        // Check for stack space
-        boolean hasStackSpace = inventory.stream()
-                .filter(Objects::nonNull)
-                .filter(i -> i.getType() == item.getType())
-                .anyMatch(i -> i.getQuantity() < i.getMaxStackSize());
+        if (item == null) return false;
 
+        boolean hasStackSpace = slots.stream().anyMatch(i -> canStack(i, item));
         return hasStackSpace || hasAvailableSlot();
     }
 
@@ -119,11 +129,13 @@ public class Chest extends Building implements Container {
 
     @Override
     public void setItems(List<Item> items) {
-        this.inventory.clear();
-        items.stream()
-                .filter(Objects::nonNull)
-                .filter(item -> item.getQuantity() > 0)
-                .forEach(this::addItem);
+        Collections.fill(slots, null);
+        for (int i = 0; i < items.size() && i < capacity; i++) {
+            Item source = items.get(i);
+            if (source != null && source.getQuantity() > 0) {
+                slots.set(i, new Item(source.getType(), Math.min(source.getQuantity(), source.getMaxStackSize())));
+            }
+        }
     }
 
     // ==================================================================
@@ -141,45 +153,7 @@ public class Chest extends Building implements Container {
     // ==================================================================
 
     /**
-     * Attempts to stack items into existing stacks.
-     *
-     * @param item Item to stack
-     * @return Remaining quantity after stacking
-     */
-    private int stackIntoExistingItems(Item item) {
-        int remaining = item.getQuantity();
-
-        for (Item existing : inventory) {
-            if (canStack(existing, item)) {
-                int availableSpace = existing.getMaxStackSize() - existing.getQuantity();
-                int toTransfer = Math.min(availableSpace, remaining);
-
-                existing.addQuantity(toTransfer);
-                remaining -= toTransfer;
-
-                if (remaining <= 0) break;
-            }
-        }
-        return remaining;
-    }
-
-    /**
-     * Adds an item to a new slot.
-     *
-     * @param item Item to add
-     * @return True if successfully added
-     */
-    private boolean addToNewSlot(Item item) {
-        if (!hasAvailableSlot()) return false;
-        if (item.getQuantity() <= 0) return false;
-
-        int stackSize = Math.min(item.getQuantity(), item.getMaxStackSize());
-        inventory.add(new Item(item.getType(), stackSize));
-        return true;
-    }
-
-    /**
-     * Checks if two items can be stacked together.
+     * Checks if an item can be stacked onto an existing stack.
      */
     private boolean canStack(Item existing, Item newItem) {
         return existing != null &&
@@ -189,10 +163,10 @@ public class Chest extends Building implements Container {
     }
 
     /**
-     * Checks if the chest has an available slot.
+     * Checks if the chest has an empty slot.
      */
     private boolean hasAvailableSlot() {
-        return inventory.size() < capacity;
+        return slots.contains(null);
     }
 
     /**

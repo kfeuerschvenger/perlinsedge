@@ -5,11 +5,11 @@ import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.HotbarManager;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
-import javafx.scene.Node;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Owns the game mode transitions: pause and resume, the inventory and building modes,
  * and the visibility of the panels that go with them.
+ * Building mode, the inventory and the open container are only ever entered or left through
+ * {@link #setGameMode(GameMode)}, so their exit and enter actions always run together.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -33,12 +35,12 @@ public class GameStateTransitions {
     @Setter
     private PauseMenuPanel pauseMenuPanel;
 
-    /** Pauses when running and resumes when paused. Open panels are closed before pausing. */
+    /** Pauses when running and resumes when paused. Open panels and building mode are left before pausing. */
     public void togglePauseMenu() {
         if (gameState.isGamePaused()) {
             resumeGame();
         } else {
-            closeOpenUiPanels();
+            setGameMode(GameMode.EXPLORATION);
             pauseGame();
         }
     }
@@ -47,47 +49,68 @@ public class GameStateTransitions {
     public void resumeGame() {
         gameState.setGamePaused(false);
         gameState.setCurrentGameMode(GameMode.EXPLORATION);
-        if (pauseMenuPanel != null) {
-            pauseMenuPanel.setVisible(false);
-            pauseMenuPanel.setManaged(false);
-        }
+        hidePauseMenu();
         gameLoop.start();
+    }
+
+    /**
+     * Brings every panel and mode back to the state of a fresh game: exploration, nothing open, nothing paused.
+     * Used before a new game starts and when the player leaves for the main menu.
+     */
+    public void resetUi() {
+        setGameMode(GameMode.EXPLORATION);
+        containerManager.closeContainer();
+        hotbarManager.hideHotbar();
+        inventoryPanel.closeInventory();
+        hidePauseMenu();
+        gameState.setInventoryOpen(false);
+        gameState.setGamePaused(false);
+        gameState.setCurrentGameMode(GameMode.EXPLORATION);
     }
 
     /** Shows or hides the map configuration panel. */
     public void toggleMapConfigPanel() {
-        togglePanelVisibility(mapConfigPanel, "Map Config Panel");
+        boolean isVisible = !mapConfigPanel.isVisible();
+        mapConfigPanel.setVisible(isVisible);
+        mapConfigPanel.setManaged(isVisible);
+        log.debug("Map Config Panel: {}", isVisible ? "VISIBLE" : "HIDDEN");
     }
 
-    /** Toggles building mode on and off, closing the inventory when entering it. */
+    /** Toggles building mode on and off. Entering it closes the inventory. */
     public void toggleBuildingMode() {
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             setGameMode(GameMode.EXPLORATION);
-            hotbarManager.hideHotbar();
-        } else {
-            if (inventoryPanel.isVisible()) {
-                togglePanelVisibility(inventoryPanel, "Inventory Panel");
-            }
-            if (!gameState.isGamePaused()) {
-                setGameMode(GameMode.BUILDING_MODE);
-                hotbarManager.showHotbar();
-            }
+        } else if (!gameState.isGamePaused()) {
+            setGameMode(GameMode.BUILDING_MODE);
         }
     }
 
-    /** Toggles the player inventory. */
+    /** Toggles the player inventory. Opening it leaves building mode. */
     public void toggleInventory() {
-        if (hotbarManager.isHotbarVisible()) {
-            hotbarManager.hideHotbar();
-        }
+        if (gameState.isGamePaused()) return;
 
-        if (inventoryPanel.isVisible() && gameState.isInventoryOpen()) {
+        GameMode mode = gameState.getCurrentGameMode();
+        if (mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN) {
             setGameMode(GameMode.EXPLORATION);
         } else {
             inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
-            inventoryPanel.openPlayerInventory();
             setGameMode(GameMode.INVENTORY_OPEN);
         }
+    }
+
+    /**
+     * Shows the container that {@link ContainerManager} has just opened next to the player inventory.
+     * The mode becomes the inventory mode with the inventory flag set, so the inventory key closes it again.
+     */
+    public void showOpenContainer() {
+        Container container = containerManager.getOpenContainer();
+        if (container == null) return;
+
+        hotbarManager.hideHotbar();
+        inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
+        inventoryPanel.openDualInventory(container);
+        gameState.setInventoryOpen(true);
+        gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
     }
 
     /**
@@ -130,18 +153,6 @@ public class GameStateTransitions {
         gameState.setCurrentGameMode(newMode);
     }
 
-    private void closeOpenUiPanels() {
-        if (inventoryPanel.isVisible()) {
-            inventoryPanel.closeInventory();
-        }
-        if (hotbarManager.isHotbarVisible()) {
-            hotbarManager.hideHotbar();
-        }
-        if (buildingManager.isBuildingModeActive()) {
-            buildingManager.toggleBuildingMode();
-        }
-    }
-
     private void pauseGame() {
         gameState.setGamePaused(true);
         gameLoop.stop();
@@ -152,32 +163,10 @@ public class GameStateTransitions {
         }
     }
 
-    private void togglePanelVisibility(Node panel, String panelName) {
-        boolean isVisible = !panel.isVisible();
-        panel.setVisible(isVisible);
-        panel.setManaged(isVisible);
-
-        if (panel == inventoryPanel) {
-            handleInventoryPanelToggle(isVisible);
-        } else if (panel == mapConfigPanel) {
-            log.debug("{}: {}", panelName, isVisible ? "VISIBLE" : "HIDDEN");
+    private void hidePauseMenu() {
+        if (pauseMenuPanel != null) {
+            pauseMenuPanel.setVisible(false);
+            pauseMenuPanel.setManaged(false);
         }
-    }
-
-    private void handleInventoryPanelToggle(boolean isVisible) {
-        if (isVisible) {
-            hotbarManager.hideHotbar();
-            inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
-            containerManager.openContainer(gameState.getPlayer());
-            inventoryPanel.openPlayerInventory();
-            gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
-        } else {
-            containerManager.closeContainer();
-            inventoryPanel.closeInventory();
-            if (gameState.isInventoryOpen()) {
-                gameState.setCurrentGameMode(GameMode.EXPLORATION);
-            }
-        }
-        inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
     }
 }

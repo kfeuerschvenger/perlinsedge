@@ -13,6 +13,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
+import com.feuerschvenger.perlinsedge.infra.fx.input.ScrollInterceptor;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
@@ -27,6 +28,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import lombok.extern.slf4j.Slf4j;
+
 
 /**
  * Registers the mouse, drag-and-drop and keyboard handlers of the game and translates
@@ -47,6 +49,7 @@ public class InputWiring {
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
     private final Canvas mainCanvas;
+    private final Runnable onContainerOpened;
 
     private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasClick;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
@@ -67,11 +70,13 @@ public class InputWiring {
      * @param inputHandler     keyboard and scroll input source
      * @param minimapDrawer    minimap view
      * @param mainCanvas       canvas that receives game clicks
+     * @param onContainerOpened called after a click opened a container, it shows the container and switches the mode
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
                        ContainerManager containerManager, PlayerManager playerManager,
                        ResourceManager resourceManager, InventoryPanel inventoryPanel, FxCamera camera,
-                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas) {
+                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas,
+                       Runnable onContainerOpened) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
         this.containerManager = containerManager;
@@ -82,6 +87,7 @@ public class InputWiring {
         this.inputHandler = inputHandler;
         this.minimapDrawer = minimapDrawer;
         this.mainCanvas = mainCanvas;
+        this.onContainerOpened = onContainerOpened;
     }
 
     /**
@@ -91,6 +97,15 @@ public class InputWiring {
      */
     public void registerKeyboard(KeyController keyController) {
         inputHandler.setGameKeyListener(keyController);
+    }
+
+    /**
+     * Lets a handler use the mouse wheel before the camera does.
+     *
+     * @param interceptor receives the wheel delta and the Ctrl state, and returns true when it used the event
+     */
+    public void registerWheelInterceptor(ScrollInterceptor interceptor) {
+        inputHandler.setScrollInterceptor(interceptor);
     }
 
     /** Configures drag-and-drop handlers on the game scene. */
@@ -204,8 +219,7 @@ public class InputWiring {
             // Prioritize building interaction
             if (tile.hasBuilding() && buildingManager.interactWithBuilding(tileX, tileY)) {
                 if (containerManager.isContainerOpen()) {
-                    inventoryPanel.openDualInventory(containerManager.getOpenContainer());
-                    gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
+                    onContainerOpened.run();
                 }
             }
             // Then resource interaction

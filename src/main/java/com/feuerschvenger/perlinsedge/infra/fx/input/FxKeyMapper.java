@@ -29,11 +29,14 @@ public final class FxKeyMapper {
             case I -> GameKey.I;
             case B -> GameKey.B;
             case C -> GameKey.C;
+            case PAGE_UP -> GameKey.PAGE_UP;
+            case PAGE_DOWN -> GameKey.PAGE_DOWN;
             case F1 -> GameKey.F1;
             case F2 -> GameKey.F2;
             case F3 -> GameKey.F3;
             case F4 -> GameKey.F4;
             case F5 -> GameKey.F5;
+            case F6 -> GameKey.F6;
             case DIGIT1 -> GameKey.DIGIT_1;
             case DIGIT2 -> GameKey.DIGIT_2;
             case DIGIT3 -> GameKey.DIGIT_3;

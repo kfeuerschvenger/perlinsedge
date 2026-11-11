@@ -57,6 +57,14 @@ class LootManagerTest {
     }
 
     @RepeatedTest(50)
+    void ironOreDropsAlwaysContainIronOre() {
+        Map<ItemType, Integer> drops = byType(loot.generateLootForResource(ResourceType.IRON_ORE));
+
+        assertTrue(drops.get(ItemType.IRON_ORE) >= 1 && drops.get(ItemType.IRON_ORE) <= 3);
+        assertTrue(drops.getOrDefault(ItemType.STONE, 0) <= 2);
+    }
+
+    @RepeatedTest(50)
     void slimeAlwaysDropsSlimeBalls() {
         Map<ItemType, Integer> drops = byType(loot.generateLootForEnemy(Slime.class));
 

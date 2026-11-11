@@ -9,6 +9,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 
+import java.util.Locale;
+
 /**
  * Provides helper methods for drawing isometric tiles and resources.
  * Handles both normal rendering and debug visualization modes.
@@ -201,7 +203,7 @@ public final class FxTileDrawingHelper {
 
     private static void drawDebugText(GraphicsContext gc, double x, double y, double zoom,
                                       double halfH, double normalizedHeight, Tile tile) {
-        final String heightText = String.format("%.2f", tile.getHeight());
+        final String heightText = String.format(Locale.ROOT, "%.2f", tile.getHeight());
         final Color textColor = (normalizedHeight > 0.5) ? Color.BLACK : Color.WHITE;
         final double textY = y + halfH * DEBUG_TEXT_Y_OFFSET_FACTOR;
 

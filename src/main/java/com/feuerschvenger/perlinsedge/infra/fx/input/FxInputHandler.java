@@ -22,6 +22,7 @@ public class FxInputHandler {
     private final Canvas mainGameCanvas;
 
     private IKeyListener keyListener;
+    private ScrollInterceptor scrollInterceptor;
 
     /**
      * Constructs a new FxInputHandler for handling input events in the game.
@@ -52,11 +53,26 @@ public class FxInputHandler {
     }
 
     /**
-     * Handles mouse scroll events to zoom the camera in or out.
+     * Sets a handler that gets the first chance at every scroll event.
+     * It receives the wheel delta and whether Ctrl is held, and returns true when it used the event, which keeps the
+     * camera from zooming for it.
+     *
+     * @param interceptor the handler, or null to let every event zoom
+     */
+    public void setScrollInterceptor(ScrollInterceptor interceptor) {
+        this.scrollInterceptor = interceptor;
+    }
+
+    /**
+     * Handles mouse scroll events to zoom the camera in or out unless the interceptor used them.
      *
      * @param event The scroll event containing the scroll delta and mouse position.
      */
     private void handleScroll(ScrollEvent event) {
+        if (scrollInterceptor != null && event.getDeltaY() != 0
+                && scrollInterceptor.intercept(event.getDeltaY(), event.isControlDown())) {
+            return;
+        }
         double zoomFactor = event.getDeltaY() > 0 ? 1.05 : 0.95;
         camera.zoom(zoomFactor, event.getX(), event.getY());
     }

@@ -3,13 +3,14 @@ package com.feuerschvenger.perlinsedge.domain.entities;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -132,13 +133,11 @@ class PlayerInventoryTest {
         assertFalse(player.removeItem(new Item(ItemType.STONE, 1), 10));
     }
 
-    @Disabled("bug: Player.removeItem consumes the available part and then returns false when the quantity is "
-            + "insufficient, instead of leaving the inventory untouched")
     @Test
     void removeIsAtomicWhenQuantityIsInsufficient() {
         player.addItem(new Item(ItemType.STONE, 4));
 
-        player.removeItem(new Item(ItemType.STONE, 1), 10);
+        assertFalse(player.removeItem(new Item(ItemType.STONE, 1), 10));
 
         assertEquals(4, count(ItemType.STONE));
     }
@@ -169,6 +168,42 @@ class PlayerInventoryTest {
 
         assertEquals(0, count(ItemType.STONE));
         assertEquals(2, count(ItemType.STICK));
+    }
+
+    @Test
+    void setItemsKeepsSlotIndicesAndDoesNotCompact() {
+        List<Item> source = new ArrayList<>();
+        source.add(null);
+        source.add(new Item(ItemType.STONE, 2));
+        source.add(null);
+        source.add(new Item(ItemType.STICK, 1));
+
+        player.setItems(source);
+
+        assertNull(player.getItemAt(0));
+        assertEquals(ItemType.STONE, player.getItemAt(1).getType());
+        assertNull(player.getItemAt(2));
+        assertEquals(ItemType.STICK, player.getItemAt(3).getType());
+    }
+
+    @Test
+    void setItemsCopiesTheItemsAndLeavesTheSourceUntouched() {
+        Item stone = new Item(ItemType.STONE, 7);
+
+        player.setItems(List.of(stone));
+
+        assertEquals(7, stone.getQuantity());
+        assertNotSame(stone, player.getItemAt(0));
+    }
+
+    @Test
+    void addItemReducesTheGivenItemByWhatWasStored() {
+        Item stone = new Item(ItemType.STONE, 7);
+
+        assertTrue(player.addItem(stone));
+
+        assertEquals(0, stone.getQuantity(), "addItem consumes the quantity it stores");
+        assertEquals(7, count(ItemType.STONE));
     }
 
     @Test

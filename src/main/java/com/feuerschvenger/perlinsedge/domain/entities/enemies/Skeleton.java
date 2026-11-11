@@ -3,6 +3,9 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonAttackStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -16,10 +19,21 @@ public class Skeleton extends Enemy {
     private static final double MAX_HEALTH = 30.0;
     private static final double ATTACK_DAMAGE = 8.0;
     private static final double ATTACK_COOLDOWN = 3.0;
+    private static final Rgba BONE_COLOR = Rgba.rgb(226, 220, 200);
 
     // ==================================================================
     //  Constructors
     // ==================================================================
+
+    /**
+     * Creates a skeleton with the default melee behaviour: it chases the player when near and strikes when adjacent.
+     *
+     * @param startX Initial x-coordinate (tile position)
+     * @param startY Initial y-coordinate (tile position)
+     */
+    public Skeleton(int startX, int startY) {
+        this(startX, startY, new SkeletonMovementStrategy(), new SkeletonAttackStrategy());
+    }
 
     /**
      * Creates a skeleton with default attributes using custom strategies.
@@ -50,6 +64,7 @@ public class Skeleton extends Enemy {
     public Skeleton(int startX, int startY, double maxHealth, double attackDamage, double attackCooldown,
                     EnemyMovementStrategy movementStrategy, EnemyAttackStrategy attackStrategy) {
         super(startX, startY, maxHealth, attackDamage, attackCooldown, movementStrategy, attackStrategy);
+        setColor(BONE_COLOR);
     }
 
     // ==================================================================

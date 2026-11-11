@@ -53,11 +53,36 @@ public final class FxBuildingPainter {
             case ANVIL -> drawAnvil(gc, screenX, screenY, zoom);
             case WORKBENCH -> drawWorkbench(gc, screenX, screenY, zoom);
             case CAMPFIRE -> drawCampfire(gc, screenX, screenY, zoom);
+            case STANDING_TORCH -> drawStandingTorch(gc, screenX, screenY, zoom);
             case BED -> drawBed(gc, screenX, screenY, zoom);
-            default -> {
-                // No visual defined for this type (for example STANDING_TORCH).
-            }
         }
+    }
+
+    private static void drawStandingTorch(GraphicsContext gc, double screenX, double screenY, double zoom) {
+        double postWidth = 6 * zoom;
+        double postHeight = 34 * zoom;
+        double flameHeight = 16 * zoom;
+        double flameWidth = 12 * zoom;
+        double postTopY = screenY - postHeight;
+
+        gc.setFill(Color.SADDLEBROWN);
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(0.5 * zoom);
+        gc.fillRect(screenX - postWidth / 2, postTopY, postWidth, postHeight);
+        gc.strokeRect(screenX - postWidth / 2, postTopY, postWidth, postHeight);
+
+        gc.setFill(Color.ORANGE);
+        gc.fillPolygon(new double[]{
+                screenX, screenX + flameWidth / 2, screenX, screenX - flameWidth / 2
+        }, new double[]{
+                postTopY - flameHeight, postTopY - flameHeight * 0.3, postTopY + 2 * zoom, postTopY - flameHeight * 0.3
+        }, 4);
+        gc.setFill(Color.YELLOW);
+        gc.fillPolygon(new double[]{
+                screenX, screenX + flameWidth / 4, screenX, screenX - flameWidth / 4
+        }, new double[]{
+                postTopY - flameHeight * 0.65, postTopY - flameHeight * 0.2, postTopY, postTopY - flameHeight * 0.2
+        }, 4);
     }
 
     private static void drawBridge(GraphicsContext gc, double screenX, double screenY, double zoom) {
@@ -344,6 +369,28 @@ public final class FxBuildingPainter {
     //  Chest
     // ------------------------------------------------------------------
 
+    /**
+     * Vertical positions of the diamond that forms the lid of a chest.
+     *
+     * @param topY    Y of the back vertex
+     * @param sideY   Y of the left and right vertices
+     * @param bottomY Y of the front vertex
+     */
+    record ChestLid(double topY, double sideY, double bottomY) {
+    }
+
+    /**
+     * Computes the lid diamond: the back vertex sits at the top of the chest, the front vertex one chest tile
+     * height lower, and the side vertices halfway, so the lid has a real surface.
+     *
+     * @param chestTopY      Y of the top of the chest
+     * @param chestHalfHeight half the height of the chest footprint
+     * @return the lid vertices
+     */
+    static ChestLid chestLid(double chestTopY, double chestHalfHeight) {
+        return new ChestLid(chestTopY, chestTopY + chestHalfHeight, chestTopY + 2 * chestHalfHeight);
+    }
+
     private static void drawChest(GraphicsContext gc, double screenX, double screenY, double zoom) {
         final AppConfig config = AppConfig.getInstance();
 
@@ -357,12 +404,13 @@ public final class FxBuildingPainter {
         final double chestTopY = screenY - elevationOffset;
         final double chestBodyHeight = chestHalfHeight * CHEST_VISUAL_HEIGHT_FACTOR;
 
+        final ChestLid lid = chestLid(chestTopY, chestHalfHeight);
         final double lidRightX = screenX + chestHalfWidth;
-        final double lidRightY = chestTopY + chestHalfHeight;
-        final double lidBottomY = chestTopY + 2 * chestHalfHeight;
+        final double lidRightY = lid.sideY();
+        final double lidBottomY = lid.bottomY();
         final double lidLeftX = screenX - chestHalfWidth;
-        final double lidLeftY = chestTopY + chestHalfHeight;
-        final double lidTopY = lidBottomY - 2 * (lidRightY - lidLeftY);
+        final double lidLeftY = lid.sideY();
+        final double lidTopY = lid.topY();
 
         final double bodyBaseRightY = lidRightY + chestBodyHeight;
         final double bodyBaseBottomY = lidBottomY + chestBodyHeight;

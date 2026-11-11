@@ -50,6 +50,7 @@ public class GameApplication extends Application {
     private InventoryPanel inventoryPanel;
     private MapConfigPanel mapConfigPanel;
     private BuildingHotbarPanel hotbarPanel;
+    private HintLabel hintLabel;
 
     @Override
     public void start(Stage primaryStage) {
@@ -269,7 +270,7 @@ public class GameApplication extends Application {
         createPlayerUIComponents();
 
         // Add components to layer
-        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel);
+        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel, hintLabel);
         return layer;
     }
 
@@ -313,6 +314,13 @@ public class GameApplication extends Application {
                 rootPane.widthProperty().subtract(hotbarPanel.widthProperty()).divide(2)
         );
         hotbarPanel.setLayoutY(rootPane.getHeight() - hotbarPanel.getHeight() - 82);
+
+        // Hint line (centered, above the hotbar)
+        hintLabel = new HintLabel();
+        hintLabel.layoutXProperty().bind(
+                rootPane.widthProperty().subtract(hintLabel.widthProperty()).divide(2)
+        );
+        hintLabel.layoutYProperty().bind(rootPane.heightProperty().multiply(0.7));
     }
 
     /**
@@ -338,6 +346,7 @@ public class GameApplication extends Application {
                     healthBar,
                     inventoryPanel,
                     hotbarPanel,
+                    hintLabel,
                     gameStateManager,
                     recipeManager
             );
@@ -368,7 +377,7 @@ public class GameApplication extends Application {
         // Action bindings
         pauseMenuPanel.setOnExitAction(primaryStage::close);
         pauseMenuPanel.setOnBackToMainMenuAction(() -> {
-            gameOrchestrator.stopGameLoop();
+            gameOrchestrator.leaveGame();
             showMainMenu();
         });
 
