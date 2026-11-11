@@ -308,7 +308,9 @@ public class GameOrchestrator {
         }
 
         renderer.render(alpha, deltaTime);
+        // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());
+        minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());
         minimapDrawer.draw();
 
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
