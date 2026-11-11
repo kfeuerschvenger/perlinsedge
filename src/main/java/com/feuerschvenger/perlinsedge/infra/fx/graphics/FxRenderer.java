@@ -14,6 +14,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
@@ -36,12 +37,22 @@ public class FxRenderer {
     /** Shimmer lines fainter than this are skipped, since they are not visible. */
     private static final double MIN_SHIMMER_ALPHA = 0.02;
 
+    /** Width in art pixels the shadow is sized from for a resource drawn without art. */
+    private static final double FALLBACK_RESOURCE_ART_WIDTH = 12.0;
+
+    /** Width in art pixels the shadow is sized from for a player drawn without art. */
+    private static final double FALLBACK_PLAYER_ART_WIDTH = 12.0;
+
     private final GraphicsContext gc;
     private final Canvas canvas;
     private final FxCamera camera;
     private final SpriteManager spriteManager;
     private final GameStateManager gameState;
+    /** The tiles of a frame, drawn first and in the order they were queued. */
+    private final RenderQueue tileQueue = new RenderQueue();
+    /** The depth sorted objects of a frame: resources, buildings, entities, items and the tile cursor. */
     private final RenderQueue renderQueue = new RenderQueue();
+    private final ShadowList shadows = new ShadowList();
     private final WaterBedPainter waterBeds;
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
@@ -114,6 +125,8 @@ public class FxRenderer {
         clearCanvas();
         gc.setImageSmoothing(false);
         renderQueue.clear();
+        tileQueue.clear();
+        shadows.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
         this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
@@ -175,14 +188,14 @@ public class FxRenderer {
                         screenY += waterSurfaceSink;
                         final Image waterSprite = spriteManager.getWaterSprite(tile.getType());
                         if (waterSprite != null) {
-                            renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, waterSprite, false, tile);
+                            tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, waterSprite, false, tile);
                         }
                     } else {
                         screenY += waterDepthOffset;
-                        renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, null, false, tile);
+                        tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, null, false, tile);
                     }
                 } else {
-                    renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
+                    tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
                 }
 
                 // Add resource if present
@@ -197,11 +210,19 @@ public class FxRenderer {
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
                     renderQueue.add(screenX, screenY, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
+                    shadows.add(screenX, screenY + halfTileHeight,
+                            GroundShadow.widthFor(resource.getType(),
+                                    resourceImage != null ? resourceImage.getWidth() : FALLBACK_RESOURCE_ART_WIDTH),
+                            1.0);
                 }
                 // Add building if present
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
+                    final double buildingShadow = GroundShadow.widthFor(building.getType());
+                    if (buildingShadow > 0) {
+                        shadows.add(screenX, screenY + halfTileHeight, buildingShadow, 1.0);
+                    }
                 }
             }
         }
@@ -237,6 +258,12 @@ public class FxRenderer {
             );
             final double playerDepth = playerY + (config.graphics().getTileHalfHeight() * zoom * 1.5);
             renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
+            // The sprite stands on the tile centre
+            final double playerFeetY = playerY + halfTileHeight;
+            if (FxShadowHelper.isOnScreen(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight())) {
+                final double playerWidth = playerSprite != null ? playerSprite.getWidth() : FALLBACK_PLAYER_ART_WIDTH;
+                shadows.add(playerX, playerFeetY, playerWidth * GroundShadow.PLAYER_FRACTION, 1.0);
+            }
         }
 
         // Add enemies to render queue
@@ -254,6 +281,13 @@ public class FxRenderer {
                 double enemyDrawDepth = enemyScreenY + (halfTileHeight * 1.5);
 
                 renderQueue.add(enemyScreenX, enemyScreenY, enemyDrawDepth, enemy, null, false, null);
+                if (FxShadowHelper.isOnScreen(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight())) {
+                    if (enemy instanceof Slime slime) {
+                        FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime);
+                    } else {
+                        FxEnemyDrawingHelper.addGenericShadow(shadows, enemyScreenX, enemyScreenY, zoom);
+                    }
+                }
             }
         }
 
@@ -270,9 +304,14 @@ public class FxRenderer {
             }
         }
 
-        // Depth sort and render
-        renderQueue.sortByDepth();
+        // Ground first: every tile and the water, then the shadows lying on them, then the depth sorted objects.
+        // Tiles are queued row by row, which already is back to front for blocks of one size.
         gc.save();
+        for (int i = 0, count = tileQueue.size(); i < count; i++) {
+            drawRenderable(tileQueue.get(i));
+        }
+        FxShadowHelper.draw(gc, shadows, zoom);
+        renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {
             drawRenderable(renderQueue.get(i));
         }
@@ -284,7 +323,7 @@ public class FxRenderer {
         // Draw debug info
         FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, deltaTime);
         if (config.debug().isFpsOverlayEnabled()) {
-            FxDebugDrawingHelper.drawFpsOverlay(gc, frameStats, renderQueue.size());
+            FxDebugDrawingHelper.drawFpsOverlay(gc, frameStats, tileQueue.size() + renderQueue.size());
         }
     }
 
