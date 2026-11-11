@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
+import javafx.scene.text.Font;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -74,6 +75,15 @@ class UiThemeTest {
                 assertTrue(line.matches(".*dropshadow\\(one-pass-box, [^,]+, 0, 0, [12], [12]\\);.*"), line);
             }
         }
+    }
+
+    @Test
+    void loadingTheFontRegistersThePixelFamily() {
+        List<String> families = FxToolkitSupport.onFx(() -> {
+            UiTheme.loadFont();
+            return Font.getFamilies();
+        });
+        assertTrue(families.contains(UiTheme.FONT_FAMILY), "families " + families);
     }
 
     @Test
