@@ -43,10 +43,12 @@ class AssetPathsTest {
     }
 
     @Test
-    void everyWaterTileSitsOnTheSandBed() {
+    void everyWaterTileSitsOnABedWhoseWaterSitsAboveIt() {
+        assertTrue(AssetPaths.WATER_SURFACE_SINK_PIXELS < AssetPaths.BED_SINK_PIXELS);
+        assertTrue(AssetPaths.WATER_SURFACE_SINK_PIXELS > 0);
         for (TileType type : TileType.values()) {
             if (type.isWater()) {
-                assertEquals("sand", AssetPaths.tileArt(type), type.name());
+                assertEquals(type == TileType.DEEP_WATER ? "bed-deep" : "bed", AssetPaths.tileArt(type), type.name());
                 assertNotNull(AssetPaths.waterArt(type), type.name());
             } else {
                 assertNull(AssetPaths.waterArt(type), type.name());
@@ -117,13 +119,34 @@ class AssetPathsTest {
     }
 
     @Test
-    void theShippedTilesAreBlocksOfTheDocumentedSize() throws IOException {
+    void theShippedLandTilesAreBlocksAndTheBedsAreFlatDiamonds() throws IOException {
         for (TileType type : TileType.values()) {
             String art = AssetPaths.tileArt(type);
             BufferedImage image = read(AssetPaths.tile(art, 1));
             assertEquals(32, image.getWidth(), art);
-            assertEquals(21, image.getHeight(), art);
+            assertEquals(type.isWater() ? 16 : 21, image.getHeight(), art);
         }
+    }
+
+    @Test
+    void theShippedWaterDiamondsTileWithoutOverlap() throws IOException {
+        BufferedImage water = read(AssetPaths.waterTop("shallow"));
+        BufferedImage bed = read(AssetPaths.tile("bed", 1));
+        int overlaps = 0;
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 32; x++) {
+                boolean here = (water.getRGB(x, y) >>> 24) > 0;
+                // The neighbour one tile to the right and one half tile down sits at an offset of (16, 8)
+                int nx = x - 16;
+                int ny = y - 8;
+                boolean there = nx >= 0 && ny >= 0 && ny < 16 && (water.getRGB(nx, ny) >>> 24) > 0;
+                if (here && there) {
+                    overlaps++;
+                }
+            }
+        }
+        assertEquals(0, overlaps);
+        assertEquals(255, bed.getRGB(16, 8) >>> 24);
     }
 
     @Test

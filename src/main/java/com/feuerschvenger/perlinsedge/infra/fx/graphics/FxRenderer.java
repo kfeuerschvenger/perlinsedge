@@ -42,6 +42,7 @@ public class FxRenderer {
     private final SpriteManager spriteManager;
     private final GameStateManager gameState;
     private final RenderQueue renderQueue = new RenderQueue();
+    private final WaterBedPainter waterBeds;
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
@@ -67,6 +68,7 @@ public class FxRenderer {
         this.camera = camera;
         this.gameState = gameState;
         this.spriteManager = SpriteManager.getInstance();
+        this.waterBeds = new WaterBedPainter(gc, spriteManager);
     }
 
     private static ColorAdjust createFlashEffect() {
@@ -130,7 +132,7 @@ public class FxRenderer {
         final double halfTileWidth = config.graphics().getTileHalfWidth() * zoom;
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
         final double waterDepthOffset = halfTileHeight * 0.5;
-        final double waterSpriteSink = AssetPaths.WATER_SINK_PIXELS * ZoomSteps.artScale(zoom);
+        final double waterSurfaceSink = AssetPaths.WATER_SURFACE_SINK_PIXELS * ZoomSteps.artScale(zoom);
         final int mapWidth = map.getWidth();
         final int mapHeight = map.getHeight();
 
@@ -142,6 +144,12 @@ public class FxRenderer {
         final int maxTileY = bounds[3];
 
         final long worldSeed = gameState.getWorldSeed();
+
+        // The beds and what lies on them go first, so the water of the frame is painted once over a finished bed
+        if (!isGrayscaleEnabled) {
+            waterBeds.paint(map, minTileX, maxTileX, minTileY, maxTileY, offsetX, offsetY, zoom, worldSeed,
+                    canvas.getWidth(), canvas.getHeight());
+        }
 
         // Render tiles and resources
         for (int y = minTileY; y < maxTileY; y++) {
@@ -161,13 +169,21 @@ public class FxRenderer {
                 // Tiles with art are drawn from their sprite, the others from the procedural shape
                 final Image tileSprite = isGrayscaleEnabled ? null : spriteManager.getTileSprite(tile.getType(), x, y);
 
-                // Adjust water tiles
                 if (!isGrayscaleEnabled && tile.getType().isWater()) {
-                    screenY += tileSprite != null ? waterSpriteSink : waterDepthOffset;
+                    if (tileSprite != null) {
+                        // The bed is already drawn, the queue holds the water surface, which sits above the bed
+                        screenY += waterSurfaceSink;
+                        final Image waterSprite = spriteManager.getWaterSprite(tile.getType());
+                        if (waterSprite != null) {
+                            renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, waterSprite, false, tile);
+                        }
+                    } else {
+                        screenY += waterDepthOffset;
+                        renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, null, false, tile);
+                    }
+                } else {
+                    renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
                 }
-
-                // Add tile to render queue
-                renderQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
 
                 // Add resource if present
                 final Resource resource = tile.getWorldResource();
@@ -308,10 +324,8 @@ public class FxRenderer {
      * This is a basic frustum culling check.
      */
     private boolean isTileVisible(double screenX, double screenY, double tileWidth, double tileHeight) {
-        return screenX + tileWidth > 0 &&
-                screenX - tileWidth < canvas.getWidth() &&
-                screenY + tileHeight * 2 > 0 &&
-                screenY - tileHeight * 3 < canvas.getHeight();
+        return ScreenCulling.isTileVisible(screenX, screenY, tileWidth, tileHeight,
+                canvas.getWidth(), canvas.getHeight());
     }
 
     /**
@@ -417,10 +431,10 @@ public class FxRenderer {
         }
 
         if (r.sprite() != null) {
-            FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
             if (tile.getType().isWater()) {
                 drawWater(tile, r);
             } else {
+                FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
                 drawGroundDecal(tile, r);
             }
         } else {
@@ -432,10 +446,10 @@ public class FxRenderer {
     }
 
     /**
-     * Draws the layers over the sand bed of a water tile: the underwater decal, the translucent water and the
-     * shimmer lines, in that order so the decal looks submerged.
-     * Every value comes from pure functions of the tile, the world seed and the animation clock computed once per
-     * frame, and the sprites are shared, so nothing is allocated.
+     * Draws the surface of a water tile over the beds: the translucent water sheet, the shimmer lines and the lily pad.
+     * The sprite of the renderable is the water diamond, narrower than a land diamond so neighbours never overlap and
+     * the sheet is one continuous layer. Every value comes from pure functions of the tile, the world seed and the
+     * animation clock computed once per frame, and the sprites are shared, so nothing is allocated.
      */
     private void drawWater(Tile tile, Renderable r) {
         final int x = tile.getX();
@@ -443,17 +457,7 @@ public class FxRenderer {
         final long seed = gameState.getWorldSeed();
         final double zoom = camera.getZoom();
 
-        final Image underwater = spriteManager.getDecalSprite(GroundDecals.underwaterDecalFor(tile.getType(), x, y, seed));
-        if (underwater != null) {
-            FxTileDrawingHelper.drawDecal(gc, underwater, r.screenX(), r.screenY(), zoom,
-                    GroundDecals.offsetU(x, y, seed), GroundDecals.offsetV(x, y, seed));
-        }
-
-        final Image water = spriteManager.getWaterSprite(tile.getType());
-        if (water == null) {
-            return;
-        }
-        FxTileDrawingHelper.drawTileSprite(gc, water, r.screenX(), r.screenY(), zoom);
+        FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), zoom);
 
         final int lines = WaterShimmer.lineCount(x, y);
         for (int line = 0; line < lines; line++) {
@@ -467,6 +471,12 @@ public class FxRenderer {
                     WaterShimmer.offsetU(waterCycles, x, y, line), WaterShimmer.offsetV(waterCycles, x, y, line));
         }
         gc.setGlobalAlpha(1.0);
+
+        final Image lilyPad = spriteManager.getDecalSprite(GroundDecals.lilyPadFor(tile.getType(), x, y, seed));
+        if (lilyPad != null) {
+            FxTileDrawingHelper.drawDecal(gc, lilyPad, r.screenX(), r.screenY(), zoom,
+                    GroundDecals.offsetU(x, y, seed), GroundDecals.offsetV(x, y, seed));
+        }
     }
 
     /**

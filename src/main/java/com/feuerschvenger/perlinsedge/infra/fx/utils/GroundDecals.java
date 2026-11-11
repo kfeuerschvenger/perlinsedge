@@ -22,13 +22,19 @@ public final class GroundDecals {
     /** Names of the decals drawn on the sand bed under shallow water. */
     static final List<String> UNDERWATER_DECALS = List.of("seaweed-1", "seaweed-2", "pebble-1");
 
-    /** Every decal name the ground or a water bed can show, for the loader. */
+    /** Names of the lily pads that float on the surface of shallow water. */
+    static final List<String> LILY_PADS = List.of("lilypad-1", "lilypad-2");
+
+    /** Every decal name the ground, a water bed or a water surface can show, for the loader. */
     public static final List<String> ALL = List.of(
             "tuft-1", "tuft-2", "tuft-3", "pebble-1", "pebble-2", "flower-1", "flower-2", "mushroom-1", "shell-1",
-            "seaweed-1", "seaweed-2");
+            "seaweed-1", "seaweed-2", "lilypad-1", "lilypad-2");
 
-    /** One shallow water tile in this many holds an underwater decal. */
+    /** One shallow or coast water tile in this many holds an underwater decal. */
     static final int UNDERWATER_ONE_IN = 6;
+
+    /** One shallow water tile in this many holds a lily pad. */
+    static final int LILY_PAD_ONE_IN = 12;
 
     /** One tile in this many holds a decal on green ground. */
     static final int GREEN_ONE_IN = 4;
@@ -44,6 +50,7 @@ public final class GroundDecals {
 
     private static final long SALT_PICK = 0x51ED_270B_1F2DL;
     private static final long SALT_UNDERWATER = 0x1F83_D9AB_FB41L;
+    private static final long SALT_LILY_PAD = 0x5BE0_CD19_137EL;
     private static final long SALT_U = 0x2545_F491_4F6CL;
     private static final long SALT_V = 0x7F4A_7C15_9E37L;
 
@@ -88,10 +95,10 @@ public final class GroundDecals {
      * @param x    the tile column
      * @param y    the tile row
      * @param seed the world seed
-     * @return the decal name, or null when the tile is not shallow water or holds none
+     * @return the decal name, or null when the tile is not shallow or coast water or holds none
      */
     public static String underwaterDecalFor(TileType type, int x, int y, long seed) {
-        if (type != TileType.SHALLOW_WATER) {
+        if (type != TileType.SHALLOW_WATER && type != TileType.COAST) {
             return null;
         }
         long h = mix(x, y, seed, SALT_UNDERWATER);
@@ -99,6 +106,27 @@ public final class GroundDecals {
             return null;
         }
         return UNDERWATER_DECALS.get((int) Math.floorMod(h >>> 20, (long) UNDERWATER_DECALS.size()));
+    }
+
+    /**
+     * Picks the lily pad floating on a water tile, which the renderer draws on the surface above the water.
+     * Deep water, rivers and coasts hold none.
+     *
+     * @param type the tile type
+     * @param x    the tile column
+     * @param y    the tile row
+     * @param seed the world seed
+     * @return the decal name, or null when the tile is not shallow water or holds none
+     */
+    public static String lilyPadFor(TileType type, int x, int y, long seed) {
+        if (type != TileType.SHALLOW_WATER) {
+            return null;
+        }
+        long h = mix(x, y, seed, SALT_LILY_PAD);
+        if (Math.floorMod(h, (long) LILY_PAD_ONE_IN) != 0) {
+            return null;
+        }
+        return LILY_PADS.get((int) Math.floorMod(h >>> 20, (long) LILY_PADS.size()));
     }
 
     /**

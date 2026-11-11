@@ -2,7 +2,8 @@
 
 Each land tile is a 32x21 block: a 32x16 top diamond in one flat colour with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face below.
 Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, flowers, mushrooms and seaweed.
-Water is a translucent 32x16 top diamond per water type, drawn over the sand tile that serves as the bed, plus three thin highlight lines the game fades in and out.
+Water is a flat opaque bed diamond per bed kind, sunk a full land face below the land tops, and a translucent top diamond per water type drawn over it, plus three thin highlight lines the game fades in and out.
+The water diamond is two pixels narrower on its right side than a land diamond, so neighbouring water tiles meet without overlapping and the translucent sheet has no doubled seams.
 
 usage: python -I tools/pixelart/tiles.py [--out src/main/resources/assets] [--preview preview.png]
 """
@@ -99,24 +100,51 @@ DECALS = {
     "shell-1": ([".a.", "aba"], {"a": "#f4bf9a", "b": "#d4705c"}),
     "seaweed-1": (["a..a", "a.a.", ".aa.", ".a.."], {"a": "#27706c"}),
     "seaweed-2": (["..a", ".a.", "aa.", ".a."], {"a": "#1d4b4c"}),
+    "lilypad-1": ([".aaa.", "abbba", ".aaa."], {"a": "#4f9c45", "b": "#76b04c"}),
+    "lilypad-2": ([".aaap.", "abbpp.", ".aaa.."], {"a": "#4f9c45", "b": "#76b04c", "p": "#f08aa8"}),
 }
 
 
-# top colour and opacity of the translucent water drawn over the sand bed
+# top colour and opacity of the translucent water drawn over the bed
 WATER = {
-    "shallow": ("#8ad6e6", 0.45),
-    "coast": ("#a8e6f0", 0.45),
-    "river": ("#3fa0cc", 0.45),
-    "deep": ("#2a5f8f", 0.75),
+    "shallow": ("#14a8d0", 0.58),
+    "coast": ("#25bcd0", 0.55),
+    "river": ("#1f90c4", 0.58),
+    "deep": ("#1a4a8a", 0.82),
+}
+# flat opaque bed diamonds: sand for the shallow, coast and river water, a darker stone sand for the deep water
+BEDS = {
+    "bed": "#cbb07a",
+    "bed-deep": "#8a7a64",
 }
 SHIMMER_COLOUR = "#dcecf8"
 SHIMMER_WIDTHS = (6, 4, 5)
 
 
+def in_water(x, y):
+    """Whether a pixel lies on the water diamond: the top diamond without its rightmost two pixels per row.
+
+    Two neighbouring diamonds of the isometric grid overlap by two pixels on every shared edge. Dropping the right pair
+    makes them meet exactly, so a translucent sheet is never drawn twice over the same pixel.
+    """
+    return in_top(x, y) and in_top(x + 2, y)
+
+
 def water_top(colour, opacity):
-    """Draws the 32x16 top diamond of a water tile in one translucent colour, to be drawn over the sand bed."""
+    """Draws the top diamond of a water tile in one translucent colour, to be drawn over the bed."""
     img = Image.new("RGBA", (TILE_W, TOP_H), (0, 0, 0, 0))
     fill = hexc(colour) + (round(255 * opacity),)
+    for y in range(TOP_H):
+        for x in range(TILE_W):
+            if in_water(x, y):
+                img.putpixel((x, y), fill)
+    return img
+
+
+def bed_top(colour):
+    """Draws a flat opaque 32x16 diamond with no grid line, which shows through the water above it."""
+    img = Image.new("RGBA", (TILE_W, TOP_H), (0, 0, 0, 0))
+    fill = hexc(colour) + (255,)
     for y in range(TOP_H):
         for x in range(TILE_W):
             if in_top(x, y):
@@ -176,9 +204,11 @@ def main():
     (out / "water").mkdir(parents=True, exist_ok=True)
     for name, (colour, opacity) in WATER.items():
         water_top(colour, opacity).save(out / "water" / f"{name}.png")
+    for name, colour in BEDS.items():
+        bed_top(colour).save(out / "tiles" / f"{name}-1.png")
     for index, width in enumerate(SHIMMER_WIDTHS, start=1):
         shimmer(width).save(out / "water" / f"shimmer-{index}.png")
-    print(f"tiles {len(tiles)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
+    print(f"tiles {len(tiles)}, decals {len(decals)}, water {len(WATER)}, beds {len(BEDS)}, shimmer {len(SHIMMER_WIDTHS)}")
 
 
 main()

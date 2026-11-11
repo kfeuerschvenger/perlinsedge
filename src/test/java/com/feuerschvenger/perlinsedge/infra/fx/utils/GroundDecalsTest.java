@@ -111,9 +111,42 @@ class GroundDecalsTest {
     }
 
     @Test
-    void onlyShallowWaterHoldsUnderwaterDecals() {
+    void lilyPadsFloatOnAboutOneShallowTileInTwelveAndNeverOnDeepWater() {
+        int hits = 0;
+        Set<String> seen = new HashSet<>();
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String name = GroundDecals.lilyPadFor(TileType.SHALLOW_WATER, x, y, 11L);
+                if (name != null) {
+                    hits++;
+                    seen.add(name);
+                }
+                assertNull(GroundDecals.lilyPadFor(TileType.DEEP_WATER, x, y, 11L));
+                assertNull(GroundDecals.lilyPadFor(TileType.GRASS, x, y, 11L));
+            }
+        }
+        assertEquals(1.0 / 12.0, hits / (double) (SIZE * SIZE), 0.02);
+        assertEquals(new HashSet<>(GroundDecals.LILY_PADS), seen);
+        assertTrue(GroundDecals.ALL.containsAll(seen));
+    }
+
+    @Test
+    void coastWaterHoldsUnderwaterDecalsToo() {
+        int hits = 0;
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                if (GroundDecals.underwaterDecalFor(TileType.COAST, x, y, 11L) != null) {
+                    hits++;
+                }
+            }
+        }
+        assertTrue(hits > 0);
+    }
+
+    @Test
+    void onlyShallowAndCoastWaterHoldUnderwaterDecals() {
         for (TileType type : TileType.values()) {
-            if (type == TileType.SHALLOW_WATER) {
+            if (type == TileType.SHALLOW_WATER || type == TileType.COAST) {
                 continue;
             }
             for (int x = 0; x < 50; x++) {

@@ -36,8 +36,14 @@ public final class AssetPaths {
     /** The empty heart icon. */
     public static final String HEART_EMPTY = BASE + "gui/heart-empty.png";
 
-    /** Rows of art pixels a water tile sinks below the land level, so its bottom edge lines up with the land faces. */
-    public static final int WATER_SINK_PIXELS = 2;
+    /** Rows of art pixels the bed of a water tile sinks below the land tops: a full land face, so the bed meets the foot of the banks. */
+    public static final int BED_SINK_PIXELS = 5;
+
+    /**
+     * Rows of art pixels the water surface sinks below the land tops.
+     * It is above the bed, so the land faces around the water show as banks over the waterline.
+     */
+    public static final int WATER_SURFACE_SINK_PIXELS = 3;
 
     private AssetPaths() {}
 
@@ -45,7 +51,7 @@ public final class AssetPaths {
      * Returns the art name of a tile type.
      *
      * @param type the tile type
-     * @return the name, for example grass; water types answer the sand tile that serves as their bed
+     * @return the name, for example grass; water types answer the flat bed diamond under their water, a darker one for deep water
      */
     public static String tileArt(TileType type) {
         return switch (type) {
@@ -53,7 +59,9 @@ public final class AssetPaths {
             case FOREST -> "forest";
             case SAVANNA -> "savanna";
             case HILL -> "hill";
-            case SAND, BEACH, SHALLOW_WATER, DEEP_WATER, RIVER, COAST -> "sand";
+            case SAND, BEACH -> "sand";
+            case SHALLOW_WATER, RIVER, COAST -> "bed";
+            case DEEP_WATER -> "bed-deep";
             case MOUNTAIN -> "mountain";
             case SNOW -> "snow";
             case ICE -> "ice";
