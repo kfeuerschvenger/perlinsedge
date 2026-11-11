@@ -11,7 +11,7 @@ public class DroppedItem {
     // Configuration constants
     private static final AtomicLong ID_GENERATOR = new AtomicLong();
     private static final double PICKUP_RADIUS = 0.8; // Tile-based pickup radius
-    private static final double PLAYER_DROP_PICKUP_DELAY_SECONDS = 0.5; // Prevents instant re-pickup of a dropped stack
+    private static final double PLAYER_DROP_PICKUP_DELAY_SECONDS = 2.0; // Gives the player time to walk away from a dropped stack
 
     /**
      * Identifies the original source of the dropped item.
@@ -137,8 +137,8 @@ public class DroppedItem {
 
     /**
      * Determines if this item can be picked up at a given moment.
-     * An item dropped by the player has its own short delay, so the player does not collect the stack again
-     * in the same instant; the other sources are available at once. The delay is per item, it never holds up
+     * An item dropped by the player has its own two second delay, so the player does not collect the stack
+     * again while still standing next to it; the other sources are available at once. The delay is per item, it never holds up
      * other drops.
      *
      * @param playerTileX Player's current X position
