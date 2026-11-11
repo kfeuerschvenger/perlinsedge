@@ -5,7 +5,6 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -18,8 +17,6 @@ import java.util.Locale;
  * Handles both normal rendering and debug visualization modes.
  */
 public final class FxTileDrawingHelper {
-    private static final double OUTLINE_WIDTH = 1.2;
-    private static final double WATER_SCALE_FACTOR = 1.01;
     /** Half the width and height of the top diamond of a tile sprite, in art pixels. */
     private static final double DECAL_TILE_HALF_WIDTH = 16.0;
     private static final double DECAL_TILE_HALF_HEIGHT = 8.0;
@@ -42,46 +39,6 @@ public final class FxTileDrawingHelper {
     public static void drawDebugTileText(GraphicsContext gc, double x, double y, double zoom, Tile tile) {
         final double halfH = AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
         drawDebugText(gc, x, y, zoom, halfH, GrayscaleTiles.normalized(tile.getHeight()), tile);
-    }
-
-    /**
-     * Draws the isometric shape of a tile with appropriate coloring and shading.
-     *
-     * @param gc GraphicsContext to draw on
-     * @param x Screen X coordinate of tile center
-     * @param y Screen Y coordinate of tile center
-     * @param zoom Current zoom level
-     * @param tile Tile to draw
-     */
-    public static void drawTileShape(GraphicsContext gc, double x, double y, double zoom, Tile tile) {
-        final AppConfig config = AppConfig.getInstance();
-        double halfW = config.graphics().getTileHalfWidth() * zoom;
-        double halfH = config.graphics().getTileHalfHeight() * zoom;
-        final double baseHeight = config.graphics().getTileVisualBaseHeight() * zoom;
-        final Color baseColor = FxColors.toFx(tile.getColor());
-        final boolean isWater = tile.getType().isWater();
-
-        // Scale water tiles slightly larger
-        if (isWater) {
-            halfW *= WATER_SCALE_FACTOR;
-            halfH *= WATER_SCALE_FACTOR;
-        }
-
-        // Calculate polygon points
-        final double rightX = x + halfW;
-        final double rightY = y + halfH;
-        final double bottomY = y + 2 * halfH;
-        final double leftX = x - halfW;
-        final double leftY = y + halfH;
-
-        final double baseRightY = rightY + baseHeight;
-        final double baseBottomY = bottomY + baseHeight;
-        final double baseLeftY = leftY + baseHeight;
-
-        // Draw tile faces with appropriate shading
-        drawRightFace(gc, rightX, rightY, x, bottomY, baseRightY, baseBottomY, baseColor, isWater);
-        drawLeftFace(gc, leftX, leftY, x, bottomY, baseLeftY, baseBottomY, baseColor, isWater);
-        drawTopFace(gc, x, y, rightX, rightY, leftX, leftY, x, bottomY, baseColor, isWater);
     }
 
     /**
@@ -234,72 +191,6 @@ public final class FxTileDrawingHelper {
             gc.fillText(resourceChar, x, textY + (DEBUG_TEXT_OFFSET * zoom));
         } else {
             gc.fillText(heightText, x, textY);
-        }
-    }
-
-    private static void drawRightFace(GraphicsContext gc, double rightX, double rightY,
-                                      double bottomX, double bottomY, double baseRightY,
-                                      double baseBottomY, Color baseColor, boolean isWater) {
-        final Color faceColor = isWater ? baseColor : baseColor.darker().darker();
-        gc.setFill(faceColor);
-
-        gc.beginPath();
-        gc.moveTo(rightX, rightY);
-        gc.lineTo(rightX, baseRightY);
-        gc.lineTo(bottomX, baseBottomY);
-        gc.lineTo(bottomX, bottomY);
-        gc.closePath();
-        gc.fill();
-
-        if (!isWater) {
-            gc.setStroke(faceColor.darker().darker());
-            gc.setLineWidth(OUTLINE_WIDTH);
-            gc.stroke();
-        }
-    }
-
-    private static void drawLeftFace(GraphicsContext gc, double leftX, double leftY,
-                                     double bottomX, double bottomY, double baseLeftY,
-                                     double baseBottomY, Color baseColor, boolean isWater) {
-        final Color faceColor = isWater ? baseColor : baseColor.darker();
-        gc.setFill(faceColor);
-
-        gc.beginPath();
-        gc.moveTo(leftX, leftY);
-        gc.lineTo(leftX, baseLeftY);
-        gc.lineTo(bottomX, baseBottomY);
-        gc.lineTo(bottomX, bottomY);
-        gc.closePath();
-        gc.fill();
-
-        if (!isWater) {
-            gc.setStroke(faceColor.darker().darker());
-            gc.setLineWidth(OUTLINE_WIDTH);
-            gc.stroke();
-        }
-    }
-
-    private static void drawTopFace(GraphicsContext gc, double topX, double topY,
-                                    double rightX, double rightY, double leftX, double leftY,
-                                    double bottomX, double bottomY, Color baseColor, boolean isWater) {
-        gc.setFill(baseColor);
-
-        gc.beginPath();
-        gc.moveTo(topX, topY);
-        gc.lineTo(rightX, rightY);
-        gc.lineTo(bottomX, bottomY);
-        gc.lineTo(leftX, leftY);
-        gc.closePath();
-        gc.fill();
-
-        if (!isWater) {
-            gc.setStroke(baseColor.darker());
-            gc.setLineWidth(OUTLINE_WIDTH);
-            gc.stroke();
-        } else {
-            gc.setStroke(baseColor);
-            gc.setLineWidth(0.5);
-            gc.stroke();
         }
     }
 

@@ -13,6 +13,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.DebugTileSprites;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.FlatTileSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
@@ -507,7 +508,7 @@ public class FxRenderer {
                 drawGroundDecal(tile, r);
             }
         } else {
-            FxTileDrawingHelper.drawTileShape(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
+            FxTileDrawingHelper.drawTileSprite(gc, FlatTileSprites.get(tile.getType()), r.screenX(), r.screenY(), camera.getZoom());
         }
         if (saveCount > 0) {
             gc.restore();
