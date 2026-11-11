@@ -92,7 +92,7 @@ public class ResourceManager {
 
         if (isOnCooldown(resource, currentTime, cooldown)) return;
 
-        resource.startFlashing();
+        resource.startFlashing(gameState.getGameTime());
         updateHitTimestamp(resource, currentTime);
 
         boolean depleted = resource.takeDamage(RESOURCE_HIT_DAMAGE);

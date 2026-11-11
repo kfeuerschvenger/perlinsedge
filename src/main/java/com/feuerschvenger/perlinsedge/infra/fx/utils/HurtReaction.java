@@ -63,11 +63,7 @@ public final class HurtReaction {
      * @return the offset in art pixels, positive to the right, zero before the hit and after the shake ends
      */
     public static double shakeOffset(double secondsSinceHurt) {
-        if (secondsSinceHurt < 0 || secondsSinceHurt >= FLASH_SECONDS) {
-            return 0.0;
-        }
-        final double progress = secondsSinceHurt / FLASH_SECONDS;
-        return SHAKE_AMPLITUDE_ART_PIXELS * (1.0 - progress) * Math.sin(2.0 * Math.PI * SWINGS * progress);
+        return ShakeWave.offset(secondsSinceHurt, FLASH_SECONDS, SHAKE_AMPLITUDE_ART_PIXELS, SWINGS);
     }
 
     /**
@@ -78,8 +74,7 @@ public final class HurtReaction {
      * @return the offset in screen pixels
      */
     public static double shakeScreenOffset(double secondsSinceHurt, double artScale) {
-        final double art = shakeOffset(secondsSinceHurt);
-        return art == 0.0 ? 0.0 : Math.rint(art * artScale);
+        return ShakeWave.toScreen(shakeOffset(secondsSinceHurt), artScale);
     }
 
     /**

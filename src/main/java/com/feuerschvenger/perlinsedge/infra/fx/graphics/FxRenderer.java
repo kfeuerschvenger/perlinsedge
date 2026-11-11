@@ -218,7 +218,7 @@ public class FxRenderer {
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
                     // A struck resource shakes sideways for a moment, its shadow stays on the ground
                     final double artScale = ZoomSteps.artScale(zoom);
-                    final double shakeX = HitShake.screenOffset(resource.secondsSinceHit(), artScale);
+                    final double shakeX = HitShake.screenOffset(resource.secondsSinceHit(currentFrameGameTime), artScale);
                     // A low sprite is drawn lower so its foot touches the ground, and its shadow follows that contact point
                     final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * artScale : 0.0;
                     final double contact = spriteMetadata != null ? spriteMetadata.getContactArtPixels() * artScale : 0.0;

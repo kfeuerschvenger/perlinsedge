@@ -24,11 +24,7 @@ public final class HitShake {
      * @return the offset in art pixels, positive to the right, zero before the hit and after the shake ends
      */
     public static double offset(double secondsSinceHit) {
-        if (secondsSinceHit < 0 || secondsSinceHit >= DURATION_SECONDS) {
-            return 0.0;
-        }
-        final double progress = secondsSinceHit / DURATION_SECONDS;
-        return AMPLITUDE_ART_PIXELS * (1.0 - progress) * Math.sin(2.0 * Math.PI * SWINGS * progress);
+        return ShakeWave.offset(secondsSinceHit, DURATION_SECONDS, AMPLITUDE_ART_PIXELS, SWINGS);
     }
 
     /**
@@ -39,7 +35,6 @@ public final class HitShake {
      * @return the offset in screen pixels
      */
     public static double screenOffset(double secondsSinceHit, double artScale) {
-        final double art = offset(secondsSinceHit);
-        return art == 0.0 ? 0.0 : Math.rint(art * artScale);
+        return ShakeWave.toScreen(offset(secondsSinceHit), artScale);
     }
 }
