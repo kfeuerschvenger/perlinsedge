@@ -146,13 +146,14 @@ public class FxRenderer {
                     SpriteManager.SpriteMetadata spriteMetadata = spriteManager.getResourceSprite(
                             currentMapType, resource.getType(), resource.getVisualSeed()
                     );
-                    if (spriteMetadata != null) {
-                        renderQueue.add(new Renderable(
-                                screenX, screenY, screenY + tileHeight * 0.5,
-                                resource.getType(), spriteMetadata.getImage(),
-                                false, isFlashing, tile
-                        ));
-                    }
+                    // A resource blocks movement whether or not its image exists, so it is always queued;
+                    // without an image the painter draws a stand-in shape.
+                    Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
+                    renderQueue.add(new Renderable(
+                            screenX, screenY, screenY + tileHeight * 0.5,
+                            resource.getType(), resourceImage,
+                            false, isFlashing, tile
+                    ));
                 }
                 // Add building if present
                 final Building building = tile.getBuilding();
@@ -438,10 +439,18 @@ public class FxRenderer {
             gc.setEffect(flashEffect);
         }
 
-        FxTileDrawingHelper.drawResourceSprite(
-                gc, r.screenX(), r.screenY(),
-                camera.getZoom(), r.sprite()
-        );
+        if (r.sprite() != null) {
+            FxTileDrawingHelper.drawResourceSprite(
+                    gc, r.screenX(), r.screenY(),
+                    camera.getZoom(), r.sprite()
+            );
+        } else {
+            FxResourceFallbackPainter.draw(
+                    gc, r.screenX(), r.screenY(), camera.getZoom(),
+                    (ResourceType) r.object(),
+                    AppConfig.getInstance().graphics().getTileHalfHeight() * camera.getZoom()
+            );
+        }
         if (saveCount > 0) {
             gc.restore();
         }
