@@ -46,7 +46,7 @@ public class CraftingListPanel extends VBox {
     private static final int CELL_PADDING = 3;
     private static final int CELL_CORNER_RADIUS = 3;
     private static final int SCROLL_PANE_HEIGHT = 250;
-    private static final int ITEM_IMAGE_SIZE = 24;
+    private static final int ITEM_IMAGE_SIZE = 32;
 
     // Text styling constants
     private static final String FONT_FAMILY = "Arial";
