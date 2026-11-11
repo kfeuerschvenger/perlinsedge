@@ -55,6 +55,7 @@ public class Player extends Entity implements Container {
     private boolean isAttacking = false;
     private double attackAnimationTime = 0;
     private int attackDirection = -1;
+    private double secondsSinceHurt = Double.POSITIVE_INFINITY;
 
     // Inventory
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
@@ -161,6 +162,37 @@ public class Player extends Entity implements Container {
     public void handleDeath() {
         super.handleDeath();
         clearPath();
+    }
+
+    /**
+     * Applies damage and restarts the hurt clock, which the renderer reads to flash and shake the sprite.
+     * Every source of damage to the player goes through this method, so none of them needs to know about the reaction.
+     *
+     * @param amount damage to apply; zero or less changes nothing
+     */
+    @Override
+    public void takeDamage(double amount) {
+        if (isDead || amount <= 0) {
+            return;
+        }
+        super.takeDamage(amount);
+        secondsSinceHurt = 0;
+    }
+
+    /**
+     * Returns the time since the player last took damage.
+     *
+     * @return seconds, infinite when the player was never hurt or has respawned since
+     */
+    public double getSecondsSinceHurt() {
+        return secondsSinceHurt;
+    }
+
+    /** Forgets the last hit when the player respawns, so the reaction does not play on the new life. */
+    @Override
+    public void revive(int x, int y) {
+        super.revive(x, y);
+        secondsSinceHurt = Double.POSITIVE_INFINITY;
     }
 
     public boolean isMoving() {
@@ -484,6 +516,7 @@ public class Player extends Entity implements Container {
         updateAnimation(deltaTime);
         updateCooldowns(deltaTime);
         updateAttackAnimation(deltaTime);
+        secondsSinceHurt += deltaTime;
     }
 
     // ==================================================================

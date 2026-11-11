@@ -19,6 +19,8 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.HurtReaction;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.TintedSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.ResourceKinds;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
@@ -349,6 +351,10 @@ public class FxRenderer {
         }
         gc.restore();
 
+        if (player != null) {
+            FxHurtGlow.draw(gc, canvas.getWidth(), canvas.getHeight(), HurtReaction.glowOpacity(player.getSecondsSinceHurt()));
+        }
+
         // Draw debug info
         FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, deltaTime);
         if (config.debug().isFpsOverlayEnabled()) {
@@ -456,9 +462,15 @@ public class FxRenderer {
      */
     private void drawPlayer(Renderable r) {
         Player player = (Player) r.object();
+        // A hit flashes the sprite red and white and shakes it sideways for a moment
+        final double sinceHurt = player.getSecondsSinceHurt();
+        final int flash = HurtReaction.flashPhase(sinceHurt);
+        final Image sprite = r.sprite() != null && flash != HurtReaction.NO_FLASH
+                ? TintedSprites.of(r.sprite(), flash) : r.sprite();
+        final double shakeX = HurtReaction.shakeScreenOffset(sinceHurt, ZoomSteps.artScale(camera.getZoom()));
         FxPlayerDrawingHelper.drawPlayer(
-                gc, r.screenX(), r.screenY(),
-                camera.getZoom(), player, r.sprite()
+                gc, r.screenX() + shakeX, r.screenY(),
+                camera.getZoom(), player, sprite
         );
     }
 
