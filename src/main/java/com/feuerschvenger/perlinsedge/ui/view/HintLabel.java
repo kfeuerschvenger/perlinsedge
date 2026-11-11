@@ -38,9 +38,15 @@ public class HintLabel extends Label {
      * @param message text to show
      */
     public void show(String message) {
-        cycle.stop();
         setText(message);
-        setOpacity(0);
+        if (getOpacity() > 0) {
+            // Already on screen: the hold restarts, but the opacity is left alone so repeated calls do not flicker
+            cycle.stop();
+            setOpacity(1);
+            cycle.jumpTo(Duration.millis(FADE_IN_MS));
+            cycle.play();
+            return;
+        }
         cycle.playFromStart();
     }
 }
