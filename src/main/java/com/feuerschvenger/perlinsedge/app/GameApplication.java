@@ -368,7 +368,7 @@ public class GameApplication extends Application {
         // Action bindings
         pauseMenuPanel.setOnExitAction(primaryStage::close);
         pauseMenuPanel.setOnBackToMainMenuAction(() -> {
-            gameOrchestrator.stopGameLoop();
+            gameOrchestrator.leaveGame();
             showMainMenu();
         });
 

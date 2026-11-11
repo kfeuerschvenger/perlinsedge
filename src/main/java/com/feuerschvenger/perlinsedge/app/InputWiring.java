@@ -47,6 +47,7 @@ public class InputWiring {
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
     private final Canvas mainCanvas;
+    private final Runnable onContainerOpened;
 
     private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasClick;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
@@ -67,11 +68,13 @@ public class InputWiring {
      * @param inputHandler     keyboard and scroll input source
      * @param minimapDrawer    minimap view
      * @param mainCanvas       canvas that receives game clicks
+     * @param onContainerOpened called after a click opened a container, it shows the container and switches the mode
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
                        ContainerManager containerManager, PlayerManager playerManager,
                        ResourceManager resourceManager, InventoryPanel inventoryPanel, FxCamera camera,
-                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas) {
+                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas,
+                       Runnable onContainerOpened) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
         this.containerManager = containerManager;
@@ -82,6 +85,7 @@ public class InputWiring {
         this.inputHandler = inputHandler;
         this.minimapDrawer = minimapDrawer;
         this.mainCanvas = mainCanvas;
+        this.onContainerOpened = onContainerOpened;
     }
 
     /**
@@ -204,8 +208,7 @@ public class InputWiring {
             // Prioritize building interaction
             if (tile.hasBuilding() && buildingManager.interactWithBuilding(tileX, tileY)) {
                 if (containerManager.isContainerOpen()) {
-                    inventoryPanel.openDualInventory(containerManager.getOpenContainer());
-                    gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
+                    onContainerOpened.run();
                 }
             }
             // Then resource interaction

@@ -91,7 +91,8 @@ public class GameOrchestrator {
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
-                resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas);
+                resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas,
+                transitions::showOpenContainer);
     }
 
     // ==================================================================
@@ -105,7 +106,7 @@ public class GameOrchestrator {
      */
     public void startNewGame(MapType selectedMapType) {
         log.info("Starting new game with map type: {}", selectedMapType.name());
-        stopGameLoop();
+        leaveGame();
 
         gameState.resetGameState();
         AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
@@ -123,6 +124,16 @@ public class GameOrchestrator {
         startGameLoop();
 
         log.info("New game started");
+    }
+
+    /**
+     * Stops the loop and returns every panel and mode to the state of a fresh game.
+     * Called before a new game and when the player goes back to the main menu.
+     */
+    public void leaveGame() {
+        stopGameLoop();
+        transitions.resetUi();
+        renderer.clearBuildingPreview();
     }
 
     /** Starts the main game loop. */
@@ -252,7 +263,6 @@ public class GameOrchestrator {
         }
 
         gameState.incrementGameTime(deltaTime);
-        gameState.setAttackCooldownTimer(Math.max(0, gameState.getAttackCooldownTimer() - deltaTime));
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
         itemDropManager.update();
@@ -292,6 +302,8 @@ public class GameOrchestrator {
                     buildingManager.getSelectedBuildingType(),
                     previewColor
             );
+        } else {
+            renderer.clearBuildingPreview();
         }
 
         renderer.render(alpha, deltaTime);

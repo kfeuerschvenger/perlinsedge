@@ -62,6 +62,14 @@ public class FxRenderer {
         this.previewColor = FxColors.toFx(color);
     }
 
+    /** Forgets the building preview, so the normal tile highlight is drawn again. */
+    public void clearBuildingPreview() {
+        previewTileX = -1;
+        previewTileY = -1;
+        previewBuildingType = null;
+        previewColor = null;
+    }
+
     /**
      * Draws a black and yellow border around the canvas to indicate building mode.
      *

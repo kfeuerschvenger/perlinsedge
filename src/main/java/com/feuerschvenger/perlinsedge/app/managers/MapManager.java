@@ -102,7 +102,9 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
 
     /**
      * Callback when map generation completes.
-     * Resets game state and spawns enemies.
+     * Stores the map and clears the entities that belonged to the previous one.
+     * Enemies are not spawned here: the caller spawns them once the player has a position on the new map,
+     * which keeps them from being placed twice and from landing next to the player.
      */
     @Override
     public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
@@ -110,7 +112,6 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
 
-        spawnEnemies();
         mapConfigPanel.updateValuesFromGenerator(generator);
     }
 
@@ -232,6 +233,7 @@ public class MapManager implements IConfigChangeListener, IMapGenerationListener
                 crystalsFreq, crystalsThreshold,
                 treeDensity, riverDensity
         ));
+        spawnEnemies();
     }
 
     /**
