@@ -3,15 +3,12 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 
 /**
- * The heart icon that shows a health fraction: full while health is high, half while the player is hurt, empty at zero.
+ * The heart icons of the health row: full, half or empty.
  */
 public enum HeartState {
     FULL(AssetPaths.HEART_FULL),
     HALF(AssetPaths.HEART_HALF),
     EMPTY(AssetPaths.HEART_EMPTY);
-
-    /** Health fraction above which the heart is full. */
-    private static final double FULL_ABOVE = 0.66;
 
     private final String path;
 
@@ -25,15 +22,25 @@ public enum HeartState {
     }
 
     /**
-     * Picks the icon for a health fraction.
+     * Picks the icons of a row of hearts for a health fraction.
+     * Every heart is worth two halves. Any health above zero shows at least half a heart, so a hurt but living player
+     * never sees an empty row.
      *
      * @param fraction current health divided by maximum health, values outside 0 to 1 are clamped
-     * @return the heart state
+     * @param count    hearts in the row
+     * @return one state per heart, from the first heart on
      */
-    public static HeartState of(double fraction) {
-        if (fraction > FULL_ABOVE) {
-            return FULL;
+    public static HeartState[] row(double fraction, int count) {
+        double clamped = Math.max(0.0, Math.min(1.0, fraction));
+        int halves = (int) Math.round(clamped * count * 2);
+        if (clamped > 0 && halves == 0) {
+            halves = 1;
         }
-        return fraction > 0 ? HALF : EMPTY;
+        HeartState[] states = new HeartState[count];
+        for (int i = 0; i < count; i++) {
+            int left = halves - 2 * i;
+            states[i] = left >= 2 ? FULL : left == 1 ? HALF : EMPTY;
+        }
+        return states;
     }
 }
