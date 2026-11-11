@@ -141,6 +141,7 @@ public class GameOrchestrator {
         transitions.resetUi();
         deathOverlay.hide();
         renderer.clearBuildingPreview();
+        renderer.invalidateWorldCaches();
     }
 
     /** Starts the main game loop. */

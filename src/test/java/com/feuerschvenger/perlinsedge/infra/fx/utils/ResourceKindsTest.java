@@ -107,6 +107,12 @@ class ResourceKindsTest {
         return map;
     }
 
+    private static TileMap sandMapWithWaterAt(int x, int y) {
+        TileMap map = sandMap(false);
+        map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+        return map;
+    }
+
     @Test
     void theCacheAnswersLikeTheDirectPickAndRebuildsWithTheMap() {
         ResourceKindCache cache = new ResourceKindCache();
@@ -127,6 +133,86 @@ class ResourceKindsTest {
                         cache.preferredKind(wet, MapType.DESERT, ResourceType.TREE, x, y, 3L));
             }
         }
+    }
+
+    /** The kind of a tile with no water in reach is decided by the seed alone, so it shows which key the cache holds. */
+    private static String direct(boolean nearWater, int x, int y, long seed) {
+        return ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, nearWater, x, y, seed);
+    }
+
+    /**
+     * Finds a tile whose dry kind under seed 3 differs from its watered kind under seeds 3 and 4, so a stale answer
+     * cannot pass for a fresh one whichever key changed.
+     */
+    private static int[] tileWhereAStaleAnswerShowsUp() {
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                String dry = direct(false, x, y, 3L);
+                if (!dry.equals(direct(true, x, y, 3L)) && !dry.equals(direct(true, x, y, 4L))) {
+                    return new int[]{x, y};
+                }
+            }
+        }
+        throw new AssertionError("no tile tells a stale answer apart");
+    }
+
+    @Test
+    void theCacheServesTheRememberedAnswerUntilTheSeedChanges() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap map = sandMap(false);
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        String dry = cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L);
+        assertEquals(direct(false, x, y, 3L), dry);
+
+        // Water appears next to the tile after the first answer: the cache keeps the answer it already gave
+        map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+        assertTrue(ResourceKinds.isNearWater(map, x, y));
+        assertEquals(dry, cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+
+        // A new seed with the same map throws the answers away
+        assertEquals(direct(true, x, y, 4L), cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 4L));
+    }
+
+    @Test
+    void aMapTypeWithoutTheWaterRuleGetsNoKindAndTheDesertAnswerSurvivesTheDetour() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap map = sandMap(false);
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        String desert = cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L);
+        assertEquals(direct(false, x, y, 3L), desert);
+
+        // Only the desert asks about water, so another type never reads or rebuilds the remembered kinds
+        assertNull(cache.preferredKind(map, MapType.SWAMP, ResourceType.TREE, x, y, 3L));
+        assertEquals(desert, cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+    }
+
+    @Test
+    void aNewMapWithTheSameSeedAndTypeIsReadAgain() {
+        ResourceKindCache cache = new ResourceKindCache();
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        assertEquals(direct(false, x, y, 3L), cache.preferredKind(sandMap(false), MapType.DESERT, ResourceType.TREE, x, y, 3L));
+        assertEquals(direct(true, x, y, 3L), cache.preferredKind(sandMapWithWaterAt(x, y), MapType.DESERT, ResourceType.TREE, x, y, 3L));
+    }
+
+    @Test
+    void invalidatingTheCacheForgetsTheAnswersAndTheMap() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap map = sandMap(false);
+        int[] spot = tileWhereAStaleAnswerShowsUp();
+        int x = spot[0];
+        int y = spot[1];
+        cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L);
+        map.setTile(x, y, new Tile(x, y, TileType.SHALLOW_WATER));
+
+        cache.invalidate();
+
+        assertEquals(direct(true, x, y, 3L), cache.preferredKind(map, MapType.DESERT, ResourceType.TREE, x, y, 3L));
     }
 
     @Test

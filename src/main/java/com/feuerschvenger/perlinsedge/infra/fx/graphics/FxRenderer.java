@@ -113,6 +113,11 @@ public class FxRenderer {
         }
     }
 
+    /** Drops what the renderer remembers about the current world, so a discarded map is not kept alive by it. */
+    public void invalidateWorldCaches() {
+        resourceKinds.invalidate();
+    }
+
     /** Forgets the building preview, so the normal tile highlight is drawn again. */
     public void clearBuildingPreview() {
         previewTileX = -1;

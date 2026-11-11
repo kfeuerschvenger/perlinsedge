@@ -16,6 +16,14 @@ public final class ResourceKindCache {
     private long seed;
     private String[] kinds = new String[0];
 
+    /** Forgets the remembered kinds and lets go of the map, so a discarded world is not kept alive by the cache. */
+    public void invalidate() {
+        map = null;
+        mapType = null;
+        seed = 0L;
+        kinds = new String[0];
+    }
+
     /**
      * Returns the preferred art kind of a resource, looking around for water only the first time a tile is asked about.
      *
