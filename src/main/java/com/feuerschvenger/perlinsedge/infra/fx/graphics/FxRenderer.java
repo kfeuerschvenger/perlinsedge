@@ -320,8 +320,11 @@ public class FxRenderer {
         if (droppedItems != null) {
             for (int i = 0, count = droppedItems.size(); i < count; i++) {
                 DroppedItem droppedItem = droppedItems.get(i);
-                double itemScreenX = (droppedItem.getTileX() - droppedItem.getTileY()) * halfTileWidth + offsetX;
-                double itemScreenY = (droppedItem.getTileX() + droppedItem.getTileY()) * halfTileHeight + offsetY;
+                // A thrown item slides from the thrower to its landing tile, a landed one rests on its tile
+                double itemTileX = droppedItem.flightX(currentFrameGameTime);
+                double itemTileY = droppedItem.flightY(currentFrameGameTime);
+                double itemScreenX = (itemTileX - itemTileY) * halfTileWidth + offsetX;
+                double itemScreenY = (itemTileX + itemTileY) * halfTileHeight + offsetY;
                 double itemDrawDepth = itemScreenY + (halfTileHeight * 2);
 
                 renderQueue.add(itemScreenX, itemScreenY, itemDrawDepth, droppedItem, null, false, null);
