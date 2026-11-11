@@ -61,7 +61,7 @@ class DroppedItemTest {
 
     @Test
     void delayIsTwoSecondsForPlayerDropsAndZeroForTheRest() {
-        assertEquals(2.0,drop(DroppedItem.DropSource.PLAYER, 0).pickupDelaySeconds());
+        assertEquals(2.0, drop(DroppedItem.DropSource.PLAYER, 0).pickupDelaySeconds());
         assertEquals(0.0, drop(DroppedItem.DropSource.ENEMY, 0).pickupDelaySeconds());
         assertEquals(0.0, drop(DroppedItem.DropSource.OTHER, 0).pickupDelaySeconds());
     }
