@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.GraphicsContext;
@@ -27,7 +28,6 @@ public final class FxEnemyDrawingHelper {
     private static final AppConfig CONFIG = AppConfig.getInstance();
     private static final double BASE_SLIME_SIZE = 20.0;
     private static final double HALF = 0.5;
-    private static final double SPRITE_SHADOW_FRACTION = 0.6;
     /** Diameter of the circle drawn for an enemy without art, in pixels at zoom 1. */
     private static final double GENERIC_ENEMY_SIZE = 30.0;
     private static final double GENERIC_SHADOW_FRACTION = 0.8;
@@ -87,9 +87,10 @@ public final class FxEnemyDrawingHelper {
                 ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
         final double scale = ZoomSteps.artScale(zoom);
         final Image frame = SpriteManager.getInstance().getSlimeFrame(0);
-        final double size = frame != null ? frame.getWidth() * scale * SPRITE_SHADOW_FRACTION : BASE_SLIME_SIZE * zoom;
-        final SlimeShadow.Geometry shadow = SlimeShadow.at(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
-        shadows.add(tileTopX, baseDrawY + jumpHeight, shadow.width() / scale, shadow.opacity());
+        final double size = frame != null ? frame.getWidth() * scale * GroundShadow.SPRITE_ENEMY_FRACTION : BASE_SLIME_SIZE * zoom;
+        shadows.add(tileTopX, baseDrawY + jumpHeight,
+                SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR) / scale,
+                SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
     }
 
     /**

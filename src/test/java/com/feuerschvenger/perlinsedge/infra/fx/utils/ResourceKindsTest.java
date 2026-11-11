@@ -94,6 +94,48 @@ class ResourceKindsTest {
         assertFalse(ResourceKinds.isNearWater(map, 0, 0));
     }
 
+    private static TileMap sandMap(boolean withWater) {
+        TileMap map = new TileMap(21, 21);
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.SAND));
+            }
+        }
+        if (withWater) {
+            map.setTile(10, 10, new Tile(10, 10, TileType.SHALLOW_WATER));
+        }
+        return map;
+    }
+
+    @Test
+    void theCacheAnswersLikeTheDirectPickAndRebuildsWithTheMap() {
+        ResourceKindCache cache = new ResourceKindCache();
+        TileMap dry = sandMap(false);
+        TileMap wet = sandMap(true);
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, false, x, y, 3L),
+                        cache.preferredKind(dry, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+                assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE, false, x, y, 3L),
+                        cache.preferredKind(dry, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+            }
+        }
+        for (int x = 0; x < 21; x++) {
+            for (int y = 0; y < 21; y++) {
+                assertEquals(ResourceKinds.preferredKind(MapType.DESERT, ResourceType.TREE,
+                                ResourceKinds.isNearWater(wet, x, y), x, y, 3L),
+                        cache.preferredKind(wet, MapType.DESERT, ResourceType.TREE, x, y, 3L));
+            }
+        }
+    }
+
+    @Test
+    void theCacheLeavesOtherBiomesAndResourcesToThePlainPick() {
+        ResourceKindCache cache = new ResourceKindCache();
+        assertNull(cache.preferredKind(sandMap(true), MapType.SWAMP, ResourceType.TREE, 3, 3, 1L));
+        assertNull(cache.preferredKind(sandMap(true), MapType.DESERT, ResourceType.STONE, 3, 3, 1L));
+    }
+
     @Test
     void theDesertShipsArtForBothKinds() {
         for (String kind : new String[]{ResourceKinds.PALM, ResourceKinds.CACTUS}) {

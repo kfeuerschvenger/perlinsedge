@@ -12,30 +12,29 @@ class SlimeShadowTest {
 
     @Test
     void theShadowShrinksAndFadesAsTheSlimeRises() {
-        SlimeShadow.Geometry low = SlimeShadow.at(SIZE, 10, MAX);
-        SlimeShadow.Geometry high = SlimeShadow.at(SIZE, 40, MAX);
-        assertTrue(high.width() < low.width());
-        assertTrue(high.opacity() < low.opacity());
+        assertTrue(SlimeShadow.width(SIZE, 40, MAX) < SlimeShadow.width(SIZE, 10, MAX));
+        assertTrue(SlimeShadow.opacity(40, MAX) < SlimeShadow.opacity(10, MAX));
     }
 
     @Test
     void aRestingSlimeGetsTheFullShadow() {
-        SlimeShadow.Geometry ground = SlimeShadow.at(SIZE, 0, MAX);
-        assertEquals(SIZE * SlimeShadow.WIDTH_FACTOR, ground.width());
-        assertEquals(1.0, ground.opacity());
+        assertEquals(SIZE * SlimeShadow.WIDTH_FACTOR, SlimeShadow.width(SIZE, 0, MAX));
+        assertEquals(1.0, SlimeShadow.opacity(0, MAX));
     }
 
     @Test
     void heightIsClampedToTheGroundAndToTheTopOfTheJump() {
-        assertEquals(SlimeShadow.at(SIZE, 0, MAX), SlimeShadow.at(SIZE, -5, MAX));
-        assertEquals(SlimeShadow.at(SIZE, MAX, MAX), SlimeShadow.at(SIZE, MAX * 3, MAX));
-        SlimeShadow.Geometry top = SlimeShadow.at(SIZE, MAX, MAX);
-        assertEquals(SIZE * SlimeShadow.WIDTH_FACTOR * (1.0 - SlimeShadow.MAX_SHRINK), top.width(), 1e-9);
-        assertEquals(1.0 - SlimeShadow.MAX_FADE, top.opacity(), 1e-9);
+        assertEquals(SlimeShadow.width(SIZE, 0, MAX), SlimeShadow.width(SIZE, -5, MAX));
+        assertEquals(SlimeShadow.opacity(0, MAX), SlimeShadow.opacity(-5, MAX));
+        assertEquals(SlimeShadow.width(SIZE, MAX, MAX), SlimeShadow.width(SIZE, MAX * 3, MAX));
+        assertEquals(SlimeShadow.opacity(MAX, MAX), SlimeShadow.opacity(MAX * 3, MAX));
+        assertEquals(SIZE * SlimeShadow.WIDTH_FACTOR * (1.0 - SlimeShadow.MAX_SHRINK), SlimeShadow.width(SIZE, MAX, MAX), 1e-9);
+        assertEquals(1.0 - SlimeShadow.MAX_FADE, SlimeShadow.opacity(MAX, MAX), 1e-9);
     }
 
     @Test
     void aZeroMaximumHeightKeepsTheGroundShadow() {
-        assertEquals(SlimeShadow.at(SIZE, 0, MAX), SlimeShadow.at(SIZE, 10, 0));
+        assertEquals(SlimeShadow.width(SIZE, 0, MAX), SlimeShadow.width(SIZE, 10, 0));
+        assertEquals(SlimeShadow.opacity(0, MAX), SlimeShadow.opacity(10, 0));
     }
 }

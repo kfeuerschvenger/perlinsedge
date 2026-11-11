@@ -26,6 +26,9 @@ public class HealthBar extends HBox {
 
     private final ImageView[] icons = new ImageView[HEART_COUNT];
     private final Map<HeartState, Image> heartImages = new EnumMap<>(HeartState.class);
+    /** The values the row shows now, so an unchanged health costs nothing on the fixed update. */
+    private double shownHealth = Double.NaN;
+    private double shownMaxHealth = Double.NaN;
 
     public HealthBar() {
         setAlignment(Pos.CENTER_LEFT);
@@ -52,6 +55,11 @@ public class HealthBar extends HBox {
      * @param maxHealth The maximum health value
      */
     public void updateHealth(double currentHealth, double maxHealth) {
+        if (currentHealth == shownHealth && maxHealth == shownMaxHealth) {
+            return;
+        }
+        shownHealth = currentHealth;
+        shownMaxHealth = maxHealth;
         double fraction = maxHealth > 0 ? currentHealth / maxHealth : 0;
         HeartState[] states = HeartState.row(fraction, HEART_COUNT);
         for (int i = 0; i < HEART_COUNT; i++) {

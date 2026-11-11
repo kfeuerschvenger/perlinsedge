@@ -21,7 +21,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HurtReaction;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TintedSprites;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.ResourceKinds;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.ResourceKindCache;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
@@ -62,6 +62,8 @@ public class FxRenderer {
     private final RenderQueue renderQueue = new RenderQueue();
     private final ShadowList shadows = new ShadowList();
     private final ColumnPainter columns;
+    /** The palm or cactus choice of the desert trees, worked out once per tree instead of once per frame. */
+    private final ResourceKindCache resourceKinds = new ResourceKindCache();
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
@@ -206,9 +208,7 @@ public class FxRenderer {
                 if (tile.hasResource() && !isGrayscaleEnabled && resource != null) {
                     boolean isFlashing = resource.isFlashing();
                     // A desert tree is a palm near water and a cactus in the dry sand; the look-around only runs for it
-                    final String preferredKind = ResourceKinds.preferredKind(currentMapType, resource.getType(),
-                            ResourceKinds.dependsOnWater(currentMapType, resource.getType())
-                                    && ResourceKinds.isNearWater(map, x, y),
+                    final String preferredKind = resourceKinds.preferredKind(map, currentMapType, resource.getType(),
                             x, y, worldSeed);
                     SpriteManager.SpriteMetadata spriteMetadata = spriteManager.getResourceSprite(
                             currentMapType, resource.getType(), x, y, worldSeed, preferredKind
