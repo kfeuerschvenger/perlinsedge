@@ -180,16 +180,16 @@ public class AppConfig {
         public final SpriteSheetConfig spriteSheet = new SpriteSheetConfig();
 
         public static class SpriteSheetConfig {
-            // Sprite sheet properties: 8 direction columns by 3 frame rows of 24x32 cells
+            // Sprite sheet properties: 8 direction columns by 3 frame rows of 32x56 cells
             public final String path = "/assets/entities/player.png";
-            public final int spriteWidth = 24;
-            public final int spriteHeight = 32;
+            public final int spriteWidth = 32;
+            public final int spriteHeight = 56;
             public final int columns = 8;
             public final int rows = 3;
             public final int startX = 0;
             public final int startY = 0;
-            public final int columnOffset = 24;
-            public final int[] rowYCoordinates = {0, 32, 64};
+            public final int columnOffset = 32;
+            public final int[] rowYCoordinates = {0, 56, 112};
         }
     }
 

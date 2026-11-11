@@ -32,7 +32,7 @@ flowchart LR
 | `items/<item>.png` | `assets/items/<item>.png` |
 | `gui/heart-full.png`, `heart-half.png` | `assets/gui/`, plus a derived `heart-empty.png` when no raw one exists |
 | `entities/slime-<n>.png` | `assets/entities/slime-<n>.png`, a 6 frame strip |
-| `player/explorer.zip` | `assets/entities/player.png`, a 192x96 sheet |
+| `player/explorer.zip` | `assets/entities/player.png`, a 256x168 sheet |
 
 Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `tile-grass-3.png` or `tree-4.png` needs no code change.
 
@@ -43,7 +43,7 @@ Item files are named after the lower case `ItemType` constant. The game picks up
 - Resources are cropped to their content and centred on the bottom row of the canvas for their kind, for example 32x48 for a tree and 24x20 for a rock. Content larger than the canvas keeps its own size.
 - Items and hearts are centred on 16x16.
 - The slime strip has six frames of 20x16 made by squashing and stretching the single raw frame: rest, crouch, stretch, apex, fall, landing.
-- The player sheet has 8 columns by 3 rows of 24x32 cells. The rows are walk a, idle and walk b, where walk a is the first walk frame and walk b the frame halfway through the cycle. A direction without walk frames uses its rotation for all three rows, and a missing east or west is mirrored from the other side.
+- The player sheet has 8 columns by 3 rows of 32x56 cells, which hold the 68x68 frames cropped to their content at native pixel size. The rows are walk a, idle and walk b. Walk a is the second frame of a four frame walk and walk b the fourth, and idle is the rotation. A direction without walk frames uses its rotation for all three rows, and a missing east or west is mirrored from the other side.
 
 ## Player columns
 
@@ -61,4 +61,4 @@ flowchart LR
   C7[7 up left] --> west
 ```
 
-The poses are scaled by one shared factor and share one ground line and one centre, so a walk cycle does not jitter.
+The poses share one crop, one ground line and one centre, so a walk cycle does not jitter.

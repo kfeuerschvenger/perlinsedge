@@ -30,7 +30,7 @@ LAND_FACE = 5
 WATER_FACE = 3
 MOUNTAIN_FACE = 10
 ITEM_SIZE = 16
-PLAYER_CELL = (24, 32)
+PLAYER_CELL = (32, 56)
 PLAYER_COLUMNS = 8
 PLAYER_ROWS = 3
 SLIME_CELL = (20, 16)
@@ -194,10 +194,11 @@ def mirror(image: Image.Image) -> Image.Image:
 
 
 def fit_frames(frames: dict[str, Image.Image], cell: tuple[int, int], quant: Quantiser) -> dict[str, Image.Image]:
-    """Scales all poses by one shared factor so they fit the cell, and keeps one ground line and one centre.
+    """Crops all poses to one shared region and places them in the cell on one ground line and one centre.
 
-    A pose never moves relative to the others, so a walk cycle does not jitter. Premultiplied resampling avoids a
-    dark fringe, and the result goes back through the palette and the binary alpha.
+    Poses keep their native pixels, so a pose never moves relative to the others and a walk cycle does not jitter.
+    Only content larger than the cell is scaled down, by one shared factor, with premultiplied resampling; the result
+    goes back through the palette and the binary alpha.
     """
     boxes = {key: content_box(img) for key, img in frames.items()}
     centre = next(iter(frames.values())).width / 2
@@ -265,8 +266,8 @@ def build_player_sheet(zip_path: Path, quant: Quantiser) -> Image.Image:
     for direction, rotation in rotations.items():
         walk = walks.get(direction)
         if walk:
-            frames[f"{direction}:a"] = walk[0]
-            frames[f"{direction}:b"] = walk[len(walk) // 2]
+            frames[f"{direction}:a"] = walk[len(walk) // 4]
+            frames[f"{direction}:b"] = walk[3 * len(walk) // 4]
         else:
             frames[f"{direction}:a"] = rotation
             frames[f"{direction}:b"] = rotation
