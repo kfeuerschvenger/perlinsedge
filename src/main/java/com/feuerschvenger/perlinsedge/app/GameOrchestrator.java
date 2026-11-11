@@ -88,7 +88,7 @@ public class GameOrchestrator {
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
         playerManager = new PlayerManager(this.gameState, healthBar, inventoryPanel);
         combatManager = new CombatManager(this.gameState);
-        inventoryManager = new InventoryManager(this.gameState, inventoryPanel);
+        inventoryManager = new InventoryManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
         ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
@@ -226,10 +226,7 @@ public class GameOrchestrator {
         inventoryPanel.setOnItemDropped((slot, wholeStack) ->
                 itemDropManager.dropFromSlot(slot.container(), slot.slot(), wholeStack));
 
-        inventoryPanel.setOnCraftRecipe(recipe -> {
-            inventoryManager.handleCraftRecipe(recipe);
-            Platform.runLater(inventoryPanel::updateInventoryDisplay);
-        });
+        inventoryPanel.setOnCraftRecipe(inventoryManager::handleCraftRecipe);
     }
 
     private KeyController createKeyController() {
