@@ -5,11 +5,13 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -181,5 +183,33 @@ class ChestTest {
         assertEquals(0, chest.getItemCount(new Item(ItemType.COAL, 1)));
         assertEquals(2, chest.getItemCount(new Item(ItemType.STONE, 1)));
         assertEquals(1, chest.getItemCount(new Item(ItemType.STICK, 1)));
+    }
+
+    @Test
+    void setItemsKeepsSlotIndicesAndDoesNotCompact() {
+        List<Item> source = new ArrayList<>();
+        source.add(null);
+        source.add(new Item(ItemType.STONE, 2));
+        source.add(new Item(ItemType.STICK, 1));
+        source.add(new Item(ItemType.COAL, 1));
+
+        chest.setItems(source);
+
+        assertNull(chest.getItemAt(0));
+        assertEquals(ItemType.STONE, chest.getItemAt(1).getType());
+        assertEquals(ItemType.STICK, chest.getItemAt(2).getType());
+        assertEquals(0, chest.getItemCount(new Item(ItemType.COAL, 1)), "entries beyond the capacity are ignored");
+    }
+
+    @Test
+    void setItemsCopiesTheItemsAndLeavesTheSourceUntouched() {
+        Item stone = new Item(ItemType.STONE, 7);
+
+        chest.setItems(List.of(stone));
+
+        assertEquals(7, stone.getQuantity());
+        assertNotSame(stone, chest.getItemAt(0));
+        chest.getItemAt(0).addQuantity(1);
+        assertEquals(7, stone.getQuantity(), "changing the stored stack never changes the source");
     }
 }

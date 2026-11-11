@@ -452,9 +452,12 @@ public class Player extends Entity implements Container {
     @Override
     public void setItems(List<Item> items) {
         clearInventory();
-        items.stream()
-                .filter(Objects::nonNull)
-                .forEach(this::addItem);
+        for (int i = 0; i < items.size() && i < INVENTORY_CAPACITY; i++) {
+            Item source = items.get(i);
+            if (source != null && source.getQuantity() > 0) {
+                inventory.set(i, new Item(source.getType(), Math.min(source.getQuantity(), source.getMaxStackSize())));
+            }
+        }
     }
 
     // ==================================================================
