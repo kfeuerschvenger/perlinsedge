@@ -14,6 +14,9 @@ import java.util.Locale;
 public class DeathOverlay extends VBox {
     private static final double SPACING = 16;
 
+    /** Node id of the countdown label, so a caller can look it up without relying on child order. */
+    static final String COUNTDOWN_ID = "death-countdown";
+
     private final Label countdown = new Label();
     private int shownSeconds = -1;
 
@@ -26,6 +29,7 @@ public class DeathOverlay extends VBox {
         Label title = new Label("YOU DIED");
         title.getStyleClass().add(UiTheme.TITLE_DANGER);
         countdown.getStyleClass().add(UiTheme.HEADING);
+        countdown.setId(COUNTDOWN_ID);
         getChildren().addAll(title, countdown);
 
         hide();
