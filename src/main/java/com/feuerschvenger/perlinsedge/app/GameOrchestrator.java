@@ -45,6 +45,7 @@ public class GameOrchestrator {
     private final MapConfigPanel mapConfigPanel;
 
     private final GameLoop gameLoop;
+    private boolean gameActive;
     private final InputWiring inputWiring;
     private final GameStateTransitions transitions;
 
@@ -141,11 +142,18 @@ public class GameOrchestrator {
     /** Starts the main game loop. */
     public void startGameLoop() {
         gameLoop.start();
+        gameActive = true;
     }
 
     /** Stops the main game loop. */
     public void stopGameLoop() {
         gameLoop.stop();
+        gameActive = false;
+    }
+
+    /** @return true while a game is running, false on the main menu */
+    public boolean isGameActive() {
+        return gameActive;
     }
 
     /** Resumes the game from the paused state. */
@@ -228,7 +236,7 @@ public class GameOrchestrator {
                 transitions::togglePauseMenu,
                 this::centerOnPlayer,
                 this::regenerateMap,
-                transitions::toggleMapConfigPanel,
+                this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
                 combatManager::handlePlayerAttack,
                 transitions::toggleBuildingMode,
@@ -237,7 +245,14 @@ public class GameOrchestrator {
         );
     }
 
+    private void toggleMapConfigPanelInGame() {
+        if (gameActive) {
+            transitions.toggleMapConfigPanel();
+        }
+    }
+
     private void regenerateMap() {
+        if (!gameActive) return;
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
         rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
@@ -269,6 +284,10 @@ public class GameOrchestrator {
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
      */
     private void rebuildWorld(MapGenerationContext context) {
+        if (!gameActive) {
+            log.debug("Ignoring a map rebuild: no game is running");
+            return;
+        }
         leaveGame();
         mapManager.generateNewMap(context);
         playerManager.initializePlayer();
