@@ -12,6 +12,9 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -63,6 +66,31 @@ class ResourceManagerTest {
 
         assertTrue(tile.hasResource());
         assertTrue(state.getDroppedItems().isEmpty());
+    }
+
+    @Test
+    void hittingIronOreWithoutAPickaxeTellsThePlayerWhatIsMissing() {
+        List<String> hints = new ArrayList<>();
+        manager = new ResourceManager(state, hints::add);
+        tile.setWorldResource(new Resource(ResourceType.IRON_ORE, 1));
+
+        manager.handleTileInteraction(player, tile);
+
+        assertEquals(1, hints.size());
+        assertTrue(hints.get(0).toLowerCase().contains("pickaxe"), hints.get(0));
+    }
+
+    @Test
+    void noHintWhenTheToolIsCarriedOrNoneIsNeeded() {
+        List<String> hints = new ArrayList<>();
+        manager = new ResourceManager(state, hints::add);
+        player.addItem(new Item(ItemType.PICKAXE, 1));
+        tile.setWorldResource(new Resource(ResourceType.IRON_ORE, 1));
+        manager.handleTileInteraction(player, tile);
+        tile.setWorldResource(new Resource(ResourceType.STONE, 1));
+        manager.handleTileInteraction(player, tile);
+
+        assertTrue(hints.isEmpty());
     }
 
     @Test

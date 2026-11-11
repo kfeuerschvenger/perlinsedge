@@ -10,12 +10,17 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Consumer;
 
 /**
  * Manages resource interactions including harvesting, depletion, and loot generation.
  * Handles cooldowns between hits and player proximity checks.
  */
+@Slf4j
 public class ResourceManager {
     // Configuration constants
     private static final int RESOURCE_HIT_DAMAGE = 10; // Damage per hit
@@ -23,9 +28,26 @@ public class ResourceManager {
 
     // Dependencies
     private final GameStateManager gameState;
+    private final Consumer<String> hintSink;
 
+    /**
+     * Creates a manager that shows no hints to the player.
+     *
+     * @param gameState shared game state
+     */
     public ResourceManager(GameStateManager gameState) {
+        this(gameState, message -> { });
+    }
+
+    /**
+     * Creates a manager that reports why a harvest did nothing.
+     *
+     * @param gameState shared game state
+     * @param hintSink  receives the short message to show the player
+     */
+    public ResourceManager(GameStateManager gameState, Consumer<String> hintSink) {
         this.gameState = gameState;
+        this.hintSink = hintSink;
     }
 
     /**
@@ -37,8 +59,15 @@ public class ResourceManager {
      */
     public void handleTileInteraction(Player player, Tile tile) {
         if (!isValidInteraction(player, tile)) return;
-        if (!hasRequiredTool(player, tile.getWorldResource())) return;
-        handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY());
+        Resource resource = tile.getWorldResource();
+        if (!hasRequiredTool(player, resource)) {
+            ItemType tool = resource.getType().getRequiredTool();
+            log.debug("Cannot harvest {} at ({}, {}): the player has no {}",
+                    resource.getType(), tile.getX(), tile.getY(), tool);
+            hintSink.accept("You need a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
+            return;
+        }
+        handleResourceHit(resource, tile.getX(), tile.getY());
     }
 
     /**

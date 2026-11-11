@@ -60,13 +60,15 @@ public class GameOrchestrator {
      * @param healthBar           player health view
      * @param inventoryPanel      inventory view
      * @param buildingHotbarPanel building hotbar view
+     * @param hintLabel           short on-screen hints for actions that did nothing
      * @param gameState           shared state, a new one is created when null
      * @param recipeManager       recipes, a new one is created when null
      */
     public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
                             FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
                             Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingHotbarPanel buildingHotbarPanel, GameStateManager gameState, RecipeManager recipeManager) {
+                            BuildingHotbarPanel buildingHotbarPanel, HintLabel hintLabel,
+                            GameStateManager gameState, RecipeManager recipeManager) {
         this.renderer = renderer;
         this.camera = camera;
         this.inputHandler = inputHandler;
@@ -81,7 +83,7 @@ public class GameOrchestrator {
         combatManager = new CombatManager(this.gameState);
         inventoryManager = new InventoryManager(this.gameState, inventoryPanel);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
-        ResourceManager resourceManager = new ResourceManager(this.gameState);
+        ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel);
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
