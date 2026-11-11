@@ -58,6 +58,7 @@ public class PauseMenuPanel extends VBox {
         });
     }
 
+    /** Creates a menu button with the shared width and an upper case label. */
     private static Button createButton(String text) {
         Button button = new Button(UiTheme.caps(text));
         button.setPrefWidth(BUTTON_WIDTH);

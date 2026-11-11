@@ -70,6 +70,7 @@ public final class UiTheme {
 
     private static boolean fontLoaded;
 
+    /** Not instantiable: the class only holds the theme entry points. */
     private UiTheme() {
     }
 

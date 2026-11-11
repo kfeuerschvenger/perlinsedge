@@ -140,6 +140,7 @@ public class FxCamera extends Camera {
         );
     }
 
+    /** Works out the range the camera offset may take at the current zoom for a viewport of the given size. */
     private Bounds calculateBounds(double viewportWidth, double viewportHeight) {
         CornerPoints corners = computeCornerPoints(zoom);
         double totalWidth = corners.maxX() - corners.minX();

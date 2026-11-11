@@ -11,6 +11,7 @@ public final class ZoomSteps {
     /** Art pixels per world unit at zoom 1.0: the 64x32 world tile is the 32x16 art drawn at 2x. */
     public static final double ART_SCALE_AT_UNIT_ZOOM = 2.0;
 
+    /** Not instantiable: the class only holds static rules. */
     private ZoomSteps() {}
 
     /**

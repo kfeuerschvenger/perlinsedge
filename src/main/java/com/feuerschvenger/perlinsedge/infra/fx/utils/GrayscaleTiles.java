@@ -19,6 +19,7 @@ public final class GrayscaleTiles {
     /** Heights run from minus one to one. */
     private static final double HEIGHT_NORMALIZATION = 2.0;
 
+    /** Not instantiable: the class only holds static rules. */
     private GrayscaleTiles() {}
 
     /**

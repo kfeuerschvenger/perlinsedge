@@ -16,6 +16,7 @@ public enum MapType {
 
     private final String displayName;
 
+    /** Creates a map type with the name shown to the player. */
     MapType(String displayName) {
         this.displayName = displayName;
     }

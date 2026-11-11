@@ -16,10 +16,12 @@ import java.util.Map;
  */
 public final class FlatTileSprites {
 
+    /** Builds the images on the first lookup, which the class loader makes thread safe. */
     private static final class Holder {
         static final Map<TileType, Image> IMAGES = bake();
     }
 
+    /** Not instantiable: the class only holds shared images. */
     private FlatTileSprites() {}
 
     /**
@@ -32,6 +34,7 @@ public final class FlatTileSprites {
         return Holder.IMAGES.get(type);
     }
 
+    /** Draws one block per tile type. */
     private static Map<TileType, Image> bake() {
         final Map<TileType, Image> images = new EnumMap<>(TileType.class);
         for (TileType type : TileType.values()) {

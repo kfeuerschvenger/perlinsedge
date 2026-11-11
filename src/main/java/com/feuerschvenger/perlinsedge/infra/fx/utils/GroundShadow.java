@@ -23,6 +23,7 @@ public final class GroundShadow {
     /** Shadow width of an enemy drawn from a sprite, relative to its sprite width. */
     public static final double SPRITE_ENEMY_FRACTION = 0.6;
 
+    /** Not instantiable: the class only holds static rules. */
     private GroundShadow() {}
 
     /** @return how many ellipse sizes there are */

@@ -18,6 +18,7 @@ public final class TintedSprites {
     private static final Map<Image, Image> RED = new IdentityHashMap<>();
     private static final Map<Image, Image> WHITE = new IdentityHashMap<>();
 
+    /** Not instantiable: the class only holds the cache. */
     private TintedSprites() {}
 
     /**
@@ -37,6 +38,7 @@ public final class TintedSprites {
         return source;
     }
 
+    /** Copies a sprite with every painted pixel mixed toward the colour of the phase. */
     private static Image bake(Image source, int phase) {
         final int width = (int) source.getWidth();
         final int height = (int) source.getHeight();

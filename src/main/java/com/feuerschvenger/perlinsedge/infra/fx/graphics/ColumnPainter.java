@@ -23,6 +23,7 @@ final class ColumnPainter {
     private final GraphicsContext gc;
     private final SpriteManager spriteManager;
 
+    /** Creates a painter that draws on a graphics context with the sprites of a manager. */
     ColumnPainter(GraphicsContext gc, SpriteManager spriteManager) {
         this.gc = gc;
         this.spriteManager = spriteManager;

@@ -63,6 +63,7 @@ public final class GroundDecals {
     private static final long SALT_U = 0x2545_F491_4F6CL;
     private static final long SALT_V = 0x7F4A_7C15_9E37L;
 
+    /** Not instantiable: the class only holds static rules. */
     private GroundDecals() {}
 
     /**

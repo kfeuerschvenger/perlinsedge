@@ -16,6 +16,7 @@ public final class FxShadowHelper {
     /** Shadows whose centre is this far outside the canvas, in pixels, are skipped. */
     private static final double MARGIN = 96.0;
 
+    /** Not instantiable: the class only holds static drawing code. */
     private FxShadowHelper() {}
 
     /**

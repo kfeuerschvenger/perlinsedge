@@ -15,6 +15,7 @@ public final class WalkCycle {
 
     private static final int[] CYCLE = {WALK_A, IDLE, WALK_B, IDLE};
 
+    /** Not instantiable: the class only holds static rules. */
     private WalkCycle() {}
 
     /**

@@ -41,6 +41,7 @@ public final class HurtReaction {
     private static final int RED_TARGET = 0xFFFF2828;
     private static final int WHITE_TARGET = 0xFFFFFFFF;
 
+    /** Not instantiable: the class only holds static rules. */
     private HurtReaction() {}
 
     /**
@@ -110,6 +111,7 @@ public final class HurtReaction {
         return alpha << 24 | r << 16 | g << 8 | b;
     }
 
+    /** Moves a colour channel toward the flash colour by the tint share. */
     private static int mix(int from, int to) {
         return (int) Math.round(from + (to - from) * TINT_SHARE);
     }

@@ -22,6 +22,7 @@ public final class FxHurtGlow {
     private static double gradientWidth;
     private static double gradientHeight;
 
+    /** Not instantiable: the class only holds static drawing code. */
     private FxHurtGlow() {}
 
     /**

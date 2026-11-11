@@ -62,6 +62,7 @@ public final class SpriteManager {
             this.kind = kind;
         }
 
+        /** @return the art kind of the sprite, for example palm, or null for an item icon */
         public String getKind() {
             return kind;
         }
@@ -74,10 +75,12 @@ public final class SpriteManager {
             return verticalOffset;
         }
 
+        /** @return how far the sprite is drawn below the default anchor, in art pixels */
         public int getDropArtPixels() {
             return dropArtPixels;
         }
 
+        /** @return how far below the tile centre the lowest painted pixel lies, in art pixels */
         public int getContactArtPixels() {
             return contactArtPixels;
         }
@@ -120,6 +123,7 @@ public final class SpriteManager {
     //  LOADING
     // ==================================================================
 
+    /** Loads the block variants and the face strip of every tile art, skipping the arts that have no files. */
     private void loadTileSprites() {
         for (String art : AssetPaths.allTileArts()) {
             List<Image> variants = loadTileVariants(art);
@@ -135,6 +139,7 @@ public final class SpriteManager {
         }
     }
 
+    /** Loads the ground decal sprites and logs the names that have no art. */
     private void loadDecalSprites() {
         List<String> missing = new ArrayList<>();
         for (String name : GroundDecals.ALL) {
@@ -150,6 +155,7 @@ public final class SpriteManager {
         }
     }
 
+    /** Loads the translucent water sheets and the shimmer lines, leaving the shimmer empty when a line is missing. */
     private void loadWaterSprites() {
         Set<String> arts = new LinkedHashSet<>();
         for (TileType type : TileType.values()) {
@@ -178,6 +184,7 @@ public final class SpriteManager {
         shimmerLines = List.copyOf(lines);
     }
 
+    /** Loads the numbered variants of a tile art until a number is missing. */
     private List<Image> loadTileVariants(String art) {
         List<Image> variants = new ArrayList<>();
         for (int variant = 1; variant <= MAX_VARIANTS; variant++) {
@@ -225,6 +232,7 @@ public final class SpriteManager {
         }
     }
 
+    /** Returns the first list that holds a sprite, or an empty list when every candidate is empty. */
     @SafeVarargs
     private static List<SpriteMetadata> firstNotEmpty(List<SpriteMetadata>... candidates) {
         for (List<SpriteMetadata> candidate : candidates) {
@@ -235,6 +243,7 @@ public final class SpriteManager {
         return List.of();
     }
 
+    /** Loads every kind of a resource type from one biome folder, numbered variants of each until a number is missing. */
     private List<SpriteMetadata> loadResourceVariants(String folder, ResourceType type) {
         List<SpriteMetadata> variants = new ArrayList<>();
         for (String kind : AssetPaths.resourceKinds(type)) {
@@ -264,6 +273,7 @@ public final class SpriteManager {
         });
     }
 
+    /** Loads the player sheet frames and the slime strip frames, each left empty when its art is missing. */
     private void loadEntitySprites() {
         AppConfig.PlayerConfig.SpriteSheetConfig config = AppConfig.getInstance().player().spriteSheet;
         Image sheet = loadImage(config.path);
@@ -290,6 +300,7 @@ public final class SpriteManager {
         slimeFrames = List.copyOf(frames);
     }
 
+    /** Loads the icon of every item type, keeping an entry without image for the types that have no art. */
     private void loadItemSprites() {
         List<String> missing = new ArrayList<>();
         for (ItemType type : ItemType.values()) {

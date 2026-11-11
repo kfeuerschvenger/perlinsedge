@@ -25,6 +25,7 @@ public final class FlatTiles {
     /** Brightness kept by the left face and by the outline of the top, the factor of the JavaFX darker colour. */
     static final double DARKER = 0.7;
 
+    /** Not instantiable: the class only holds static rules. */
     private FlatTiles() {}
 
     /**
@@ -94,6 +95,7 @@ public final class FlatTiles {
         return scale(argb, x < WIDTH / 2 ? DARKER : DARKER * DARKER);
     }
 
+    /** Converts a colour component from zero to one into a byte, clamping values outside that range. */
     private static int channel(double component) {
         return (int) Math.round(Math.max(0.0, Math.min(1.0, component)) * 255.0);
     }

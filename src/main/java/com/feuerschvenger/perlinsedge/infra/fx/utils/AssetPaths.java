@@ -52,8 +52,10 @@ public final class AssetPaths {
             MapType.DESERT, overrides("dune"),
             MapType.TUNDRA, overrides("snow"));
 
+    /** Not instantiable: the class only holds paths and rules. */
     private AssetPaths() {}
 
+    /** Maps every grassy land type to one art, for a biome whose ground is not grass. */
     private static Map<TileType, String> overrides(String art) {
         final Map<TileType, String> map = new EnumMap<>(TileType.class);
         for (TileType type : GRASSY) {

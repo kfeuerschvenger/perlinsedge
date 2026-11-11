@@ -6,6 +6,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
  */
 final class ShakeWave {
 
+    /** Not instantiable: the class only holds static rules. */
     private ShakeWave() {}
 
     /**

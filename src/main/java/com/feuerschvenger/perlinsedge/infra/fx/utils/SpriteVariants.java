@@ -5,6 +5,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
  */
 public final class SpriteVariants {
 
+    /** Not instantiable: the class only holds static rules. */
     private SpriteVariants() {}
 
     /**

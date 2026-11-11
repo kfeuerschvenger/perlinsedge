@@ -278,6 +278,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         }
     }
 
+    /** Tells whether every tile within a radius of a point is sand, so an oasis fits without cutting into other ground. */
     private static boolean isPlainSand(TileMap map, int x, int y, int radius) {
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
@@ -290,6 +291,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         return true;
     }
 
+    /** Turns a disc of sand into shallow water with a deep centre and clears the resources on it. */
     private static void fillOasis(TileMap map, int centerX, int centerY) {
         for (int dx = -OASIS_RADIUS; dx <= OASIS_RADIUS; dx++) {
             for (int dy = -OASIS_RADIUS; dy <= OASIS_RADIUS; dy++) {
@@ -327,6 +329,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         }
     }
 
+    /** Tells whether any water tile lies within a square radius of a point. */
     private static boolean hasWaterWithin(TileMap map, int x, int y, int radius) {
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {

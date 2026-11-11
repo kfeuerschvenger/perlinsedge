@@ -15,6 +15,7 @@ public final class HitShake {
     /** Full left and right swings within the duration. */
     static final double SWINGS = 3.0;
 
+    /** Not instantiable: the class only holds static rules. */
     private HitShake() {}
 
     /**

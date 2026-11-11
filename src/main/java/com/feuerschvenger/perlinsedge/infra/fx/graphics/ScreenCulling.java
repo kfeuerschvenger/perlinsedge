@@ -11,6 +11,7 @@ final class ScreenCulling {
     /** Art pixels the deepest bed lies below the land tops, so its block still reaches into view from above. */
     static final int MAX_SINK_ART_PIXELS = TileDepths.sinkPixels(TileType.DEEP_WATER);
 
+    /** Not instantiable: the class only holds the shared test. */
     private ScreenCulling() {}
 
     /**

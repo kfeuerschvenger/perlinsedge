@@ -12,6 +12,7 @@ public enum HeartState {
 
     private final String path;
 
+    /** Creates a heart state with the classpath location of its icon. */
     HeartState(String path) {
         this.path = path;
     }

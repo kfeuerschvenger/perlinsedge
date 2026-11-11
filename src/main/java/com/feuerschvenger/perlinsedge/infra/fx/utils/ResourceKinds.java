@@ -25,6 +25,7 @@ public final class ResourceKinds {
 
     private static final long SALT_ODD = 0x6A09_E667_F3BCL;
 
+    /** Not instantiable: the class only holds static rules. */
     private ResourceKinds() {}
 
     /**

@@ -30,6 +30,7 @@ public class HealthBar extends HBox {
     private double shownHealth = Double.NaN;
     private double shownMaxHealth = Double.NaN;
 
+    /** Builds the row of hearts showing full health. */
     public HealthBar() {
         setAlignment(Pos.CENTER_LEFT);
         setSpacing(SPACING);
@@ -70,6 +71,7 @@ public class HealthBar extends HBox {
         }
     }
 
+    /** Loads the icon of a heart state, falling back to a drawn placeholder when the file is missing. */
     private Image loadHeart(HeartState state) {
         try (InputStream is = getClass().getResourceAsStream(state.getPath())) {
             if (is != null) {
@@ -82,6 +84,7 @@ public class HealthBar extends HBox {
         return createFallbackHeartImage(state);
     }
 
+    /** Draws a rounded square placeholder, grey for an empty heart and pink otherwise. */
     private Image createFallbackHeartImage(HeartState state) {
         Color color = state == HeartState.EMPTY ? Color.DARKGRAY : Color.PINK;
         Rectangle placeholder = new Rectangle(HEART_SIZE, HEART_SIZE, color);

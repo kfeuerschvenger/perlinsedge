@@ -17,6 +17,7 @@ public final class SlimeShadow {
     /** Fraction of the opacity lost at the top of a jump. */
     static final double MAX_FADE = 0.4;
 
+    /** Not instantiable: the class only holds static rules. */
     private SlimeShadow() {}
 
     /**
@@ -44,6 +45,7 @@ public final class SlimeShadow {
         return BASE_OPACITY * (1.0 - MAX_FADE * lift(height, maxHeight));
     }
 
+    /** Returns how far into the jump the slime is, from zero on the ground to one at the top. */
     private static double lift(double height, double maxHeight) {
         return Math.max(0.0, Math.min(1.0, maxHeight > 0 ? height / maxHeight : 0.0));
     }

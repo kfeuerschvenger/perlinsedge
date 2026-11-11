@@ -173,6 +173,7 @@ public class BuildingHotbarPanel extends HBox {
         }
     }
 
+    /** Tells whether a hotbar child is a slot that holds a building rather than an empty slot or a page button. */
     private static boolean isBuildingSlot(Node node) {
         return node instanceof StackPane slot && !slot.getStyleClass().contains(UiTheme.SLOT_EMPTY);
     }

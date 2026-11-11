@@ -72,6 +72,7 @@ public class KeyController implements IKeyListener {
         this.inputBlocked = inputBlocked;
     }
 
+    /** Tells whether a panel that covers the world currently takes the gameplay keys. */
     private boolean isGameplayBlocked() {
         return inputBlocked != null && inputBlocked.getAsBoolean();
     }
@@ -142,6 +143,7 @@ public class KeyController implements IKeyListener {
         }
     }
 
+    /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
     private static boolean isGameplayKey(GameKey key) {
         return switch (key) {
             case SPACE, I, B, PAGE_UP, PAGE_DOWN -> true;

@@ -29,6 +29,7 @@ public final class WaterShimmer {
     private static final long SALT_U = 0x3C6E_F372_FE94L;
     private static final long SALT_V = 0x510E_527F_ADE6L;
 
+    /** Not instantiable: the class only holds static rules. */
     private WaterShimmer() {}
 
     /**
@@ -101,6 +102,7 @@ public final class WaterShimmer {
         return (GroundDecals.mix(x, y, 0L, SALT_PHASE) >>> 11) * 0x1.0p-53;
     }
 
+    /** Returns the phase of a line in cycles: its fade is over each time the whole part grows by one. */
     private static double linePhase(double cycles, int x, int y, int line) {
         return cycles + tileOffset(x, y) + line * LINE_STAGGER;
     }
@@ -111,6 +113,7 @@ public final class WaterShimmer {
         return GroundDecals.mix(x, y, fade * 31L + line, salt);
     }
 
+    /** Maps a hash to a value in [-1, 1). */
     private static double unit(long hash) {
         return ((hash >>> 11) * 0x1.0p-53) * 2.0 - 1.0;
     }

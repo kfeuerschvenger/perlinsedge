@@ -106,6 +106,7 @@ public final class FxEnemyDrawingHelper {
         shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.artScale(zoom), 1.0);
     }
 
+    /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */
     private static SlimeMovementStrategy movementOf(Slime slime) {
         final EnemyMovementStrategy movementStrategy = slime.getMovementStrategy();
         return movementStrategy instanceof SlimeMovementStrategy move ? move : null;

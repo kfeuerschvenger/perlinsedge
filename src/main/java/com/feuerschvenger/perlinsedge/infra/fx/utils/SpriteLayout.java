@@ -11,6 +11,7 @@ public final class SpriteLayout {
     /** Frames in the slime strip: rest first, then the five frames of a jump. */
     public static final int SLIME_FRAMES = 6;
 
+    /** Not instantiable: the class only holds static rules. */
     private SpriteLayout() {}
 
     /**

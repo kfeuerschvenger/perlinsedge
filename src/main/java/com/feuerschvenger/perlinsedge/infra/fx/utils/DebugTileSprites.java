@@ -14,10 +14,12 @@ public final class DebugTileSprites {
     /** The outline keeps this share of the grey of its tile, so it stays a thin dark line rather than a black frame. */
     private static final double OUTLINE_KEPT = 0.35;
 
+    /** Builds the images on the first lookup, which the class loader makes thread safe. */
     private static final class Holder {
         static final Image[] IMAGES = bake();
     }
 
+    /** Not instantiable: the class only holds shared images. */
     private DebugTileSprites() {}
 
     /**
@@ -30,6 +32,7 @@ public final class DebugTileSprites {
         return Holder.IMAGES[level];
     }
 
+    /** Draws one grey diamond per level. */
     private static Image[] bake() {
         final Image[] images = new Image[GrayscaleTiles.LEVELS];
         for (int level = 0; level < images.length; level++) {

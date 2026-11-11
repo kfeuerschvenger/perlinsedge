@@ -66,6 +66,7 @@ public class AppConfig {
         public double getInitialZoom() { return initialZoom; }
         public double getMinZoom() { return minZoom; }
         public double getMaxZoom() { return maxZoom; }
+        /** @return the distance between two zoom levels */
         public double getZoomStep() { return zoomStep; }
         public double getPanSpeed() { return panSpeed; }
     }

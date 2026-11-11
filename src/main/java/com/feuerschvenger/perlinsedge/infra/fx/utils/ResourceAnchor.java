@@ -19,6 +19,7 @@ public final class ResourceAnchor {
     /** The art kinds that are low: they sit on the ground rather than stand on a trunk. */
     private static final Set<String> LOW_KINDS = Set.of("bush", "shrub", "fern", "reed", "rock", "iron");
 
+    /** Not instantiable: the class only holds static rules. */
     private ResourceAnchor() {}
 
     /**

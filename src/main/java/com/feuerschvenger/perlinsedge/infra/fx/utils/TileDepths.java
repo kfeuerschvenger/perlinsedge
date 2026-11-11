@@ -21,6 +21,7 @@ public final class TileDepths {
     /** Art pixels of side face a tile sprite carries, and the height of one face strip. */
     public static final int FACE_PIXELS = 5;
 
+    /** Not instantiable: the class only holds static rules. */
     private TileDepths() {}
 
     /**

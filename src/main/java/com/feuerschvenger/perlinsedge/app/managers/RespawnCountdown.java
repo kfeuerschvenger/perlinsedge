@@ -6,6 +6,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
  */
 public final class RespawnCountdown {
 
+    /** Not instantiable: the class only holds static rules. */
     private RespawnCountdown() {}
 
     /**

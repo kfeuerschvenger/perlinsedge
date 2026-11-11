@@ -13,10 +13,12 @@ public final class ShadowSprites {
 
     private static final int SHADOW_ARGB = (int) Math.round(GroundShadow.OPACITY * 255) << 24;
 
+    /** Builds the images on the first lookup, which the class loader makes thread safe. */
     private static final class Holder {
         static final Image[] IMAGES = bake();
     }
 
+    /** Not instantiable: the class only holds shared images. */
     private ShadowSprites() {}
 
     /**
@@ -29,6 +31,7 @@ public final class ShadowSprites {
         return Holder.IMAGES[bucket];
     }
 
+    /** Draws one ellipse per size. */
     private static Image[] bake() {
         final Image[] images = new Image[GroundShadow.bucketCount()];
         for (int i = 0; i < images.length; i++) {
