@@ -60,11 +60,14 @@ public final class SpriteManager {
     private final Map<TileType, List<Image>> tileSprites = new EnumMap<>(TileType.class);
     private final Map<ItemType, SpriteMetadata> itemSprites = new EnumMap<>(ItemType.class);
     private final Map<String, Image> decalSprites = new HashMap<>();
+    private final Map<TileType, Image> waterSprites = new EnumMap<>(TileType.class);
+    private List<Image> shimmerLines = List.of();
     private List<Image> slimeFrames = List.of();
 
     private SpriteManager() {
         loadTileSprites();
         loadDecalSprites();
+        loadWaterSprites();
         loadResourceSprites();
         loadEntitySprites();
         loadItemSprites();
@@ -112,6 +115,31 @@ public final class SpriteManager {
         if (!missing.isEmpty()) {
             log.info("No decal art for {}, those decals are skipped", missing);
         }
+    }
+
+    private void loadWaterSprites() {
+        for (TileType type : TileType.values()) {
+            String art = AssetPaths.waterArt(type);
+            if (art == null) {
+                continue;
+            }
+            Image image = loadImage(AssetPaths.waterTop(art));
+            if (image == null) {
+                log.info("No water art for {}, the bed tile is drawn without water", type);
+            } else {
+                waterSprites.put(type, image);
+            }
+        }
+        List<Image> lines = new ArrayList<>();
+        for (int line = 0; line < WaterShimmer.MAX_LINES; line++) {
+            Image image = loadImage(AssetPaths.shimmer(line));
+            if (image == null) {
+                log.info("No shimmer art for line {}, the water is drawn without highlights", line);
+                return;
+            }
+            lines.add(image);
+        }
+        shimmerLines = List.copyOf(lines);
     }
 
     private List<Image> loadTileVariants(String art) {
@@ -255,6 +283,26 @@ public final class SpriteManager {
      */
     public Image getDecalSprite(String name) {
         return name == null ? null : decalSprites.get(name);
+    }
+
+    /**
+     * Retrieves the translucent water layer of a water tile type.
+     *
+     * @param type the tile type
+     * @return the top diamond to draw over the bed, or null when the type has no water art
+     */
+    public Image getWaterSprite(TileType type) {
+        return waterSprites.get(type);
+    }
+
+    /**
+     * Retrieves the sprite of one shimmer line.
+     *
+     * @param line the line index, below {@link WaterShimmer#MAX_LINES}
+     * @return the sprite, or null when there is no shimmer art
+     */
+    public Image getShimmerSprite(int line) {
+        return line >= 0 && line < shimmerLines.size() ? shimmerLines.get(line) : null;
     }
 
     /**

@@ -45,7 +45,7 @@ public final class AssetPaths {
      * Returns the art name of a tile type.
      *
      * @param type the tile type
-     * @return the name, for example grass, or null when the type has no art and keeps the procedural drawing
+     * @return the name, for example grass; water types answer the sand tile that serves as their bed
      */
     public static String tileArt(TileType type) {
         return switch (type) {
@@ -53,15 +53,48 @@ public final class AssetPaths {
             case FOREST -> "forest";
             case SAVANNA -> "savanna";
             case HILL -> "hill";
-            case SAND, BEACH -> "sand";
+            case SAND, BEACH, SHALLOW_WATER, DEEP_WATER, RIVER, COAST -> "sand";
             case MOUNTAIN -> "mountain";
             case SNOW -> "snow";
             case ICE -> "ice";
             case SWAMP -> "swamp";
-            case SHALLOW_WATER -> "water-shallow";
-            case DEEP_WATER -> "water-deep";
+        };
+    }
+
+    /**
+     * Returns the name of the translucent water layer drawn over the sand bed of a water tile.
+     *
+     * @param type the tile type
+     * @return the name, for example shallow, or null when the type is not water
+     */
+    public static String waterArt(TileType type) {
+        return switch (type) {
+            case SHALLOW_WATER -> "shallow";
+            case DEEP_WATER -> "deep";
+            case RIVER -> "river";
+            case COAST -> "coast";
             default -> null;
         };
+    }
+
+    /**
+     * Returns the path of a translucent water layer.
+     *
+     * @param art the water art name from {@link #waterArt}
+     * @return the classpath location
+     */
+    public static String waterTop(String art) {
+        return BASE + "water/" + art + ".png";
+    }
+
+    /**
+     * Returns the path of one shimmer line sprite.
+     *
+     * @param line the zero-based line index, below {@link WaterShimmer#MAX_LINES}
+     * @return the classpath location
+     */
+    public static String shimmer(int line) {
+        return BASE + "water/shimmer-" + (line + 1) + ".png";
     }
 
     /**

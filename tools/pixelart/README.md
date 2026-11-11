@@ -29,7 +29,9 @@ flowchart LR
 python -I tools/pixelart/tiles.py
 ```
 
-`tiles.py` draws everything the ground is made of, with no raw input. Each land tile is a 32x21 block: a flat single colour top diamond with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face. It writes `assets/tiles/<name>-1.png` for grass, forest, savanna, hill, sand, mountain, snow, ice and swamp, and the small decal sprites to `assets/decals/<name>.png`. `build.py` does not touch tiles or decals, so running it never overwrites them. `--preview <file>` renders a patch of every tile with decals scattered on it instead of writing the assets.
+`tiles.py` draws everything the ground is made of, with no raw input. Each land tile is a 32x21 block: a flat single colour top diamond with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face. It writes `assets/tiles/<name>-1.png` for grass, forest, savanna, hill, sand, mountain, snow, ice and swamp, and the small decal sprites to `assets/decals/<name>.png`. Water has no tile of its own. Every water type is drawn as the sand tile sunk below the land level, then its seaweed or pebble decal, then a translucent water layer from `assets/water/<name>.png`: a 32x16 top diamond in light blue at 45 percent opacity for shallow, coast and river, and a darker blue at 75 percent for deep water. `assets/water/shimmer-<n>.png` are three thin highlight lines that the game fades in and out over about two seconds, each tile on its own phase. `build.py` does not touch tiles, decals or water, so running it never overwrites them.
+
+`--preview <file>` renders a patch of every tile with decals scattered on it instead of writing the assets.
 
 ## Raw layout
 

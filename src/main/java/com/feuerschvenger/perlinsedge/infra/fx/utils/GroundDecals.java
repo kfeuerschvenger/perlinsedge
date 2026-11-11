@@ -19,9 +19,16 @@ public final class GroundDecals {
     /** Names of the decals drawn on sand and beach. */
     static final List<String> SAND_DECALS = List.of("shell-1", "pebble-1");
 
-    /** Every decal name the ground can show, for the loader. */
+    /** Names of the decals drawn on the sand bed under shallow water. */
+    static final List<String> UNDERWATER_DECALS = List.of("seaweed-1", "seaweed-2", "pebble-1");
+
+    /** Every decal name the ground or a water bed can show, for the loader. */
     public static final List<String> ALL = List.of(
-            "tuft-1", "tuft-2", "tuft-3", "pebble-1", "pebble-2", "flower-1", "flower-2", "mushroom-1", "shell-1");
+            "tuft-1", "tuft-2", "tuft-3", "pebble-1", "pebble-2", "flower-1", "flower-2", "mushroom-1", "shell-1",
+            "seaweed-1", "seaweed-2");
+
+    /** One shallow water tile in this many holds an underwater decal. */
+    static final int UNDERWATER_ONE_IN = 6;
 
     /** One tile in this many holds a decal on green ground. */
     static final int GREEN_ONE_IN = 4;
@@ -36,6 +43,7 @@ public final class GroundDecals {
     static final double MAX_OFFSET = 0.25;
 
     private static final long SALT_PICK = 0x51ED_270B_1F2DL;
+    private static final long SALT_UNDERWATER = 0x1F83_D9AB_FB41L;
     private static final long SALT_U = 0x2545_F491_4F6CL;
     private static final long SALT_V = 0x7F4A_7C15_9E37L;
 
@@ -71,6 +79,26 @@ public final class GroundDecals {
             return null;
         }
         return pool.get((int) Math.floorMod(h >>> 20, (long) pool.size()));
+    }
+
+    /**
+     * Picks the decal lying on the bed of a water tile, which the renderer draws under the translucent water.
+     *
+     * @param type the tile type
+     * @param x    the tile column
+     * @param y    the tile row
+     * @param seed the world seed
+     * @return the decal name, or null when the tile is not shallow water or holds none
+     */
+    public static String underwaterDecalFor(TileType type, int x, int y, long seed) {
+        if (type != TileType.SHALLOW_WATER) {
+            return null;
+        }
+        long h = mix(x, y, seed, SALT_UNDERWATER);
+        if (Math.floorMod(h, (long) UNDERWATER_ONE_IN) != 0) {
+            return null;
+        }
+        return UNDERWATER_DECALS.get((int) Math.floorMod(h >>> 20, (long) UNDERWATER_DECALS.size()));
     }
 
     /**

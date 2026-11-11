@@ -1,7 +1,8 @@
-"""Draw the flat land tiles and the ground decals.
+"""Draw the flat land tiles, the ground decals and the water layers.
 
 Each land tile is a 32x21 block: a 32x16 top diamond in one flat colour with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face below.
 Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, flowers, mushrooms and seaweed.
+Water is a translucent 32x16 top diamond per water type, drawn over the sand tile that serves as the bed, plus three thin highlight lines the game fades in and out.
 
 usage: python -I tools/pixelart/tiles.py [--out src/main/resources/assets] [--preview preview.png]
 """
@@ -101,6 +102,36 @@ DECALS = {
 }
 
 
+# top colour and opacity of the translucent water drawn over the sand bed
+WATER = {
+    "shallow": ("#8ad6e6", 0.45),
+    "coast": ("#a8e6f0", 0.45),
+    "river": ("#3fa0cc", 0.45),
+    "deep": ("#2a5f8f", 0.75),
+}
+SHIMMER_COLOUR = "#dcecf8"
+SHIMMER_WIDTHS = (6, 4, 5)
+
+
+def water_top(colour, opacity):
+    """Draws the 32x16 top diamond of a water tile in one translucent colour, to be drawn over the sand bed."""
+    img = Image.new("RGBA", (TILE_W, TOP_H), (0, 0, 0, 0))
+    fill = hexc(colour) + (round(255 * opacity),)
+    for y in range(TOP_H):
+        for x in range(TILE_W):
+            if in_top(x, y):
+                img.putpixel((x, y), fill)
+    return img
+
+
+def shimmer(width):
+    """Draws a thin opaque highlight line, whose visibility the game fades with the global alpha."""
+    img = Image.new("RGBA", (width, 1), (0, 0, 0, 0))
+    for x in range(width):
+        img.putpixel((x, 0), hexc(SHIMMER_COLOUR) + (255,))
+    return img
+
+
 def preview(tiles, decals, path):
     """Draws an isometric patch of each land tile with decals scattered on it."""
     size = 8
@@ -142,7 +173,12 @@ def main():
         img.save(out / "tiles" / f"{name}-1.png")
     for name, img in decals.items():
         img.save(out / "decals" / f"{name}.png")
-    print(f"tiles {len(tiles)}, decals {len(decals)}")
+    (out / "water").mkdir(parents=True, exist_ok=True)
+    for name, (colour, opacity) in WATER.items():
+        water_top(colour, opacity).save(out / "water" / f"{name}.png")
+    for index, width in enumerate(SHIMMER_WIDTHS, start=1):
+        shimmer(width).save(out / "water" / f"shimmer-{index}.png")
+    print(f"tiles {len(tiles)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
 
 
 main()

@@ -93,6 +93,40 @@ class GroundDecalsTest {
     }
 
     @Test
+    void aboutOneShallowTileInSixHoldsAnUnderwaterDecal() {
+        int hits = 0;
+        Set<String> seen = new HashSet<>();
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String name = GroundDecals.underwaterDecalFor(TileType.SHALLOW_WATER, x, y, 11L);
+                if (name != null) {
+                    hits++;
+                    seen.add(name);
+                }
+            }
+        }
+        assertEquals(1.0 / 6.0, hits / (double) (SIZE * SIZE), 0.02);
+        assertEquals(new HashSet<>(GroundDecals.UNDERWATER_DECALS), seen);
+        assertTrue(GroundDecals.ALL.containsAll(seen));
+    }
+
+    @Test
+    void onlyShallowWaterHoldsUnderwaterDecals() {
+        for (TileType type : TileType.values()) {
+            if (type == TileType.SHALLOW_WATER) {
+                continue;
+            }
+            for (int x = 0; x < 50; x++) {
+                for (int y = 0; y < 50; y++) {
+                    assertNull(GroundDecals.underwaterDecalFor(type, x, y, 11L), type.name());
+                }
+            }
+        }
+        assertEquals(GroundDecals.underwaterDecalFor(TileType.SHALLOW_WATER, 3, 8, 11L),
+                GroundDecals.underwaterDecalFor(TileType.SHALLOW_WATER, 3, 8, 11L));
+    }
+
+    @Test
     void offsetsKeepTheDecalInsideTheTile() {
         double min = Double.MAX_VALUE;
         double max = -Double.MAX_VALUE;

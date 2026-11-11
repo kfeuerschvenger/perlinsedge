@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AssetPathsTest {
 
@@ -31,22 +32,47 @@ class AssetPathsTest {
         assertEquals("snow", AssetPaths.tileArt(TileType.SNOW));
         assertEquals("ice", AssetPaths.tileArt(TileType.ICE));
         assertEquals("swamp", AssetPaths.tileArt(TileType.SWAMP));
-        assertEquals("water-deep", AssetPaths.tileArt(TileType.DEEP_WATER));
     }
 
     @Test
-    void everyLandTileHasArt() {
+    void everyTileTypeHasArt() {
         for (TileType type : TileType.values()) {
-            if (type.isLand()) {
-                assertNotNull(AssetPaths.tileArt(type), type.name());
+            assertNotNull(AssetPaths.tileArt(type), type.name());
+        }
+    }
+
+    @Test
+    void everyWaterTileSitsOnTheSandBed() {
+        for (TileType type : TileType.values()) {
+            if (type.isWater()) {
+                assertEquals("sand", AssetPaths.tileArt(type), type.name());
+                assertNotNull(AssetPaths.waterArt(type), type.name());
+            } else {
+                assertNull(AssetPaths.waterArt(type), type.name());
             }
         }
     }
 
     @Test
-    void tilesWithoutArtKeepTheProceduralDrawing() {
-        for (TileType type : new TileType[]{TileType.RIVER, TileType.COAST}) {
-            assertNull(AssetPaths.tileArt(type), type.name());
+    void theShippedWaterLayersAreTranslucentTopDiamonds() throws IOException {
+        for (TileType type : TileType.values()) {
+            String art = AssetPaths.waterArt(type);
+            if (art == null) {
+                continue;
+            }
+            BufferedImage image = read(AssetPaths.waterTop(art));
+            assertEquals(32, image.getWidth(), art);
+            assertEquals(16, image.getHeight(), art);
+            int alpha = image.getRGB(16, 8) >>> 24;
+            assertTrue(alpha > 80 && alpha < 220, art + " alpha " + alpha);
+        }
+        assertTrue((read(AssetPaths.waterTop("deep")).getRGB(16, 8) >>> 24) > (read(AssetPaths.waterTop("shallow")).getRGB(16, 8) >>> 24));
+    }
+
+    @Test
+    void theShimmerLinesAreThinAndShipped() throws IOException {
+        for (int line = 0; line < WaterShimmer.MAX_LINES; line++) {
+            assertEquals(1, read(AssetPaths.shimmer(line)).getHeight(), "line " + line);
         }
     }
 
@@ -76,12 +102,9 @@ class AssetPathsTest {
     void theShippedTilesAreBlocksOfTheDocumentedSize() throws IOException {
         for (TileType type : TileType.values()) {
             String art = AssetPaths.tileArt(type);
-            if (art == null) {
-                continue;
-            }
             BufferedImage image = read(AssetPaths.tile(art, 1));
             assertEquals(32, image.getWidth(), art);
-            assertEquals(type.isWater() ? 19 : 21, image.getHeight(), art);
+            assertEquals(21, image.getHeight(), art);
         }
     }
 

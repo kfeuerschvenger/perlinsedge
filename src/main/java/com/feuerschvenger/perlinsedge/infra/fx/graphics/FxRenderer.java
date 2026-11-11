@@ -16,6 +16,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.ColorAdjust;
@@ -32,6 +33,9 @@ import java.util.List;
  */
 public class FxRenderer {
 
+    /** Shimmer lines fainter than this are skipped, since they are not visible. */
+    private static final double MIN_SHIMMER_ALPHA = 0.02;
+
     private final GraphicsContext gc;
     private final Canvas canvas;
     private final FxCamera camera;
@@ -41,6 +45,8 @@ public class FxRenderer {
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
+    /** The shimmer animation clock of the frame, computed once from the game time. */
+    private double waterCycles;
     private int previewTileX = -1;
     private int previewTileY = -1;
     private BuildingType previewBuildingType;
@@ -108,6 +114,7 @@ public class FxRenderer {
         renderQueue.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
+        this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
 
         TileMap map = gameState.getCurrentMap();
         final double zoom = camera.getZoom();
@@ -409,13 +416,55 @@ public class FxRenderer {
 
         if (r.sprite() != null) {
             FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
-            drawGroundDecal(tile, r);
+            if (tile.getType().isWater()) {
+                drawWater(tile, r);
+            } else {
+                drawGroundDecal(tile, r);
+            }
         } else {
             FxTileDrawingHelper.drawTileShape(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
         }
         if (saveCount > 0) {
             gc.restore();
         }
+    }
+
+    /**
+     * Draws the layers over the sand bed of a water tile: the underwater decal, the translucent water and the
+     * shimmer lines, in that order so the decal looks submerged.
+     * Every value comes from pure functions of the tile, the world seed and the animation clock computed once per
+     * frame, and the sprites are shared, so nothing is allocated.
+     */
+    private void drawWater(Tile tile, Renderable r) {
+        final int x = tile.getX();
+        final int y = tile.getY();
+        final long seed = gameState.getWorldSeed();
+        final double zoom = camera.getZoom();
+
+        final Image underwater = spriteManager.getDecalSprite(GroundDecals.underwaterDecalFor(tile.getType(), x, y, seed));
+        if (underwater != null) {
+            FxTileDrawingHelper.drawDecal(gc, underwater, r.screenX(), r.screenY(), zoom,
+                    GroundDecals.offsetU(x, y, seed), GroundDecals.offsetV(x, y, seed));
+        }
+
+        final Image water = spriteManager.getWaterSprite(tile.getType());
+        if (water == null) {
+            return;
+        }
+        FxTileDrawingHelper.drawTileSprite(gc, water, r.screenX(), r.screenY(), zoom);
+
+        final int lines = WaterShimmer.lineCount(x, y);
+        for (int line = 0; line < lines; line++) {
+            final double alpha = WaterShimmer.alpha(waterCycles, x, y, line);
+            final Image shimmer = spriteManager.getShimmerSprite(line);
+            if (alpha < MIN_SHIMMER_ALPHA || shimmer == null) {
+                continue;
+            }
+            gc.setGlobalAlpha(alpha);
+            FxTileDrawingHelper.drawDecal(gc, shimmer, r.screenX(), r.screenY(), zoom,
+                    WaterShimmer.offsetU(waterCycles, x, y, line), WaterShimmer.offsetV(waterCycles, x, y, line));
+        }
+        gc.setGlobalAlpha(1.0);
     }
 
     /**
