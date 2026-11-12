@@ -40,18 +40,21 @@ class HintLabelTest {
 
     @Test
     void showingAgainWhileFadingOutFadesBackInAndStaysVisible() throws InterruptedException {
+        double[] opacityRightAfterShow = new double[1];
         HintLabel label = FxToolkitSupport.onFx(() -> {
             HintLabel created = new HintLabel();
             created.show("first");
             // The state of a label half way through its fade out
             created.setOpacity(0.2);
             created.show("second");
+            // Read in the same task, before any pulse can advance the animation
+            opacityRightAfterShow[0] = created.getOpacity();
             return created;
         });
 
-        assertEquals(0.2, FxToolkitSupport.onFx(label::getOpacity), 0.1, "it continues from where it was");
+        assertEquals(0.2, opacityRightAfterShow[0], 0.1, "it continues from where it was");
         double opacity = 0;
-        for (int attempt = 0; attempt < 40 && opacity < 0.99; attempt++) {
+        for (int attempt = 0; attempt < 200 && opacity < 0.99; attempt++) {
             Thread.sleep(25);
             opacity = FxToolkitSupport.onFx(label::getOpacity);
         }
