@@ -24,7 +24,8 @@ import java.util.Map;
  * </pre>
  * A hit with the right tool lands every {@value #TOOL_COOLDOWN_MS} ms and a hand swings every
  * {@value #HAND_COOLDOWN_MS} ms, so a bare hand takes about three times the hits at half the pace.
- * Against enemies a hand deals {@value #HAND_COMBAT_DAMAGE}, the axe a little more and the sword twice as much.
+ * Against enemies a hand and a pickaxe deal {@value #HAND_COMBAT_DAMAGE}, the axe 12 and the sword twice as much as a
+ * hand. Only the item in the hotbar slot held in hand counts: a tool elsewhere in the hotbar or the inventory does nothing.
  */
 public final class ToolStats {
     /** Milliseconds between two hits on the same resource with the right tool. */
