@@ -63,6 +63,8 @@ class GameOrchestratorTest {
     /** Draws the minimap until told to fail once. */
     private static final class FailingOnceMinimap extends FxMinimapDrawer {
         boolean failNext;
+        /** The map the minimap was last given successfully. */
+        TileMap shown;
 
         FailingOnceMinimap(Canvas minimapCanvas, FxCamera camera, Canvas canvas) {
             super(minimapCanvas, camera, canvas);
@@ -75,6 +77,7 @@ class GameOrchestratorTest {
                 throw new IllegalStateException("minimap failed");
             }
             super.updateMap(newMap);
+            shown = newMap;
         }
     }
 
@@ -225,6 +228,7 @@ class GameOrchestratorTest {
         assertNotSame(first, state.getCurrentMap(), "the new map is in place");
         assertNull(state.getPlayer(), "the player of the old map does not roam the new one");
         assertEquals(MapType.TUNDRA, AppConfig.getInstance().world().getCurrentMapType());
+        assertSame(state.getCurrentMap(), minimap.shown, "the minimap shows the map that replaced the old one");
 
         onFx(orchestrator::regenerateMap);
         assertNotNull(state.getPlayer(), "the retry placed a player again");

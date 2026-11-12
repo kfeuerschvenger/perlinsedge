@@ -305,8 +305,9 @@ public class GameOrchestrator {
      * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
      * the map keys can try again. When the generation throws, the previous world, map type and context are all still
      * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
-     * set to match it, the player is removed, and the update and render steps skip a frame that has no map or no
-     * player. The mode switches are ignored while there is no player.
+     * set to match it, the player is removed first, the minimap is shown the new map, and the update and render steps
+     * skip a frame that has no map or no player. The mode switches are ignored while there is no player. None of
+     * the steps throws a checked exception, so catching the runtime exceptions and the errors covers every failure.
      * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
      * step draws the death overlay again from the player and the timer on every frame, so the overlay that
      * {@link #leaveGame()} hid comes back with the next frame.
@@ -325,16 +326,32 @@ public class GameOrchestrator {
             minimapDrawer.updateMap(gameState.getCurrentMap());
             centerOnPlayer();
             rebuilt = true;
-        } catch (Throwable e) {
+        } catch (RuntimeException | Error e) {
             log.error("The map rebuild failed, the game continues so the map keys can try again", e);
             // The map may have been replaced before the step that failed, whichever step it was
             if (gameState.getCurrentMap() != previousMap) {
-                AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+                // The player goes first: whatever is left to repair may throw, and a player on a map it does not
+                // belong to must not survive that
                 gameState.setPlayer(null);
+                repairAfterReplacedMap(context, e);
             }
             throw e;
         } finally {
             restartLoopAfterRebuild(rebuilt);
+        }
+    }
+
+    /**
+     * Brings the map type and the minimap in step with a map that replaced the old one before the rebuild failed. A
+     * failure here is recorded on the failure of the rebuild instead of hiding it.
+     */
+    private void repairAfterReplacedMap(MapGenerationContext context, Throwable rebuildFailure) {
+        try {
+            AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+            minimapDrawer.updateMap(gameState.getCurrentMap());
+        } catch (RuntimeException e) {
+            log.error("The map type and the minimap could not be brought in step with the new map", e);
+            rebuildFailure.addSuppressed(e);
         }
     }
 
