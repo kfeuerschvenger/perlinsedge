@@ -3,7 +3,7 @@
 Usage: python -I tools/pixelart/build.py --raw <dir> [--out <dir>]
 
 The raw folder is local and never committed. The tool is idempotent: it rebuilds every output it finds an input for,
-so it can be re-run whenever raw files are added or replaced. The land tiles, the decals, the water layers and the tree, bush, rock, iron ore, palm and cactus sprites are not built here: tiles.py and trees.py draw them.
+so it can be re-run whenever raw files are added or replaced. The land tiles, the decals, the water layers, the tree, bush, rock, iron ore, palm and cactus sprites and every item icon are not built here: tiles.py, trees.py and items.py draw them.
 """
 
 from __future__ import annotations
@@ -187,18 +187,6 @@ def note_if_clipped(file: Path, content: Image.Image) -> None:
         print(f"  note: {file.parent.name}/{file.name} content {content.width}x{content.height} exceeds {ITEM_SIZE}x{ITEM_SIZE} and is clipped")
 
 
-def build_items(raw: Path, out: Path, quant: Quantiser) -> int:
-    count = 0
-    for file in sorted((raw / "items").glob("*.png")):
-        content = crop_to_content(load(file, quant))
-        note_if_clipped(file, content)
-        canvas = Image.new("RGBA", (ITEM_SIZE, ITEM_SIZE), (0, 0, 0, 0))
-        canvas.paste(content, ((ITEM_SIZE - content.width) // 2, (ITEM_SIZE - content.height) // 2))
-        save(canvas, out / "items" / file.name)
-        count += 1
-    return count
-
-
 def build_gui(raw: Path, out: Path, quant: Quantiser) -> int:
     count = 0
     folder = raw / "gui"
@@ -236,8 +224,7 @@ def main(argv: list[str]) -> int:
 
     quant = Quantiser(load_palette(PALETTE_FILE))
     totals = {}
-    for label, step in (("resources", build_resources), ("items", build_items),
-                        ("gui", build_gui), ("entities", build_entities)):
+    for label, step in (("resources", build_resources), ("gui", build_gui), ("entities", build_entities)):
         print(label)
         totals[label] = step(args.raw, args.out, quant)
     print(json.dumps(totals))

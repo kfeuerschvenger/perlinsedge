@@ -312,7 +312,8 @@ public class InventoryPanel extends BorderPane {
         if (dragGhost == null) return;
         Point2D local = sceneToLocal(sceneX, sceneY);
         if (local != null) {
-            dragGhost.relocate(local.getX() - ITEM_SIZE / 2.0, local.getY() - ITEM_SIZE / 2.0);
+            // On whole pixels: an icon that sits between two pixels has some of its art pixels drawn wider than others
+            dragGhost.relocate(Math.rint(local.getX() - ITEM_SIZE / 2.0), Math.rint(local.getY() - ITEM_SIZE / 2.0));
         }
     }
 
