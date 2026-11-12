@@ -174,7 +174,8 @@ class PerlinMapGeneratorTest {
 
     @Test
     void ironOreAppearsOnRockyTilesAtAnyStoneThreshold() {
-        for (float threshold : new float[]{0.99f, 1.1f, 3.0f}) {
+        int baseline = -1;
+        for (float threshold : new float[]{0.8f, 0.99f, 1.1f, 3.0f}) {
             int iron = 0;
             for (long seed = 1; seed <= 6; seed++) {
                 TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
@@ -184,6 +185,10 @@ class PerlinMapGeneratorTest {
             }
 
             assertTrue(iron > 0, "iron stays obtainable at stone threshold " + threshold);
+            if (baseline < 0) {
+                baseline = iron;
+            }
+            assertEquals(baseline, iron, "the stone threshold must not change how much iron there is: " + threshold);
         }
     }
 

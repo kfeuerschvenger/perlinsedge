@@ -67,6 +67,101 @@ class DroppedItemTest {
     }
 
     @Test
+    void anItemDespawnsAfterFiveMinutesOfGameTime() {
+        DroppedItem item = drop(DroppedItem.DropSource.RESOURCE, 100);
+
+        assertFalse(item.isExpired(100));
+        assertFalse(item.isExpired(399.9));
+        assertFalse(item.isExpired(400.0), "exactly five minutes is not past the lifetime yet");
+        assertTrue(item.isExpired(400.1));
+    }
+
+    @Test
+    void theLifetimeIsFiveMinutes() {
+        assertEquals(300.0, DroppedItem.LIFETIME_SECONDS);
+    }
+
+    @Test
+    void absorbingUnitsAddsThemAndStartsTheDelayAndTheLifetimeAgain() {
+        DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 3), 10, DroppedItem.DropSource.PLAYER);
+
+        pile.absorb(5, 100);
+
+        assertEquals(8, pile.getQuantity());
+        assertEquals(DroppedItem.DropSource.PLAYER, pile.getSource());
+        assertEquals(10, pile.getDropTime(), "the drop time is the throw, the timers are kept apart");
+        assertFalse(pile.canBePickedUp(4, 4, 101.9));
+        assertTrue(pile.canBePickedUp(4, 4, 102.0));
+        assertFalse(pile.isExpired(399.9));
+        assertTrue(pile.isExpired(400.1));
+    }
+
+    @Test
+    void theAgeIsMeasuredFromTheDespawnTimerLikeTheExpiry() {
+        DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 3), 10, DroppedItem.DropSource.PLAYER);
+        assertEquals(90, pile.ageSeconds(100), 1e-9);
+
+        pile.absorb(1, 100);
+
+        assertEquals(20, pile.ageSeconds(120), 1e-9, "the age starts again with the timer");
+    }
+
+    @Test
+    void aPileOnlyTakesUnitsUpToTheMaximumStackSize() {
+        DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 60), 0, DroppedItem.DropSource.PLAYER);
+
+        assertEquals(4, pile.roomLeft());
+        assertThrows(IllegalArgumentException.class, () -> pile.absorb(5, 1));
+        assertThrows(IllegalArgumentException.class, () -> pile.absorb(0, 1));
+        pile.absorb(4, 1);
+        assertEquals(0, pile.roomLeft());
+    }
+
+    @Test
+    void anItemThatNeverFlewIsAlreadyLanded() {
+        DroppedItem item = drop(DroppedItem.DropSource.RESOURCE, 10);
+
+        assertEquals(1.0, item.flightProgress(10));
+        assertEquals(4.0, item.flightX(10));
+        assertEquals(4.0, item.flightY(10));
+    }
+
+    @Test
+    void aThrownItemFliesFromTheOriginToTheLandingTileAndSlowsDown() {
+        DroppedItem item = new DroppedItem(2, 2, 4, 2, new Item(ItemType.STONE, 1), 10, DroppedItem.DropSource.PLAYER);
+
+        assertEquals(0.0, item.flightProgress(10));
+        assertEquals(2.0, item.flightX(10));
+        assertEquals(2.0, item.flightY(10));
+        double half = item.flightX(10 + DroppedItem.THROW_SECONDS / 2);
+        assertTrue(half > 3.0 && half < 4.0, "an ease out covers more than half the distance by half the time: " + half);
+        assertEquals(1.0, item.flightProgress(10 + DroppedItem.THROW_SECONDS));
+        assertEquals(4.0, item.flightX(10 + DroppedItem.THROW_SECONDS), 1e-9);
+        assertEquals(4.0, item.flightX(500), "it stays on the landing tile once landed");
+    }
+
+    @Test
+    void aGameTimeBeforeTheThrowKeepsTheItemAtTheOrigin() {
+        DroppedItem item = new DroppedItem(2, 2, 4, 2, new Item(ItemType.STONE, 1), 10, DroppedItem.DropSource.PLAYER);
+
+        assertEquals(0.0, item.flightProgress(0));
+        assertEquals(2.0, item.flightX(0));
+    }
+
+    @Test
+    void absorbingUnitsKeepsTheFlightOfAPileInTheAir() {
+        DroppedItem item = new DroppedItem(2, 2, 4, 2, new Item(ItemType.STONE, 1), 10, DroppedItem.DropSource.PLAYER);
+        double before = item.flightX(10.1);
+
+        item.absorb(1, 10.1);
+
+        assertEquals(2, item.getQuantity());
+        assertTrue(item.flightProgress(10.1) < 1.0, "the pile has not landed yet");
+        assertEquals(before, item.flightX(10.1), 1e-9, "the pile does not jump to its landing tile");
+        assertEquals(4.0, item.flightX(10 + DroppedItem.THROW_SECONDS), 1e-9);
+    }
+
+    @Test
     void rejectsNullAndEmptyItems() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DroppedItem(0, 0, null, 0, DroppedItem.DropSource.PLAYER));

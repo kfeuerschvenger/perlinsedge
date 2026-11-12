@@ -39,7 +39,8 @@ public class FxInputHandler {
 
         scene.setOnKeyPressed(event -> {
             if (keyListener != null) {
-                FxKeyMapper.toGameKey(event.getCode()).ifPresent(keyListener::onKeyAction);
+                FxKeyMapper.toGameKey(event.getCode(), event.isControlDown(), event.isShiftDown(),
+                        event.isAltDown(), event.isMetaDown()).ifPresent(keyListener::onKeyAction);
             }
         });
 
@@ -74,9 +75,9 @@ public class FxInputHandler {
                 && scrollInterceptor.intercept(event.getDeltaY(), event.isControlDown())) {
             return;
         }
-        int step = zoomWheel.add(event.getDeltaY());
-        if (step != 0) {
-            camera.zoomStep(step, event.getX(), event.getY(), mainGameCanvas);
+        int steps = zoomWheel.add(event.getDeltaY());
+        if (steps != 0) {
+            camera.zoomStep(steps, event.getX(), event.getY(), mainGameCanvas);
         }
     }
 

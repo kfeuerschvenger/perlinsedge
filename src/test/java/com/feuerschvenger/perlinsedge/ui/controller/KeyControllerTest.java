@@ -41,10 +41,54 @@ class KeyControllerTest {
     }
 
     @Test
-    void noGameKeyIsNamedQOrEBecauseTheyAreKeptFreeForOtherActions() {
+    void noGameKeyIsNamedEBecauseItIsKeptFreeForOtherActions() {
         for (GameKey key : GameKey.values()) {
-            assertFalse(key.name().equals("Q") || key.name().equals("E"), key.name());
+            assertFalse(key.name().equals("E"), key.name());
         }
+    }
+
+    @Test
+    void theDropKeysRunTheirOwnActions() {
+        List<String> calls = new ArrayList<>();
+        controller.setDropActions(() -> calls.add("one"), () -> calls.add("stack"));
+
+        controller.onKeyAction(GameKey.DROP_ONE);
+        controller.onKeyAction(GameKey.DROP_STACK);
+        controller.onKeyAction(GameKey.DROP_ONE);
+
+        assertEquals(List.of("one", "stack", "one"), calls);
+    }
+
+    @Test
+    void theDropKeysAreIgnoredWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        controller.setDropActions(() -> calls.add("one"), () -> calls.add("stack"));
+        controller.setInputBlocked(() -> true);
+
+        controller.onKeyAction(GameKey.DROP_ONE);
+        controller.onKeyAction(GameKey.DROP_STACK);
+
+        assertTrue(calls.isEmpty(), calls.toString());
+    }
+
+    @Test
+    void theDropKeysWorkAgainOnceInputIsUnblocked() {
+        List<String> calls = new ArrayList<>();
+        boolean[] blocked = {true};
+        controller.setDropActions(() -> calls.add("one"), () -> calls.add("stack"));
+        controller.setInputBlocked(() -> blocked[0]);
+
+        controller.onKeyAction(GameKey.DROP_ONE);
+        blocked[0] = false;
+        controller.onKeyAction(GameKey.DROP_STACK);
+
+        assertEquals(List.of("stack"), calls);
+    }
+
+    @Test
+    void dropKeysWithoutActionsAreIgnored() {
+        controller.onKeyAction(GameKey.DROP_ONE);
+        controller.onKeyAction(GameKey.DROP_STACK);
     }
 
     @Test

@@ -28,6 +28,8 @@ public class KeyController implements IKeyListener {
     private final Consumer<Integer> onNumberKeyPress;
     private final Consumer<Integer> onHotbarPageChange;
     private BooleanSupplier inputBlocked;
+    private Runnable onDropOne;
+    private Runnable onDropStack;
 
     /**
      * Constructs a KeyController with the specified actions for various key events.
@@ -70,6 +72,17 @@ public class KeyController implements IKeyListener {
      */
     public void setInputBlocked(BooleanSupplier inputBlocked) {
         this.inputBlocked = inputBlocked;
+    }
+
+    /**
+     * Sets the actions of the drop keys. They are gameplay keys, so they are ignored while input is blocked.
+     *
+     * @param onDropOne   action for Q, which throws one item
+     * @param onDropStack action for Ctrl+Q, which throws the whole stack
+     */
+    public void setDropActions(Runnable onDropOne, Runnable onDropStack) {
+        this.onDropOne = onDropOne;
+        this.onDropStack = onDropStack;
     }
 
     /** Tells whether a panel that covers the world currently takes the gameplay keys. */
@@ -117,6 +130,12 @@ public class KeyController implements IKeyListener {
             case PAGE_DOWN:
                 if (onHotbarPageChange != null) onHotbarPageChange.accept(1);
                 break;
+            case DROP_ONE:
+                if (onDropOne != null) onDropOne.run();
+                break;
+            case DROP_STACK:
+                if (onDropStack != null) onDropStack.run();
+                break;
 
             // ----------- Debugging keys -----------
 
@@ -146,7 +165,7 @@ public class KeyController implements IKeyListener {
     /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
     private static boolean isGameplayKey(GameKey key) {
         return switch (key) {
-            case SPACE, I, B, PAGE_UP, PAGE_DOWN -> true;
+            case SPACE, I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK -> true;
             default -> false;
         };
     }

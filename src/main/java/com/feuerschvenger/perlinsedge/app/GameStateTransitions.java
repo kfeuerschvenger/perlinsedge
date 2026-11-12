@@ -34,6 +34,9 @@ public class GameStateTransitions {
 
     @Setter
     private PauseMenuPanel pauseMenuPanel;
+    /** Runs once the game is paused, so the frame left under the pause menu is drawn in the paused state. */
+    @Setter
+    private Runnable onPaused;
 
     /** Pauses when running and resumes when paused. Open panels and building mode are left before pausing. */
     public void togglePauseMenu() {
@@ -160,6 +163,9 @@ public class GameStateTransitions {
         if (pauseMenuPanel != null) {
             pauseMenuPanel.setVisible(true);
             pauseMenuPanel.setManaged(true);
+        }
+        if (onPaused != null) {
+            onPaused.run();
         }
     }
 

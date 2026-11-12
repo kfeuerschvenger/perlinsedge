@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.ThrowArc;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
@@ -56,8 +57,10 @@ public final class FxItemDrawingHelper {
         final double tileWidth = CONFIG.graphics().getTileWidth() * zoom;
         final double tileHeight = CONFIG.graphics().getTileHeight() * zoom;
 
-        // Calculate floating animation offset
-        final double floatingOffset = Math.sin(gameTime * FLOATING_SPEED) * FLOATING_AMPLITUDE_PIXELS * zoom;
+        // Calculate floating animation offset; a thrown item is lifted along its arc on top of the floating
+        final double flightLift = ThrowArc.liftPixels(droppedItem.flightProgress(gameTime), zoom);
+        final double floatingOffset = Math.sin(gameTime * FLOATING_SPEED) * FLOATING_AMPLITUDE_PIXELS * zoom
+                - flightLift;
 
         // Calcula el tamaño objetivo para el ítem basado en el tile y el zoom
         // Usamos el ancho del tile como referencia para el tamaño máximo

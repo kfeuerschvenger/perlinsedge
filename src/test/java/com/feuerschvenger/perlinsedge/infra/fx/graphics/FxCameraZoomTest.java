@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class FxCameraZoomTest {
@@ -11,23 +12,30 @@ class FxCameraZoomTest {
     private static final double VIEW_WIDTH = 800;
     private static final double VIEW_HEIGHT = 600;
 
-    private static final AppConfig CONFIG = AppConfig.getInstance();
-    private static final int LAST_COLUMN = CONFIG.world().getWidth() - 1;
-    private static final int LAST_ROW = CONFIG.world().getHeight() - 1;
+    private static AppConfig config;
+    private static int lastColumn;
+    private static int lastRow;
+
+    @BeforeAll
+    static void readTheConfiguration() {
+        config = AppConfig.getInstance();
+        lastColumn = config.world().getWidth() - 1;
+        lastRow = config.world().getHeight() - 1;
+    }
 
     /** The lowest horizontal offset the camera may take at a zoom: the viewport minus the right corner of the map. */
     private static double lowestX(double zoom) {
-        return VIEW_WIDTH - LAST_COLUMN * CONFIG.graphics().getTileHalfWidth() * zoom;
+        return VIEW_WIDTH - lastColumn * config.graphics().getTileHalfWidth() * zoom;
     }
 
     /** The highest horizontal offset: the left corner of the map is the row axis, so it rests on the last row. */
     private static double highestX(double zoom) {
-        return LAST_ROW * CONFIG.graphics().getTileHalfWidth() * zoom;
+        return lastRow * config.graphics().getTileHalfWidth() * zoom;
     }
 
     /** The lowest vertical offset: the viewport minus the bottom corner of the map. */
     private static double lowestY(double zoom) {
-        return VIEW_HEIGHT - (LAST_COLUMN + LAST_ROW) * CONFIG.graphics().getTileHalfHeight() * zoom;
+        return VIEW_HEIGHT - (lastColumn + lastRow) * config.graphics().getTileHalfHeight() * zoom;
     }
 
     private static void assertInsideBounds(FxCamera camera) {

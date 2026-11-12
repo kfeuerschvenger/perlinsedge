@@ -14,6 +14,10 @@ public enum GameKey {
     PAGE_UP,
     /** Next page of the building hotbar. */
     PAGE_DOWN,
+    /** Q: throws one item out of the hovered or selected inventory slot. */
+    DROP_ONE,
+    /** Ctrl+Q: throws the whole stack out of the hovered or selected inventory slot. */
+    DROP_STACK,
     F1,
     F2,
     F3,

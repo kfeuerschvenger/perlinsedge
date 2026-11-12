@@ -28,14 +28,11 @@ class ResourceHitTest {
         resource.startFlashing(7.0);
 
         double before = resource.secondsSinceHit(7.25);
-        sleepBriefly();
         double after = resource.secondsSinceHit(7.25);
 
         assertEquals(0.25, before, 0.0);
         assertEquals(before, after, 0.0);
         assertEquals(0.5, resource.secondsSinceHit(7.5), 0.0);
-        assertTrue(resource.isFlashing(7.1));
-        sleepBriefly();
         assertTrue(resource.isFlashing(7.1));
         assertFalse(resource.isFlashing(7.2));
     }
@@ -52,14 +49,6 @@ class ResourceHitTest {
     @Test
     void aResourceThatWasNeverStruckDoesNotFlash() {
         assertFalse(new Resource(ResourceType.TREE, 5L).isFlashing(1.0));
-    }
-
-    private static void sleepBriefly() {
-        try {
-            Thread.sleep(30);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     @Test

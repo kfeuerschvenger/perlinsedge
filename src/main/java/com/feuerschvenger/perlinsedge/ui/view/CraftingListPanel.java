@@ -238,7 +238,6 @@ public class CraftingListPanel extends VBox {
      */
     private class CraftableItemCell extends HBox {
         private final Recipe recipe;
-        private boolean selected;
 
         /**
          * Creates a new craftable item cell.
@@ -247,11 +246,9 @@ public class CraftingListPanel extends VBox {
          */
         public CraftableItemCell(Recipe recipe) {
             this.recipe = Objects.requireNonNull(recipe, "Recipe cannot be null");
-            this.selected = false;
 
             configureCellLayout();
             initializeCellComponents();
-            setupEventHandlers();
         }
 
         /**
@@ -294,27 +291,6 @@ public class CraftingListPanel extends VBox {
             return label;
         }
 
-        /**
-         * Sets up mouse event handlers.
-         */
-        private void setupEventHandlers() {
-            // The hover look is a :hover rule of the theme
-            setOnMouseClicked(e -> handleMouseClick());
-        }
-
-        /**
-         * Handles mouse click event.
-         */
-        private void handleMouseClick() {
-            if (!selected) {
-                setSelected(true);
-                CraftingListPanel.this.setSelectedRecipe(recipe);
-                if (onRecipeSelected != null) {
-                    onRecipeSelected.accept(recipe);
-                }
-            }
-        }
-
         public Recipe getRecipe() {
             return recipe;
         }
@@ -325,7 +301,6 @@ public class CraftingListPanel extends VBox {
          * @param selected True to select, false to deselect
          */
         public void setSelected(boolean selected) {
-            this.selected = selected;
             UiTheme.setClass(this, UiTheme.CELL_SELECTED, selected);
         }
 

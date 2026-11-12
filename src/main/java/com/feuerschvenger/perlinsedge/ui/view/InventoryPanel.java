@@ -3,15 +3,17 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxItemDrawingHelper;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
-import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDroppedOutsideCallback;
+import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import com.feuerschvenger.perlinsedge.ui.view.utils.GridUtils;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
@@ -47,6 +49,7 @@ public class InventoryPanel extends BorderPane {
     static final int ITEM_SIZE = 32;
     private static final int ITEM_SPACING = 10;
     private static final int COUNT_MARGIN = 3;
+    private static final double DRAG_GHOST_OPACITY = 0.85;
 
     // Text constants
     private static final String PLAYER_INVENTORY_TITLE = "Player Inventory";
@@ -58,9 +61,13 @@ public class InventoryPanel extends BorderPane {
     private Label secondaryInventoryLabel;
     private ItemInfoPanel itemInfoPanel;
     private CraftingListPanel craftingListPanel;
+    /** The item that follows the mouse while a stack is dragged, or null. */
+    private StackPane dragGhost;
 
     // State management
     private final GameStateManager gameState;
+    /** The behaviour of the panel, package-private so the tests can reach its window focus wiring. */
+    @Getter(lombok.AccessLevel.PACKAGE)
     private final InventoryController controller;
     @Getter(lombok.AccessLevel.PACKAGE)
     private Container secondaryContainer;
@@ -78,6 +85,7 @@ public class InventoryPanel extends BorderPane {
         configurePanel();
         initializeComponents();
         setupEventHandlers();
+        sceneProperty().addListener((observable, oldScene, newScene) -> controller.bindScene(oldScene, newScene));
 
         setVisible(false);
         setManaged(false);
@@ -164,11 +172,10 @@ public class InventoryPanel extends BorderPane {
         configureSlotLayout(slot);
         slot.setUserData(new SlotContext(slotIndex, container));
 
-        slot.setOnDragDetected(e -> controller.handleDragDetected(e, slot, slotIndex, container));
-        slot.setOnDragOver(e -> controller.handleDragOver(e, slot, slotIndex));
-        slot.setOnDragExited(e -> restoreSlotBorder(slot));
-        slot.setOnDragDropped(e -> controller.handleDragDropped(e, slot));
+        slot.setOnMousePressed(e -> controller.handleSlotPressed(e, slot));
         slot.setOnMouseClicked(controller::handleSlotClick);
+        slot.setOnMouseEntered(e -> controller.handleSlotHover(slot, true));
+        slot.setOnMouseExited(e -> controller.handleSlotHover(slot, false));
 
         return slot;
     }
@@ -211,11 +218,120 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
+    /**
+     * Reads the slot a slot node stands for.
+     *
+     * @param slot a slot node of one of the grids
+     * @return the slot a slot node stands for
+     */
+    static SlotRef refOf(StackPane slot) {
+        SlotContext context = (SlotContext) slot.getUserData();
+        return new SlotRef(context.container, context.index);
+    }
+
+    /**
+     * Finds the slot under a point of the scene, in the player grid or in the grid of the open container.
+     *
+     * @param sceneX X coordinate in the scene
+     * @param sceneY Y coordinate in the scene
+     * @return the slot node, or null when the point is over no slot
+     */
+    StackPane slotNodeAt(double sceneX, double sceneY) {
+        StackPane slot = slotNodeAt(playerInventoryGrid, sceneX, sceneY);
+        if (slot == null && secondaryContainer != null) {
+            slot = slotNodeAt(secondaryInventoryGrid, sceneX, sceneY);
+        }
+        return slot;
+    }
+
+    private static StackPane slotNodeAt(GridPane grid, double sceneX, double sceneY) {
+        if (grid == null) {
+            return null;
+        }
+        for (Node node : grid.getChildren()) {
+            if (node instanceof StackPane slot && slot.localToScene(slot.getLayoutBounds()).contains(sceneX, sceneY)) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    // ==================================================================
+    //  Item in hand while dragging
+    // ==================================================================
+
+    /**
+     * Shows the dragged item under the mouse. The ghost belongs to no layout, so it can float over the whole panel
+     * and past its edges.
+     *
+     * @param item   the dragged stack
+     * @param sceneX mouse X in the scene
+     * @param sceneY mouse Y in the scene
+     */
+    void showDragGhost(Item item, double sceneX, double sceneY) {
+        hideDragGhost();
+        dragGhost = new StackPane();
+        dragGhost.setManaged(false);
+        dragGhost.setMouseTransparent(true);
+        dragGhost.setOpacity(DRAG_GHOST_OPACITY);
+        dragGhost.setMinSize(ITEM_SIZE, ITEM_SIZE);
+        dragGhost.setPrefSize(ITEM_SIZE, ITEM_SIZE);
+        dragGhost.setMaxSize(ITEM_SIZE, ITEM_SIZE);
+        dragGhost.resize(ITEM_SIZE, ITEM_SIZE);
+        fillDragGhost(item);
+        getChildren().add(dragGhost);
+        moveDragGhost(sceneX, sceneY);
+    }
+
+    /**
+     * Redraws the dragged item in place, for when its quantity changed.
+     *
+     * @param item the dragged stack
+     */
+    void refreshDragGhost(Item item) {
+        if (dragGhost != null) {
+            fillDragGhost(item);
+        }
+    }
+
+    private void fillDragGhost(Item item) {
+        dragGhost.getChildren().clear();
+        dragGhost.getChildren().add(createItemImage(item));
+        if (item.getQuantity() > 1) {
+            dragGhost.getChildren().add(createCountLabel(item));
+        }
+    }
+
+    /**
+     * Moves the dragged item to the mouse.
+     *
+     * @param sceneX mouse X in the scene
+     * @param sceneY mouse Y in the scene
+     */
+    void moveDragGhost(double sceneX, double sceneY) {
+        if (dragGhost == null) return;
+        Point2D local = sceneToLocal(sceneX, sceneY);
+        if (local != null) {
+            dragGhost.relocate(local.getX() - ITEM_SIZE / 2.0, local.getY() - ITEM_SIZE / 2.0);
+        }
+    }
+
+    /** Removes the dragged item from the screen. */
+    void hideDragGhost() {
+        if (dragGhost != null) {
+            getChildren().remove(dragGhost);
+            dragGhost = null;
+        }
+    }
+
     // ==================================================================
     //  Display updates
     // ==================================================================
 
-    /** Updates the inventory display based on current state. */
+    /**
+     * Updates the inventory display based on current state. A stack in hand follows its slot: its ghost shows the
+     * new quantity, and the drag ends when the stack is gone.
+     */
     public void updateInventoryDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
 
@@ -224,6 +340,27 @@ public class InventoryPanel extends BorderPane {
         }
 
         updateInformationDisplay();
+        controller.refreshDrag();
+    }
+
+    /**
+     * Tells whether a point of the scene is inside the panel, over a slot or not.
+     *
+     * @param sceneX X coordinate in the scene
+     * @param sceneY Y coordinate in the scene
+     * @return true when the point is within the bounds of the panel
+     */
+    boolean containsScenePoint(double sceneX, double sceneY) {
+        return localToScene(getLayoutBounds()).contains(sceneX, sceneY);
+    }
+
+    /**
+     * Tells whether a stack is being dragged.
+     *
+     * @return true from the moment a stack is picked up until it is released, put back or thrown
+     */
+    public boolean isStackInHand() {
+        return controller.isDragging();
     }
 
     private void updateInformationDisplay() {
@@ -361,6 +498,7 @@ public class InventoryPanel extends BorderPane {
 
     /** Closes the inventory panel and resets state. */
     public void closeInventory() {
+        controller.cancelDrag();
         this.secondaryContainer = null;
         resetLayout();
         clearState();
@@ -391,6 +529,7 @@ public class InventoryPanel extends BorderPane {
         highlightSlot(controller.getSelectedSlotIndex(), false);
         controller.setSelectedSlotIndex(-1);
         controller.setSelectedRecipe(null);
+        controller.resetHover();
     }
 
     // ==================================================================
@@ -487,12 +626,14 @@ public class InventoryPanel extends BorderPane {
     }
 
     /**
-     * Sets the callback run when an item is dropped outside the inventory.
+     * Sets the callback run when a stack is dragged out of the panel, or one item of it is thrown with a right click
+     * while dragging. Releasing outside the panel throws the stack, releasing over the panel but over no slot puts it
+     * back.
      *
      * @param callback the callback
      */
-    public void setOnItemDroppedOutside(ItemDroppedOutsideCallback callback) {
-        controller.setOnItemDroppedOutsideCallback(callback);
+    public void setOnItemDropped(ItemDropCallback callback) {
+        controller.setOnItemDroppedCallback(callback);
     }
 
     /**
@@ -513,14 +654,13 @@ public class InventoryPanel extends BorderPane {
         craftingListPanel.setRecipes(recipes);
     }
 
-    /** @return the callback run when an item is dropped on a slot */
-    public ItemTransferCallback getOnItemDroppedInsideCallback() {
-        return controller.getOnItemDroppedInsideCallback();
-    }
-
-    /** @return the callback run when an item is dropped outside the inventory */
-    public ItemDroppedOutsideCallback getOnItemDroppedOutsideCallback() {
-        return controller.getOnItemDroppedOutsideCallback();
+    /**
+     * The slot an action from the keyboard applies to.
+     *
+     * @return the slot under the mouse, else the selected slot, or null when there is neither
+     */
+    public SlotRef getHoveredOrSelectedSlot() {
+        return controller.hoveredOrSelectedSlot();
     }
 
 }

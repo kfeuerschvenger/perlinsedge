@@ -86,9 +86,9 @@ public class HotbarManager {
             wheel.reset();
             return false;
         }
-        int step = wheel.add(deltaY);
-        if (step != 0) {
-            buildingHotbarPanel.changePage(-step);
+        int steps = wheel.add(deltaY);
+        if (steps != 0) {
+            buildingHotbarPanel.changePage(-steps);
         }
         return true;
     }

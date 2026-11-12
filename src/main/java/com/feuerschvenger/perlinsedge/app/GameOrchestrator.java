@@ -35,6 +35,7 @@ public class GameOrchestrator {
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
     private final HotbarManager hotbarManager;
+    private final DropKeyHandler dropKeys;
 
     private final FxRenderer renderer;
     private final FxCamera camera;
@@ -47,6 +48,8 @@ public class GameOrchestrator {
 
     private final GameLoop gameLoop;
     private boolean gameActive;
+    /** Interpolation factor of the last frame, reused to draw the paused frame. */
+    private double lastAlpha = 1.0;
     private final InputWiring inputWiring;
     private final GameStateTransitions transitions;
 
@@ -85,10 +88,12 @@ public class GameOrchestrator {
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
         playerManager = new PlayerManager(this.gameState, healthBar, inventoryPanel);
         combatManager = new CombatManager(this.gameState);
-        inventoryManager = new InventoryManager(this.gameState, inventoryPanel);
+        inventoryManager = new InventoryManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
         ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
-        itemDropManager = new ItemDropManager(this.gameState, inventoryPanel);
+        itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
+        dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot,
+                inventoryPanel::isStackInHand, itemDropManager);
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
@@ -96,8 +101,9 @@ public class GameOrchestrator {
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
+        transitions.setOnPaused(() -> render(lastAlpha, 0));
         inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
-                resourceManager, inventoryPanel, camera, inputHandler, minimapDrawer, mainCanvas,
+                resourceManager, camera, inputHandler, minimapDrawer, mainCanvas,
                 transitions::showOpenContainer);
     }
 
@@ -204,7 +210,6 @@ public class GameOrchestrator {
         log.debug("Initializing game components");
         mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
-        inputWiring.registerSceneDragHandlers();
         inputWiring.registerKeyboard(createKeyController());
         inputWiring.registerWheelInterceptor(
                 (deltaY, ctrlDown) -> !gameState.isPlayerDead() && hotbarManager.handleWheel(deltaY, ctrlDown));
@@ -217,24 +222,12 @@ public class GameOrchestrator {
             Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
 
-        inventoryPanel.setOnItemDroppedOutside(item -> {
-            Player player = gameState.getPlayer();
-            if (player == null) return;
+        // The stack leaves the slot it was dragged from and is thrown in front of the player in one step, so a
+        // second event for the same stack finds the slot empty and cannot duplicate it
+        inventoryPanel.setOnItemDropped((slot, wholeStack) ->
+                itemDropManager.dropFromSlot(slot.container(), slot.slot(), wholeStack));
 
-            // The stack leaves whichever container holds it; nothing is dropped when no container does,
-            // otherwise a second drop event for the same stack would duplicate it.
-            boolean removed = inventoryManager.removeItemFromPlayerInventory(item)
-                    || containerManager.removeFromOpenContainer(item);
-            if (removed) {
-                itemDropManager.createDroppedItem(item, player);
-            }
-            Platform.runLater(inventoryPanel::updateInventoryDisplay);
-        });
-
-        inventoryPanel.setOnCraftRecipe(recipe -> {
-            inventoryManager.handleCraftRecipe(recipe);
-            Platform.runLater(inventoryPanel::updateInventoryDisplay);
-        });
+        inventoryPanel.setOnCraftRecipe(inventoryManager::handleCraftRecipe);
     }
 
     private KeyController createKeyController() {
@@ -249,6 +242,7 @@ public class GameOrchestrator {
                 hotbarManager::handleHotbarNumberSelection,
                 hotbarManager::changePage
         );
+        controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setInputBlocked(gameState::isPlayerDead);
         return controller;
     }
@@ -355,6 +349,7 @@ public class GameOrchestrator {
      */
     private void render(double alpha, double deltaTime) {
         if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
+        lastAlpha = alpha;
 
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             int[] mouseTile = gameState.getMouseOverTile();

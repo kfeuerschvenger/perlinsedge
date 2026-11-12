@@ -14,16 +14,24 @@ public final class FxKeyMapper {
     }
 
     /**
-     * Translates a JavaFX key code.
+     * Translates a JavaFX key code. Only Q reads the modifiers: it throws one item alone, and the whole stack with
+     * Ctrl alone. Q with Shift, Alt or Meta, and Ctrl combined with any of them (AltGr reports Ctrl and Alt), is not a
+     * drop key and maps to nothing.
      *
-     * @param code the key code from a key event
+     * @param code      the key code from a key event
+     * @param ctrlDown  true when Ctrl is held
+     * @param shiftDown true when Shift is held
+     * @param altDown   true when Alt is held
+     * @param metaDown  true when Meta is held
      * @return the matching game key, or empty when the game does not use the key
      */
-    public static Optional<GameKey> toGameKey(KeyCode code) {
+    public static Optional<GameKey> toGameKey(KeyCode code, boolean ctrlDown, boolean shiftDown, boolean altDown,
+                                              boolean metaDown) {
         if (code == null) {
             return Optional.empty();
         }
         return Optional.ofNullable(switch (code) {
+            case Q -> dropKey(ctrlDown, shiftDown, altDown, metaDown);
             case ESCAPE -> GameKey.ESCAPE;
             case SPACE -> GameKey.SPACE;
             case I -> GameKey.I;
@@ -48,5 +56,12 @@ public final class FxKeyMapper {
             case DIGIT9 -> GameKey.DIGIT_9;
             default -> null;
         });
+    }
+
+    private static GameKey dropKey(boolean ctrlDown, boolean shiftDown, boolean altDown, boolean metaDown) {
+        if (shiftDown || altDown || metaDown) {
+            return null;
+        }
+        return ctrlDown ? GameKey.DROP_STACK : GameKey.DROP_ONE;
     }
 }

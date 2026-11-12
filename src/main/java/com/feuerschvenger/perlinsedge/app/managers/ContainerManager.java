@@ -57,35 +57,6 @@ public class ContainerManager {
     }
 
     /**
-     * Removes a specific item instance from the open container, by reference.
-     *
-     * @param item the exact item instance
-     * @return true if a container is open, holds that instance and it has been removed
-     */
-    public boolean removeFromOpenContainer(Item item) {
-        return removeInstance(openContainer, item);
-    }
-
-    /**
-     * Clears the slot that holds a specific item instance, by reference.
-     *
-     * @param container container to search, may be null
-     * @param item      the exact item instance
-     * @return true if the instance was found and its slot cleared
-     */
-    public static boolean removeInstance(Container container, Item item) {
-        if (container == null || item == null) return false;
-
-        for (int i = 0; i < container.getCapacity(); i++) {
-            if (container.getItemAt(i) == item) {
-                container.setItemAt(i, null);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Transfers items between specific slots in two containers.
      * Handles moving to empty slots, stacking, and swapping items.
      *
