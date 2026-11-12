@@ -43,6 +43,7 @@ public class GameApplication extends Application {
     private FxCamera camera;
     private FxRenderer renderer;
     private FxMinimapDrawer minimapDrawer;
+    private MinimapFrame minimapFrame;
 
     // Game systems
     private GameOrchestrator gameOrchestrator;
@@ -253,8 +254,9 @@ public class GameApplication extends Application {
                 config.graphics().getMinimapWidth(),
                 config.graphics().getMinimapHeight()
         );
-        minimapCanvas.setTranslateX(rootPane.getPrefWidth() - minimapCanvas.getWidth() - 12);
-        minimapCanvas.setTranslateY(rootPane.getPrefHeight() - minimapCanvas.getHeight() - 12);
+        minimapFrame = new MinimapFrame(minimapCanvas);
+        minimapFrame.setTranslateX(rootPane.getPrefWidth() - MinimapFrame.outerWidth(minimapCanvas) - 12);
+        minimapFrame.setTranslateY(rootPane.getPrefHeight() - MinimapFrame.outerHeight(minimapCanvas) - 12);
         minimapDrawer = new FxMinimapDrawer(minimapCanvas, camera, mainCanvas);
     }
 
@@ -262,7 +264,7 @@ public class GameApplication extends Application {
      * Creates the game layer containing rendering canvases.
      */
     private Pane createGameLayer() {
-        Pane layer = new Pane(mainCanvas, minimapDrawer.getCanvas());
+        Pane layer = new Pane(mainCanvas, minimapFrame);
         layer.setPrefSize(rootPane.getPrefWidth(), rootPane.getPrefHeight());
         return layer;
     }
