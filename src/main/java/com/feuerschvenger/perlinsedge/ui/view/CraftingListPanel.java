@@ -7,10 +7,13 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Displays a scrollable list of craftable recipes with selection capability.
@@ -33,6 +36,9 @@ public class CraftingListPanel extends VBox {
 
     // State management
     private Recipe selectedRecipe;
+    /** One cell per recipe, in the order the recipes were given. */
+    private final List<CraftableItemCell> cells = new ArrayList<>();
+    private Predicate<Recipe> canCraft = recipe -> true;
 
     // Event callbacks
     private Consumer<Recipe> onRecipeSelected;
@@ -124,13 +130,15 @@ public class CraftingListPanel extends VBox {
     }
 
     /**
-     * Sets the list of recipes to display.
+     * Sets the list of recipes to display. The recipes that can be crafted are listed first and the others after them,
+     * greyed but still selectable, each group in the order the recipes were given.
      *
      * @param recipes List of available recipes (null will be treated as empty)
      */
     public void setRecipes(List<Recipe> recipes) {
         recipes = Objects.requireNonNullElse(recipes, Collections.emptyList());
         recipesContainer.getChildren().clear();
+        cells.clear();
         setSelectedRecipe(null);
 
         if (recipes.isEmpty()) {
@@ -139,6 +147,42 @@ public class CraftingListPanel extends VBox {
         }
 
         populateRecipeList(recipes);
+        arrange();
+    }
+
+    /**
+     * Tells the list which recipes can be crafted now, and lists them first. The list calls this again whenever the
+     * inventory changes. The selection and the scroll position are kept, and the order inside each group stays that of
+     * the recipes as they were given.
+     *
+     * @param canCraft tells whether a recipe can be crafted with what the player holds
+     */
+    public void setCraftability(Predicate<Recipe> canCraft) {
+        this.canCraft = Objects.requireNonNull(canCraft, "canCraft");
+        arrange();
+    }
+
+    /**
+     * Marks every cell as craftable or not, puts the craftable ones first and keeps the craft button in line with the
+     * selected recipe.
+     */
+    private void arrange() {
+        for (CraftableItemCell cell : cells) {
+            cell.setCraftable(canCraft.test(cell.getRecipe()));
+        }
+        // A stable sort: false sorts before true, so the craftable cells come first and keep their relative order
+        List<CraftableItemCell> ordered = cells.stream()
+                .sorted(Comparator.comparing((CraftableItemCell cell) -> !cell.isCraftable()))
+                .toList();
+        // With no cells the container holds the empty list notice, which must stay
+        if (!cells.isEmpty() && !ordered.equals(recipesContainer.getChildren())) {
+            recipesContainer.getChildren().setAll(ordered);
+        }
+        updateCraftButton();
+    }
+
+    private void updateCraftButton() {
+        craftButton.setDisable(selectedRecipe == null || !canCraft.test(selectedRecipe));
     }
 
     /**
@@ -157,7 +201,7 @@ public class CraftingListPanel extends VBox {
         for (Recipe recipe : recipes) {
             CraftableItemCell cell = new CraftableItemCell(recipe);
             cell.setOnMouseClicked(e -> handleRecipeSelection(recipe));
-            recipesContainer.getChildren().add(cell);
+            cells.add(cell);
         }
     }
 
@@ -186,10 +230,8 @@ public class CraftingListPanel extends VBox {
 
         if (recipe != null) {
             activateSelection(recipe);
-            craftButton.setDisable(false);
-        } else {
-            craftButton.setDisable(true);
         }
+        updateCraftButton();
     }
 
     /**
@@ -231,7 +273,11 @@ public class CraftingListPanel extends VBox {
      * Represents a single craftable recipe item in the list.
      */
     private class CraftableItemCell extends HBox {
+        private static final double UNAVAILABLE_ICON_OPACITY = 0.45;
+
         private final Recipe recipe;
+        private ImageView icon;
+        private boolean craftable = true;
 
         /**
          * Creates a new craftable item cell.
@@ -259,9 +305,9 @@ public class CraftingListPanel extends VBox {
          * Initializes the cell's UI components.
          */
         private void initializeCellComponents() {
-            ImageView imageView = createItemImageView();
+            icon = createItemImageView();
             Label nameLabel = createNameLabel();
-            getChildren().addAll(imageView, nameLabel);
+            getChildren().addAll(icon, nameLabel);
         }
 
         /**
@@ -282,6 +328,20 @@ public class CraftingListPanel extends VBox {
 
         public Recipe getRecipe() {
             return recipe;
+        }
+
+        boolean isCraftable() {
+            return craftable;
+        }
+
+        /**
+         * Greys the cell when the recipe cannot be crafted. The cell stays selectable so the player can read what the
+         * recipe needs.
+         */
+        void setCraftable(boolean craftable) {
+            this.craftable = craftable;
+            UiTheme.setClass(this, UiTheme.CELL_UNAVAILABLE, !craftable);
+            icon.setOpacity(craftable ? 1.0 : UNAVAILABLE_ICON_OPACITY);
         }
 
         /**

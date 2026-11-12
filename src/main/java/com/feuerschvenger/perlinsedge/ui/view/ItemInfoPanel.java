@@ -3,9 +3,14 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.ToIntFunction;
 
 /**
  * Displays detailed information about selected inventory items or crafting recipes.
@@ -24,6 +29,8 @@ public class ItemInfoPanel extends VBox {
     // UI components
     private Text titleText;
     private Text descriptionText;
+    /** The ingredient lines of a recipe, one text each so every line has its own colour. */
+    private final VBox ingredientsBox = new VBox();
 
     /**
      * Initializes the information panel with default configuration.
@@ -31,7 +38,7 @@ public class ItemInfoPanel extends VBox {
     public ItemInfoPanel() {
         configureLayout();
         initializeComponents();
-        getChildren().addAll(titleText, descriptionText);
+        getChildren().addAll(titleText, descriptionText, ingredientsBox);
     }
 
     /**
@@ -85,6 +92,7 @@ public class ItemInfoPanel extends VBox {
 
         titleText.setText(UiTheme.caps(formatItemTitle(item)));
         descriptionText.setText(item.getDescription());
+        ingredientsBox.getChildren().clear();
     }
 
     /**
@@ -98,11 +106,13 @@ public class ItemInfoPanel extends VBox {
     }
 
     /**
-     * Displays information for a crafting recipe.
+     * Displays information for a crafting recipe. Each ingredient shows how many the player holds against how many the
+     * recipe needs, green when there are enough and red when there are not.
      *
      * @param recipe Recipe to display (ignored if null)
+     * @param have   gives how many items of a type the player holds, in the hotbar and the inventory together
      */
-    public void displayRecipe(Recipe recipe) {
+    public void displayRecipe(Recipe recipe, ToIntFunction<ItemType> have) {
         if (recipe == null) {
             clearInfo();
             return;
@@ -110,10 +120,11 @@ public class ItemInfoPanel extends VBox {
 
         titleText.setText(UiTheme.caps(recipe.getName()));
         descriptionText.setText(formatRecipeDetails(recipe));
+        ingredientsBox.getChildren().setAll(createIngredientLines(recipe, have));
     }
 
     /**
-     * Formats detailed recipe information including description, output, and ingredients.
+     * Formats the description and the output of a recipe.
      *
      * @param recipe Recipe to format
      * @return Formatted recipe details
@@ -131,19 +142,37 @@ public class ItemInfoPanel extends VBox {
                 .append(recipe.getOutputQuantity())
                 .append("x ")
                 .append(recipe.getOutputItemType().getDisplayName())
-                .append("\n\n");
-
-        // Ingredients list
-        details.append("Ingredients:\n");
-        for (CraftingIngredient ingredient : recipe.getIngredients()) {
-            details.append("- ")
-                    .append(ingredient.quantity())
-                    .append("x ")
-                    .append(ingredient.itemType().getDisplayName())
-                    .append("\n");
-        }
+                .append("\n\nIngredients:");
 
         return details.toString();
+    }
+
+    /** One line per ingredient, such as "Planks 2/4", coloured by whether the player has enough. */
+    private List<Text> createIngredientLines(Recipe recipe, ToIntFunction<ItemType> have) {
+        List<Text> lines = new ArrayList<>();
+        for (CraftingIngredient ingredient : recipe.getIngredients()) {
+            lines.add(createIngredientLine(ingredient, have.applyAsInt(ingredient.itemType())));
+        }
+        return lines;
+    }
+
+    /**
+     * Builds the line of one ingredient.
+     *
+     * @param ingredient the ingredient
+     * @param held       how many the player holds
+     * @return the line, green when the player holds enough and red when not
+     */
+    Text createIngredientLine(CraftingIngredient ingredient, int held) {
+        Text line = createStyledText(held >= ingredient.quantity() ? UiTheme.TEXT_GOOD : UiTheme.TEXT_BAD,
+                ingredient.itemType().getDisplayName() + " " + held + "/" + ingredient.quantity());
+        line.setWrappingWidth(PREF_WIDTH - PANEL_PADDING * 2);
+        return line;
+    }
+
+    /** Gives the ingredient lines now shown, for the tests. */
+    List<Text> shownIngredientLines() {
+        return ingredientsBox.getChildren().stream().map(Text.class::cast).toList();
     }
 
     /**
@@ -152,6 +181,7 @@ public class ItemInfoPanel extends VBox {
     public void clearInfo() {
         titleText.setText(UiTheme.caps(DEFAULT_TITLE));
         descriptionText.setText("");
+        ingredientsBox.getChildren().clear();
     }
 
 }

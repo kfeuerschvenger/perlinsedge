@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
@@ -378,6 +379,7 @@ public class InventoryPanel extends BorderPane {
             updateGridContents(secondaryInventoryGrid, secondaryContainer);
         }
 
+        refreshCraftability();
         updateInformationDisplay();
         controller.refreshDrag();
     }
@@ -410,7 +412,7 @@ public class InventoryPanel extends BorderPane {
         if (controller.getSelectedSlotIndex() != -1) {
             updateItemSelectionDisplay();
         } else if (controller.getSelectedRecipe() != null) {
-            itemInfoPanel.displayRecipe(controller.getSelectedRecipe());
+            itemInfoPanel.displayRecipe(controller.getSelectedRecipe(), this::countHeld);
         } else {
             itemInfoPanel.clearInfo();
         }
@@ -443,7 +445,24 @@ public class InventoryPanel extends BorderPane {
 
     /** Shows a recipe in the information panel. */
     void showRecipeInfo(Recipe recipe) {
-        itemInfoPanel.displayRecipe(recipe);
+        itemInfoPanel.displayRecipe(recipe, this::countHeld);
+    }
+
+    /** Gives the ingredient lines of the recipe now shown in the information panel, for the tests. */
+    List<javafx.scene.text.Text> ingredientLinesShown() {
+        return itemInfoPanel.shownIngredientLines();
+    }
+
+    /** How many items of a type the player holds, hotbar and inventory together. */
+    private int countHeld(ItemType type) {
+        Player player = gameState.getPlayer();
+        return player == null ? 0 : player.getItemCount(new Item(type, 1));
+    }
+
+    /** Lists the recipes that can be crafted with what the player holds first, and greys the others. */
+    private void refreshCraftability() {
+        Player player = gameState.getPlayer();
+        craftingListPanel.setCraftability(recipe -> player != null && player.canCraft(recipe));
     }
 
     /** @return the recipe selected in the crafting list, or null */
@@ -664,6 +683,7 @@ public class InventoryPanel extends BorderPane {
      */
     public void setCraftingRecipes(List<Recipe> recipes) {
         craftingListPanel.setRecipes(recipes);
+        refreshCraftability();
     }
 
     /**

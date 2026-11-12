@@ -67,6 +67,12 @@ public final class UiTheme {
     public static final String CELL = "pe-cell";
     /** Selected row of a list. */
     public static final String CELL_SELECTED = "pe-cell-selected";
+    /** Crafting list cell of a recipe that cannot be crafted now. */
+    public static final String CELL_UNAVAILABLE = "pe-cell-unavailable";
+    /** Text that states a requirement that is met. */
+    public static final String TEXT_GOOD = "pe-good";
+    /** Text that states a requirement that is not met. */
+    public static final String TEXT_BAD = "pe-bad";
 
     private static boolean fontLoaded;
 

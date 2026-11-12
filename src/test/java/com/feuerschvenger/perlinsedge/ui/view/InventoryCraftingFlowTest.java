@@ -10,6 +10,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.event.Event;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
@@ -57,17 +58,16 @@ class InventoryCraftingFlowTest {
         panel.setOnCraftRecipe(crafting::handleCraftRecipe);
     }
 
+    /** Clicks the cell of the recipe, wherever the list has put it. */
     private void selectRecipe(ItemType output) {
-        int index = 0;
-        for (Recipe recipe : recipes.getAllItemRecipes()) {
-            if (recipe.getOutputItemType() == output) {
-                break;
-            }
-            index++;
-        }
-        int position = index;
+        String name = UiTheme.caps(output.getDisplayName());
         FxToolkitSupport.onFx(() -> {
-            Region cell = (Region) panel.lookupAll("." + UiTheme.CELL).stream().toList().get(position);
+            Region cell = panel.lookupAll("." + UiTheme.CELL).stream()
+                    .map(Region.class::cast)
+                    .filter(node -> node.getChildrenUnmodifiable().stream()
+                            .anyMatch(child -> child instanceof Label label && name.equals(label.getText())))
+                    .findFirst()
+                    .orElseThrow();
             Event.fireEvent(cell, new MouseEvent(MouseEvent.MOUSE_CLICKED, 5, 5, 5, 5, MouseButton.PRIMARY, 1,
                     false, false, false, false, true, false, false, true, false, false, null));
             return null;
@@ -94,12 +94,122 @@ class InventoryCraftingFlowTest {
     }
 
     @Test
-    void theCraftButtonStartsDisabledUntilARecipeIsSelected() {
+    void theCraftButtonStartsDisabledUntilACraftableRecipeIsSelected() {
         assertTrue(FxToolkitSupport.onFx(() -> craftButton().isDisabled()));
 
         selectRecipe(ItemType.WOOD_PLANK);
+        assertTrue(FxToolkitSupport.onFx(() -> craftButton().isDisabled()), "no log, so the recipe cannot be crafted");
 
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
         assertFalse(FxToolkitSupport.onFx(() -> craftButton().isDisabled()));
+    }
+
+    @Test
+    void theCraftButtonIsDisabledAgainWhenTheIngredientsRunOut() {
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        selectRecipe(ItemType.WOOD_PLANK);
+        assertFalse(FxToolkitSupport.onFx(() -> craftButton().isDisabled()));
+
+        pressCraft();
+
+        assertTrue(FxToolkitSupport.onFx(() -> craftButton().isDisabled()));
+    }
+
+    @Test
+    void theRecipesThatCanBeCraftedAreListedFirstAndTheOthersFollowGreyedButSelectable() {
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
+
+        List<String> order = FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.CELL).stream()
+                .map(node -> node.getStyleClass().contains(UiTheme.CELL_UNAVAILABLE) ? "grey" : "ok")
+                .toList());
+
+        assertEquals("ok", order.getFirst());
+        long craftable = recipes.getAllItemRecipes().stream().filter(player::canCraft).count();
+        assertEquals(craftable, order.stream().filter("ok"::equals).count());
+        assertTrue(order.subList((int) craftable, order.size()).stream().allMatch("grey"::equals),
+                "the craftable recipes come first: " + order);
+
+        selectRecipe(ItemType.AXE);
+        assertEquals(ItemType.AXE.getDisplayName(),
+                FxToolkitSupport.onFx(() -> panel.getSelectedCraftingRecipe().getName()));
+    }
+
+    @Test
+    void theListIsSortedAgainWhenTheInventoryChangesAndKeepsItsOrderInsideEachGroup() {
+        List<String> before = recipeNamesInListOrder();
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
+        List<String> withLog = recipeNamesInListOrder();
+        player.removeItem(new Item(ItemType.WOOD_LOG, 1), 1);
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
+
+        assertEquals(UiTheme.caps(ItemType.WOOD_PLANK.getDisplayName()), withLog.getFirst());
+        assertEquals(before, recipeNamesInListOrder(), "back to the order of the recipes with nothing craftable");
+    }
+
+    private List<String> recipeNamesInListOrder() {
+        return FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.CELL).stream()
+                .map(Region.class::cast)
+                .map(cell -> cell.getChildrenUnmodifiable().stream()
+                        .filter(Label.class::isInstance)
+                        .map(child -> ((Label) child).getText())
+                        .findFirst()
+                        .orElseThrow())
+                .toList());
+    }
+
+    @Test
+    void theInfoPanelShowsWhatIsHeldAgainstWhatIsNeededInGreenAndRed() {
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        selectRecipe(ItemType.AXE);
+
+        List<String> lines = FxToolkitSupport.onFx(() -> panel.ingredientLinesShown().stream()
+                .map(text -> text.getText() + "|" + (text.getStyleClass().contains(UiTheme.TEXT_GOOD) ? "good" : "bad"))
+                .toList());
+
+        assertFalse(lines.isEmpty());
+        assertTrue(lines.stream().allMatch(line -> line.contains("/")), "every line reads held/needed: " + lines);
+        assertTrue(lines.stream().allMatch(line -> line.endsWith("|bad")), "nothing needed is held yet: " + lines);
+
+        player.setItemAt(Player.HOTBAR_SIZE, new Item(ItemType.STONE, 50));
+        player.setItemAt(Player.HOTBAR_SIZE + 1, new Item(ItemType.STICK, 50));
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
+        List<String> after = FxToolkitSupport.onFx(() -> panel.ingredientLinesShown().stream()
+                .map(text -> text.getStyleClass().contains(UiTheme.TEXT_GOOD) ? "good" : "bad")
+                .toList());
+        assertTrue(after.stream().allMatch("good"::equals),
+                "held ingredients turn green once the inventory refreshes: " + after);
+    }
+
+    @Test
+    void theHeldCountAddsTheHotbarAndTheInventory() {
+        player.setItemAt(0, new Item(ItemType.STICK, 1));
+        player.setItemAt(Player.HOTBAR_SIZE, new Item(ItemType.STICK, 2));
+        selectRecipe(ItemType.AXE);
+
+        List<String> lines = FxToolkitSupport.onFx(() -> panel.ingredientLinesShown().stream()
+                .map(javafx.scene.text.Text::getText)
+                .toList());
+
+        assertTrue(lines.contains(ItemType.STICK.getDisplayName() + " 3/2"),
+                "the sticks of the hotbar and of the inventory are counted together: " + lines);
     }
 
     @Test
@@ -132,7 +242,7 @@ class InventoryCraftingFlowTest {
     }
 
     @Test
-    void pressingCraftWithoutTheIngredientsChangesNothingAndShowsAHint() {
+    void pressingCraftWithoutTheIngredientsChangesNothing() {
         player.addItem(new Item(ItemType.WOOD_LOG, 1));
         selectRecipe(ItemType.AXE);
 
@@ -140,7 +250,7 @@ class InventoryCraftingFlowTest {
 
         assertEquals(1, count(ItemType.WOOD_LOG));
         assertEquals(0, count(ItemType.AXE));
-        assertEquals(1, hints.size());
+        assertTrue(FxToolkitSupport.onFx(() -> craftButton().isDisabled()), "the button does not offer the craft");
     }
 
     @Test

@@ -21,6 +21,7 @@
     -pe-muted: #aeadb8;
     -pe-accent: #ffa02a;
     -pe-danger: #d4705c;
+    -pe-good: #76b04c;
     -pe-focus: #fcf4e4;
     -pe-shadow: #1d1830;
 
@@ -214,6 +215,20 @@
 
 .pe-cell:hover {
     -fx-background-color: -pe-panel-light;
+}
+
+.pe-cell-unavailable .label {
+    -fx-text-fill: -pe-muted;
+}
+
+.pe-good {
+    -fx-fill: -pe-good;
+    -fx-text-fill: -pe-good;
+}
+
+.pe-bad {
+    -fx-fill: -pe-danger;
+    -fx-text-fill: -pe-danger;
 }
 
 .pe-cell-selected {
