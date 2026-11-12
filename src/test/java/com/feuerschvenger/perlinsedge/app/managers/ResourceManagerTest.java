@@ -118,6 +118,23 @@ class ResourceManagerTest {
     }
 
     @Test
+    void theHitCooldownRunsOnTheGameClock() {
+        tile.setWorldResource(new Resource(ResourceType.STONE, 1));
+        Resource stone = tile.getWorldResource();
+
+        manager.handleTileInteraction(player, tile);
+        assertEquals(0.0, stone.secondsSinceHit(state.getGameTime()), "the first hit lands at once");
+
+        state.incrementGameTime(0.1);
+        manager.handleTileInteraction(player, tile);
+        assertEquals(0.1, stone.secondsSinceHit(state.getGameTime()), 1e-9, "inside the cooldown the hit waits");
+
+        state.incrementGameTime(0.9);
+        manager.handleTileInteraction(player, tile);
+        assertEquals(0.0, stone.secondsSinceHit(state.getGameTime()), "after the cooldown of game time the next hit lands");
+    }
+
+    @Test
     void farAwayPlayerCannotHarvest() {
         player.setPosition(0, 0);
         TileMap big = new TileMap(6, 6);

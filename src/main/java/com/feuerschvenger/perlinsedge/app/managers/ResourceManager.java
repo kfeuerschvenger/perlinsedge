@@ -25,6 +25,7 @@ public class ResourceManager {
     // Configuration constants
     private static final int RESOURCE_HIT_DAMAGE = 10; // Damage per hit
     private static final int MAX_INTERACTION_DISTANCE = 1; // Adjacent tiles only (8-direction)
+    private static final double MILLIS_PER_SECOND = 1000.0;
 
     // Dependencies
     private final GameStateManager gameState;
@@ -87,12 +88,13 @@ public class ResourceManager {
      * @param tileY Resource's Y coordinate
      */
     private void handleResourceHit(Resource resource, int tileX, int tileY) {
-        long currentTime = System.currentTimeMillis();
-        long cooldown = AppConfig.getInstance().gameMechanics().getResourceHitCooldownMs();
+        // The cooldown runs on the game clock, which stands still while paused, so a pause neither skips nor ends it
+        double currentTime = gameState.getGameTime();
+        double cooldown = AppConfig.getInstance().gameMechanics().getResourceHitCooldownMs() / MILLIS_PER_SECOND;
 
         if (isOnCooldown(resource, currentTime, cooldown)) return;
 
-        resource.startFlashing(gameState.getGameTime());
+        resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
 
         boolean depleted = resource.takeDamage(RESOURCE_HIT_DAMAGE);
@@ -145,15 +147,15 @@ public class ResourceManager {
     /**
      * Checks if resource is on cooldown from previous hit.
      */
-    private boolean isOnCooldown(Resource resource, long currentTime, long cooldown) {
-        long lastHit = gameState.getResourceHitTimes().getOrDefault(resource, 0L);
+    private boolean isOnCooldown(Resource resource, double currentTime, double cooldown) {
+        double lastHit = gameState.getResourceHitTimes().getOrDefault(resource, Double.NEGATIVE_INFINITY);
         return (currentTime - lastHit) < cooldown;
     }
 
     /**
-     * Updates last hit timestamp for resource.
+     * Updates last hit game time for resource.
      */
-    private void updateHitTimestamp(Resource resource, long timestamp) {
+    private void updateHitTimestamp(Resource resource, double timestamp) {
         gameState.getResourceHitTimes().put(resource, timestamp);
     }
 
