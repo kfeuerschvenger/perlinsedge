@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
@@ -303,32 +304,49 @@ public class GameOrchestrator {
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
      * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
      * the map keys can try again. When the generation throws, the previous world, map type and context are all still
-     * in place. When a later step throws, the new map is in place without a player to live on it: the player is
-     * removed, and the update and render steps skip a frame that has no map or no player.
+     * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
+     * set to match it, the player is removed, and the update and render steps skip a frame that has no map or no
+     * player. The mode switches are ignored while there is no player.
+     * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
+     * step draws the death overlay again from the player and the timer on every frame, so the overlay that
+     * {@link #leaveGame()} hid comes back with the next frame.
      * The caller has already checked that a game is running.
      */
     private void rebuildWorld(MapGenerationContext context) {
         boolean rebuilt = false;
-        boolean mapReplaced = false;
+        final TileMap previousMap = gameState.getCurrentMap();
         try {
             leaveGame();
             gameState.getClickFeedback().clear();
             mapManager.generateNewMap(context);
-            mapReplaced = true;
             AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
             playerManager.initializePlayer();
             mapManager.spawnEnemies();
             minimapDrawer.updateMap(gameState.getCurrentMap());
             centerOnPlayer();
             rebuilt = true;
-        } finally {
-            if (!rebuilt && mapReplaced) {
+        } catch (Throwable e) {
+            log.error("The map rebuild failed, the game continues so the map keys can try again", e);
+            // The map may have been replaced before the step that failed, whichever step it was
+            if (gameState.getCurrentMap() != previousMap) {
+                AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
                 gameState.setPlayer(null);
             }
+            throw e;
+        } finally {
+            restartLoopAfterRebuild(rebuilt);
+        }
+    }
+
+    /** Starts the loop again without letting a failure to start it hide the failure of the rebuild. */
+    private void restartLoopAfterRebuild(boolean rebuilt) {
+        try {
             startGameLoop();
-            if (!rebuilt) {
-                log.error("The map rebuild failed, the game continues so the map keys can try again");
+        } catch (RuntimeException e) {
+            if (rebuilt) {
+                throw e;
             }
+            log.error("The game loop could not be restarted after the failed rebuild", e);
         }
     }
 

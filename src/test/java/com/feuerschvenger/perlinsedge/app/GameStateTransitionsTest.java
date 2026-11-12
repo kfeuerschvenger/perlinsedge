@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameStateTransitionsTest {
@@ -57,6 +58,37 @@ class GameStateTransitionsTest {
 
         assertEquals(List.of(true), pausedWhenCalled);
         assertEquals(GameMode.PAUSED, state.getCurrentGameMode());
+    }
+
+    @Test
+    void openingTheInventoryWithNoPlayerDoesNothing() {
+        state.setPlayer(null);
+
+        onFx(transitions::toggleInventory);
+        onFx(() -> transitions.setGameMode(GameMode.INVENTORY_OPEN));
+
+        assertEquals(GameMode.EXPLORATION, state.getCurrentGameMode());
+        assertFalse(state.isInventoryOpen());
+    }
+
+    @Test
+    void buildingModeWithNoPlayerIsIgnored() {
+        state.setPlayer(null);
+
+        onFx(transitions::toggleBuildingMode);
+
+        assertEquals(GameMode.EXPLORATION, state.getCurrentGameMode());
+    }
+
+    @Test
+    void goingBackToExplorationStillWorksWithNoPlayer() {
+        onFx(transitions::toggleInventory);
+        assertEquals(GameMode.INVENTORY_OPEN, state.getCurrentGameMode());
+        state.setPlayer(null);
+
+        onFx(() -> transitions.setGameMode(GameMode.EXPLORATION));
+
+        assertEquals(GameMode.EXPLORATION, state.getCurrentGameMode());
     }
 
     @Test

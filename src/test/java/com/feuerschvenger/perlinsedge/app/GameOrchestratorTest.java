@@ -7,6 +7,8 @@ import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
+import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
@@ -41,8 +43,45 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class GameOrchestratorTest {
 
+    /** Mirrors the generator until told to fail. */
+    private static final class SwitchablePanel extends MapConfigPanel {
+        boolean failing;
+
+        SwitchablePanel() {
+            super(MapType.DESERT, 1L);
+        }
+
+        @Override
+        public void updateValuesFromGenerator(IMapGenerator generator) {
+            if (failing) {
+                throw new IllegalStateException("panel failed");
+            }
+            super.updateValuesFromGenerator(generator);
+        }
+    }
+
+    /** Draws the minimap until told to fail once. */
+    private static final class FailingOnceMinimap extends FxMinimapDrawer {
+        boolean failNext;
+
+        FailingOnceMinimap(Canvas minimapCanvas, FxCamera camera, Canvas canvas) {
+            super(minimapCanvas, camera, canvas);
+        }
+
+        @Override
+        public void updateMap(TileMap newMap) {
+            if (failNext) {
+                failNext = false;
+                throw new IllegalStateException("minimap failed");
+            }
+            super.updateMap(newMap);
+        }
+    }
+
     private GameStateManager state;
     private GameOrchestrator orchestrator;
+    private SwitchablePanel panel;
+    private FailingOnceMinimap minimap;
 
     @BeforeEach
     void setUp() {
@@ -54,12 +93,14 @@ class GameOrchestratorTest {
             new Scene(new Pane(canvas), 800, 600);
             FxCamera camera = new FxCamera(400, 300, config.core().getInitialZoom());
             Canvas minimapCanvas = new Canvas(config.graphics().getMinimapWidth(), config.graphics().getMinimapHeight());
+            panel = new SwitchablePanel();
+            minimap = new FailingOnceMinimap(minimapCanvas, camera, canvas);
             return new GameOrchestrator(
                     new FxRenderer(canvas.getGraphicsContext2D(), camera, state),
                     camera,
                     new FxInputHandler(canvas.getScene(), canvas, camera),
-                    new FxMinimapDrawer(minimapCanvas, camera, canvas),
-                    new MapConfigPanel(MapType.DESERT, 1L),
+                    minimap,
+                    panel,
                     canvas,
                     new HealthBar(),
                     new InventoryPanel(state),
@@ -154,6 +195,53 @@ class GameOrchestratorTest {
 
         onFx(orchestrator::regenerateMap);
         assertNotSame(first, state.getCurrentMap(), "the retry rebuilt the world");
+    }
+
+    @Test
+    void aMapPanelThatFailsDoesNotCostTheRebuild() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        TileMap first = state.getCurrentMap();
+        panel.failing = true;
+
+        onFx(() -> applyConfig(MapType.TUNDRA));
+        panel.failing = false;
+
+        assertNotSame(first, state.getCurrentMap());
+        assertNotNull(state.getPlayer(), "the player lives on the new map");
+        assertEquals(MapType.TUNDRA, AppConfig.getInstance().world().getCurrentMapType(),
+                "the map type matches the map on screen");
+    }
+
+    @Test
+    void aFailureAfterTheMapWasReplacedRemovesThePlayerKeepsTheTypeInStepAndTheMapKeysTryAgain() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        TileMap first = state.getCurrentMap();
+
+        assertThrows(IllegalStateException.class, () -> onFx(() -> {
+            minimap.failNext = true;
+            applyConfig(MapType.TUNDRA);
+        }));
+
+        assertNotSame(first, state.getCurrentMap(), "the new map is in place");
+        assertNull(state.getPlayer(), "the player of the old map does not roam the new one");
+        assertEquals(MapType.TUNDRA, AppConfig.getInstance().world().getCurrentMapType());
+
+        onFx(orchestrator::regenerateMap);
+        assertNotNull(state.getPlayer(), "the retry placed a player again");
+    }
+
+    @Test
+    void aFrameAfterAFailedRebuildIsSkippedAndTheModeStaysExploration() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        assertThrows(IllegalStateException.class, () -> onFx(() -> {
+            minimap.failNext = true;
+            applyConfig(MapType.TUNDRA);
+        }));
+
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+
+        assertNull(state.getPlayer());
+        assertEquals(GameMode.EXPLORATION, state.getCurrentGameMode());
     }
 
     @Test

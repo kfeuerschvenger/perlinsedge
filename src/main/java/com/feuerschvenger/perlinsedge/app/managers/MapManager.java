@@ -115,9 +115,11 @@ public class MapManager implements IMapGenerationListener {
 
     /**
      * Callback when map generation completes.
-     * Stores the map and clears the entities that belonged to the previous one.
+     * Stores the map and clears the entities and the hit times of the resources that belonged to the previous one.
      * Enemies are not spawned here: the caller spawns them once the player has a position on the new map,
      * which keeps them from being placed twice and from landing next to the player.
+     * The panel only mirrors the generator, so a panel that fails is logged and the new map stays in place: the map,
+     * the context and the map type stay consistent with each other.
      */
     @Override
     public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
@@ -125,8 +127,13 @@ public class MapManager implements IMapGenerationListener {
         gameState.setWorldSeed(generator.getSeed());
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
+        gameState.getResourceHitTimes().clear();
 
-        mapConfigPanel.updateValuesFromGenerator(generator);
+        try {
+            mapConfigPanel.updateValuesFromGenerator(generator);
+        } catch (RuntimeException e) {
+            log.error("The map panel could not show the values of the new map", e);
+        }
     }
 
     /**
