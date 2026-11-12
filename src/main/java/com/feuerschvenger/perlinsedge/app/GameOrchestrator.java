@@ -248,7 +248,6 @@ public class GameOrchestrator {
                 this::regenerateMap,
                 this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
-                combatManager::handlePlayerAttack,
                 transitions::toggleBuildingMode,
                 this::handleNumberKey,
                 hotbarManager::changePage

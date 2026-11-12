@@ -74,22 +74,6 @@ public class CombatManager {
         }
     }
 
-    /**
-     * Initiates and processes a player attack based on mouse position.
-     * Validates game state and player conditions before attacking.
-     */
-    public void handlePlayerAttack() {
-        if (!isValidAttackState()) return;
-
-        Player player = gameState.getPlayer();
-        int[] attackDirection = calculateAttackVector(player);
-        int direction = calculateAttackDirection(attackDirection[0], attackDirection[1]);
-
-        // The player's own cooldown gates both the swing and the damage
-        if (!player.startAttack(direction)) return;
-        applyMeleeDamage(player);
-    }
-
     /** What came of an order to hit one enemy. */
     public enum Strike {
         /** The swing landed on the enemy. */
@@ -103,7 +87,7 @@ public class CombatManager {
     /**
      * Swings at one enemy with the item in hand. The player turns toward the enemy and the swing lands on that enemy
      * alone, for the damage of the active item, so a click on an enemy never depends on where the mouse rests after
-     * the click. The player's own cooldown gates the swing, as it does for the attack key.
+     * the click. The player's own cooldown gates the swing.
      *
      * @param target the enemy to hit
      * @return {@link Strike#HIT} when the swing landed, {@link Strike#COOLDOWN} when it must wait, and
@@ -126,17 +110,6 @@ public class CombatManager {
     }
 
     /**
-     * Calculates the vector from player to mouse position in tile coordinates.
-     * @return [deltaX, deltaY] array
-     */
-    private int[] calculateAttackVector(Player player) {
-        return new int[] {
-                gameState.getMouseOverTileX() - player.getCurrentTileX(),
-                gameState.getMouseOverTileY() - player.getCurrentTileY()
-        };
-    }
-
-    /**
      * Calculates attack direction based on vector components.
      * Divides the circle into 8 directional sectors (45° each).
      * @return Direction index (0-7) corresponding to compass directions
@@ -149,21 +122,6 @@ public class CombatManager {
         return (int) (adjustedAngle / DIRECTION_SECTOR_SIZE);
     }
 
-    /**
-     * Applies melee damage to enemies within attack range.
-     * Processes enemy death for defeated enemies.
-     */
-    private void applyMeleeDamage(Player player) {
-        double[] attackPos = player.getAttackPosition();
-        List<Enemy> enemies = new ArrayList<>(gameState.getEnemies()); // Safe copy for modification
-
-        for (Enemy enemy : enemies) {
-            if (isWithinAttackRange(attackPos, enemy, player.getAttackRange())) {
-                damage(enemy, player);
-            }
-        }
-    }
-
     /** Deals the damage of the item in hand to an enemy, shows the number and processes its death. */
     private void damage(Enemy enemy, Player player) {
         enemy.takeDamage(player.getAttackDamage());
@@ -172,16 +130,6 @@ public class CombatManager {
         if (enemy.isDead()) {
             handleEnemyDeath(enemy);
         }
-    }
-
-    /**
-     * Checks if enemy is within circular attack range.
-     * @return true if distance <= attack radius
-     */
-    private boolean isWithinAttackRange(double[] attackPos, Enemy enemy, double range) {
-        double dx = attackPos[0] - enemy.getCurrentTileX();
-        double dy = attackPos[1] - enemy.getCurrentTileY();
-        return (dx * dx + dy * dy) <= (range * range); // Squared distance comparison
     }
 
     /**

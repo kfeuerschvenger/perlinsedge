@@ -37,7 +37,6 @@ public final class FxKeyMapper {
             case SPACE -> GameKey.SPACE;
             case I -> GameKey.I;
             case B -> GameKey.B;
-            case C -> GameKey.C;
             case PAGE_UP -> GameKey.PAGE_UP;
             case PAGE_DOWN -> GameKey.PAGE_DOWN;
             case F1 -> GameKey.F1;

@@ -27,7 +27,11 @@ class FxKeyMapperTest {
         assertEquals(Optional.of(GameKey.SPACE), key(KeyCode.SPACE));
         assertEquals(Optional.of(GameKey.I), key(KeyCode.I));
         assertEquals(Optional.of(GameKey.B), key(KeyCode.B));
-        assertEquals(Optional.of(GameKey.C), key(KeyCode.C));
+    }
+
+    @Test
+    void theCKeyIsNotBound() {
+        assertEquals(Optional.empty(), key(KeyCode.C));
     }
 
     @Test

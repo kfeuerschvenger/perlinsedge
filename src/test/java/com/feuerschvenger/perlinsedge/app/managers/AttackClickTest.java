@@ -220,13 +220,4 @@ class AttackClickTest {
         assertEquals(slime.getMaxHealth(), slime.getHealth(), 1e-9);
     }
 
-    @Test
-    void theAttackKeyStillHitsTheEnemyUnderTheMouse() {
-        final Slime slime = slimeAt(1, 5);
-        state.setMouseOverTile(1, 5);
-
-        new CombatManager(state).handlePlayerAttack();
-
-        assertEquals(slime.getMaxHealth() - ToolStats.HAND_COMBAT_DAMAGE, slime.getHealth(), 1e-9);
-    }
 }

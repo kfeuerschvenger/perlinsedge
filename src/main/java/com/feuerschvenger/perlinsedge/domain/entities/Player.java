@@ -33,7 +33,6 @@ public class Player extends Entity implements Container {
     private static final double MAX_HEALTH = 100.0;
 
     // Combat configuration
-    private static final double DEFAULT_ATTACK_RANGE = 1.5;     // In tiles
     private static final double DEFAULT_ATTACK_COOLDOWN = 0.8;  // Time between attacks
     private static final double ATTACK_ANIMATION_DURATION = 0.3;
 
@@ -53,7 +52,6 @@ public class Player extends Entity implements Container {
     // ==================================================================
 
     // Combat state
-    private double attackRange = DEFAULT_ATTACK_RANGE;
     private double attackCooldown = DEFAULT_ATTACK_COOLDOWN;
     private double attackTimer = 0;
     private boolean isAttacking = false;
@@ -709,7 +707,6 @@ public class Player extends Entity implements Container {
      * @return the damage of the item in hand, or of a bare hand
      */
     public double getAttackDamage() { return ToolStats.combatDamage(getActiveItemType()); }
-    public double getAttackRange() { return attackRange; }
 
     // ==================================================================
     //  Private Helper Methods

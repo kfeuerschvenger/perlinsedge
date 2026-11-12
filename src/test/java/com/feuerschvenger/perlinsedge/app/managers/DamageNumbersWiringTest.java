@@ -49,10 +49,10 @@ class DamageNumbersWiringTest {
     @Test
     void aHitOnAnEnemyShowsAYellowKindNumberWithTheDamageOfTheItemInHand() {
         player.setItemAt(0, new Item(ItemType.SWORD, 1));
-        state.getEnemies().add(new Slime(5, 5));
-        state.setMouseOverTile(6, 5);
+        Slime slime = new Slime(5, 5);
+        state.getEnemies().add(slime);
 
-        new CombatManager(state).handlePlayerAttack();
+        new CombatManager(state).strikeEnemy(slime);
 
         DamageNumbers.Entry entry = only();
         assertEquals(DamageNumbers.Kind.ENEMY, entry.getKind());

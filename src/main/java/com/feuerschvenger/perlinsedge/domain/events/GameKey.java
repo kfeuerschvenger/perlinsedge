@@ -6,10 +6,10 @@ package com.feuerschvenger.perlinsedge.domain.events;
  */
 public enum GameKey {
     ESCAPE,
+    /** Centres the camera on the player. */
     SPACE,
     I,
     B,
-    C,
     /** Previous page of the building hotbar. */
     PAGE_UP,
     /** Next page of the building hotbar. */
