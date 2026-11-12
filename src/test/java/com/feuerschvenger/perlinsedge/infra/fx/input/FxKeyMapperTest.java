@@ -67,9 +67,12 @@ class FxKeyMapperTest {
     }
 
     @Test
-    void eStaysUnmappedSoItIsFreeForOtherActions() {
-        assertTrue(key(KeyCode.E).isEmpty());
-        assertTrue(key(KeyCode.E, true).isEmpty());
+    void eUsesTheItemInHandOnlyWithoutModifiers() {
+        assertEquals(Optional.of(GameKey.USE_ITEM), key(KeyCode.E));
+        assertTrue(key(KeyCode.E, true).isEmpty(), "Ctrl+E is not the use key");
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, false, true, false, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, false, false, true, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, false, false, false, true).isEmpty());
     }
 
     @Test

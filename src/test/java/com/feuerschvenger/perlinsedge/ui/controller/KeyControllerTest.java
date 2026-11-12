@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,10 +42,30 @@ class KeyControllerTest {
     }
 
     @Test
-    void noGameKeyIsNamedEBecauseItIsKeptFreeForOtherActions() {
-        for (GameKey key : GameKey.values()) {
-            assertFalse(key.name().equals("E"), key.name());
-        }
+    void theUseKeyRunsItsAction() {
+        List<String> calls = new ArrayList<>();
+        controller.setUseAction(() -> calls.add("use"));
+
+        controller.onKeyAction(GameKey.USE_ITEM);
+        controller.onKeyAction(GameKey.USE_ITEM);
+
+        assertEquals(List.of("use", "use"), calls);
+    }
+
+    @Test
+    void theUseKeyIsAGameplayKeyThatIsIgnoredWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        controller.setUseAction(() -> calls.add("use"));
+        controller.setInputBlocked(() -> true);
+
+        controller.onKeyAction(GameKey.USE_ITEM);
+
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void theUseKeyWithNoActionSetDoesNothing() {
+        assertDoesNotThrow(() -> controller.onKeyAction(GameKey.USE_ITEM));
     }
 
     @Test

@@ -48,6 +48,7 @@ Each map not only looks different but also features unique resources and special
 - **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore and crystals need a pickaxe in your hand, see Tools below.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, or a missing tool.
 - **Hotbar**: The first nine slots of your bag are always on the bar at the bottom of the screen. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand.
+- **Use**: `E`, or pressing the number of the slot you already hold, uses the item in hand. A health potion heals 50, cooked meat 20 and raw meat 5, one item at a time and never above your maximum health. At full health nothing is used up and a hint says so. Using is off while an inventory is open, while paused and while dead.
 - **Zoom**: `Ctrl` with the mouse wheel zooms the camera. In building mode the wheel flips the building pages and `Ctrl` with the wheel still zooms.
 - **Attack**: Point your cursor and press `SPACE`.
 - **Inventory**: `I` toggles your bag of holding.
@@ -71,7 +72,7 @@ Against enemies a bare hand and a pickaxe deal 10 damage per hit, the axe 12 and
 ### Building Mode
 
 - `B` toggles Building mode.
-- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages. `E` is kept free for other actions.
+- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages.
 - Left-click to place, Right-click to demolish.
 - Color hints:
     - **Green**: Good to go.

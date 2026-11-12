@@ -30,6 +30,7 @@ public class KeyController implements IKeyListener {
     private BooleanSupplier inputBlocked;
     private Runnable onDropOne;
     private Runnable onDropStack;
+    private Runnable onUseItem;
 
     /**
      * Constructs a KeyController with the specified actions for various key events.
@@ -85,6 +86,15 @@ public class KeyController implements IKeyListener {
         this.onDropStack = onDropStack;
     }
 
+    /**
+     * Sets the action of the use key. It is a gameplay key, so it is ignored while input is blocked.
+     *
+     * @param onUseItem action for E, which uses the item held in hand
+     */
+    public void setUseAction(Runnable onUseItem) {
+        this.onUseItem = onUseItem;
+    }
+
     /** Tells whether a panel that covers the world currently takes the gameplay keys. */
     private boolean isGameplayBlocked() {
         return inputBlocked != null && inputBlocked.getAsBoolean();
@@ -136,6 +146,9 @@ public class KeyController implements IKeyListener {
             case DROP_STACK:
                 if (onDropStack != null) onDropStack.run();
                 break;
+            case USE_ITEM:
+                if (onUseItem != null) onUseItem.run();
+                break;
 
             // ----------- Debugging keys -----------
 
@@ -165,7 +178,7 @@ public class KeyController implements IKeyListener {
     /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
     private static boolean isGameplayKey(GameKey key) {
         return switch (key) {
-            case SPACE, I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK -> true;
+            case SPACE, I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK, USE_ITEM -> true;
             default -> false;
         };
     }

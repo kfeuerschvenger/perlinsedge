@@ -38,6 +38,7 @@ public class GameOrchestrator {
     private final ItemDropManager itemDropManager;
     private final HotbarManager hotbarManager;
     private final ItemHotbarManager itemHotbarManager;
+    private final ItemUseManager itemUseManager;
     private final ItemHotbarPanel itemHotbarPanel;
     private final DropKeyHandler dropKeys;
 
@@ -104,7 +105,8 @@ public class GameOrchestrator {
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
-        itemHotbarManager = new ItemHotbarManager(this.gameState, () -> { });
+        itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
+        itemHotbarManager = new ItemHotbarManager(this.gameState, itemUseManager::useActiveItem);
 
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
@@ -252,6 +254,7 @@ public class GameOrchestrator {
                 hotbarManager::changePage
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
+        controller.setUseAction(itemUseManager::useActiveItem);
         controller.setInputBlocked(gameState::isGameplayInputBlocked);
         return controller;
     }

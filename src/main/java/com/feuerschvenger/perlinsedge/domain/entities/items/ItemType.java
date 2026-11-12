@@ -106,12 +106,14 @@ public enum ItemType {
     RAW_MEAT(
             64,
             "Fresh meat. Cook it soon, unless you're starting " +
-                    "a very peculiar collection."
+                    "a very peculiar collection.",
+            5
     ),
     COOKED_MEAT(
             64,
             "Juicy, savory, and very satisfying after " +
-                    "a long day of exploring."
+                    "a long day of exploring.",
+            20
     ),
 
     // ==================================================================
@@ -140,7 +142,8 @@ public enum ItemType {
     POTION_HEALTH(
             8,
             "A magical brew for when things go wrong, " +
-                    "or when a dragon disagrees."
+                    "or when a dragon disagrees.",
+            50
     );
 
     // ==================================================================
@@ -150,20 +153,33 @@ public enum ItemType {
     private final String displayName;
     private final String spritePath;
     private final String description;
+    private final int healAmount;
 
     // ==================================================================
     //  Constructor
     // ==================================================================
 
     /**
-     * Creates a new item type definition.
+     * Creates a new item type that cannot be used up.
      *
      * @param maxStackSize Maximum number of items per stack (1 for non-stackable)
      * @param description  Flavor text explaining the item's purpose and characteristics
      */
     ItemType(int maxStackSize, String description) {
+        this(maxStackSize, description, 0);
+    }
+
+    /**
+     * Creates a new item type definition.
+     *
+     * @param maxStackSize Maximum number of items per stack (1 for non-stackable)
+     * @param description  Flavor text explaining the item's purpose and characteristics
+     * @param healAmount   Health restored when one item is used, 0 for an item that cannot be used
+     */
+    ItemType(int maxStackSize, String description, int healAmount) {
         this.maxStackSize = maxStackSize;
         this.description = description;
+        this.healAmount = healAmount;
 
         // Generate display name from enum constant
         String name = name();
@@ -196,6 +212,16 @@ public enum ItemType {
     /** @return Descriptive text explaining the item's purpose */
     public String getDescription() {
         return description;
+    }
+
+    /** @return Health restored when one item is used, 0 for an item that cannot be used */
+    public int getHealAmount() {
+        return healAmount;
+    }
+
+    /** @return true when using one item restores health and uses the item up */
+    public boolean isConsumable() {
+        return healAmount > 0;
     }
 
 }

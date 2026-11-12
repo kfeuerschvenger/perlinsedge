@@ -148,6 +148,21 @@ public abstract class Entity {
     }
 
     /**
+     * Restores health, never beyond the maximum. A dead entity is not healed: it comes back through
+     * {@link #revive(int, int)}.
+     *
+     * @param amount Health to restore; zero or less changes nothing
+     * @return the health actually restored, 0 when the entity is dead, already at full health or amount is not positive
+     */
+    public double heal(double amount) {
+        if (isDead || amount <= 0) return 0;
+
+        final double restored = Math.min(amount, maxHealth - health);
+        health += restored;
+        return restored;
+    }
+
+    /**
      * Handles death logic. Can be overridden by subclasses for custom behavior.
      */
     public void handleDeath() {
