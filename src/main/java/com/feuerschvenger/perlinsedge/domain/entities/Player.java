@@ -172,6 +172,20 @@ public class Player extends Entity implements Container {
         return true;
     }
 
+    /**
+     * Ends the walk in progress. A player between two tiles finishes the step it is on, so it never freezes off the
+     * tile grid; a player standing on a tile stops there.
+     */
+    public void stop() {
+        final PathNode head = currentPath.peek();
+        if (head != null && (posX != currentTileX || posY != currentTileY)) {
+            currentPath.clear();
+            currentPath.add(head);
+            return;
+        }
+        clearPath();
+    }
+
     /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
     @Override
     public void handleDeath() {
@@ -607,17 +621,14 @@ public class Player extends Entity implements Container {
         }
     }
 
+    /** The walker heads for the head of the queue and drops a node only once it stands on it, so every node is visited. */
     private void startNewPath(List<PathNode> path) {
         currentPath.clear();
         currentPath.addAll(path);
-        advanceToNextNode();
-    }
-
-    private void advanceToNextNode() {
-        if (!currentPath.isEmpty()) {
-            PathNode nextNode = currentPath.poll();
-            targetTileX = nextNode.x;
-            targetTileY = nextNode.y;
+        final PathNode first = currentPath.peek();
+        if (first != null) {
+            targetTileX = first.x;
+            targetTileY = first.y;
         }
     }
 

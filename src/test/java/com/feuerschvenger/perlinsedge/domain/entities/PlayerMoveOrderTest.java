@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities;
 
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -82,6 +83,48 @@ class PlayerMoveOrderTest {
                     "the walk of " + steps + " tiles ended on " + walker.getCurrentTileX() + "," + walker.getCurrentTileY());
             assertFalse(walker.isMoving());
         }
+    }
+
+    @Test
+    void aWalkVisitsEveryNodeOfThePathAndNeverCutsAroundAnObstacle() {
+        map.getTile(1, 1).setBuilding(new Wall(1, 1));
+        assertTrue(player.moveTo(map, 2, 2));
+
+        for (int i = 0; i < 240; i++) {
+            player.update(1.0 / 60.0);
+            final int tileX = (int) Math.round(player.getPosX());
+            final int tileY = (int) Math.round(player.getPosY());
+            assertFalse(tileX == 1 && tileY == 1, "the player entered the blocked tile at frame " + i);
+        }
+
+        assertTrue(player.getCurrentTileX() == 2 && player.getCurrentTileY() == 2);
+    }
+
+    @Test
+    void stoppingMidStepFinishesTheStepAndEndsOnATile() {
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0))));
+        for (int i = 0; i < 4; i++) {
+            player.update(1.0 / 60.0);
+        }
+        assertTrue(player.getPosX() != Math.rint(player.getPosX()), "the player is between two tiles");
+
+        player.stop();
+        for (int i = 0; i < 120; i++) {
+            player.update(1.0 / 60.0);
+        }
+
+        assertFalse(player.isMoving());
+        assertTrue(player.getPosX() == Math.rint(player.getPosX()) && player.getCurrentTileX() < 3);
+    }
+
+    @Test
+    void stoppingOnATileStopsThere() {
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0))));
+
+        player.stop();
+
+        assertFalse(player.isMoving());
+        assertTrue(player.getCurrentTileX() == 0 && player.getPosX() == 0);
     }
 
     @Test
