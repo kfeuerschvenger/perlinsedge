@@ -1,7 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.pathfinding;
 
-import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.Collections;
@@ -16,9 +14,6 @@ public final class InteractionPlanner {
 
     /** Largest distance in tiles, on either axis, from which the player can interact with a tile. */
     public static final int REACH = 1;
-
-    /** Bound on the tiles one search may expand, so a target walled in by water does not search the whole map. */
-    private static final int SEARCH_LIMIT = 6000;
 
     /** Not instantiable: the class only holds static rules. */
     private InteractionPlanner() {}
@@ -51,39 +46,9 @@ public final class InteractionPlanner {
         if (inReach(fromX, fromY, targetX, targetY)) {
             return Collections.emptyList();
         }
-        final Pathfinder pathfinder = new Pathfinder(map);
-        List<PathNode> best = null;
-        double bestCost = Double.POSITIVE_INFINITY;
-        for (int[] direction : IsometricUtils.ALL_DIRECTIONS) {
-            final int standX = targetX + direction[0];
-            final int standY = targetY + direction[1];
-            final Tile stand = map.getTile(standX, standY);
-            if (stand == null || !stand.isWalkable()) {
-                continue;
-            }
-            final List<PathNode> path = pathfinder.findPath(fromX, fromY, standX, standY, SEARCH_LIMIT);
-            if (path == null || path.isEmpty()) {
-                continue;
-            }
-            final double cost = cost(path, fromX, fromY);
-            if (cost < bestCost) {
-                best = path;
-                bestCost = cost;
-            }
-        }
-        return best;
-    }
-
-    /** The length of a path in tiles, a diagonal step counting its true length. */
-    private static double cost(List<PathNode> path, int fromX, int fromY) {
-        double total = 0;
-        int x = fromX;
-        int y = fromY;
-        for (PathNode node : path) {
-            total += Math.hypot(node.x - x, node.y - y);
-            x = node.x;
-            y = node.y;
-        }
-        return total;
+        // The search stops at the first reachable stand tile, so it is the cheapest one. The cap is the whole map, so
+        // anything a move order can reach is also reachable for an interaction.
+        final int cap = Math.max(1, map.getWidth() * map.getHeight());
+        return new Pathfinder(map).findPathNextTo(fromX, fromY, targetX, targetY, cap);
     }
 }

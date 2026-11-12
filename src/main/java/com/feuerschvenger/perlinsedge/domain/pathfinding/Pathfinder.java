@@ -18,6 +18,10 @@ public final class Pathfinder {
 
     private final TileMap map;
     private int lastExpandedNodes;
+    /** Farthest a goal tile lies from the target of the search in progress, 0 when the target is the goal. */
+    private double goalSlack;
+    /** True while the search in progress ends on any tile next to the target instead of on the target. */
+    private boolean goalIsNeighbour;
 
     /**
      * Constructs a Pathfinder instance for a specific game map.
@@ -59,13 +63,42 @@ public final class Pathfinder {
      * @return the path excluding the start position, or null if none exists within the cap
      */
     public List<PathNode> findPath(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
+        return search(startX, startY, targetX, targetY, false, maxExpandedNodes);
+    }
+
+    /**
+     * Finds the cheapest path to any walkable tile among the eight around a target, in one search. The target tile
+     * itself is not a goal and does not need to be walkable, so this reaches something solid such as a building or a
+     * resource from whichever side is cheapest.
+     *
+     * @param startX           Starting X coordinate
+     * @param startY           Starting Y coordinate
+     * @param targetX          X coordinate of the tile to get next to
+     * @param targetY          Y coordinate of the tile to get next to
+     * @param maxExpandedNodes largest number of tiles the search may expand, must be positive
+     * @return the path excluding the start position (empty when the start is already next to the target), or null if
+     *         no such tile can be reached within the cap
+     */
+    public List<PathNode> findPathNextTo(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
+        return search(startX, startY, targetX, targetY, true, maxExpandedNodes);
+    }
+
+    /**
+     * A* search to a tile, or to any walkable tile next to it when {@code nextTo} is set. The heuristic of a
+     * next-to search is the distance to the target minus the farthest a goal tile lies from it, which never
+     * overestimates the cost of reaching the closest goal.
+     */
+    private List<PathNode> search(int startX, int startY, int targetX, int targetY,
+                                  boolean nextTo, int maxExpandedNodes) {
         if (maxExpandedNodes <= 0) {
             throw new IllegalArgumentException("maxExpandedNodes must be positive");
         }
         lastExpandedNodes = 0;
+        goalSlack = nextTo ? Math.sqrt(2) : 0;
+        goalIsNeighbour = nextTo;
 
         // Validate start and target positions
-        if (!isWalkable(startX, startY) || !isWalkable(targetX, targetY)) {
+        if (!isWalkable(startX, startY) || (!nextTo && !isWalkable(targetX, targetY))) {
             return null;
         }
 
@@ -176,6 +209,10 @@ public final class Pathfinder {
      * Checks if target position has been reached.
      */
     private boolean isTargetReached(PathNode node, int targetX, int targetY) {
+        if (goalIsNeighbour) {
+            return (node.x != targetX || node.y != targetY)
+                    && Math.abs(node.x - targetX) <= 1 && Math.abs(node.y - targetY) <= 1;
+        }
         return node.x == targetX && node.y == targetY;
     }
 
@@ -201,7 +238,7 @@ public final class Pathfinder {
     private double heuristic(int x1, int y1, int x2, int y2) {
         int dx = x1 - x2;
         int dy = y1 - y2;
-        return Math.sqrt(dx * dx + dy * dy);
+        return Math.max(0, Math.sqrt(dx * dx + dy * dy) - goalSlack);
     }
 
     /**

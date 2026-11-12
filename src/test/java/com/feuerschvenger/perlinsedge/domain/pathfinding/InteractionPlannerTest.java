@@ -105,6 +105,36 @@ class InteractionPlannerTest {
     }
 
     @Test
+    void aTargetBehindALongLakeIsReachedTheLongWayRound() {
+        final int size = 150;
+        TileMap map = new TileMap(size, size);
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
+                map.setTile(x, y, new Tile(x, y, x == 75 && y < size - 1 ? TileType.DEEP_WATER : TileType.GRASS));
+            }
+        }
+
+        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 0, 100, 0);
+
+        assertNotNull(path);
+        assertTrue(InteractionPlanner.inReach(last(path).x, last(path).y, 100, 0));
+    }
+
+    @Test
+    void aTargetEnclosedByWaterFarFromThePlayerIsRefused() {
+        final int size = 40;
+        TileMap map = new TileMap(size, size);
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
+                final boolean ring = Math.max(Math.abs(x - 30), Math.abs(y - 30)) == 3;
+                map.setTile(x, y, new Tile(x, y, ring ? TileType.DEEP_WATER : TileType.GRASS));
+            }
+        }
+
+        assertNull(InteractionPlanner.pathToReach(map, 0, 0, 30, 30));
+    }
+
+    @Test
     void aTargetOnAnIslandTheLandCannotReachGivesNoPath() {
         TileMap map = grassMap();
         for (int y = 0; y < SIZE; y++) {
