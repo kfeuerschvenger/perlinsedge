@@ -16,12 +16,30 @@ public final class Pathfinder {
     private static final int[][] MOVEMENT_DIRECTIONS = IsometricUtils.ALL_DIRECTIONS;
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
 
+    /**
+     * What a single search is looking for, kept apart from the Pathfinder so a search holds no state of its own.
+     *
+     * @param x         X coordinate of the target
+     * @param y         Y coordinate of the target
+     * @param neighbour true when the search ends on any walkable tile next to the target instead of on the target
+     */
+    private record Goal(int x, int y, boolean neighbour) {
+        /** Farthest a goal tile lies from the target, 0 when the target is the goal. */
+        double slack() {
+            return neighbour ? Math.sqrt(2) : 0;
+        }
+
+        boolean isReached(PathNode node) {
+            if (neighbour) {
+                return (node.x != x || node.y != y) && Math.abs(node.x - x) <= 1 && Math.abs(node.y - y) <= 1;
+            }
+            return node.x == x && node.y == y;
+        }
+    }
+
     private final TileMap map;
+    /** Written once per search, so an instance must not run two searches at the same time. */
     private int lastExpandedNodes;
-    /** Farthest a goal tile lies from the target of the search in progress, 0 when the target is the goal. */
-    private double goalSlack;
-    /** True while the search in progress ends on any tile next to the target instead of on the target. */
-    private boolean goalIsNeighbour;
 
     /**
      * Constructs a Pathfinder instance for a specific game map.
@@ -94,11 +112,11 @@ public final class Pathfinder {
             throw new IllegalArgumentException("maxExpandedNodes must be positive");
         }
         lastExpandedNodes = 0;
-        goalSlack = nextTo ? Math.sqrt(2) : 0;
-        goalIsNeighbour = nextTo;
+        final Goal goal = new Goal(targetX, targetY, nextTo);
 
-        // Validate start and target positions
-        if (!isWalkable(startX, startY) || (!nextTo && !isWalkable(targetX, targetY))) {
+        // The start only has to be on the map: a player standing on a tile that became blocked must still be able to
+        // walk off it
+        if (!IsometricUtils.isWithinMapBounds(startX, startY, map) || (!nextTo && !isWalkable(targetX, targetY))) {
             return null;
         }
 
@@ -109,7 +127,7 @@ public final class Pathfinder {
 
         // Configure starting node
         final PathNode startNode = new PathNode(startX, startY);
-        initializeNode(startNode, 0, heuristic(startX, startY, targetX, targetY));
+        initializeNode(startNode, 0, heuristic(startX, startY, goal));
         openSet.add(startNode);
         gScores.put(startNode, 0.0);
 
@@ -123,7 +141,7 @@ public final class Pathfinder {
             }
 
             // Check for path completion
-            if (isTargetReached(current, targetX, targetY)) {
+            if (goal.isReached(current)) {
                 return reconstructPath(cameFrom, current);
             }
 
@@ -132,7 +150,7 @@ public final class Pathfinder {
             }
 
             // Explore all possible neighbor directions
-            exploreNeighbors(current, targetX, targetY, openSet, cameFrom, gScores);
+            exploreNeighbors(current, goal, openSet, cameFrom, gScores);
         }
 
         return null; // No valid path exists
@@ -150,7 +168,7 @@ public final class Pathfinder {
     /**
      * Explores all neighbor directions from current position.
      */
-    private void exploreNeighbors(PathNode current, int targetX, int targetY,
+    private void exploreNeighbors(PathNode current, Goal goal,
                                   PriorityQueue<PathNode> openSet,
                                   Map<PathNode, PathNode> cameFrom,
                                   Map<PathNode, Double> gScores) {
@@ -167,7 +185,7 @@ public final class Pathfinder {
                 continue;
             }
 
-            processNeighbor(current, nx, ny, targetX, targetY,
+            processNeighbor(current, nx, ny, goal,
                     i, openSet, cameFrom, gScores);
         }
     }
@@ -179,7 +197,7 @@ public final class Pathfinder {
     /**
      * Processes a single neighbor position.
      */
-    private void processNeighbor(PathNode current, int nx, int ny, int targetX, int targetY,
+    private void processNeighbor(PathNode current, int nx, int ny, Goal goal,
                                  int directionIndex,
                                  PriorityQueue<PathNode> openSet,
                                  Map<PathNode, PathNode> cameFrom,
@@ -190,7 +208,7 @@ public final class Pathfinder {
         // Update neighbor if we found a better path
         if (newGCost < gScores.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
             cameFrom.put(neighbor, current);
-            initializeNode(neighbor, newGCost, heuristic(nx, ny, targetX, targetY));
+            initializeNode(neighbor, newGCost, heuristic(nx, ny, goal));
             gScores.put(neighbor, newGCost);
             openSet.add(neighbor);
         }
@@ -203,17 +221,6 @@ public final class Pathfinder {
         node.gCost = gCost;
         node.hCost = hCost;
         node.fCost = gCost + hCost;
-    }
-
-    /**
-     * Checks if target position has been reached.
-     */
-    private boolean isTargetReached(PathNode node, int targetX, int targetY) {
-        if (goalIsNeighbour) {
-            return (node.x != targetX || node.y != targetY)
-                    && Math.abs(node.x - targetX) <= 1 && Math.abs(node.y - targetY) <= 1;
-        }
-        return node.x == targetX && node.y == targetY;
     }
 
     /**
@@ -235,10 +242,10 @@ public final class Pathfinder {
      * Euclidean distance heuristic for 8-direction movement.
      * Consistent and admissible for A* algorithm.
      */
-    private double heuristic(int x1, int y1, int x2, int y2) {
-        int dx = x1 - x2;
-        int dy = y1 - y2;
-        return Math.max(0, Math.sqrt(dx * dx + dy * dy) - goalSlack);
+    private double heuristic(int x, int y, Goal goal) {
+        int dx = x - goal.x();
+        int dy = y - goal.y();
+        return Math.max(0, Math.sqrt(dx * dx + dy * dy) - goal.slack());
     }
 
     /**

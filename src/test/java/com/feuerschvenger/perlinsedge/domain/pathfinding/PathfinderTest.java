@@ -103,11 +103,44 @@ class PathfinderTest {
     }
 
     @Test
-    void returnsNullWhenTheStartIsNotWalkable() {
+    void aStartTileThatBecameBlockedStillLetsTheWalkerLeaveIt() {
         TileMap map = grassMap();
-        map.setTile(0, 0, new Tile(0, 0, TileType.DEEP_WATER));
+        wall(map, 0, 0);
 
-        assertNull(new Pathfinder(map).findPath(0, 0, 3, 3));
+        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 3, 3);
+
+        assertNotNull(path);
+        assertEquals(3, last(path).x);
+        assertEquals(3, last(path).y);
+        assertTrue(path.stream().noneMatch(n -> n.x == 0 && n.y == 0));
+    }
+
+    @Test
+    void aBlockedStartTileLetsTheNextToSearchLeaveIt() {
+        TileMap map = grassMap();
+        wall(map, 0, 0);
+
+        List<PathNode> path = new Pathfinder(map).findPathNextTo(0, 0, 4, 4, 100);
+
+        assertNotNull(path);
+        assertEquals(3, path.size(), "three diagonal steps reach the tile next to (4, 4)");
+    }
+
+    @Test
+    void returnsNullWhenTheStartIsOffTheMap() {
+        assertNull(new Pathfinder(grassMap()).findPath(-1, 0, 3, 3));
+    }
+
+    @Test
+    void aSecondSearchOnTheSameInstanceIsNotAffectedByTheFirst() {
+        Pathfinder pathfinder = new Pathfinder(grassMap());
+
+        List<PathNode> nextTo = pathfinder.findPathNextTo(0, 0, 4, 0, 100);
+        List<PathNode> exact = pathfinder.findPath(0, 0, 4, 0);
+
+        assertEquals(3, nextTo.size(), "the next-to search stops beside the target");
+        assertEquals(4, exact.size(), "the plain search that follows still ends on the target");
+        assertEquals(4, last(exact).x);
     }
 
     @Test
