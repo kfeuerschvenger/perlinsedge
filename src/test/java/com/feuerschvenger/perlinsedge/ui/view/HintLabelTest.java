@@ -39,6 +39,28 @@ class HintLabelTest {
     }
 
     @Test
+    void showingAgainWhileFadingOutFadesBackInAndStaysVisible() throws InterruptedException {
+        HintLabel label = FxToolkitSupport.onFx(() -> {
+            HintLabel created = new HintLabel();
+            created.show("first");
+            // The state of a label half way through its fade out
+            created.setOpacity(0.2);
+            created.show("second");
+            return created;
+        });
+
+        assertEquals(0.2, FxToolkitSupport.onFx(label::getOpacity), 0.1, "it continues from where it was");
+        double opacity = 0;
+        for (int attempt = 0; attempt < 40 && opacity < 0.99; attempt++) {
+            Thread.sleep(25);
+            opacity = FxToolkitSupport.onFx(label::getOpacity);
+        }
+
+        assertTrue(opacity >= 0.99, "the label fades back in to full opacity instead of carrying on to zero: " + opacity);
+        assertEquals("SECOND", FxToolkitSupport.onFx(label::getText).toUpperCase());
+    }
+
+    @Test
     void aHiddenLabelStartsFromTransparent() {
         double opacity = FxToolkitSupport.onFx(() -> {
             HintLabel label = new HintLabel();
