@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -12,6 +13,7 @@ import javafx.scene.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.ToIntFunction;
 
 /**
@@ -35,13 +37,17 @@ public class ItemInfoPanel extends VBox {
     private static final double DETAILS_AREA_HEIGHT = 160;
 
     private static final String DEFAULT_TITLE = "Select an Item";
+    private static final String INGREDIENTS_HEADER = "Ingredients:";
 
     // UI components
     private Text titleText;
     private Text descriptionText;
+    private Text ingredientsHeader;
     private ScrollPane detailsScroll;
     /** The ingredient lines of a recipe, one text each so every line has its own colour. */
     private final VBox ingredientsBox = new VBox();
+    /** What the panel describes: an item type or a recipe, or null when it describes nothing. */
+    private Object shownSubject;
 
     /**
      * Initializes the information panel with default configuration.
@@ -77,7 +83,12 @@ public class ItemInfoPanel extends VBox {
 
         // The description and the ingredients scroll inside an area of one fixed size, so neither the panel nor the
         // window around it depends on how much there is to read
-        final VBox details = new VBox(CONTENT_SPACING, descriptionText, ingredientsBox);
+        // The ingredients come first: they are what a player checks before crafting, so they are visible without scrolling
+        ingredientsHeader = createStyledText(UiTheme.MUTED, INGREDIENTS_HEADER);
+        ingredientsHeader.setVisible(false);
+        ingredientsHeader.setManaged(false);
+        ingredientsBox.setSpacing(2);
+        final VBox details = new VBox(CONTENT_SPACING, ingredientsHeader, ingredientsBox, descriptionText);
         detailsScroll = new ScrollPane(details);
         detailsScroll.setFitToWidth(true);
         detailsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -121,18 +132,53 @@ public class ItemInfoPanel extends VBox {
             return;
         }
 
-        show(formatItemTitle(item), item.getDescription());
-        ingredientsBox.getChildren().clear();
+        show(item.getType(), formatItemTitle(item), item.getDescription());
+        setIngredientLines(List.of());
     }
 
     /**
-     * Shows a title and a description and scrolls the description back to its start. The description may be of any
-     * length: the panel keeps its size and the text scrolls.
+     * Shows a title and a description. The description may be of any length: the panel keeps its size and the text
+     * scrolls. The inventory shows its selection again many times a second, so the scroll position goes back to the
+     * start only when the subject is another one than the panel showed, never because the same subject is shown again.
+     *
+     * @param subject     what is described, an item type or a recipe, or null for nothing
+     * @param title       the title
+     * @param description the description
      */
-    void show(String title, String description) {
+    void show(Object subject, String title, String description) {
         titleText.setText(UiTheme.caps(title));
         descriptionText.setText(description);
-        detailsScroll.setVvalue(0);
+        if (!Objects.equals(subject, shownSubject)) {
+            shownSubject = subject;
+            detailsScroll.setVvalue(0);
+        }
+    }
+
+    /**
+     * Shows the ingredient lines. Lines that read and look the same as the ones shown are kept, so a refresh that
+     * changes nothing rebuilds nothing under the scroll bar.
+     */
+    private void setIngredientLines(List<Text> lines) {
+        final boolean changed = !sameLines(ingredientsBox.getChildren(), lines);
+        if (changed) {
+            ingredientsBox.getChildren().setAll(lines);
+        }
+        ingredientsHeader.setVisible(!lines.isEmpty());
+        ingredientsHeader.setManaged(!lines.isEmpty());
+    }
+
+    private static boolean sameLines(List<Node> shown, List<Text> lines) {
+        if (shown.size() != lines.size()) {
+            return false;
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            final Text current = (Text) shown.get(i);
+            final Text next = lines.get(i);
+            if (!current.getText().equals(next.getText()) || !current.getStyleClass().equals(next.getStyleClass())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Gives the area that holds the description, for the tests. */
@@ -163,8 +209,8 @@ public class ItemInfoPanel extends VBox {
             return;
         }
 
-        show(recipe.getName(), formatRecipeDetails(recipe));
-        ingredientsBox.getChildren().setAll(createIngredientLines(recipe, have));
+        show(recipe, recipe.getName(), formatRecipeDetails(recipe));
+        setIngredientLines(createIngredientLines(recipe, have));
     }
 
     /**
@@ -185,8 +231,7 @@ public class ItemInfoPanel extends VBox {
         details.append("Crafts: ")
                 .append(recipe.getOutputQuantity())
                 .append("x ")
-                .append(recipe.getOutputItemType().getDisplayName())
-                .append("\n\nIngredients:");
+                .append(recipe.getOutputItemType().getDisplayName());
 
         return details.toString();
     }
@@ -223,8 +268,8 @@ public class ItemInfoPanel extends VBox {
      * Clears all displayed information and resets to default state.
      */
     public void clearInfo() {
-        show(DEFAULT_TITLE, "");
-        ingredientsBox.getChildren().clear();
+        show(null, DEFAULT_TITLE, "");
+        setIngredientLines(List.of());
     }
 
 }
