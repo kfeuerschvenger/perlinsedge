@@ -11,7 +11,7 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 - **Crafting System**: Combine recipes to make tools, weapons, and more.
 - **Base Building**: Construct fortresses, huts, or your dream treehouse.
 - **Inventory Management**: Organized chaos: your call.
-- **Basic Combat**: Swing, shoot, or smash your way through enemies.
+- **Basic Combat**: Swing or smash your way through enemies.
 - **Exploration**: Roam biomes, find hidden secrets, or just get lost (we won’t judge).
 - **Pathfinding**: Smart navigation for friends: and foes.
 
@@ -45,7 +45,8 @@ Each map not only looks different but also features unique resources and special
 ### Exploration Mode
 
 - **Move**: Right-click where you want to go.
-- **Gather**: Left-click trees, rocks, and other goodies. Iron ore sits in rocky ground and needs a pickaxe in your bag.
+- **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click, a move order, pausing, or the target disappearing cancels the walk. Iron ore sits in rocky ground and needs a pickaxe in your bag.
+- **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, or a missing tool.
 - **Attack**: Point your cursor and press `SPACE`.
 - **Inventory**: `I` toggles your bag of holding.
 - **Pause**: `ESC` for a breather or snack.
@@ -147,19 +148,16 @@ perlins-edge/
 
 ## Things to Improve / Add
 
+The bigger ideas, such as digging and farming, a player bow, fishing, a day and night cycle with lighting, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 - **Better sprites!!!**
 - **Save/Load** game progress
-- Day/Night cycle
-- Farming mode (planting & harvesting)
 - Tree replanting mechanic
 - Resource regeneration for stones & crystals
-- Fishing mechanic
 - Passive animals (flee when hurt), neutral animals (fight back if attacked)
 - More enemy types, day/night-specific spawns
 - Portals to other dimensions
-- Magic and sinister biomes, for example an enchanted forest and a cursed swamp, with their own palettes and creatures, kept separate from the realistic biomes
 - Weather changes (rain, sandstorms, snowstorms)
-- Lighting & shadows system
 - Dropped items despawn timer
 - Enemies respawn after a while
 - Multiplayer support (local or online)
