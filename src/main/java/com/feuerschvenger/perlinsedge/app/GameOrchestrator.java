@@ -350,6 +350,7 @@ public class GameOrchestrator {
     private void render(double alpha, double deltaTime) {
         if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
         lastAlpha = alpha;
+        inputWiring.refreshHover();
 
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             int[] mouseTile = gameState.getMouseOverTile();

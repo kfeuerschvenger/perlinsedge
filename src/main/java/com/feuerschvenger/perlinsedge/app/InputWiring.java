@@ -7,10 +7,10 @@ import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
 import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.TilePicker;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.infra.fx.input.ScrollInterceptor;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
@@ -28,8 +28,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class InputWiring {
-    private static final int CLICK_TILE_ADJUSTMENT = 5;
-
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
@@ -40,6 +38,12 @@ public class InputWiring {
     private final FxMinimapDrawer minimapDrawer;
     private final Canvas mainCanvas;
     private final Runnable onContainerOpened;
+
+    /** Receives the tile found by {@link #pickTile}, reused so a pick allocates nothing. */
+    private final int[] pickedTile = new int[2];
+    private double lastMouseX;
+    private double lastMouseY;
+    private boolean mouseOverCanvas;
 
     private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasClick;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
@@ -126,11 +130,9 @@ public class InputWiring {
     private void handleCanvasClick(MouseEvent event) {
         if (gameState.isGamePaused() || gameState.isPlayerDead()) return;
 
-        int[] tileCoords = getClickedTile(event.getX(), event.getY());
-        int tileX = tileCoords[0];
-        int tileY = tileCoords[1];
-
-        if (!isWithinMapBounds(tileX, tileY)) return;
+        if (!pickTile(event.getX(), event.getY())) return;
+        int tileX = pickedTile[0];
+        int tileY = pickedTile[1];
 
         Tile tile = gameState.getCurrentMap().getTile(tileX, tileY);
         if (tile == null) return;
@@ -175,30 +177,36 @@ public class InputWiring {
         }
     }
 
-    private int[] getClickedTile(double screenX, double screenY) {
-        return IsometricUtils.screenToTileAdjusted(
-                screenX, screenY,
-                camera.getX(), camera.getY(),
-                camera.getZoom(),
-                AppConfig.getInstance().graphics().getTileHalfWidth(),
-                AppConfig.getInstance().graphics().getTileHalfHeight(),
-                CLICK_TILE_ADJUSTMENT
-        );
-    }
-
-    private boolean isWithinMapBounds(int x, int y) {
+    /**
+     * Finds the tile under a canvas point into {@link #pickedTile}, with the one rule hover and clicks share.
+     *
+     * @return true when the point is over a tile of the current map
+     */
+    private boolean pickTile(double screenX, double screenY) {
         TileMap map = gameState.getCurrentMap();
-        return map != null && x >= 0 && x < map.getWidth() && y >= 0 && y < map.getHeight();
+        if (map == null) return false;
+        return TilePicker.pick(map, screenX, screenY, camera.getX(), camera.getY(), camera.getZoom(),
+                AppConfig.getInstance().graphics().getTileHalfWidth(),
+                AppConfig.getInstance().graphics().getTileHalfHeight(), pickedTile);
     }
 
-    private void handleMouseMovement(MouseEvent event) {
-        if (shouldIgnoreMouseInput()) {
+    /**
+     * Recomputes the tile under the mouse from the last known mouse position.
+     * Called once per frame, so the cursor follows the ground when the camera pans, zooms or recentres and when the
+     * mode changes, not only when the mouse itself moves.
+     */
+    public void refreshHover() {
+        if (!mouseOverCanvas || shouldIgnoreMouseInput() || !pickTile(lastMouseX, lastMouseY)) {
             gameState.setMouseOverTile(-1, -1);
             return;
         }
+        gameState.setMouseOverTile(pickedTile[0], pickedTile[1]);
+    }
 
-        int[] tileCoords = getHoveredTile(event.getX(), event.getY());
-        gameState.setMouseOverTile(tileCoords[0], tileCoords[1]);
+    private void handleMouseMovement(MouseEvent event) {
+        lastMouseX = event.getX();
+        lastMouseY = event.getY();
+        mouseOverCanvas = true;
     }
 
     private boolean shouldIgnoreMouseInput() {
@@ -207,17 +215,8 @@ public class InputWiring {
                 gameState.getCurrentGameMode() == GameMode.PAUSED;
     }
 
-    private int[] getHoveredTile(double screenX, double screenY) {
-        return IsometricUtils.screenToTile(
-                screenX, screenY,
-                camera.getX(), camera.getY(),
-                camera.getZoom(),
-                AppConfig.getInstance().graphics().getTileHalfWidth(),
-                AppConfig.getInstance().graphics().getTileHalfHeight()
-        );
-    }
-
     private void handleMouseExit(MouseEvent event) {
+        mouseOverCanvas = false;
         gameState.setMouseOverTile(-1, -1);
     }
 

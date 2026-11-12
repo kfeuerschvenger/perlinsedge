@@ -259,7 +259,9 @@ public class FxRenderer {
             if (highlightTile != null) {
                 double screenX = (mouseOverTileX - mouseOverTileY) * halfTileWidth + offsetX;
                 double screenY = (mouseOverTileX + mouseOverTileY) * halfTileHeight + offsetY;
-                double centerY = screenY + config.graphics().getTileHalfHeight() * zoom;
+                // A water tile shows its sheet below the land tops, so the cursor sits on the sheet
+                double centerY = screenY + config.graphics().getTileHalfHeight() * zoom
+                        + (highlightTile.getType().isWater() ? TileDepths.SURFACE_PIXELS * ZoomSteps.artScale(zoom) : 0);
 
                 // Show the construction preview while building, the normal highlight otherwise
                 if (previewBuildingType != null && previewColor != null) {
