@@ -30,6 +30,7 @@ public class GameOrchestrator {
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
     private final PlayerManager playerManager;
+    private final InteractionManager interactionManager;
     private final CombatManager combatManager;
     private final InventoryManager inventoryManager;
     private final MapManager mapManager;
@@ -101,10 +102,14 @@ public class GameOrchestrator {
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
-        transitions.setOnPaused(() -> render(lastAlpha, 0));
-        inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
-                resourceManager, camera, inputHandler, minimapDrawer, mainCanvas,
-                transitions::showOpenContainer);
+        interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
+                containerManager, transitions::showOpenContainer, hintLabel::show);
+        transitions.setOnPaused(() -> {
+            interactionManager.cancel();
+            render(lastAlpha, 0);
+        });
+        inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager,
+                camera, inputHandler, minimapDrawer, mainCanvas);
     }
 
     // ==================================================================
@@ -144,6 +149,7 @@ public class GameOrchestrator {
      */
     public void leaveGame() {
         stopGameLoop();
+        interactionManager.cancel();
         transitions.resetUi();
         deathOverlay.hide();
         renderer.clearBuildingPreview();
@@ -318,6 +324,7 @@ public class GameOrchestrator {
         gameState.incrementGameTime(deltaTime);
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        interactionManager.update();
         if (gameState.isPlayerDead()) {
             // Building mode and the inventory cannot stay open under the death screen
             transitions.setGameMode(GameMode.EXPLORATION);

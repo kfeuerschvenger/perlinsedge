@@ -41,6 +41,8 @@ public class GameStateManager {
     // Input & UI State
     private int mouseOverTileX = -1;
     private int mouseOverTileY = -1;
+    /** The flash the cursor shows on the tile of the last click order. */
+    private final ClickFeedback clickFeedback = new ClickFeedback();
     private boolean isGamePaused = false;
     private boolean isInventoryOpen = false;
     @Getter(lombok.AccessLevel.NONE)
@@ -70,6 +72,7 @@ public class GameStateManager {
         // UI/Input reset
         mouseOverTileX = -1;
         mouseOverTileY = -1;
+        clickFeedback.clear();
         isGamePaused = false;
         isInventoryOpen = false;
         shouldCenterCamera = false;

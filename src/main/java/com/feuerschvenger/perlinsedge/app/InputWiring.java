@@ -1,10 +1,9 @@
 package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
-import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;
 import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
-import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -30,14 +29,12 @@ import lombok.extern.slf4j.Slf4j;
 public class InputWiring {
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
-    private final ContainerManager containerManager;
     private final PlayerManager playerManager;
-    private final ResourceManager resourceManager;
+    private final InteractionManager interactionManager;
     private final FxCamera camera;
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
     private final Canvas mainCanvas;
-    private final Runnable onContainerOpened;
 
     /** Receives the tile found by {@link #pickTile}, reused so a pick allocates nothing. */
     private final int[] pickedTile = new int[2];
@@ -54,31 +51,25 @@ public class InputWiring {
      * Creates the wiring.
      *
      * @param gameState        shared game state
-     * @param buildingManager  building placement and interaction
-     * @param containerManager open container tracking
+     * @param buildingManager  building placement and removal
      * @param playerManager    player movement
-     * @param resourceManager  resource harvesting
+     * @param interactionManager walks to and interacts with resources and buildings
      * @param camera           camera used to convert screen to tile coordinates
      * @param inputHandler     keyboard and scroll input source
      * @param minimapDrawer    minimap view
      * @param mainCanvas       canvas that receives game clicks
-     * @param onContainerOpened called after a click opened a container, it shows the container and switches the mode
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
-                       ContainerManager containerManager, PlayerManager playerManager,
-                       ResourceManager resourceManager, FxCamera camera,
-                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas,
-                       Runnable onContainerOpened) {
+                       PlayerManager playerManager, InteractionManager interactionManager, FxCamera camera,
+                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
-        this.containerManager = containerManager;
         this.playerManager = playerManager;
-        this.resourceManager = resourceManager;
+        this.interactionManager = interactionManager;
         this.camera = camera;
         this.inputHandler = inputHandler;
         this.minimapDrawer = minimapDrawer;
         this.mainCanvas = mainCanvas;
-        this.onContainerOpened = onContainerOpened;
     }
 
     /**
@@ -142,7 +133,7 @@ public class InputWiring {
                 handleBuildingModeClick(event, tileX, tileY);
                 break;
             case EXPLORATION:
-                handleExplorationModeClick(event, tileX, tileY, tile);
+                handleExplorationModeClick(event, tileX, tileY);
                 break;
             case INVENTORY_OPEN:
             case CRAFTING_OPEN:
@@ -160,21 +151,21 @@ public class InputWiring {
         }
     }
 
-    private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY, Tile tile) {
+    /**
+     * Left click interacts with the tile, walking up to it first when it is out of reach; right click walks to it.
+     * Either order flashes the clicked tile green when it was accepted and red when it was refused.
+     */
+    private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY) {
+        final boolean accepted;
         if (event.getButton() == MouseButton.PRIMARY) {
-            // Prioritize building interaction
-            if (tile.hasBuilding() && buildingManager.interactWithBuilding(tileX, tileY)) {
-                if (containerManager.isContainerOpen()) {
-                    onContainerOpened.run();
-                }
-            }
-            // Then resource interaction
-            else if (tile.hasResource()) {
-                resourceManager.handleTileInteraction(gameState.getPlayer(), tile);
-            }
+            accepted = interactionManager.interact(tileX, tileY);
         } else if (event.getButton() == MouseButton.SECONDARY) {
-            playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
+            interactionManager.cancel();
+            accepted = playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
+        } else {
+            return;
         }
+        gameState.getClickFeedback().flash(tileX, tileY, accepted, gameState.getGameTime());
     }
 
     /**

@@ -47,7 +47,7 @@ class InputWiringTest {
         minimapCanvas = new Canvas(100, 60);
         FxCamera camera = new FxCamera(100, 100, 1.0);
         FxMinimapDrawer minimap = new FxMinimapDrawer(minimapCanvas, camera, mainCanvas);
-        wiring = new InputWiring(state, null, null, null, null, camera, null, minimap, mainCanvas, () -> { });
+        wiring = new InputWiring(state, null, null, null, camera, null, minimap, mainCanvas);
     }
 
     private static void click(Canvas target) {
@@ -108,8 +108,8 @@ class InputWiringTest {
     void clicksAreIgnoredWhileThePlayerIsDead() {
         DeadPlayerGameState dead = new DeadPlayerGameState();
         FxCamera camera = new FxCamera(100, 100, 1.0);
-        InputWiring deadWiring = new InputWiring(dead, null, null, null, null, camera, null,
-                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas, () -> { });
+        InputWiring deadWiring = new InputWiring(dead, null, null, null, camera, null,
+                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas);
         deadWiring.registerMouseHandlers();
 
         click(mainCanvas);
@@ -133,8 +133,8 @@ class InputWiringTest {
         }
         running.setCurrentMap(map);
         FxCamera camera = new FxCamera(0, 0, 1.0);
-        InputWiring hover = new InputWiring(running, null, null, null, null, camera, null,
-                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas, () -> { });
+        InputWiring hover = new InputWiring(running, null, null, null, camera, null,
+                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas);
         hover.registerMouseHandlers();
 
         move(mainCanvas, 0, 112);
@@ -159,8 +159,8 @@ class InputWiringTest {
         }
         running.setCurrentMap(map);
         FxCamera camera = new FxCamera(0, 0, 1.0);
-        InputWiring hover = new InputWiring(running, null, null, null, null, camera, null,
-                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas, () -> { });
+        InputWiring hover = new InputWiring(running, null, null, null, camera, null,
+                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas);
         hover.registerMouseHandlers();
         move(mainCanvas, 0, 112);
         hover.refreshHover();
