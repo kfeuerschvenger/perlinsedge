@@ -54,7 +54,7 @@ class InteractionManagerTest {
         state.setPlayer(player);
         BuildingManager buildings = new BuildingManager(state, new RecipeManager(), containers);
         ResourceManager resources = new ResourceManager(state, hints::add);
-        interactions = new InteractionManager(state, buildings, resources, containers,
+        interactions = new InteractionManager(state, buildings, resources, new CombatManager(state), containers,
                 containerShown::incrementAndGet, hints::add);
     }
 

@@ -112,7 +112,7 @@ public class GameOrchestrator {
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
-                containerManager, transitions::showOpenContainer, hintLabel::show);
+                combatManager, containerManager, transitions::showOpenContainer, hintLabel::show);
         transitions.setOnPaused(() -> {
             interactionManager.cancel();
             render(lastAlpha, 0);

@@ -2,7 +2,9 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -13,7 +15,9 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Carries out the interaction the player asks for with a click on a resource or on a building such as a chest or a door.
+ * Carries out the interaction the player asks for with a click on a resource, on a building such as a chest or a door,
+ * or on an enemy, which is attacked with the item in hand. An enemy is followed while it moves: the walk is planned
+ * again whenever it has changed tile, and the swing lands the first time it is within reach.
  * Within reach the interaction happens at once. Out of reach the player first walks toward the nearest walkable tile
  * next to the target and the interaction happens once, on arrival, which is the first moment the player is within
  * reach: the walk ends there instead of going on to the stand tile. A target hit too recently to be hit again keeps
@@ -41,14 +45,22 @@ public class InteractionManager {
     }
 
     /** What a click on a tile does. */
-    private enum Kind { NONE, BUILDING, RESOURCE }
+    private enum Kind { NONE, BUILDING, RESOURCE, ENEMY }
 
-    /** The interaction the player is walking to. */
-    private record Pending(int tileX, int tileY, Kind kind) { }
+    /**
+     * The interaction the player is walking to. For an enemy the tile is the one the enemy stood on when the walk was
+     * planned, and the enemy itself is the target; for anything else the enemy is null.
+     */
+    private record Pending(int tileX, int tileY, Kind kind, Enemy enemy) {
+        Pending(int tileX, int tileY, Kind kind) {
+            this(tileX, tileY, kind, null);
+        }
+    }
 
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
     private final ResourceManager resourceManager;
+    private final CombatManager combatManager;
     private final ContainerManager containerManager;
     private final Runnable onContainerOpened;
     private final Consumer<String> hintSink;
@@ -61,16 +73,19 @@ public class InteractionManager {
      * @param gameState         shared game state
      * @param buildingManager   opens chests and toggles doors
      * @param resourceManager   hits resources
+     * @param combatManager     swings at enemies
      * @param containerManager  tells whether an interaction opened a container
      * @param onContainerOpened called after an interaction opened a container, it shows the container
      * @param hintSink          receives the short message shown when the target cannot be reached
      */
     public InteractionManager(GameStateManager gameState, BuildingManager buildingManager,
-                              ResourceManager resourceManager, ContainerManager containerManager,
+                              ResourceManager resourceManager, CombatManager combatManager,
+                              ContainerManager containerManager,
                               Runnable onContainerOpened, Consumer<String> hintSink) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
         this.resourceManager = resourceManager;
+        this.combatManager = combatManager;
         this.containerManager = containerManager;
         this.onContainerOpened = onContainerOpened;
         this.hintSink = hintSink;
@@ -94,6 +109,11 @@ public class InteractionManager {
         if (player == null || map == null || player.isDead()) {
             return Outcome.REFUSED;
         }
+        // An enemy on the tile is the target, ahead of whatever else the tile holds
+        final Enemy enemy = enemyAt(tileX, tileY);
+        if (enemy != null) {
+            return attack(player, map, enemy);
+        }
         final Tile tile = map.getTile(tileX, tileY);
         final Kind kind = kindOf(tile);
         if (kind == Kind.NONE) {
@@ -106,7 +126,8 @@ public class InteractionManager {
 
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
-        final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY);
+        final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY,
+                OccupiedTiles.of(gameState.getEnemies()));
         if (walk == null) {
             hintSink.accept("You can't reach that");
             return Outcome.REFUSED;
@@ -146,6 +167,10 @@ public class InteractionManager {
         if (player == null || map == null || player.isDead()
                 || gameState.isGamePaused() || gameState.getCurrentGameMode() != GameMode.EXPLORATION) {
             cancel();
+            return;
+        }
+        if (pending.kind() == Kind.ENEMY) {
+            updateAttack(player, map);
             return;
         }
         final Tile tile = map.getTile(pending.tileX(), pending.tileY());
@@ -197,6 +222,105 @@ public class InteractionManager {
      */
     public boolean hasPending() {
         return pending != null;
+    }
+
+    /**
+     * Starts an attack on an enemy: the swing happens at once when the enemy is within reach, otherwise the player
+     * walks toward it. A swing that must wait for the cooldown stays pending and lands when the cooldown ends.
+     */
+    private Outcome attack(Player player, TileMap map, Enemy enemy) {
+        final int enemyX = enemy.getCurrentTileX();
+        final int enemyY = enemy.getCurrentTileY();
+        if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), enemyX, enemyY)) {
+            // A walk left over from an earlier order would carry the player away from the enemy
+            player.stop();
+            return switch (combatManager.strikeEnemy(enemy)) {
+                case HIT -> Outcome.ACCEPTED;
+                case COOLDOWN -> {
+                    pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+                    log.debug("Waiting to swing at the enemy on ({}, {})", enemyX, enemyY);
+                    yield Outcome.IGNORED;
+                }
+                case REFUSED -> Outcome.REFUSED;
+            };
+        }
+        if (!chase(player, map, enemy)) {
+            return Outcome.REFUSED;
+        }
+        log.debug("Walking to the enemy on ({}, {})", enemyX, enemyY);
+        return Outcome.ACCEPTED;
+    }
+
+    /**
+     * Plans the walk toward an enemy from where the player is heading and makes it the pending interaction. The walk
+     * goes around the enemies and ends on a free tile next to the target.
+     *
+     * @return false when there is no way to a tile next to the enemy, after hinting so
+     */
+    private boolean chase(Player player, TileMap map, Enemy enemy) {
+        final int enemyX = enemy.getCurrentTileX();
+        final int enemyY = enemy.getCurrentTileY();
+        // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
+        final PathNode origin = player.getWalkOrigin();
+        final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, enemyX, enemyY,
+                OccupiedTiles.of(gameState.getEnemies()));
+        if (walk == null) {
+            hintSink.accept("You can't reach that");
+            return false;
+        }
+        if (!walk.isEmpty() && !player.walkAlong(walk)) {
+            return false;
+        }
+        pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+        return true;
+    }
+
+    /**
+     * Advances a pending attack: swings once the enemy is within reach, and while it is not, follows it, planning the
+     * walk again whenever the enemy has moved to another tile or the walk has ended. The attack ends when the enemy
+     * is gone or cannot be reached.
+     */
+    private void updateAttack(Player player, TileMap map) {
+        final Enemy enemy = pending.enemy();
+        if (enemy.isDead() || !gameState.getEnemies().contains(enemy)) {
+            cancel();
+            return;
+        }
+        final int enemyX = enemy.getCurrentTileX();
+        final int enemyY = enemy.getCurrentTileY();
+        if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), enemyX, enemyY)) {
+            player.stop();
+            switch (combatManager.strikeEnemy(enemy)) {
+                case HIT -> pending = null;
+                case COOLDOWN -> pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+                case REFUSED -> {
+                    pending = null;
+                    gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
+                }
+            }
+            return;
+        }
+        if (enemyX != pending.tileX() || enemyY != pending.tileY() || !player.isMoving()) {
+            if (!chase(player, map, enemy)) {
+                cancel();
+                gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
+            }
+        }
+    }
+
+    /** Finds the living enemy that a click on a tile points at: the one standing on it or drawn over it. */
+    private Enemy enemyAt(int tileX, int tileY) {
+        for (Enemy enemy : gameState.getEnemies()) {
+            if (enemy.isDead()) {
+                continue;
+            }
+            final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
+            final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
+            if (standsThere || drawnThere) {
+                return enemy;
+            }
+        }
+        return null;
     }
 
     private Outcome perform(Player player, Tile tile, Kind kind) {

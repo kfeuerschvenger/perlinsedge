@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
@@ -89,6 +90,41 @@ public class CombatManager {
         applyMeleeDamage(player);
     }
 
+    /** What came of an order to hit one enemy. */
+    public enum Strike {
+        /** The swing landed on the enemy. */
+        HIT,
+        /** The player swung too recently to swing again. */
+        COOLDOWN,
+        /** The attack cannot happen: no player, a dead player or enemy, a paused game, or the enemy out of reach. */
+        REFUSED
+    }
+
+    /**
+     * Swings at one enemy with the item in hand. The player turns toward the enemy and the swing lands on that enemy
+     * alone, for the damage of the active item, so a click on an enemy never depends on where the mouse rests after
+     * the click. The player's own cooldown gates the swing, as it does for the attack key.
+     *
+     * @param target the enemy to hit
+     * @return {@link Strike#HIT} when the swing landed, {@link Strike#COOLDOWN} when it must wait, and
+     *         {@link Strike#REFUSED} when the enemy is not within melee reach of the tile the player stands on
+     */
+    public Strike strikeEnemy(Enemy target) {
+        if (!isValidAttackState() || target == null || target.isDead()) return Strike.REFUSED;
+
+        final Player player = gameState.getPlayer();
+        if (!InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(),
+                target.getCurrentTileX(), target.getCurrentTileY())) {
+            return Strike.REFUSED;
+        }
+        final int direction = calculateAttackDirection(target.getCurrentTileX() - player.getCurrentTileX(),
+                target.getCurrentTileY() - player.getCurrentTileY());
+        if (!player.startAttack(direction)) return Strike.COOLDOWN;
+
+        damage(target, player);
+        return Strike.HIT;
+    }
+
     /**
      * Calculates the vector from player to mouse position in tile coordinates.
      * @return [deltaX, deltaY] array
@@ -123,13 +159,18 @@ public class CombatManager {
 
         for (Enemy enemy : enemies) {
             if (isWithinAttackRange(attackPos, enemy, player.getAttackRange())) {
-                enemy.takeDamage(player.getAttackDamage());
-                gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, player.getAttackDamage(),
-                        enemy.getPosX(), enemy.getPosY(), gameState.getGameTime());
-                if (enemy.isDead()) {
-                    handleEnemyDeath(enemy);
-                }
+                damage(enemy, player);
             }
+        }
+    }
+
+    /** Deals the damage of the item in hand to an enemy, shows the number and processes its death. */
+    private void damage(Enemy enemy, Player player) {
+        enemy.takeDamage(player.getAttackDamage());
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, player.getAttackDamage(),
+                enemy.getPosX(), enemy.getPosY(), gameState.getGameTime());
+        if (enemy.isDead()) {
+            handleEnemyDeath(enemy);
         }
     }
 
