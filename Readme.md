@@ -66,10 +66,10 @@ Each map not only looks different but also features unique resources and special
 ### Inventory
 
 - Drag a stack onto another slot to move, stack or swap it.
-- Drag a stack out of the panel (release it over anything that is not a slot) to throw the whole stack into the world.
+- Drag a stack out of the panel (release it outside the panel) to throw the whole stack into the world. Releasing it over the panel but over no slot puts it back.
 - Right-click while dragging to throw one item and keep dragging the rest.
 - `Q` over a slot throws one item, and `Ctrl+Q` throws the whole stack. With the mouse over no slot, they act on the selected slot.
-- Thrown items land one or two tiles ahead of you, in the direction you are facing, never inside a wall, water or a resource. Identical items thrown within a tile of each other merge into one stack.
+- Thrown items land one or two tiles ahead of you, in the direction you are facing, never inside a wall, water or a resource. Identical items you threw within a tile of each other merge into one stack.
 - You cannot pick up what you threw for two seconds, and items left on the ground vanish after five minutes of game time. Time spent paused does not count.
 
 ### Crafting

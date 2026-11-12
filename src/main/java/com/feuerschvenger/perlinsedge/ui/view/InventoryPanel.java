@@ -216,12 +216,12 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
-    /** @return true while a stack is being dragged out of a slot */
-    boolean isDragging() {
-        return controller.isDragging();
-    }
-
-    /** @return the slot a slot node stands for */
+    /**
+     * Reads the slot a slot node stands for.
+     *
+     * @param slot a slot node of one of the grids
+     * @return the slot a slot node stands for
+     */
     static SlotRef refOf(StackPane slot) {
         SlotContext context = (SlotContext) slot.getUserData();
         return new SlotRef(context.container, context.index);
@@ -338,7 +338,10 @@ public class InventoryPanel extends BorderPane {
     //  Display updates
     // ==================================================================
 
-    /** Updates the inventory display based on current state. */
+    /**
+     * Updates the inventory display based on current state. A stack in hand follows its slot: its ghost shows the
+     * new quantity, and the drag ends when the stack is gone.
+     */
     public void updateInventoryDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
 
@@ -347,6 +350,27 @@ public class InventoryPanel extends BorderPane {
         }
 
         updateInformationDisplay();
+        controller.refreshDrag();
+    }
+
+    /**
+     * Tells whether a point of the scene is inside the panel, over a slot or not.
+     *
+     * @param sceneX X coordinate in the scene
+     * @param sceneY Y coordinate in the scene
+     * @return true when the point is within the bounds of the panel
+     */
+    boolean containsScenePoint(double sceneX, double sceneY) {
+        return localToScene(getLayoutBounds()).contains(sceneX, sceneY);
+    }
+
+    /**
+     * Passes on that the window gained or lost the focus.
+     *
+     * @param focused true when the window has the focus
+     */
+    void windowFocusChanged(boolean focused) {
+        controller.handleWindowFocus(focused);
     }
 
     private void updateInformationDisplay() {
@@ -613,7 +637,8 @@ public class InventoryPanel extends BorderPane {
 
     /**
      * Sets the callback run when a stack is dragged out of the panel, or one item of it is thrown with a right click
-     * while dragging. Releasing anywhere that is not a slot throws the stack.
+     * while dragging. Releasing outside the panel throws the stack, releasing over the panel but over no slot puts it
+     * back.
      *
      * @param callback the callback
      */
@@ -646,16 +671,6 @@ public class InventoryPanel extends BorderPane {
      */
     public SlotRef getHoveredOrSelectedSlot() {
         return controller.hoveredOrSelectedSlot();
-    }
-
-    /** @return the callback run when an item is dropped on a slot */
-    public ItemTransferCallback getOnItemDroppedInsideCallback() {
-        return controller.getOnItemDroppedInsideCallback();
-    }
-
-    /** @return the callback run when a stack is thrown out of the panel */
-    public ItemDropCallback getOnItemDroppedCallback() {
-        return controller.getOnItemDroppedCallback();
     }
 
 }

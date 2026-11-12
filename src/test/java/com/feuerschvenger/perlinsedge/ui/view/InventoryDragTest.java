@@ -19,6 +19,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -132,12 +133,21 @@ class InventoryDragTest {
         fire(slot, MouseEvent.MOUSE_RELEASED, MouseButton.SECONDARY, at, true, false);
     }
 
+    /** The stack in hand is shown as a ghost that follows the mouse, which exists exactly while a drag runs. */
     private boolean dragging() {
-        return FxToolkitSupport.onFx(panel::isDragging);
+        return hasGhost();
     }
 
     private boolean hasGhost() {
         return FxToolkitSupport.onFx(() -> panel.getChildren().stream().anyMatch(node -> !node.isManaged()));
+    }
+
+    private void click(StackPane slot, MouseButton button) {
+        fire(slot, MouseEvent.MOUSE_CLICKED, button, centerOf(slot), false, false);
+    }
+
+    private boolean isSelected(StackPane slot) {
+        return FxToolkitSupport.onFx(() -> slot.getStyleClass().contains(UiTheme.SLOT_SELECTED));
     }
 
     private int groundQuantity(ItemType type) {
@@ -169,15 +179,165 @@ class InventoryDragTest {
     }
 
     @Test
-    void releasingOverThePanelBackgroundThrowsTheStackToo() {
+    void releasingOverThePanelBackgroundPutsTheStackBack() {
         StackPane source = slot(player, 3);
         press(source);
         moveTo(source, panelBackground());
 
         release(source, panelBackground());
 
-        assertNull(player.getItemAt(3));
-        assertEquals(5, groundQuantity(ItemType.STONE));
+        assertFalse(dragging());
+        assertFalse(hasGhost());
+        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertTrue(state.getDroppedItems().isEmpty());
+        assertTrue(transfers.isEmpty());
+        assertEquals(1.0, FxToolkitSupport.onFx(source::getOpacity));
+    }
+
+    @Test
+    void aStackThrownWithTheKeyWhileDraggingShrinksTheDragAndEndsItWhenTheStackIsGone() {
+        StackPane source = slot(player, 3);
+        press(source);
+        moveTo(source, OUTSIDE);
+        ItemDropManager drops = new ItemDropManager(state, panel::updateInventoryDisplay);
+
+        FxToolkitSupport.onFx(() -> drops.dropFromSlot(player, 3, false));
+
+        assertTrue(dragging(), "four stones are still in hand");
+        FxToolkitSupport.onFx(() -> drops.dropFromSlot(player, 3, true));
+
+        assertFalse(dragging(), "the stack is gone, so the ghost is gone");
+        assertEquals(1.0, FxToolkitSupport.onFx(source::getOpacity));
+        release(source, OUTSIDE);
+        assertEquals(5, groundQuantity(ItemType.STONE), "the release finds no stack and throws nothing more");
+    }
+
+    @Test
+    void theClickThatFollowsTheReleaseOfADragSelectsNothing() {
+        StackPane source = slot(player, 3);
+        StackPane target = slot(player, 6);
+        press(source);
+        moveTo(source, centerOf(target));
+        release(source, centerOf(target));
+
+        click(target, MouseButton.PRIMARY);
+
+        assertFalse(isSelected(target));
+
+        click(target, MouseButton.PRIMARY);
+
+        assertTrue(isSelected(target), "an ordinary click selects as before");
+    }
+
+    @Test
+    void aSwallowedClickDoesNotLeakIntoTheNextGesture() {
+        StackPane source = slot(player, 3);
+        StackPane target = slot(player, 6);
+        press(source);
+        moveTo(source, OUTSIDE);
+        release(source, OUTSIDE);
+        // No click followed the release, the next press must start clean
+        press(target);
+        release(target, centerOf(target));
+
+        click(target, MouseButton.PRIMARY);
+
+        assertTrue(isSelected(target));
+    }
+
+    @Test
+    void onlyThePrimaryButtonSelectsASlot() {
+        StackPane source = slot(player, 3);
+
+        click(source, MouseButton.SECONDARY);
+        click(source, MouseButton.MIDDLE);
+
+        assertFalse(isSelected(source));
+
+        click(source, MouseButton.PRIMARY);
+
+        assertTrue(isSelected(source));
+    }
+
+    @Test
+    void afterADragTheHoveredSlotIsTheOneUnderTheRelease() {
+        StackPane source = slot(player, 3);
+        StackPane target = slot(player, 9);
+        press(source);
+        moveTo(source, centerOf(target));
+
+        release(source, centerOf(target));
+
+        var hovered = FxToolkitSupport.onFx(panel::getHoveredOrSelectedSlot);
+        assertEquals(9, hovered.slot());
+        assertTrue(hovered.container() == player);
+    }
+
+    @Test
+    void afterADragReleasedOverNoSlotNoSlotCountsAsHovered() {
+        StackPane source = slot(player, 3);
+        FxToolkitSupport.onFx(() -> {
+            Event.fireEvent(source, new MouseEvent(MouseEvent.MOUSE_ENTERED, 0, 0, 0, 0, MouseButton.NONE, 0,
+                    false, false, false, false, false, false, false, false, false, false, null));
+            return null;
+        });
+        press(source);
+        moveTo(source, OUTSIDE);
+
+        release(source, OUTSIDE);
+
+        assertNull(FxToolkitSupport.onFx(panel::getHoveredOrSelectedSlot));
+    }
+
+    @Test
+    void losingTheWindowFocusMidDragPutsTheStackBack() {
+        StackPane source = slot(player, 3);
+        press(source);
+        moveTo(source, OUTSIDE);
+        assertTrue(dragging());
+
+        FxToolkitSupport.onFx(() -> {
+            panel.windowFocusChanged(false);
+            return null;
+        });
+
+        assertFalse(dragging());
+        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(1.0, FxToolkitSupport.onFx(source::getOpacity));
+        release(source, OUTSIDE);
+        assertTrue(state.getDroppedItems().isEmpty());
+    }
+
+    @Test
+    void gainingTheWindowFocusDoesNotTouchADrag() {
+        StackPane source = slot(player, 3);
+        press(source);
+        moveTo(source, OUTSIDE);
+
+        FxToolkitSupport.onFx(() -> {
+            panel.windowFocusChanged(true);
+            return null;
+        });
+
+        assertTrue(dragging());
+    }
+
+    @Test
+    void thePanelWatchesTheFocusOfTheWindowItIsShownIn() {
+        boolean cancelled = FxToolkitSupport.onFx(() -> {
+            InventoryPanel created = new InventoryPanel(state);
+            Pane root = new Pane(created);
+            Scene scene = new Scene(root, 400, 300);
+            Stage stage = new Stage();
+            stage.setScene(scene);
+            // Attaching and detaching the scene must leave no listener behind that fails later
+            stage.setScene(null);
+            stage.setScene(scene);
+            created.windowFocusChanged(false);
+            return true;
+        });
+
+        assertTrue(cancelled);
     }
 
     @Test

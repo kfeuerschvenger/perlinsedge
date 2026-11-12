@@ -18,7 +18,7 @@ final class DragSession {
         CANCEL,
         /** The stack moves to, stacks with or swaps with the slot it was released over. */
         TRANSFER,
-        /** The stack is thrown into the world: it was released anywhere that is not a slot. */
+        /** The stack is thrown into the world: it was released outside the panel. */
         DROP_STACK
     }
 
@@ -40,12 +40,20 @@ final class DragSession {
         }
     }
 
-    /** @return the slot the stack is dragged from */
+    /**
+     * The slot the stack came from.
+     *
+     * @return the slot the stack is dragged from
+     */
     SlotRef origin() {
         return origin;
     }
 
-    /** @return the dragged stack */
+    /**
+     * The stack in hand.
+     *
+     * @return the dragged stack
+     */
     Item item() {
         return item;
     }
@@ -64,15 +72,17 @@ final class DragSession {
     /**
      * Decides what a release does.
      *
-     * @param target the slot the mouse was released over, or null when it was released anywhere else
-     * @return the outcome
+     * @param target    the slot the mouse was released over, or null when it was released over no slot
+     * @param overPanel true when the mouse was released inside the inventory panel, whether over a slot or not
+     * @return the outcome: a release over the panel but over no slot is a mis-aim and cancels, only a release outside
+     *         the panel throws the stack
      */
-    Release release(SlotRef target) {
+    Release release(SlotRef target, boolean overPanel) {
         if (!isStillValid()) {
             return Release.CANCEL;
         }
         if (target == null) {
-            return Release.DROP_STACK;
+            return overPanel ? Release.CANCEL : Release.DROP_STACK;
         }
         if (target.container() == origin.container() && target.slot() == origin.slot()) {
             return Release.CANCEL;

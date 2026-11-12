@@ -46,25 +46,30 @@ class DragSessionTest {
     }
 
     @Test
-    void releasingOutsideEverySlotThrowsTheStack() {
-        assertEquals(DragSession.Release.DROP_STACK, session.release(null));
+    void releasingOutsideThePanelThrowsTheStack() {
+        assertEquals(DragSession.Release.DROP_STACK, session.release(null, false));
+    }
+
+    @Test
+    void releasingOverThePanelButOverNoSlotCancels() {
+        assertEquals(DragSession.Release.CANCEL, session.release(null, true));
     }
 
     @Test
     void releasingOverAnotherSlotMovesTheStackThere() {
-        assertEquals(DragSession.Release.TRANSFER, session.release(new SlotRef(player, 5)));
+        assertEquals(DragSession.Release.TRANSFER, session.release(new SlotRef(player, 5), true));
     }
 
     @Test
     void releasingOverASlotOfAnotherContainerMovesTheStackThere() {
         Chest chest = new Chest(0, 0, 9);
 
-        assertEquals(DragSession.Release.TRANSFER, session.release(new SlotRef(chest, 2)));
+        assertEquals(DragSession.Release.TRANSFER, session.release(new SlotRef(chest, 2), true));
     }
 
     @Test
     void releasingOverTheSlotItCameFromChangesNothing() {
-        assertEquals(DragSession.Release.CANCEL, session.release(new SlotRef(player, 2)));
+        assertEquals(DragSession.Release.CANCEL, session.release(new SlotRef(player, 2), true));
     }
 
     @Test
@@ -72,8 +77,8 @@ class DragSessionTest {
         player.setItemAt(2, null);
 
         assertFalse(session.isStillValid());
-        assertEquals(DragSession.Release.CANCEL, session.release(null));
-        assertEquals(DragSession.Release.CANCEL, session.release(new SlotRef(player, 5)));
+        assertEquals(DragSession.Release.CANCEL, session.release(null, false));
+        assertEquals(DragSession.Release.CANCEL, session.release(new SlotRef(player, 5), true));
     }
 
     @Test
@@ -81,7 +86,7 @@ class DragSessionTest {
         player.setItemAt(2, new Item(ItemType.STONE, 5));
 
         assertFalse(session.isStillValid());
-        assertEquals(DragSession.Release.CANCEL, session.release(null));
+        assertEquals(DragSession.Release.CANCEL, session.release(null, false));
     }
 
     @Test
@@ -89,6 +94,6 @@ class DragSessionTest {
         stack.removeQuantity(2);
 
         assertTrue(session.isStillValid());
-        assertEquals(DragSession.Release.DROP_STACK, session.release(null));
+        assertEquals(DragSession.Release.DROP_STACK, session.release(null, false));
     }
 }

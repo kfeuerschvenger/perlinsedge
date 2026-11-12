@@ -9,12 +9,14 @@ import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
+import javafx.stage.Window;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -28,7 +30,8 @@ import lombok.extern.slf4j.Slf4j;
  * The drag is tracked here instead of with the platform drag and drop, which delivers no mouse events while it runs
  * and so cannot see the right button. The press on a slot is remembered, and a filter on the scene follows the mouse
  * from then on, wherever it goes: past a few pixels the stack is picked up, a right click throws one item and keeps
- * the rest in hand, and releasing the left button either drops the stack on a slot or throws it into the world.
+ * the rest in hand, and releasing the left button drops the stack on a slot, throws it into the world when the mouse
+ * is outside the panel, or puts it back when the mouse is over the panel but over no slot.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -41,10 +44,8 @@ class InventoryController {
     private final InventoryPanel view;
     private final GameStateManager gameState;
 
-    @Getter
     @Setter
     private ItemTransferCallback onItemDroppedInsideCallback;
-    @Getter
     @Setter
     private ItemDropCallback onItemDroppedCallback;
     @Setter
@@ -72,8 +73,15 @@ class InventoryController {
     private DragSession session;
     /** Slot highlighted as the place the stack would go, or null. */
     private StackPane highlightedTarget;
+    /** True from the moment a drag starts until the next press: the click that ends the gesture selects nothing. */
+    private boolean swallowClick;
 
     private final EventHandler<MouseEvent> sceneMouseFilter = this::handleSceneMouse;
+    private final ChangeListener<Boolean> focusListener = (observable, wasFocused, focused) -> handleWindowFocus(focused);
+    private final ChangeListener<Window> windowListener = (observable, oldWindow, newWindow) -> {
+        unwatchFocus(oldWindow);
+        watchFocus(newWindow);
+    };
 
     // ==================================================================
     //  Hover
@@ -122,9 +130,37 @@ class InventoryController {
     void bindScene(Scene oldScene, Scene newScene) {
         if (oldScene != null) {
             oldScene.removeEventFilter(MouseEvent.ANY, sceneMouseFilter);
+            oldScene.windowProperty().removeListener(windowListener);
+            unwatchFocus(oldScene.getWindow());
         }
         if (newScene != null) {
             newScene.addEventFilter(MouseEvent.ANY, sceneMouseFilter);
+            newScene.windowProperty().addListener(windowListener);
+            watchFocus(newScene.getWindow());
+        }
+    }
+
+    private void watchFocus(Window window) {
+        if (window != null) {
+            window.focusedProperty().addListener(focusListener);
+        }
+    }
+
+    private void unwatchFocus(Window window) {
+        if (window != null) {
+            window.focusedProperty().removeListener(focusListener);
+        }
+    }
+
+    /**
+     * Reacts to the window gaining or losing the focus. A window that loses it never reports the release of a mouse
+     * button held at that moment, so a stack in hand goes back to its slot instead of staying stuck to the mouse.
+     *
+     * @param focused true when the window has the focus
+     */
+    void handleWindowFocus(boolean focused) {
+        if (!focused) {
+            cancelDrag();
         }
     }
 
@@ -138,18 +174,28 @@ class InventoryController {
         pressSceneY = event.getSceneY();
     }
 
-    /** @return true while a stack is in hand */
-    boolean isDragging() {
-        return session != null;
-    }
-
-    /** Puts a stack in hand back without changing anything, for when the panel closes mid drag. */
+    /** Puts a stack in hand back without changing anything, for when the panel closes or the window loses focus. */
     void cancelDrag() {
         if (session != null) {
             log.debug("DRAG CANCEL: {}", session.item().getDisplayName());
         }
         endDrag();
         pressedSlot = null;
+    }
+
+    /**
+     * Brings the stack in hand in line with its slot after the inventory changed: the ghost shows the quantity the
+     * slot holds now, and a stack that left its slot, for example thrown with the Q key or picked up, ends the drag.
+     */
+    void refreshDrag() {
+        if (session == null) {
+            return;
+        }
+        if (session.isStillValid()) {
+            view.refreshDragGhost(session.item());
+        } else {
+            cancelDrag();
+        }
     }
 
     private void handleSceneMouse(MouseEvent event) {
@@ -166,6 +212,9 @@ class InventoryController {
     }
 
     private void handleScenePressed(MouseEvent event) {
+        if (event.getButton() == MouseButton.PRIMARY) {
+            swallowClick = false;
+        }
         if (session == null) {
             return;
         }
@@ -212,6 +261,7 @@ class InventoryController {
             return;
         }
         session = new DragSession(origin);
+        swallowClick = true;
         pressedSlot.setOpacity(DRAGGED_SLOT_OPACITY);
         view.showDragGhost(item, event.getSceneX(), event.getSceneY());
         log.debug("DRAG START: {}x {} from slot {}", item.getQuantity(), item.getDisplayName(), origin.slot());
@@ -219,10 +269,14 @@ class InventoryController {
 
     private void finishDrag(MouseEvent event) {
         DragSession finished = session;
-        SlotRef target = view.slotAt(event.getSceneX(), event.getSceneY());
+        StackPane under = view.slotNodeAt(event.getSceneX(), event.getSceneY());
+        SlotRef target = under == null ? null : InventoryPanel.refOf(under);
+        boolean overPanel = view.containsScenePoint(event.getSceneX(), event.getSceneY());
         endDrag();
+        // The mouse button was held, so no enter or exit event told which slot the mouse ended up over
+        hoveredSlot = under;
 
-        DragSession.Release outcome = finished.release(target);
+        DragSession.Release outcome = finished.release(target, overPanel);
         log.debug("DRAG RELEASE: {} {}", finished.item().getDisplayName(), outcome);
         switch (outcome) {
             case TRANSFER -> {
@@ -238,23 +292,19 @@ class InventoryController {
             }
             case CANCEL -> { }
         }
-        view.updateInventoryDisplay();
     }
 
     /** A right click while dragging throws one item and keeps the rest in hand. */
     private void dropOneFromHand() {
-        if (!session.isStillValid()) {
+        DragSession inHand = session;
+        if (!inHand.isStillValid()) {
             cancelDrag();
             return;
         }
-        boolean thrown = onItemDroppedCallback != null && onItemDroppedCallback.drop(session.origin(), false);
-        log.debug("DRAG DROP ONE: {} thrown={}", session.item().getDisplayName(), thrown);
-        if (session.isStillValid()) {
-            view.refreshDragGhost(session.item());
-        } else {
-            endDrag();
-            pressedSlot = null;
-        }
+        boolean thrown = onItemDroppedCallback != null && onItemDroppedCallback.drop(inHand.origin(), false);
+        log.debug("DRAG DROP ONE: {} thrown={}", inHand.item().getDisplayName(), thrown);
+        // The callback may already have refreshed the panel, which ends the drag when the stack is gone
+        refreshDrag();
     }
 
     private void highlightTargetAt(double sceneX, double sceneY) {
@@ -293,6 +343,15 @@ class InventoryController {
     // ==================================================================
 
     void handleSlotClick(MouseEvent event) {
+        if (event.getButton() != MouseButton.PRIMARY) {
+            return;
+        }
+        if (swallowClick) {
+            // The click that follows the release of a drag is part of the drag, not a selection
+            swallowClick = false;
+            event.consume();
+            return;
+        }
         InventoryPanel.SlotContext context = (InventoryPanel.SlotContext) ((Node) event.getSource()).getUserData();
         log.debug("SLOT CLICK: Slot {}", context.index);
 
@@ -350,6 +409,5 @@ class InventoryController {
 
         log.debug("CRAFT CLICK: {}", recipe.getName());
         onCraftRecipeCallback.craft(recipe);
-        view.updateInventoryDisplay();
     }
 }
