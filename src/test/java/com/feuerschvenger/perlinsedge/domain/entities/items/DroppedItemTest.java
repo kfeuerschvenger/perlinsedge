@@ -89,11 +89,21 @@ class DroppedItemTest {
 
         assertEquals(8, pile.getQuantity());
         assertEquals(DroppedItem.DropSource.PLAYER, pile.getSource());
-        assertEquals(10, pile.getDropTime(), "the drop time is the throw, the timers are kept apart");
         assertFalse(pile.canBePickedUp(4, 4, 101.9));
         assertTrue(pile.canBePickedUp(4, 4, 102.0));
         assertFalse(pile.isExpired(399.9));
         assertTrue(pile.isExpired(400.1));
+    }
+
+    @Test
+    void absorbingUnitsDoesNotRestartTheFlightWhichIsMeasuredFromTheThrow() {
+        DroppedItem pile = new DroppedItem(0, 0, 4, 4, new Item(ItemType.STONE, 3), 10, DroppedItem.DropSource.PLAYER);
+
+        pile.absorb(1, 10.2);
+
+        assertEquals(0.5, pile.flightProgress(10 + DroppedItem.THROW_SECONDS / 2), 1e-9,
+                "the pile flies on from the original throw time while its timers started again");
+        assertEquals(1.0, pile.flightProgress(10 + DroppedItem.THROW_SECONDS), 1e-9);
     }
 
     @Test

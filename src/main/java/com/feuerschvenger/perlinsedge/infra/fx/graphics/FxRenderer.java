@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
+import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
@@ -12,6 +13,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.*;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.CursorStyle;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.DebugTileSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FlatTileSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
@@ -51,6 +53,18 @@ public class FxRenderer {
     /** Width in art pixels the shadow is sized from for a player drawn without art. */
     private static final double FALLBACK_PLAYER_ART_WIDTH = 12.0;
 
+    /** The resting crosshair, dark over light ground and light over dark ground, each over an outline of the other. */
+    private static final Color CURSOR_DARK = Color.rgb(40, 40, 40);
+    private static final Color CURSOR_LIGHT = Color.rgb(235, 235, 235);
+    private static final Color CURSOR_DARK_OUTLINE = Color.rgb(0, 0, 0, 0.6);
+    private static final Color CURSOR_LIGHT_OUTLINE = Color.rgb(255, 255, 255, 0.6);
+    private static final double CURSOR_LINE_WIDTH = 2.0;
+
+    /** The answer to a click order: green when it was accepted, red when it was refused. */
+    private static final Color CURSOR_ACCEPTED = Color.rgb(60, 220, 90);
+    private static final Color CURSOR_REJECTED = Color.rgb(235, 60, 60);
+    private static final double FLASH_LINE_WIDTH = 3.0;
+
     private final GraphicsContext gc;
     private final Canvas canvas;
     private final FxCamera camera;
@@ -81,6 +95,7 @@ public class FxRenderer {
     private Color previewColor;
     private BuildingPreview cachedPreview;
     private TileHighlight cachedHighlight;
+    private TileHighlight cachedFlashHighlight;
 
     /**
      * Constructs the renderer with the given GraphicsContext and camera.
@@ -254,20 +269,30 @@ public class FxRenderer {
         int mouseOverTileX = gameState.getMouseOverTileX();
         int mouseOverTileY = gameState.getMouseOverTileY();
 
+        // The tile of the last click order flashes green or red, on the hovered tile or wherever the click was
+        final ClickFeedback feedback = gameState.getClickFeedback();
+        final ClickFeedback.Kind flashKind = feedback.kind(currentFrameGameTime);
+        final boolean flashOnHover = flashKind != ClickFeedback.Kind.NONE
+                && feedback.getTileX() == mouseOverTileX && feedback.getTileY() == mouseOverTileY;
+
         if (mouseOverTileX != -1 && mouseOverTileY != -1) {
             Tile highlightTile = map.getTile(mouseOverTileX, mouseOverTileY);
             if (highlightTile != null) {
-                double screenX = (mouseOverTileX - mouseOverTileY) * halfTileWidth + offsetX;
-                double screenY = (mouseOverTileX + mouseOverTileY) * halfTileHeight + offsetY;
-                double centerY = screenY + config.graphics().getTileHalfHeight() * zoom;
-
                 // Show the construction preview while building, the normal highlight otherwise
                 if (previewBuildingType != null && previewColor != null) {
+                    double screenX = (mouseOverTileX - mouseOverTileY) * halfTileWidth + offsetX;
+                    double centerY = cursorCenterY(highlightTile, mouseOverTileX, mouseOverTileY, zoom, offsetY);
                     renderQueue.add(screenX, centerY, centerY + 1, previewFor(), null, false, null);
                 } else {
-                    renderQueue.add(screenX, centerY, centerY + 1,
-                            highlightFor(screenX, centerY, tileWidth, tileHeight), null, false, null);
+                    queueCursor(highlightTile, mouseOverTileX, mouseOverTileY,
+                            flashOnHover ? flashKind : ClickFeedback.Kind.NONE, false, zoom, offsetX, offsetY);
                 }
+            }
+        }
+        if (flashKind != ClickFeedback.Kind.NONE && !flashOnHover) {
+            Tile flashTile = map.getTile(feedback.getTileX(), feedback.getTileY());
+            if (flashTile != null) {
+                queueCursor(flashTile, feedback.getTileX(), feedback.getTileY(), flashKind, true, zoom, offsetX, offsetY);
             }
         }
 
@@ -371,13 +396,42 @@ public class FxRenderer {
         return preview;
     }
 
-    /** The tile highlight, recreated only when the hovered tile or the zoom changes it. */
-    private TileHighlight highlightFor(double centerX, double centerY, double tileWidth, double tileHeight) {
-        TileHighlight highlight = cachedHighlight;
+    /**
+     * Y of the centre of the top of a tile as the player sees it.
+     * A water tile shows its sheet below the land tops, so the cursor sits on the sheet.
+     */
+    private double cursorCenterY(Tile tile, int tileX, int tileY, double zoom, double offsetY) {
+        final double halfTileHeight = AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
+        final double sheetDrop = tile.getType().isWater() ? TileDepths.SURFACE_PIXELS * ZoomSteps.artScale(zoom) : 0;
+        return (tileX + tileY) * halfTileHeight + offsetY + halfTileHeight + sheetDrop;
+    }
+
+    /** Queues the crosshair of a tile, dark or light by the ground under it. */
+    private void queueCursor(Tile tile, int tileX, int tileY, ClickFeedback.Kind tone, boolean flashSlot,
+                             double zoom, double offsetX, double offsetY) {
+        final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
+        final double screenX = (tileX - tileY) * graphics.getTileHalfWidth() * zoom + offsetX;
+        final double centerY = cursorCenterY(tile, tileX, tileY, zoom, offsetY);
+        final boolean light = CursorStyle.isLightGround(tile.getType(),
+                AssetPaths.tileArt(activeMapType, tile.getType()));
+        renderQueue.add(screenX, centerY, centerY + 1,
+                highlightFor(flashSlot, screenX, centerY, graphics.getTileWidth() * zoom,
+                        graphics.getTileHeight() * zoom, light, tone), null, false, null);
+    }
+
+    /** The tile highlight, recreated only when the tile, the zoom, the ground or the answer to a click changes it. */
+    private TileHighlight highlightFor(boolean flashSlot, double centerX, double centerY, double tileWidth,
+                                       double tileHeight, boolean lightGround, ClickFeedback.Kind tone) {
+        TileHighlight highlight = flashSlot ? cachedFlashHighlight : cachedHighlight;
         if (highlight == null || highlight.centerX() != centerX || highlight.centerY() != centerY
-                || highlight.tileWidth() != tileWidth || highlight.tileHeight() != tileHeight) {
-            highlight = new TileHighlight(centerX, centerY, tileWidth, tileHeight);
-            cachedHighlight = highlight;
+                || highlight.tileWidth() != tileWidth || highlight.tileHeight() != tileHeight
+                || highlight.lightGround() != lightGround || highlight.tone() != tone) {
+            highlight = new TileHighlight(centerX, centerY, tileWidth, tileHeight, lightGround, tone);
+            if (flashSlot) {
+                cachedFlashHighlight = highlight;
+            } else {
+                cachedHighlight = highlight;
+            }
         }
         return highlight;
     }
@@ -447,8 +501,28 @@ public class FxRenderer {
      * @param highlight The TileHighlight object containing the highlight information.
      */
     private void drawHighlightTile(TileHighlight highlight) {
+        final Color line;
+        final Color outline;
+        final double lineWidth;
+        final double alpha;
+        switch (highlight.tone()) {
+            case ACCEPTED, REJECTED -> {
+                line = highlight.tone() == ClickFeedback.Kind.ACCEPTED ? CURSOR_ACCEPTED : CURSOR_REJECTED;
+                outline = CURSOR_DARK_OUTLINE;
+                lineWidth = FLASH_LINE_WIDTH;
+                alpha = CursorStyle.flashAlpha(gameState.getClickFeedback().strength(currentFrameGameTime));
+            }
+            default -> {
+                // The crosshair is dark over light ground and light over dark ground, each with an outline of the
+                // opposite brightness, and it breathes slowly on the game clock
+                line = highlight.lightGround() ? CURSOR_DARK : CURSOR_LIGHT;
+                outline = highlight.lightGround() ? CURSOR_LIGHT_OUTLINE : CURSOR_DARK_OUTLINE;
+                lineWidth = CURSOR_LINE_WIDTH;
+                alpha = CursorStyle.breathAlpha(currentFrameGameTime);
+            }
+        }
         FxTileDrawingHelper.drawTileHighlight(gc, highlight.centerX(), highlight.centerY(),
-                highlight.tileWidth(), highlight.tileHeight(), camera.getZoom());
+                highlight.tileWidth(), highlight.tileHeight(), camera.getZoom(), line, outline, lineWidth, alpha);
     }
 
     /**

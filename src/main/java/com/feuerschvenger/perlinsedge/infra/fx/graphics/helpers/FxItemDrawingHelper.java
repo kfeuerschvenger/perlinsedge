@@ -136,7 +136,9 @@ public final class FxItemDrawingHelper {
             case STONE -> drawStone(gc, x, y, width, height, margin);
             case CRYSTALS -> drawCrystals(gc, centerX, centerY, width * 0.4, height * 0.4);
             case SLIME_BALL -> drawSlimeBall(gc, x, y, width, height);
-            case PICKAXE, AXE, SWORD, SHOVEL, BOW -> drawTool(gc, x, y, width, height, itemType);
+            case PICKAXE -> drawTool(gc, x, y, width, height, Tool.PICKAXE);
+            case AXE -> drawTool(gc, x, y, width, height, Tool.AXE);
+            case SWORD -> drawTool(gc, x, y, width, height, Tool.SWORD);
             default -> drawDefaultShape(gc, x, y, width, height);
         }
 
@@ -245,7 +247,10 @@ public final class FxItemDrawingHelper {
         gc.strokeOval(ovalX, ovalY, ovalWidth, ovalHeight);
     }
 
-    private static void drawTool(GraphicsContext gc, double x, double y, double width, double height, ItemType itemType) {
+    /** The items drawn as a handle with a head. The head switch covers every constant, so a new tool cannot go undrawn. */
+    private enum Tool { PICKAXE, AXE, SWORD }
+
+    private static void drawTool(GraphicsContext gc, double x, double y, double width, double height, Tool tool) {
         // Draw handle
         double handleX = x + (width * 0.4);
         double handleY = y + (height * 0.1);
@@ -261,30 +266,20 @@ public final class FxItemDrawingHelper {
         gc.setFill(Color.GRAY.darker());
         double headCenterX = x + (width / 2);
 
-        switch (itemType) {
-            case PICKAXE -> {
-                double pickY = y + (height * 0.2);
-                gc.fillRect(x + (width * 0.1), pickY, width * 0.8, height * 0.2);
-                gc.strokeRect(x + (width * 0.1), pickY, width * 0.8, height * 0.2);
-            }
-            case AXE -> {
-                double[] axeX = {x + width * 0.3, x + width * 0.7, x + width * 0.9, x + width * 0.1};
-                double[] axeY = {y + height * 0.2, y + height * 0.2, y + height * 0.4, y + height * 0.4};
-                gc.fillPolygon(axeX, axeY, axeX.length);
-                gc.strokePolygon(axeX, axeY, axeX.length);
-            }
-            case SWORD -> {
-                double[] swordX = {headCenterX - width * 0.05, headCenterX + width * 0.05, headCenterX};
-                double[] swordY = {y + height * 0.05, y + height * 0.05, y + height * 0.4};
-                gc.fillPolygon(swordX, swordY, swordX.length);
-                gc.strokePolygon(swordX, swordY, swordX.length);
-            }
-            default -> { // SHOVEL, BOW
-                double toolY = y + (height * 0.1);
-                gc.fillRect(x + width * 0.3, toolY, width * 0.4, height * 0.15);
-                gc.strokeRect(x + width * 0.3, toolY, width * 0.4, height * 0.15);
-            }
-        }
+        // A switch expression has to cover every constant, which a switch statement does not
+        final double[][] head = switch (tool) {
+            case PICKAXE -> new double[][]{
+                    {x + width * 0.1, x + width * 0.9, x + width * 0.9, x + width * 0.1},
+                    {y + height * 0.2, y + height * 0.2, y + height * 0.4, y + height * 0.4}};
+            case AXE -> new double[][]{
+                    {x + width * 0.3, x + width * 0.7, x + width * 0.9, x + width * 0.1},
+                    {y + height * 0.2, y + height * 0.2, y + height * 0.4, y + height * 0.4}};
+            case SWORD -> new double[][]{
+                    {headCenterX - width * 0.05, headCenterX + width * 0.05, headCenterX},
+                    {y + height * 0.05, y + height * 0.05, y + height * 0.4}};
+        };
+        gc.fillPolygon(head[0], head[1], head[0].length);
+        gc.strokePolygon(head[0], head[1], head[0].length);
     }
 
     private static void drawDefaultShape(GraphicsContext gc, double x, double y, double width, double height) {

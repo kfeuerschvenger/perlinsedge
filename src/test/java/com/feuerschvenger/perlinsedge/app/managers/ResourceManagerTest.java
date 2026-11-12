@@ -52,6 +52,19 @@ class ResourceManagerTest {
     }
 
     @Test
+    void aSecondClickDuringTheCooldownIsAnIgnoredHitNotARefusalNorAHit() {
+        tile.setWorldResource(new Resource(ResourceType.STONE, 3));
+
+        assertEquals(ResourceManager.HitResult.HIT, manager.handleTileInteraction(player, tile));
+        assertEquals(ResourceManager.HitResult.COOLDOWN, manager.handleTileInteraction(player, tile));
+    }
+
+    @Test
+    void anInvalidClickIsRefused() {
+        assertEquals(ResourceManager.HitResult.REFUSED, manager.handleTileInteraction(player, tile));
+    }
+
+    @Test
     void ironOreRequiresAPickaxe() {
         assertEquals(ItemType.PICKAXE, ResourceType.IRON_ORE.getRequiredTool());
         assertNull(ResourceType.STONE.getRequiredTool());
@@ -78,6 +91,33 @@ class ResourceManagerTest {
 
         assertEquals(1, hints.size());
         assertTrue(hints.get(0).toLowerCase().contains("pickaxe"), hints.get(0));
+    }
+
+    @Test
+    void askingForTheToolIsSilentAndTheHintIsAskedForSeparately() {
+        List<String> hints = new ArrayList<>();
+        manager = new ResourceManager(state, hints::add);
+        tile.setWorldResource(new Resource(ResourceType.IRON_ORE, 1));
+
+        assertFalse(manager.hasToolFor(player, tile));
+        assertFalse(manager.hasToolFor(player, tile));
+        assertTrue(hints.isEmpty(), "the query alone shows nothing");
+
+        manager.hintMissingTool(tile);
+
+        assertEquals(1, hints.size());
+        assertTrue(hints.get(0).toLowerCase().contains("pickaxe"), hints.get(0));
+    }
+
+    @Test
+    void noHintIsGivenForAResourceThatNeedsNoTool() {
+        List<String> hints = new ArrayList<>();
+        manager = new ResourceManager(state, hints::add);
+        tile.setWorldResource(new Resource(ResourceType.STONE, 1));
+
+        manager.hintMissingTool(tile);
+
+        assertTrue(hints.isEmpty());
     }
 
     @Test
@@ -115,6 +155,23 @@ class ResourceManagerTest {
         hitUntilGone();
 
         assertFalse(tile.hasResource());
+    }
+
+    @Test
+    void theHitCooldownRunsOnTheGameClock() {
+        tile.setWorldResource(new Resource(ResourceType.STONE, 1));
+        Resource stone = tile.getWorldResource();
+
+        manager.handleTileInteraction(player, tile);
+        assertEquals(0.0, stone.secondsSinceHit(state.getGameTime()), "the first hit lands at once");
+
+        state.incrementGameTime(0.1);
+        manager.handleTileInteraction(player, tile);
+        assertEquals(0.1, stone.secondsSinceHit(state.getGameTime()), 1e-9, "inside the cooldown the hit waits");
+
+        state.incrementGameTime(0.9);
+        manager.handleTileInteraction(player, tile);
+        assertEquals(0.0, stone.secondsSinceHit(state.getGameTime()), "after the cooldown of game time the next hit lands");
     }
 
     @Test

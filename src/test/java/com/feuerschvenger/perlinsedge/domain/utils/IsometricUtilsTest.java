@@ -15,6 +15,14 @@ class IsometricUtilsTest {
     private static final double HALF_H = 16.0;
     private static final double DELTA = 1e-9;
 
+    /** The whole tile a screen point falls in, found by flooring the fractional tile coordinates. */
+    private static int[] screenToTile(double screenX, double screenY, double cameraX, double cameraY,
+                                      double zoom, double halfTileWidth, double halfTileHeight) {
+        final double[] tile = IsometricUtils.screenToTileFractional(
+                screenX, screenY, cameraX, cameraY, zoom, halfTileWidth, halfTileHeight);
+        return new int[]{(int) Math.floor(tile[0]), (int) Math.floor(tile[1])};
+    }
+
     @Test
     void tileToScreenMatchesKnownValues() {
         assertArrayEquals(new double[]{100, 50},
@@ -32,7 +40,7 @@ class IsometricUtilsTest {
     @Test
     void screenToTileFindsKnownTile() {
         assertArrayEquals(new int[]{2, 1},
-                IsometricUtils.screenToTile(132, 98, 100, 50, 1, HALF_W, HALF_H));
+                screenToTile(132, 98, 100, 50, 1, HALF_W, HALF_H));
     }
 
     @Test
@@ -46,9 +54,9 @@ class IsometricUtilsTest {
     void screenToTileFloorsNegativeCoordinatesInsteadOfTruncating() {
         // One pixel left of the origin sits in tile (-1, 0); truncation toward zero would give (0, 0)
         assertArrayEquals(new int[]{-1, 0},
-                IsometricUtils.screenToTile(-1, 0, 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(-1, 0, 0, 0, 1, HALF_W, HALF_H));
         assertArrayEquals(new int[]{-1, -1},
-                IsometricUtils.screenToTile(0, -1, 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(0, -1, 0, 0, 1, HALF_W, HALF_H));
     }
 
     @Test
@@ -56,32 +64,32 @@ class IsometricUtilsTest {
         double[] screen = IsometricUtils.tileToScreen(-3, -2, 0, 0, 1, HALF_W, HALF_H);
         assertArrayEquals(new double[]{-32, -80}, screen, DELTA);
         assertArrayEquals(new int[]{-3, -2},
-                IsometricUtils.screenToTile(screen[0], screen[1], 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(screen[0], screen[1], 0, 0, 1, HALF_W, HALF_H));
     }
 
     @Test
     void screenToTileHandlesNegativeCameraOffset() {
         assertArrayEquals(new int[]{2, 1},
-                IsometricUtils.screenToTile(-68, -2, -100, -50, 1, HALF_W, HALF_H));
+                screenToTile(-68, -2, -100, -50, 1, HALF_W, HALF_H));
     }
 
     @Test
     void screenToTileMapsTileVertexToThatTileAndJustBeforeItToTheNeighbour() {
         // The top vertex of tile (2, 1) is exactly on its boundary and belongs to it
         assertArrayEquals(new int[]{2, 1},
-                IsometricUtils.screenToTile(32, 48, 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(32, 48, 0, 0, 1, HALF_W, HALF_H));
         // A hair above that vertex lies in tile (1, 0)
         assertArrayEquals(new int[]{1, 0},
-                IsometricUtils.screenToTile(32, 47.99, 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(32, 47.99, 0, 0, 1, HALF_W, HALF_H));
         // A hair below it is inside tile (2, 1)
         assertArrayEquals(new int[]{2, 1},
-                IsometricUtils.screenToTile(32, 48.01, 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(32, 48.01, 0, 0, 1, HALF_W, HALF_H));
     }
 
     @Test
     void screenToTileMapsOriginVertexToTileZero() {
         assertArrayEquals(new int[]{0, 0},
-                IsometricUtils.screenToTile(0, 0, 0, 0, 1, HALF_W, HALF_H));
+                screenToTile(0, 0, 0, 0, 1, HALF_W, HALF_H));
     }
 
     @Test
@@ -132,7 +140,7 @@ class IsometricUtilsTest {
             for (int y = 0; y < 10; y++) {
                 // Sample the middle of the tile so floor() cannot land on a neighbour
                 double[] screen = IsometricUtils.tileToScreen(x + 0.5, y + 0.5, 0, 0, 1.25, HALF_W, HALF_H);
-                int[] tile = IsometricUtils.screenToTile(screen[0], screen[1], 0, 0, 1.25, HALF_W, HALF_H);
+                int[] tile = screenToTile(screen[0], screen[1], 0, 0, 1.25, HALF_W, HALF_H);
                 assertArrayEquals(new int[]{x, y}, tile, "tile " + x + "," + y);
             }
         }

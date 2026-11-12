@@ -108,15 +108,35 @@ public final class FxTileDrawingHelper {
     }
 
     /**
-     * Draws highlight lines for the tile currently under the mouse.
+     * Draws the crosshair of the tile cursor: a short segment along each edge at every corner of the diamond, in the
+     * given colour over a wider outline of the opposite brightness, so it reads on light and dark ground alike.
      *
-     * @param centerX The X-coordinate of the tile's center.
-     * @param centerY The Y-coordinate of the tile's center.
-     * @param tileWidth The zoomed width of the tile.
-     * @param tileHeight The zoomed height of the tile.
+     * @param gc         graphics context to draw on
+     * @param centerX    X of the centre of the tile top
+     * @param centerY    Y of the centre of the tile top
+     * @param tileWidth  the zoomed width of the tile
+     * @param tileHeight the zoomed height of the tile
+     * @param zoom       current zoom level
+     * @param line       colour of the crosshair
+     * @param outline    colour of the outline under it
+     * @param lineWidth  stroke width of the crosshair, the outline is wider
+     * @param alpha      opacity of the whole crosshair
      */
     public static void drawTileHighlight(GraphicsContext gc, double centerX, double centerY,
-                                         double tileWidth, double tileHeight, double zoom) {
+                                         double tileWidth, double tileHeight, double zoom,
+                                         Color line, Color outline, double lineWidth, double alpha) {
+        gc.setGlobalAlpha(alpha);
+        gc.setStroke(outline);
+        gc.setLineWidth(lineWidth + 2);
+        drawCornerSegments(gc, centerX, centerY, tileWidth, tileHeight, zoom);
+        gc.setStroke(line);
+        gc.setLineWidth(lineWidth);
+        drawCornerSegments(gc, centerX, centerY, tileWidth, tileHeight, zoom);
+        gc.setGlobalAlpha(1.0);
+    }
+
+    private static void drawCornerSegments(GraphicsContext gc, double centerX, double centerY,
+                                           double tileWidth, double tileHeight, double zoom) {
         final double segmentLength = 8; // Length of the highlight segments from each corner
         final double halfWidth = tileWidth / 2; // Half of the zoomed tile width
         final double halfHeight = tileHeight / 2; // Half of the zoomed tile height
@@ -131,10 +151,6 @@ public final class FxTileDrawingHelper {
         final double bottomY = centerY + halfHeight; // Bottom vertex is directly below center by halfHeight
         final double leftX = centerX - halfWidth; // Left vertex is left of center by halfWidth
         final double leftY = centerY;             // Left vertex is at same Y as center
-
-        // Configure drawing style for the highlight
-        gc.setStroke(Color.LIGHTGRAY);
-        gc.setLineWidth(2);
 
         // Calculate normalized direction components for isometric edges.
         // This is based on the half-dimensions of the tile, which form the legs of a right triangle

@@ -111,11 +111,6 @@ public class DroppedItem {
         return tileY;
     }
 
-    /** @return Game time when item was dropped (in seconds) */
-    public double getDropTime() {
-        return dropTime;
-    }
-
     /** @return Source/origin of the dropped item */
     public DropSource getSource() {
         return source;
@@ -167,7 +162,9 @@ public class DroppedItem {
 
     /**
      * Determines if this item can be picked up at a given moment.
-     * An item dropped by the player has its own two second delay, so the player does not collect the stack again while still standing next to it; the other sources are available at once. The delay is per item, it never holds up other drops.
+     * An item dropped by the player has its own two second delay, so the player does not collect the stack again while
+     * still standing next to it, and the other sources are available at once. The delay is per item, it never holds up
+     * other drops.
      *
      * @param playerTileX Player's current X position
      * @param playerTileY Player's current Y position

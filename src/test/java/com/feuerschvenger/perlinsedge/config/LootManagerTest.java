@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.config;
 
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -39,6 +40,22 @@ class LootManagerTest {
         assertTrue(drops.get(ItemType.WOOD_LOG) >= 4 && drops.get(ItemType.WOOD_LOG) <= 6);
         assertTrue(drops.getOrDefault(ItemType.FIBER, 0) <= 2);
         assertTrue(drops.getOrDefault(ItemType.STICK, 0) <= 4);
+    }
+
+    @RepeatedTest(50)
+    void skeletonsDropBonesAndNothingElse() {
+        Map<ItemType, Integer> drops = byType(loot.generateLootForEnemy(Skeleton.class));
+
+        assertEquals(Set.of(ItemType.BONE), drops.keySet());
+        assertTrue(drops.get(ItemType.BONE) >= 2 && drops.get(ItemType.BONE) <= 4);
+    }
+
+    @Test
+    void theItemsOfTheCutFeaturesDoNotExist() {
+        Set<String> names = java.util.Arrays.stream(ItemType.values()).map(Enum::name).collect(Collectors.toSet());
+
+        assertTrue(names.stream().noneMatch(name -> name.equals("SHOVEL") || name.equals("BOW") || name.equals("ARROW")),
+                "digging, player archery and arrows are not part of the game yet: " + names);
     }
 
     @RepeatedTest(50)

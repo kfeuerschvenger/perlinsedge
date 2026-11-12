@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
@@ -30,6 +31,7 @@ public class GameOrchestrator {
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
     private final PlayerManager playerManager;
+    private final InteractionManager interactionManager;
     private final CombatManager combatManager;
     private final InventoryManager inventoryManager;
     private final MapManager mapManager;
@@ -101,10 +103,14 @@ public class GameOrchestrator {
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
-        transitions.setOnPaused(() -> render(lastAlpha, 0));
-        inputWiring = new InputWiring(this.gameState, buildingManager, containerManager, playerManager,
-                resourceManager, camera, inputHandler, minimapDrawer, mainCanvas,
-                transitions::showOpenContainer);
+        interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
+                containerManager, transitions::showOpenContainer, hintLabel::show);
+        transitions.setOnPaused(() -> {
+            interactionManager.cancel();
+            render(lastAlpha, 0);
+        });
+        inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager,
+                camera, inputHandler, minimapDrawer, mainCanvas);
     }
 
     // ==================================================================
@@ -144,6 +150,7 @@ public class GameOrchestrator {
      */
     public void leaveGame() {
         stopGameLoop();
+        interactionManager.cancel();
         transitions.resetUi();
         deathOverlay.hide();
         renderer.clearBuildingPreview();
@@ -160,11 +167,6 @@ public class GameOrchestrator {
     public void stopGameLoop() {
         gameLoop.stop();
         gameActive = false;
-    }
-
-    /** @return true while a game is running, false on the main menu */
-    public boolean isGameActive() {
-        return gameActive;
     }
 
     /** Resumes the game from the paused state. */
@@ -247,28 +249,44 @@ public class GameOrchestrator {
         return controller;
     }
 
+    /**
+     * Tells whether the map keys and the map tuning panel can act now, which is only while a game is running.
+     * Every action that changes or shows the world checks this before it touches anything, so on the main menu none of
+     * them leaves a trace.
+     */
+    private boolean isGameRunning(String action) {
+        if (!gameActive) {
+            log.debug("Ignoring {}: no game is running", action);
+        }
+        return gameActive;
+    }
+
     private void toggleMapConfigPanelInGame() {
-        if (gameActive) {
+        if (isGameRunning("the map panel toggle")) {
             transitions.toggleMapConfigPanel();
         }
     }
 
-    private void regenerateMap() {
-        if (!gameActive) return;
+    /** Replaces the world with a new one of the same type and a new seed, while a game is running. */
+    void regenerateMap() {
+        if (!isGameRunning("a map regeneration")) return;
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
         rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
     }
 
-    /** Applies a map configuration chosen in the map tuning panel by rebuilding the world with it. */
-    private void applyMapConfig(MapType mapType, long seed,
-                                float heightFreq, int heightOctaves,
-                                float tempFreq, int tempOctaves,
-                                float moistureFreq, int moistureOctaves,
-                                float stoneFreq, float stoneThreshold,
-                                float crystalsFreq, float crystalsThreshold,
-                                float treeDensity, float riverDensity) {
-        AppConfig.getInstance().world().setCurrentMapType(mapType);
+    /**
+     * Applies a map configuration chosen in the map tuning panel by rebuilding the world with it.
+     * The map type the renderer reads is only changed once the new map exists, so it always matches the map on screen.
+     */
+    void applyMapConfig(MapType mapType, long seed,
+                        float heightFreq, int heightOctaves,
+                        float tempFreq, int tempOctaves,
+                        float moistureFreq, int moistureOctaves,
+                        float stoneFreq, float stoneThreshold,
+                        float crystalsFreq, float crystalsThreshold,
+                        float treeDensity, float riverDensity) {
+        if (!isGameRunning("a map configuration")) return;
         rebuildWorld(new MapGenerationContext(
                 mapType, seed,
                 heightFreq, heightOctaves,
@@ -284,19 +302,52 @@ public class GameOrchestrator {
      * Replaces the current map while the game keeps running.
      * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
+     * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
+     * the map keys can try again. When the generation throws, the previous world, map type and context are all still
+     * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
+     * set to match it, the player is removed, and the update and render steps skip a frame that has no map or no
+     * player. The mode switches are ignored while there is no player.
+     * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
+     * step draws the death overlay again from the player and the timer on every frame, so the overlay that
+     * {@link #leaveGame()} hid comes back with the next frame.
+     * The caller has already checked that a game is running.
      */
     private void rebuildWorld(MapGenerationContext context) {
-        if (!gameActive) {
-            log.debug("Ignoring a map rebuild: no game is running");
-            return;
+        boolean rebuilt = false;
+        final TileMap previousMap = gameState.getCurrentMap();
+        try {
+            leaveGame();
+            gameState.getClickFeedback().clear();
+            mapManager.generateNewMap(context);
+            AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+            playerManager.initializePlayer();
+            mapManager.spawnEnemies();
+            minimapDrawer.updateMap(gameState.getCurrentMap());
+            centerOnPlayer();
+            rebuilt = true;
+        } catch (Throwable e) {
+            log.error("The map rebuild failed, the game continues so the map keys can try again", e);
+            // The map may have been replaced before the step that failed, whichever step it was
+            if (gameState.getCurrentMap() != previousMap) {
+                AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+                gameState.setPlayer(null);
+            }
+            throw e;
+        } finally {
+            restartLoopAfterRebuild(rebuilt);
         }
-        leaveGame();
-        mapManager.generateNewMap(context);
-        playerManager.initializePlayer();
-        mapManager.spawnEnemies();
-        minimapDrawer.updateMap(gameState.getCurrentMap());
-        centerOnPlayer();
-        startGameLoop();
+    }
+
+    /** Starts the loop again without letting a failure to start it hide the failure of the rebuild. */
+    private void restartLoopAfterRebuild(boolean rebuilt) {
+        try {
+            startGameLoop();
+        } catch (RuntimeException e) {
+            if (rebuilt) {
+                throw e;
+            }
+            log.error("The game loop could not be restarted after the failed rebuild", e);
+        }
     }
 
     // ==================================================================
@@ -308,8 +359,10 @@ public class GameOrchestrator {
      *
      * @param deltaTime Fixed timestep value (1/60 second)
      */
-    private void update(double deltaTime) {
+    void update(double deltaTime) {
         if (gameState.isGamePaused()) return;
+        // A rebuild that failed halfway leaves no player or no map, and there is nothing to advance until the next one
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
 
         if (playerManager.handleRespawn(deltaTime)) {
             centerOnPlayer();
@@ -318,6 +371,7 @@ public class GameOrchestrator {
         gameState.incrementGameTime(deltaTime);
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        interactionManager.update();
         if (gameState.isPlayerDead()) {
             // Building mode and the inventory cannot stay open under the death screen
             transitions.setGameMode(GameMode.EXPLORATION);
@@ -347,9 +401,10 @@ public class GameOrchestrator {
      * @param alpha Interpolation factor for smooth rendering
      * @param deltaTime Time since last render (seconds)
      */
-    private void render(double alpha, double deltaTime) {
+    void render(double alpha, double deltaTime) {
         if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
         lastAlpha = alpha;
+        inputWiring.refreshHover();
 
         if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
             int[] mouseTile = gameState.getMouseOverTile();

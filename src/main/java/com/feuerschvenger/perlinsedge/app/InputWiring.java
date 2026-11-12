@@ -1,16 +1,14 @@
 package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
-import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;
 import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
-import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.TilePicker;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.infra.fx.input.ScrollInterceptor;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
@@ -28,21 +26,24 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class InputWiring {
-    private static final int CLICK_TILE_ADJUSTMENT = 5;
-
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
-    private final ContainerManager containerManager;
     private final PlayerManager playerManager;
-    private final ResourceManager resourceManager;
+    private final InteractionManager interactionManager;
     private final FxCamera camera;
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
     private final Canvas mainCanvas;
-    private final Runnable onContainerOpened;
 
-    private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasClick;
+    /** Receives the tile found by {@link #pickTile}, reused so a pick allocates nothing. */
+    private final int[] pickedTile = new int[2];
+    private double lastMouseX;
+    private double lastMouseY;
+    private boolean mouseOverCanvas;
+
+    private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasPress;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
+    private final EventHandler<MouseEvent> canvasDragHandler = this::trackPointer;
     private final EventHandler<MouseEvent> canvasExitHandler = this::handleMouseExit;
     private final EventHandler<MouseEvent> minimapClickHandler = this::handleMinimapClick;
 
@@ -50,31 +51,25 @@ public class InputWiring {
      * Creates the wiring.
      *
      * @param gameState        shared game state
-     * @param buildingManager  building placement and interaction
-     * @param containerManager open container tracking
+     * @param buildingManager  building placement and removal
      * @param playerManager    player movement
-     * @param resourceManager  resource harvesting
+     * @param interactionManager walks to and interacts with resources and buildings
      * @param camera           camera used to convert screen to tile coordinates
      * @param inputHandler     keyboard and scroll input source
      * @param minimapDrawer    minimap view
      * @param mainCanvas       canvas that receives game clicks
-     * @param onContainerOpened called after a click opened a container, it shows the container and switches the mode
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
-                       ContainerManager containerManager, PlayerManager playerManager,
-                       ResourceManager resourceManager, FxCamera camera,
-                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas,
-                       Runnable onContainerOpened) {
+                       PlayerManager playerManager, InteractionManager interactionManager, FxCamera camera,
+                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
-        this.containerManager = containerManager;
         this.playerManager = playerManager;
-        this.resourceManager = resourceManager;
+        this.interactionManager = interactionManager;
         this.camera = camera;
         this.inputHandler = inputHandler;
         this.minimapDrawer = minimapDrawer;
         this.mainCanvas = mainCanvas;
-        this.onContainerOpened = onContainerOpened;
     }
 
     /**
@@ -101,8 +96,10 @@ public class InputWiring {
      */
     public void registerMouseHandlers() {
         unregisterMouseHandlers();
-        mainCanvas.addEventHandler(MouseEvent.MOUSE_CLICKED, canvasClickHandler);
+        mainCanvas.addEventHandler(MouseEvent.MOUSE_PRESSED, canvasClickHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
+        mainCanvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, canvasDragHandler);
+        mainCanvas.addEventHandler(MouseEvent.MOUSE_RELEASED, canvasDragHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
         if (minimapDrawer.getCanvas() != null) {
             minimapDrawer.getCanvas().addEventHandler(MouseEvent.MOUSE_CLICKED, minimapClickHandler);
@@ -111,8 +108,10 @@ public class InputWiring {
 
     /** Removes the handlers added by {@link #registerMouseHandlers()}. */
     public void unregisterMouseHandlers() {
-        mainCanvas.removeEventHandler(MouseEvent.MOUSE_CLICKED, canvasClickHandler);
+        mainCanvas.removeEventHandler(MouseEvent.MOUSE_PRESSED, canvasClickHandler);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
+        mainCanvas.removeEventHandler(MouseEvent.MOUSE_DRAGGED, canvasDragHandler);
+        mainCanvas.removeEventHandler(MouseEvent.MOUSE_RELEASED, canvasDragHandler);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
         if (minimapDrawer.getCanvas() != null) {
             minimapDrawer.getCanvas().removeEventHandler(MouseEvent.MOUSE_CLICKED, minimapClickHandler);
@@ -123,24 +122,28 @@ public class InputWiring {
     //  Event handlers
     // ==================================================================
 
-    private void handleCanvasClick(MouseEvent event) {
+    /**
+     * Acts on the press of a button over the canvas, not on the click that follows its release.
+     * JavaFX delivers a click only to the node that is the deepest one common to the press and the release, so a click
+     * is lost when the pointer ends over another node, such as a panel that appeared under it. The press
+     * always reaches the canvas it happened on, and the tile is the one the cursor showed at that moment.
+     */
+    private void handleCanvasPress(MouseEvent event) {
+        lastMouseX = event.getX();
+        lastMouseY = event.getY();
+        mouseOverCanvas = true;
         if (gameState.isGamePaused() || gameState.isPlayerDead()) return;
 
-        int[] tileCoords = getClickedTile(event.getX(), event.getY());
-        int tileX = tileCoords[0];
-        int tileY = tileCoords[1];
-
-        if (!isWithinMapBounds(tileX, tileY)) return;
-
-        Tile tile = gameState.getCurrentMap().getTile(tileX, tileY);
-        if (tile == null) return;
+        if (!pickTile(event.getX(), event.getY())) return;
+        int tileX = pickedTile[0];
+        int tileY = pickedTile[1];
 
         switch (gameState.getCurrentGameMode()) {
             case BUILDING_MODE:
                 handleBuildingModeClick(event, tileX, tileY);
                 break;
             case EXPLORATION:
-                handleExplorationModeClick(event, tileX, tileY, tile);
+                handleExplorationModeClick(event, tileX, tileY);
                 break;
             case INVENTORY_OPEN:
             case CRAFTING_OPEN:
@@ -158,47 +161,70 @@ public class InputWiring {
         }
     }
 
-    private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY, Tile tile) {
+    /**
+     * Left click interacts with the tile, walking up to it first when it is out of reach; right click walks to it.
+     * Either order flashes the clicked tile green when it was accepted and red when it was refused; a click with no
+     * effect, because the resource was hit a moment ago, does not flash.
+     */
+    private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY) {
+        final boolean accepted;
         if (event.getButton() == MouseButton.PRIMARY) {
-            // Prioritize building interaction
-            if (tile.hasBuilding() && buildingManager.interactWithBuilding(tileX, tileY)) {
-                if (containerManager.isContainerOpen()) {
-                    onContainerOpened.run();
-                }
-            }
-            // Then resource interaction
-            else if (tile.hasResource()) {
-                resourceManager.handleTileInteraction(gameState.getPlayer(), tile);
-            }
+            final InteractionManager.Outcome outcome = interactionManager.interact(tileX, tileY);
+            // A click that changed nothing, such as one during the hit cooldown, earns no flash: green would
+            // promise an effect and red a refusal
+            if (outcome == InteractionManager.Outcome.IGNORED) return;
+            accepted = outcome.isAccepted();
         } else if (event.getButton() == MouseButton.SECONDARY) {
-            playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
+            interactionManager.cancel();
+            accepted = playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
+        } else {
+            return;
         }
+        gameState.getClickFeedback().flash(tileX, tileY, accepted, gameState.getGameTime());
     }
 
-    private int[] getClickedTile(double screenX, double screenY) {
-        return IsometricUtils.screenToTileAdjusted(
-                screenX, screenY,
-                camera.getX(), camera.getY(),
-                camera.getZoom(),
-                AppConfig.getInstance().graphics().getTileHalfWidth(),
-                AppConfig.getInstance().graphics().getTileHalfHeight(),
-                CLICK_TILE_ADJUSTMENT
-        );
-    }
-
-    private boolean isWithinMapBounds(int x, int y) {
+    /**
+     * Finds the tile under a canvas point into {@link #pickedTile}, with the one rule hover and clicks share.
+     *
+     * @return true when the point is over a tile of the current map
+     */
+    private boolean pickTile(double screenX, double screenY) {
         TileMap map = gameState.getCurrentMap();
-        return map != null && x >= 0 && x < map.getWidth() && y >= 0 && y < map.getHeight();
+        if (map == null) return false;
+        return TilePicker.pick(map, screenX, screenY, camera.getX(), camera.getY(), camera.getZoom(),
+                AppConfig.getInstance().graphics().getTileHalfWidth(),
+                AppConfig.getInstance().graphics().getTileHalfHeight(), pickedTile);
     }
 
-    private void handleMouseMovement(MouseEvent event) {
-        if (shouldIgnoreMouseInput()) {
+    /**
+     * Recomputes the tile under the mouse from the last known mouse position.
+     * Called once per frame, so the cursor follows the ground when the camera pans, zooms or recentres and when the
+     * mode changes, not only when the mouse itself moves.
+     */
+    public void refreshHover() {
+        if (!mouseOverCanvas || shouldIgnoreMouseInput() || !pickTile(lastMouseX, lastMouseY)) {
             gameState.setMouseOverTile(-1, -1);
             return;
         }
+        gameState.setMouseOverTile(pickedTile[0], pickedTile[1]);
+    }
 
-        int[] tileCoords = getHoveredTile(event.getX(), event.getY());
-        gameState.setMouseOverTile(tileCoords[0], tileCoords[1]);
+    private void handleMouseMovement(MouseEvent event) {
+        lastMouseX = event.getX();
+        lastMouseY = event.getY();
+        mouseOverCanvas = true;
+    }
+
+    /**
+     * Follows the pointer while a button is held. JavaFX sends drag and release events instead of move events then,
+     * and keeps sending them after the pointer left the canvas, so whether the pointer is still over the canvas is read
+     * from its position.
+     */
+    private void trackPointer(MouseEvent event) {
+        lastMouseX = event.getX();
+        lastMouseY = event.getY();
+        mouseOverCanvas = event.getX() >= 0 && event.getY() >= 0
+                && event.getX() <= mainCanvas.getWidth() && event.getY() <= mainCanvas.getHeight();
     }
 
     private boolean shouldIgnoreMouseInput() {
@@ -207,17 +233,8 @@ public class InputWiring {
                 gameState.getCurrentGameMode() == GameMode.PAUSED;
     }
 
-    private int[] getHoveredTile(double screenX, double screenY) {
-        return IsometricUtils.screenToTile(
-                screenX, screenY,
-                camera.getX(), camera.getY(),
-                camera.getZoom(),
-                AppConfig.getInstance().graphics().getTileHalfWidth(),
-                AppConfig.getInstance().graphics().getTileHalfHeight()
-        );
-    }
-
     private void handleMouseExit(MouseEvent event) {
+        mouseOverCanvas = false;
         gameState.setMouseOverTile(-1, -1);
     }
 

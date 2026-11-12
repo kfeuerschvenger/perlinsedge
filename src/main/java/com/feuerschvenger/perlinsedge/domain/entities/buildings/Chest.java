@@ -143,6 +143,11 @@ public class Chest extends Building implements Container {
     // ==================================================================
 
     @Override
+    public boolean isInteractable() {
+        return true;
+    }
+
+    @Override
     public boolean onInteract(Tile tile) {
         log.debug("Interacted with Chest at ({}, {}). Opening inventory.", tileX, tileY);
         return true;

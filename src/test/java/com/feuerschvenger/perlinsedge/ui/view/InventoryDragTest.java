@@ -11,6 +11,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.event.Event;
 import javafx.event.EventType;
 import javafx.geometry.Bounds;
@@ -321,8 +322,9 @@ class InventoryDragTest {
     }
 
     /**
-     * The focus of a window cannot be flipped from a test, so this fires the listener that the panel registered on
-     * the focus property of its window, which is what the window does when it loses the focus.
+     * The focus of a real window cannot be flipped from a test, so the tests of the window wiring give the panel a
+     * focus value of their own to read instead, and flip that. This one fires the listener directly, for the tests that
+     * are about what the panel does when the focus goes, not about how it hears of it.
      */
     private void loseFocus(InventoryController controller) {
         FxToolkitSupport.onFx(() -> {
@@ -339,6 +341,7 @@ class InventoryDragTest {
             Scene scene = new Scene(root, 400, 300);
             Stage stage = new Stage();
             InventoryController controller = created.getController();
+            controller.setFocusSource(window -> new SimpleBooleanProperty(true));
             assertNull(controller.watchedWindow(), "no window while the scene has none");
 
             stage.setScene(scene);
@@ -359,17 +362,23 @@ class InventoryDragTest {
         press(source);
         moveTo(source, OUTSIDE);
         assertTrue(dragging());
-        // The panel of the fixture sits in a scene with no window, so the window wiring runs on a stage here
+        // The panel of the fixture sits in a scene with no window, so the window wiring runs on a stage here, and the
+        // focus it listens to is one the test can flip
+        SimpleBooleanProperty focus = new SimpleBooleanProperty(true);
         FxToolkitSupport.onFx(() -> {
+            panel.getController().setFocusSource(window -> focus);
             Stage stage = new Stage();
             stage.setScene(panel.getScene());
             assertSame(stage, panel.getController().watchedWindow());
             return null;
         });
 
-        loseFocus(panel.getController());
+        FxToolkitSupport.onFx(() -> {
+            focus.set(false);
+            return null;
+        });
 
-        assertFalse(dragging());
+        assertFalse(dragging(), "the listener the panel put on the focus of its window heard the focus go");
         assertEquals(5, player.getItemAt(3).getQuantity());
     }
 
@@ -555,6 +564,8 @@ class InventoryDragTest {
         StackPane selected = slot(player, 3);
         StackPane other = slot(player, 6);
         click(selected, MouseButton.PRIMARY);
+        // The click schedules the panel refresh with runLater, and a task that does nothing queued behind it
+        // only returns once the refresh has run, because the FX thread runs its tasks in the order they were queued
         FxToolkitSupport.onFx(() -> null);
         assertTrue(isSelected(selected));
         press(other);

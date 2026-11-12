@@ -38,10 +38,13 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final int LAKE_RADIUS_MAX = 5;
     private static final float ISLAND_FALLOFF_POWER = 2.0f;
 
-    // Iron ore: hills and mountains only, in a fixed band of the normalised stone noise. The band is absolute so
-    // it does not depend on the stone threshold, which the map panel lets the player move over a wide range.
-    private static final float IRON_BAND_MIN = 0.64f;
-    private static final float IRON_BAND_MAX = 0.72f;
+    // Iron ore: hills and mountains only, in a thin contour of the normalised stone noise just under the stone veins,
+    // so it appears as a rim of ore around the rock. The band is absolute and ends below the lowest stone threshold
+    // the map panel offers, so it does not depend on that threshold. It is one hundredth wide because the noise is
+    // densest in the middle of its range: a wide band would give far more iron than stone on rocky ground, while this
+    // one gives roughly one ore for every three to five stones on the rockiest maps and less on the others.
+    private static final float IRON_BAND_MIN = 0.74f;
+    private static final float IRON_BAND_MAX = 0.75f;
 
     // Desert: one oasis per this many tiles of map, each a pocket of shallow water of this radius in tiles
     private static final int OASIS_AREA = 5000;

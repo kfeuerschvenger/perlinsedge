@@ -192,6 +192,44 @@ class PerlinMapGeneratorTest {
         }
     }
 
+    /** Totals of iron and stone over a few seeds of one map type at a stone threshold. */
+    private static int[] ironAndStone(MapType type, float threshold, int seeds) {
+        int iron = 0;
+        int stone = 0;
+        for (long seed = 1; seed <= seeds; seed++) {
+            TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY)
+                    .generateMap(150, 150, withStoneThreshold(type, seed, threshold));
+            iron += count(map, ResourceType.IRON_ORE, 150);
+            stone += count(map, ResourceType.STONE, 150);
+        }
+        return new int[]{iron, stone};
+    }
+
+    @Test
+    void ironIsClearlyRarerThanStoneOnEveryMapTypeAtTheLowestThresholds() {
+        for (MapType type : MapType.values()) {
+            for (float threshold : new float[]{0.79f, 0.8f}) {
+                int[] totals = ironAndStone(type, threshold, 3);
+
+                assertTrue(totals[1] > 0, "stone is generated on " + type);
+                assertTrue(totals[0] * 2 < totals[1],
+                        type + " at " + threshold + ": " + totals[0] + " iron against " + totals[1] + " stone");
+            }
+        }
+    }
+
+    @Test
+    void theRockiestMapGivesOneIronForEveryThreeToFiveStones() {
+        for (float threshold : new float[]{0.79f, 0.8f}) {
+            int[] totals = ironAndStone(MapType.MOUNTAINOUS, threshold, 6);
+            double stonePerIron = (double) totals[1] / totals[0];
+
+            assertTrue(totals[0] > 0, "iron stays obtainable");
+            assertTrue(stonePerIron >= 3.0 && stonePerIron <= 5.5,
+                    "at " + threshold + " there are " + totals[1] + " stones for " + totals[0] + " iron");
+        }
+    }
+
     @Test
     void generatorRequiresANoiseFactory() {
         assertThrows(NullPointerException.class, () -> new PerlinMapGenerator(null));

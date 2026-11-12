@@ -139,22 +139,85 @@ public class Player extends Entity implements Container {
      * @param map     The game world tile map
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
+     * @return true when the player started walking, false when the order did nothing: the player is dead, already on
+     *         the tile, or the tile cannot be reached
      */
-    public void moveTo(TileMap map, int targetX, int targetY) {
+    public boolean moveTo(TileMap map, int targetX, int targetY) {
         // A dead player stays where it fell until the respawn
-        if (isDead) return;
+        if (isDead) return false;
+        final PathNode step = stepInProgress();
         // Skip if already at target position
-        if (isAtPosition(targetX, targetY)) return;
+        if (step == null && isAtPosition(targetX, targetY)) return false;
+
+        // A player between two tiles plans from the tile it is approaching, so the new walk never starts with a
+        // diagonal across a blocked corner from an off-grid position
+        final int fromX = step != null ? step.x : currentTileX;
+        final int fromY = step != null ? step.y : currentTileY;
+        if (step != null && fromX == targetX && fromY == targetY) {
+            startNewPath(List.of(step));
+            return true;
+        }
 
         Pathfinder pathfinder = new Pathfinder(map);
-        List<PathNode> path = pathfinder.findPath(currentTileX, currentTileY, targetX, targetY);
+        List<PathNode> path = pathfinder.findPath(fromX, fromY, targetX, targetY);
 
         if (path == null || path.isEmpty()) {
-            clearPath();
-            return;
+            // A refused order ends the walk the way any stop does: a player between two tiles finishes its step
+            stop();
+            return false;
         }
 
         startNewPath(path);
+        return true;
+    }
+
+    /**
+     * Gives the tile a new walk is planned from: the tile the player is approaching when it is between two tiles,
+     * otherwise the tile it stands on. {@link #walkAlong(List)} expects a path that starts next to this tile.
+     *
+     * @return the column of the tile a new walk starts from
+     */
+    public int getWalkOriginX() {
+        final PathNode step = stepInProgress();
+        return step != null ? step.x : currentTileX;
+    }
+
+    /**
+     * Gives the row of the tile a new walk is planned from, see {@link #getWalkOriginX()}.
+     *
+     * @return the row of the tile a new walk starts from
+     */
+    public int getWalkOriginY() {
+        final PathNode step = stepInProgress();
+        return step != null ? step.y : currentTileY;
+    }
+
+    /**
+     * Starts walking along a path that was already found, replacing the walk in progress. A player between two tiles
+     * first finishes the step it is on, so the path must be planned from {@link #getWalkOriginX()} and
+     * {@link #getWalkOriginY()}.
+     *
+     * @param path the tiles to walk, excluding the tile the walk starts from; an empty or null path changes nothing
+     * @return true when the player started walking
+     */
+    public boolean walkAlong(List<PathNode> path) {
+        if (isDead || path == null || path.isEmpty()) return false;
+        startNewPath(path);
+        return true;
+    }
+
+    /**
+     * Ends the walk in progress. A player between two tiles finishes the step it is on, so it never freezes off the
+     * tile grid; a player standing on a tile stops there.
+     */
+    public void stop() {
+        final PathNode head = currentPath.peek();
+        if (head != null && (posX != currentTileX || posY != currentTileY)) {
+            currentPath.clear();
+            currentPath.add(head);
+            return;
+        }
+        clearPath();
     }
 
     /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
@@ -561,12 +624,11 @@ public class Player extends Entity implements Container {
             currentTileY = next.y;
             currentPath.poll();
 
-            // Set next target if available
-            if (!currentPath.isEmpty()) {
-                PathNode nextNode = currentPath.peek();
-                targetTileX = nextNode.x;
-                targetTileY = nextNode.y;
-            }
+            // The target is the next node, or the node just reached when the walk is over: a target left on an
+            // earlier node would pull the player back to it
+            PathNode nextNode = currentPath.isEmpty() ? null : currentPath.peek();
+            targetTileX = nextNode != null ? nextNode.x : currentTileX;
+            targetTileY = nextNode != null ? nextNode.y : currentTileY;
         } else {
             // Move toward node
             posX += (dx / dist) * maxStep;
@@ -593,18 +655,31 @@ public class Player extends Entity implements Container {
         }
     }
 
+    /** The walker heads for the head of the queue and drops a node only once it stands on it, so every node is visited. */
     private void startNewPath(List<PathNode> path) {
+        final PathNode step = stepInProgress();
         currentPath.clear();
+        // The step in progress is finished first, so no straight line is drawn from an off-grid position
+        if (step != null && !step.equals(path.get(0))) {
+            currentPath.add(step);
+        }
         currentPath.addAll(path);
-        advanceToNextNode();
+        final PathNode first = currentPath.peek();
+        if (first != null) {
+            targetTileX = first.x;
+            targetTileY = first.y;
+        }
     }
 
-    private void advanceToNextNode() {
-        if (!currentPath.isEmpty()) {
-            PathNode nextNode = currentPath.poll();
-            targetTileX = nextNode.x;
-            targetTileY = nextNode.y;
-        }
+    /**
+     * The tile the player is walking to when it is between two tiles.
+     *
+     * @return that tile, or null when the player stands on a tile
+     */
+    private PathNode stepInProgress() {
+        if (posX == currentTileX && posY == currentTileY) return null;
+        final PathNode head = currentPath.peek();
+        return head != null ? head : new PathNode(currentTileX, currentTileY);
     }
 
     private void clearPath() {

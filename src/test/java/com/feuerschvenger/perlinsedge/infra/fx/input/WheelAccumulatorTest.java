@@ -93,8 +93,8 @@ class WheelAccumulatorTest {
         WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
 
         assertEquals(1, wheel.add(100), "an event never yields more than one step");
-        assertEquals(0, wheel.add(10), "20 units are carried, with 10 more that is still short of a step");
-        assertEquals(1, wheel.add(10), "the carried 20 and the 20 new ones make a step");
+        assertEquals(0, wheel.add(10), "20 units are carried, with 10 more that is 30, still short of a step");
+        assertEquals(1, wheel.add(10), "the 30 held and 10 more make a step");
         assertEquals(0, wheel.add(10), "nothing is left over");
     }
 

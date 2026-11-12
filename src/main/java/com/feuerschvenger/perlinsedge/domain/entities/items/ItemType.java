@@ -56,7 +56,7 @@ public enum ItemType {
     ),
     COAL(
             64,
-            "A chunk of fuel. Burns hot and long — " +
+            "A chunk of fuel. Burns hot and long, " +
                     "your campfire will thank you."
     ),
     FIBER(
@@ -95,7 +95,7 @@ public enum ItemType {
     // ==================================================================
     RAW_FISH(
             64,
-            "Fresh from the lake. Might be tasty when cooked—" +
+            "Fresh from the lake. Might be tasty when cooked, " +
                     "or a cat's best friend."
     ),
     COOKED_FISH(
@@ -129,7 +129,7 @@ public enum ItemType {
     ),
     AXE(
             1,
-            "Perfect for chopping wood—" +
+            "Perfect for chopping wood, " +
                     "or anything else that needs chopping."
     ),
     SWORD(
@@ -137,23 +137,9 @@ public enum ItemType {
             "A trusted companion for adventurers. " +
                     "Sharp, strong, and always ready."
     ),
-    SHOVEL(
-            1,
-            "For when you really need to dig a hole—" +
-                    "or bury a secret."
-    ),
-    BOW(
-            1,
-            "Silent and deadly, a hunter's best friend."
-    ),
-    ARROW(
-            64,
-            "Pointy and precise. Goes great with bows " +
-                    "and unlucky enemies."
-    ),
     POTION_HEALTH(
             8,
-            "A magical brew for when things go wrong—" +
+            "A magical brew for when things go wrong, " +
                     "or when a dragon disagrees."
     );
 

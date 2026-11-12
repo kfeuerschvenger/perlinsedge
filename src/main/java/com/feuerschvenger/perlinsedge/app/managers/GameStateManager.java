@@ -28,7 +28,8 @@ public class GameStateManager {
 
     // World State
     private TileMap currentMap;
-    private final Map<Resource, Long> resourceHitTimes = new HashMap<>();
+    /** The game time in seconds of the last hit on each resource, which the hit cooldown is measured from. */
+    private final Map<Resource, Double> resourceHitTimes = new HashMap<>();
     /** The seed the current map was generated from, which also scatters the cosmetic ground decals. */
     private long worldSeed;
 
@@ -40,6 +41,8 @@ public class GameStateManager {
     // Input & UI State
     private int mouseOverTileX = -1;
     private int mouseOverTileY = -1;
+    /** The flash the cursor shows on the tile of the last click order. */
+    private final ClickFeedback clickFeedback = new ClickFeedback();
     private boolean isGamePaused = false;
     private boolean isInventoryOpen = false;
     @Getter(lombok.AccessLevel.NONE)
@@ -69,6 +72,7 @@ public class GameStateManager {
         // UI/Input reset
         mouseOverTileX = -1;
         mouseOverTileY = -1;
+        clickFeedback.clear();
         isGamePaused = false;
         isInventoryOpen = false;
         shouldCenterCamera = false;

@@ -41,6 +41,16 @@ public abstract class Building {
     }
 
     /**
+     * Tells whether clicking the building does something, such as opening a door or a chest.
+     * The player walks up to an interactable building before the interaction happens.
+     *
+     * @return true when {@link #onInteract(Tile)} handles the interaction
+     */
+    public boolean isInteractable() {
+        return false;
+    }
+
+    /**
      * Handles player interaction with this building.
      *
      * @param tile The tile where the building is located

@@ -33,6 +33,11 @@ public class Door extends Building {
     }
 
     @Override
+    public boolean isInteractable() {
+        return true;
+    }
+
+    @Override
     public boolean onInteract(Tile tile) {
         toggleOpen();
         return true;

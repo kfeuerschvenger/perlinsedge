@@ -111,23 +111,6 @@ public class RecipeManager {
                 1,
                 new CraftingIngredient(ItemType.STONE, 2)));
 
-        // Combat items
-        itemRecipes.add(new Recipe(
-                ItemType.ARROW,
-                8,
-                List.of(
-                        new CraftingIngredient(ItemType.STICK, 1),
-                        new CraftingIngredient(ItemType.FLINT, 1)
-                )));
-
-        itemRecipes.add(new Recipe(
-                ItemType.BOW,
-                1,
-                List.of(
-                        new CraftingIngredient(ItemType.STICK, 3),
-                        new CraftingIngredient(ItemType.FIBER, 2)
-                )));
-
         // Consumables
         itemRecipes.add(new Recipe(
                 ItemType.POTION_HEALTH,
