@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
@@ -28,6 +29,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -80,30 +85,73 @@ class GameOrchestratorTest {
         });
     }
 
-    @Test
-    void noGameIsActiveBeforeOneIsStarted() {
-        assertFalse(orchestrator.isGameActive());
+    /** The map tuning panel's configuration with the values of a default map, for the given type. */
+    private void applyConfig(MapType type) {
+        orchestrator.applyMapConfig(type, 7L, 0.01f, 3, 0.01f, 3, 0.01f, 3, 0.05f, 0.5f, 0.05f, 0.5f, 0.3f, 0.3f);
     }
 
     @Test
-    void startingAGameMakesItActiveAndStoppingTheLoopMakesItInactive() {
+    void theMapKeysDoNothingBeforeAGameIsStarted() {
+        MapType before = AppConfig.getInstance().world().getCurrentMapType();
+
+        onFx(orchestrator::regenerateMap);
+        onFx(() -> applyConfig(MapType.TUNDRA));
+
+        assertNull(state.getCurrentMap(), "no world was built on the main menu");
+        assertEquals(before, AppConfig.getInstance().world().getCurrentMapType(),
+                "the map type is not changed by a configuration that is ignored");
+    }
+
+    @Test
+    void regeneratingWhileAGameRunsBuildsANewWorld() {
         onFx(() -> orchestrator.startNewGame(MapType.DESERT));
-        assertTrue(orchestrator.isGameActive());
+        TileMap first = state.getCurrentMap();
+
+        onFx(orchestrator::regenerateMap);
+
+        assertNotNull(state.getCurrentMap());
+        assertNotSame(first, state.getCurrentMap());
+        assertNotNull(state.getPlayer());
+    }
+
+    @Test
+    void regeneratingAfterLeavingTheGameDoesNothing() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        onFx(orchestrator::leaveGame);
+        TileMap left = state.getCurrentMap();
+
+        onFx(orchestrator::regenerateMap);
+
+        assertSame(left, state.getCurrentMap());
+    }
+
+    @Test
+    void regeneratingWhileTheLoopIsStoppedDoesNothingAndResumingAllowsIt() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        TileMap first = state.getCurrentMap();
 
         onFx(orchestrator::stopGameLoop);
-        assertFalse(orchestrator.isGameActive());
+        onFx(orchestrator::regenerateMap);
+        assertSame(first, state.getCurrentMap());
 
         onFx(orchestrator::startGameLoop);
-        assertTrue(orchestrator.isGameActive());
+        onFx(orchestrator::regenerateMap);
+        assertNotSame(first, state.getCurrentMap());
     }
 
     @Test
-    void leavingTheGameMakesItInactive() {
+    void aFailedRebuildLeavesTheGameRunningSoTheMapKeysCanTryAgain() {
         onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        MapType before = AppConfig.getInstance().world().getCurrentMapType();
+        TileMap first = state.getCurrentMap();
 
-        onFx(orchestrator::leaveGame);
+        // A null map type cannot be generated, so the rebuild throws after the world was left
+        assertThrows(RuntimeException.class, () -> onFx(() -> applyConfig(null)));
+        assertEquals(before, AppConfig.getInstance().world().getCurrentMapType(),
+                "the map type goes back to the one that matches the map on screen");
 
-        assertFalse(orchestrator.isGameActive());
+        onFx(orchestrator::regenerateMap);
+        assertNotSame(first, state.getCurrentMap(), "the retry rebuilt the world");
     }
 
     @Test

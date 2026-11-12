@@ -168,11 +168,6 @@ public class GameOrchestrator {
         gameActive = false;
     }
 
-    /** @return true while a game is running, false on the main menu */
-    public boolean isGameActive() {
-        return gameActive;
-    }
-
     /** Resumes the game from the paused state. */
     public void resumeGame() {
         transitions.resumeGame();
@@ -253,56 +248,87 @@ public class GameOrchestrator {
         return controller;
     }
 
+    /**
+     * Tells whether the map keys and the map tuning panel can act now, which is only while a game is running.
+     * Every action that changes or shows the world checks this before it touches anything, so on the main menu none of
+     * them leaves a trace.
+     */
+    private boolean isGameRunning(String action) {
+        if (!gameActive) {
+            log.debug("Ignoring {}: no game is running", action);
+        }
+        return gameActive;
+    }
+
     private void toggleMapConfigPanelInGame() {
-        if (gameActive) {
+        if (isGameRunning("the map panel toggle")) {
             transitions.toggleMapConfigPanel();
         }
     }
 
-    private void regenerateMap() {
-        if (!gameActive) return;
+    /** Replaces the world with a new one of the same type and a new seed, while a game is running. */
+    void regenerateMap() {
+        if (!isGameRunning("a map regeneration")) return;
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
         rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
     }
 
-    /** Applies a map configuration chosen in the map tuning panel by rebuilding the world with it. */
-    private void applyMapConfig(MapType mapType, long seed,
-                                float heightFreq, int heightOctaves,
-                                float tempFreq, int tempOctaves,
-                                float moistureFreq, int moistureOctaves,
-                                float stoneFreq, float stoneThreshold,
-                                float crystalsFreq, float crystalsThreshold,
-                                float treeDensity, float riverDensity) {
+    /**
+     * Applies a map configuration chosen in the map tuning panel by rebuilding the world with it.
+     * The map type is only changed once the game is known to be running, and goes back to the previous one when the
+     * rebuild fails, so the type the renderer reads always matches the map on screen.
+     */
+    void applyMapConfig(MapType mapType, long seed,
+                        float heightFreq, int heightOctaves,
+                        float tempFreq, int tempOctaves,
+                        float moistureFreq, int moistureOctaves,
+                        float stoneFreq, float stoneThreshold,
+                        float crystalsFreq, float crystalsThreshold,
+                        float treeDensity, float riverDensity) {
+        if (!isGameRunning("a map configuration")) return;
+        final MapType previousType = AppConfig.getInstance().world().getCurrentMapType();
         AppConfig.getInstance().world().setCurrentMapType(mapType);
-        rebuildWorld(new MapGenerationContext(
-                mapType, seed,
-                heightFreq, heightOctaves,
-                tempFreq, tempOctaves,
-                moistureFreq, moistureOctaves,
-                stoneFreq, stoneThreshold,
-                crystalsFreq, crystalsThreshold,
-                treeDensity, riverDensity
-        ));
+        try {
+            rebuildWorld(new MapGenerationContext(
+                    mapType, seed,
+                    heightFreq, heightOctaves,
+                    tempFreq, tempOctaves,
+                    moistureFreq, moistureOctaves,
+                    stoneFreq, stoneThreshold,
+                    crystalsFreq, crystalsThreshold,
+                    treeDensity, riverDensity
+            ));
+        } catch (RuntimeException failure) {
+            AppConfig.getInstance().world().setCurrentMapType(previousType);
+            throw failure;
+        }
     }
 
     /**
      * Replaces the current map while the game keeps running.
      * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
+     * Leaving the game stops the loop and clears the running flag, so when a step throws the loop is started again
+     * and the game stays active: the world is whatever the failed step left, and the map keys can try again.
+     * The caller has already checked that a game is running.
      */
     private void rebuildWorld(MapGenerationContext context) {
-        if (!gameActive) {
-            log.debug("Ignoring a map rebuild: no game is running");
-            return;
+        boolean rebuilt = false;
+        try {
+            leaveGame();
+            mapManager.generateNewMap(context);
+            playerManager.initializePlayer();
+            mapManager.spawnEnemies();
+            minimapDrawer.updateMap(gameState.getCurrentMap());
+            centerOnPlayer();
+            rebuilt = true;
+        } finally {
+            startGameLoop();
+            if (!rebuilt) {
+                log.error("The map rebuild failed, the game continues so the map keys can try again");
+            }
         }
-        leaveGame();
-        mapManager.generateNewMap(context);
-        playerManager.initializePlayer();
-        mapManager.spawnEnemies();
-        minimapDrawer.updateMap(gameState.getCurrentMap());
-        centerOnPlayer();
-        startGameLoop();
     }
 
     // ==================================================================
