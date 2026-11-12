@@ -94,6 +94,33 @@ class ResourceManagerTest {
     }
 
     @Test
+    void askingForTheToolIsSilentAndTheHintIsAskedForSeparately() {
+        List<String> hints = new ArrayList<>();
+        manager = new ResourceManager(state, hints::add);
+        tile.setWorldResource(new Resource(ResourceType.IRON_ORE, 1));
+
+        assertFalse(manager.hasToolFor(player, tile));
+        assertFalse(manager.hasToolFor(player, tile));
+        assertTrue(hints.isEmpty(), "the query alone shows nothing");
+
+        manager.hintMissingTool(tile);
+
+        assertEquals(1, hints.size());
+        assertTrue(hints.get(0).toLowerCase().contains("pickaxe"), hints.get(0));
+    }
+
+    @Test
+    void noHintIsGivenForAResourceThatNeedsNoTool() {
+        List<String> hints = new ArrayList<>();
+        manager = new ResourceManager(state, hints::add);
+        tile.setWorldResource(new Resource(ResourceType.STONE, 1));
+
+        manager.hintMissingTool(tile);
+
+        assertTrue(hints.isEmpty());
+    }
+
+    @Test
     void noHintWhenTheToolIsCarriedOrNoneIsNeeded() {
         List<String> hints = new ArrayList<>();
         manager = new ResourceManager(state, hints::add);

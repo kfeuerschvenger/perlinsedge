@@ -314,6 +314,155 @@ class InteractionManagerTest {
         assertFalse(interactions.hasPending());
     }
 
+    /** Lets the player walk for a few frames, so it is between two tiles. */
+    private void walkAFewFrames() {
+        for (int i = 0; i < 4; i++) {
+            state.incrementGameTime(STEP);
+            player.update(STEP);
+            interactions.update();
+        }
+        assertTrue(player.getPosX() != Math.rint(player.getPosX()), "the player is between two tiles");
+    }
+
+    private void assertPlayerStaysOnATile() {
+        for (int i = 0; i < 120; i++) {
+            state.incrementGameTime(STEP);
+            player.update(STEP);
+            interactions.update();
+        }
+        assertFalse(player.isMoving(), "the walk is over");
+        assertEquals(Math.rint(player.getPosX()), player.getPosX(), 1e-9, "the player rests on a tile");
+        assertTrue(player.getCurrentTileX() <= 1, "the player did not keep walking to the stone");
+    }
+
+    @Test
+    void aRefusedClickMidWalkStopsThePlayer() {
+        stoneAt(8, 5);
+        interactions.interact(8, 5);
+        walkAFewFrames();
+
+        assertFalse(interactions.interact(3, 3).isAccepted());
+
+        assertPlayerStaysOnATile();
+    }
+
+    @Test
+    void aFailedMoveOrderMidWalkStopsThePlayer() {
+        stoneAt(8, 5);
+        map.setTile(10, 2, new Tile(10, 2, TileType.DEEP_WATER));
+        interactions.interact(8, 5);
+        walkAFewFrames();
+
+        // The way the right click does it: cancel the interaction, then order the move
+        interactions.cancel();
+        assertFalse(player.moveTo(map, 10, 2));
+
+        assertPlayerStaysOnATile();
+    }
+
+    @Test
+    void pausingMidWalkAndResumingLeavesThePlayerStopped() {
+        stoneAt(8, 5);
+        interactions.interact(8, 5);
+        walkAFewFrames();
+
+        // The pause hook cancels the interaction, and the loop runs again after the resume
+        interactions.cancel();
+        state.setGamePaused(true);
+        state.setGamePaused(false);
+
+        assertPlayerStaysOnATile();
+    }
+
+    @Test
+    void aMoveOrderMidWalkReplacesTheWalk() {
+        stoneAt(8, 5);
+        interactions.interact(8, 5);
+        walkAFewFrames();
+
+        interactions.cancel();
+        assertTrue(player.moveTo(map, 0, 9));
+        for (int i = 0; i < 240; i++) {
+            player.update(STEP);
+        }
+
+        assertEquals(0, player.getCurrentTileX());
+        assertEquals(9, player.getCurrentTileY());
+    }
+
+    @Test
+    void cancellingWithNothingPendingLeavesAPlainWalkAlone() {
+        assertTrue(player.moveTo(map, 0, 9));
+
+        interactions.cancel();
+
+        assertTrue(player.isMoving());
+    }
+
+    @Test
+    void arrivingInsideTheHitCooldownKeepsTheInteractionPendingUntilTheHitLands() {
+        Resource stone = stoneAt(3, 5);
+        // The stone was hit moments ago: its cooldown outlasts the walk
+        state.getResourceHitTimes().put(stone, state.getGameTime() + 0.5);
+        assertTrue(interactions.interact(3, 5).isAccepted());
+
+        for (int i = 0; i < 40; i++) {
+            state.incrementGameTime(STEP);
+            player.update(STEP);
+            interactions.update();
+        }
+        assertEquals(2, player.getCurrentTileX(), "the player has arrived");
+        assertTrue(interactions.hasPending(), "the interaction waits for the cooldown");
+        assertEquals(Double.POSITIVE_INFINITY, stone.secondsSinceHit(state.getGameTime()));
+
+        tickUntilIdle();
+
+        assertFalse(interactions.hasPending());
+        assertTrue(stone.secondsSinceHit(state.getGameTime()) < 0.5, "the hit landed when the cooldown ended");
+        assertEquals(ClickFeedback.Kind.NONE, state.getClickFeedback().kind(state.getGameTime()));
+    }
+
+    @Test
+    void arrivingWithTheToolDroppedHintsAndFlashesRed() {
+        player.addItem(new Item(ItemType.PICKAXE, 1));
+        Resource ore = new Resource(ResourceType.IRON_ORE, 1);
+        map.getTile(8, 5).setWorldResource(ore);
+        assertTrue(interactions.interact(8, 5).isAccepted());
+        assertTrue(hints.isEmpty());
+
+        player.removeItem(new Item(ItemType.PICKAXE, 1), 1);
+        tickUntilIdle();
+
+        assertFalse(interactions.hasPending());
+        assertEquals(1, hints.size());
+        assertTrue(hints.get(0).toLowerCase().contains("pickaxe"));
+        assertEquals(ClickFeedback.Kind.REJECTED, state.getClickFeedback().kind(state.getGameTime()));
+        assertEquals(Double.POSITIVE_INFINITY, ore.secondsSinceHit(state.getGameTime()));
+    }
+
+    @Test
+    void aClickBetweenTwoTilesPlansFromTheTileBeingApproached() {
+        // A wall the straight line from the tile left behind would graze: the walk goes around it from the next tile
+        Resource stone = stoneAt(4, 6);
+        map.getTile(2, 5).setBuilding(new Wall(2, 5));
+        player.walkAlong(List.of(new PathNode(1, 5), new PathNode(1, 6), new PathNode(1, 7)));
+        for (int i = 0; i < 4; i++) {
+            player.update(STEP);
+        }
+
+        assertTrue(interactions.interact(4, 6).isAccepted());
+        for (int i = 0; i < 600 && interactions.hasPending(); i++) {
+            state.incrementGameTime(STEP);
+            player.update(STEP);
+            interactions.update();
+            final int tileX = (int) Math.round(player.getPosX());
+            final int tileY = (int) Math.round(player.getPosY());
+            assertFalse(tileX == 2 && tileY == 5, "the player entered the blocked tile");
+        }
+
+        assertTrue(stone.secondsSinceHit(state.getGameTime()) < 0.5, "the stone was hit on arrival");
+    }
+
     @Test
     void aWalkThatStopsShortOfTheTargetIsDroppedInsteadOfWaitingForever() {
         stoneAt(8, 5);

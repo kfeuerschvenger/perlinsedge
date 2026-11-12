@@ -73,13 +73,17 @@ public class ResourceManager {
      */
     public HitResult handleTileInteraction(Player player, Tile tile) {
         if (!isValidInteraction(player, tile)) return HitResult.REFUSED;
-        if (!hasToolFor(player, tile)) return HitResult.REFUSED;
+        if (!hasToolFor(player, tile)) {
+            hintMissingTool(tile);
+            return HitResult.REFUSED;
+        }
         return handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY())
                 ? HitResult.HIT : HitResult.COOLDOWN;
     }
 
     /**
-     * Checks that the player carries the tool the resource on a tile needs, and tells the player what is missing when not.
+     * Checks that the player carries the tool the resource on a tile needs. It only answers: the caller decides
+     * whether to tell the player, with {@link #hintMissingTool(Tile)}.
      * The distance is not checked, so it can be asked before the player walks up to the resource.
      *
      * @param player the player
@@ -88,13 +92,22 @@ public class ResourceManager {
      */
     public boolean hasToolFor(Player player, Tile tile) {
         if (tile == null || !tile.hasResource()) return false;
+        return hasRequiredTool(player, tile.getWorldResource());
+    }
+
+    /**
+     * Tells the player which tool the resource on a tile needs.
+     *
+     * @param tile tile with a resource that needs a tool; anything else does nothing
+     */
+    public void hintMissingTool(Tile tile) {
+        if (tile == null || !tile.hasResource()) return;
         Resource resource = tile.getWorldResource();
-        if (hasRequiredTool(player, resource)) return true;
         ItemType tool = resource.getType().getRequiredTool();
+        if (tool == null) return;
         log.debug("Cannot harvest {} at ({}, {}): the player has no {}",
                 resource.getType(), tile.getX(), tile.getY(), tool);
         hintSink.accept("You need a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
-        return false;
     }
 
     /**

@@ -45,7 +45,7 @@ Each map not only looks different but also features unique resources and special
 ### Exploration Mode
 
 - **Move**: Right-click where you want to go.
-- **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click, a move order, pausing, or the target disappearing cancels the walk. Iron ore sits in rocky ground and needs a pickaxe in your bag.
+- **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be. Iron ore sits in rocky ground and needs a pickaxe in your bag.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, or a missing tool.
 - **Attack**: Point your cursor and press `SPACE`.
 - **Inventory**: `I` toggles your bag of holding.

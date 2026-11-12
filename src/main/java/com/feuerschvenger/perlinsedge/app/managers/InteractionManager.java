@@ -16,8 +16,10 @@ import java.util.function.Consumer;
  * Carries out the interaction the player asks for with a click on a resource or on a building such as a chest or a door.
  * Within reach the interaction happens at once. Out of reach the player first walks toward the nearest walkable tile
  * next to the target and the interaction happens once, on arrival, which is the first moment the player is within
- * reach: the walk ends there instead of going on to the stand tile. The walk is a pending interaction that a new
- * click, a move order, the death of the player, a change of game mode or the target disappearing cancels.
+ * reach: the walk ends there instead of going on to the stand tile. A target hit too recently to be hit again keeps
+ * the interaction pending until the hit lands. The walk is a pending interaction that a new click, a move order, a
+ * pause, the death of the player, a change of game mode or the target disappearing cancels, and cancelling ends the
+ * walk too, the player stopping on the tile it was stepping to.
  */
 @Slf4j
 public class InteractionManager {
@@ -96,11 +98,13 @@ public class InteractionManager {
             return Outcome.REFUSED;
         }
         if (kind == Kind.RESOURCE && !resourceManager.hasToolFor(player, tile)) {
+            resourceManager.hintMissingTool(tile);
             return Outcome.REFUSED;
         }
 
+        // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final List<PathNode> walk = InteractionPlanner.pathToReach(
-                map, player.getCurrentTileX(), player.getCurrentTileY(), tileX, tileY);
+                map, player.getWalkOriginX(), player.getWalkOriginY(), tileX, tileY);
         if (walk == null) {
             hintSink.accept("You can't reach that");
             return Outcome.REFUSED;
@@ -108,9 +112,11 @@ public class InteractionManager {
         if (walk.isEmpty()) {
             // A walk left over from an earlier order would carry the player away from the target
             player.stop();
-            return perform(player, tile, kind);
-        }
-        if (!player.walkAlong(walk)) {
+            if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), tileX, tileY)) {
+                return perform(player, tile, kind);
+            }
+            // The step in progress ends next to the target: the interaction happens on arrival
+        } else if (!player.walkAlong(walk)) {
             return Outcome.REFUSED;
         }
         pending = new Pending(tileX, tileY, kind);
@@ -141,19 +147,36 @@ public class InteractionManager {
         }
         if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(),
                 pending.tileX(), pending.tileY())) {
-            pending = null;
             // The remaining steps only lead to the stand tile, which the interaction does not need
             player.stop();
-            perform(player, tile, kind);
+            final Outcome outcome = perform(player, tile, kind);
+            if (outcome == Outcome.IGNORED) {
+                // The target was hit a moment ago: the interaction stays pending and lands when the cooldown ends
+                return;
+            }
+            pending = null;
+            if (outcome == Outcome.REFUSED) {
+                gameState.getClickFeedback().flash(tile.getX(), tile.getY(), false, gameState.getGameTime());
+            }
         } else if (!player.isMoving()) {
             // The walk ended short of the target, for example because something blocked the way
             cancel();
         }
     }
 
-    /** Forgets the pending interaction. The walk that was started is left to the player. */
+    /**
+     * Forgets the pending interaction and ends the walk that was started for it, so a player never keeps walking to a
+     * target it no longer has. Does nothing when no interaction is pending, which leaves a plain move order alone.
+     */
     public void cancel() {
+        if (pending == null) {
+            return;
+        }
         pending = null;
+        final Player player = gameState.getPlayer();
+        if (player != null) {
+            player.stop();
+        }
     }
 
     /** @return true while the player is walking to an interaction */
