@@ -17,7 +17,9 @@ public final class Pathfinder {
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
 
     /**
-     * What a single search is looking for, kept apart from the Pathfinder so a search holds no state of its own.
+     * What a single search is looking for, kept apart from the Pathfinder so the target of a search is one value that
+     * the heuristic and the goal test both read. The search itself keeps the open set and the scores in locals; the
+     * only state an instance carries between searches is the expansion count behind {@link #getLastExpandedNodes()}.
      *
      * @param x         X coordinate of the target
      * @param y         Y coordinate of the target
@@ -29,6 +31,13 @@ public final class Pathfinder {
             return neighbour ? Math.sqrt(2) : 0;
         }
 
+        /**
+         * Tells whether a node ends the search.
+         *
+         * @param node the node taken off the open set
+         * @return for a neighbour goal, true on any of the eight tiles around the target but not on the target itself;
+         *         otherwise true on the target tile
+         */
         boolean isReached(PathNode node) {
             if (neighbour) {
                 return (node.x != x || node.y != y) && Math.abs(node.x - x) <= 1 && Math.abs(node.y - y) <= 1;
@@ -156,7 +165,12 @@ public final class Pathfinder {
         return null; // No valid path exists
     }
 
-    /** @return number of tiles the most recent search expanded, 0 before any search */
+    /**
+     * Reports how much work the most recent search did, which the tests use to check that the cap stops a search
+     * early. It describes the last search of this instance only, so it is meaningful when one search runs at a time.
+     *
+     * @return number of tiles the most recent search expanded, 0 before any search
+     */
     public int getLastExpandedNodes() {
         return lastExpandedNodes;
     }

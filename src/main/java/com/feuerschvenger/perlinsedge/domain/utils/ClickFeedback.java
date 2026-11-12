@@ -1,4 +1,4 @@
-package com.feuerschvenger.perlinsedge.app.managers;
+package com.feuerschvenger.perlinsedge.domain.utils;
 
 /**
  * The short answer the cursor gives to a click order: the tile that was clicked flashes green when the order was

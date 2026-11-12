@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
-import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;

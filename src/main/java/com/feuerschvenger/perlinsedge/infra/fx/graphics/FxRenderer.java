@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
-import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
