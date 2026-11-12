@@ -1,16 +1,10 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
-import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
-import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxItemDrawingHelper;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.geometry.Pos;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import java.util.Collections;
@@ -274,12 +268,7 @@ public class CraftingListPanel extends VBox {
          * Creates the item image view.
          */
         private ImageView createItemImageView() {
-            ImageView imageView = new ImageView(getItemImage(recipe.getOutputItemType()));
-            imageView.setFitWidth(ITEM_IMAGE_SIZE);
-            imageView.setFitHeight(ITEM_IMAGE_SIZE);
-            imageView.setPreserveRatio(true);
-            imageView.setSmooth(false);
-            return imageView;
+            return ItemIcons.view(recipe.getOutputItemType(), ITEM_IMAGE_SIZE);
         }
 
         /**
@@ -304,29 +293,6 @@ public class CraftingListPanel extends VBox {
             UiTheme.setClass(this, UiTheme.CELL_SELECTED, selected);
         }
 
-        /**
-         * Retrieves the item image for display.
-         */
-        private Image getItemImage(ItemType itemType) {
-            SpriteManager.SpriteMetadata metadata = SpriteManager.getInstance().getItemSprite(itemType);
-            if (metadata != null && metadata.getImage() != null) {
-                return metadata.getImage();
-            }
-            return generateFallbackImage(itemType);
-        }
-
-        /**
-         * Generates a fallback image when no sprite is available.
-         */
-        private Image generateFallbackImage(ItemType itemType) {
-            Canvas canvas = new Canvas(ITEM_IMAGE_SIZE, ITEM_IMAGE_SIZE);
-            GraphicsContext gc = canvas.getGraphicsContext2D();
-            gc.clearRect(0, 0, ITEM_IMAGE_SIZE, ITEM_IMAGE_SIZE);
-            FxItemDrawingHelper.drawFallbackShape(
-                    gc, 0, 0, ITEM_IMAGE_SIZE, ITEM_IMAGE_SIZE, itemType, 1.0
-            );
-            return canvas.snapshot(null, null);
-        }
     }
 
 }

@@ -81,8 +81,8 @@ class DropKeyHandlerTest {
     }
 
     @Test
-    void nothingHappensWithoutAnOpenInventory() {
-        for (GameMode mode : new GameMode[]{GameMode.EXPLORATION, GameMode.BUILDING_MODE, GameMode.PAUSED}) {
+    void nothingHappensInBuildingModeOrWhilePaused() {
+        for (GameMode mode : new GameMode[]{GameMode.BUILDING_MODE, GameMode.PAUSED}) {
             state.setCurrentGameMode(mode);
 
             keys.dropOne();
@@ -91,6 +91,45 @@ class DropKeyHandlerTest {
             assertEquals(5, player.getItemAt(3).getQuantity(), mode.name());
         }
         assertTrue(state.getDroppedItems().isEmpty());
+    }
+
+    @Test
+    void whileExploringQThrowsOneItemFromTheHotbarSlotHeldInHand() {
+        state.setCurrentGameMode(GameMode.EXPLORATION);
+        player.selectHotbarSlot(3);
+
+        keys.dropOne();
+
+        assertEquals(4, player.getItemAt(3).getQuantity());
+        assertEquals(1, state.getDroppedItems().size());
+        assertEquals(ItemType.STONE, state.getDroppedItems().getFirst().getItemType());
+        assertEquals(1, state.getDroppedItems().getFirst().getQuantity());
+    }
+
+    @Test
+    void whileExploringCtrlQThrowsTheWholeStackOfTheSlotHeldInHandIgnoringTheInventoryTarget() {
+        state.setCurrentGameMode(GameMode.EXPLORATION);
+        player.setItemAt(5, new Item(ItemType.WOOD_LOG, 2));
+        player.selectHotbarSlot(5);
+        target = new SlotRef(player, 3);
+
+        keys.dropStack();
+
+        assertNull(player.getItemAt(5));
+        assertEquals(5, player.getItemAt(3).getQuantity(), "the slot of an inventory that is not open is not touched");
+        assertEquals(2, state.getDroppedItems().getFirst().getQuantity());
+    }
+
+    @Test
+    void whileExploringAnEmptyHandThrowsNothing() {
+        state.setCurrentGameMode(GameMode.EXPLORATION);
+        player.selectHotbarSlot(0);
+
+        keys.dropOne();
+        keys.dropStack();
+
+        assertTrue(state.getDroppedItems().isEmpty());
+        assertEquals(5, player.getItemAt(3).getQuantity());
     }
 
     @Test

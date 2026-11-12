@@ -16,8 +16,8 @@ public final class GridUtils {
     // Layout configuration constants
     private static final int GRID_PADDING = 10;
     private static final int GRID_SPACING = 5;
-    private static final int PLAYER_COLS = 6; // Fixed column count for player inventory
-    private static final int PLAYER_ROWS = 3; // Fixed row count for player inventory
+    private static final int PLAYER_COLS = 9; // The width of the hotbar, so the first row is the hotbar
+    private static final int PLAYER_ROWS = 2; // Fixed row count for player inventory
     private static final int MAX_NON_PLAYER_COLS = 6; // Maximum columns for secondary containers
 
     // Private constructor to prevent instantiation (utility class)

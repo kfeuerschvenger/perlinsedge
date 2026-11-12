@@ -56,6 +56,7 @@ public class GameApplication extends Application {
     private InventoryPanel inventoryPanel;
     private MapConfigPanel mapConfigPanel;
     private BuildingHotbarPanel hotbarPanel;
+    private ItemHotbarPanel itemHotbarPanel;
     private HintLabel hintLabel;
     private DeathOverlay deathOverlay;
 
@@ -278,7 +279,8 @@ public class GameApplication extends Application {
         createPlayerUIComponents();
 
         // Add components to layer
-        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel, hintLabel, deathOverlay);
+        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, itemHotbarPanel, hotbarPanel, hintLabel,
+                deathOverlay);
         return layer;
     }
 
@@ -307,15 +309,27 @@ public class GameApplication extends Application {
                 rootPane.heightProperty().subtract(hotbarPanel.heightProperty()).subtract(HUD_MARGIN)
         );
 
-        // Hearts: above the hotbar and aligned to its left edge while it is shown, bottom-left otherwise
+        // Item hotbar: the same place as the building hotbar, which replaces it in building mode
+        itemHotbarPanel = new ItemHotbarPanel();
+        itemHotbarPanel.layoutXProperty().bind(
+                rootPane.widthProperty().subtract(itemHotbarPanel.widthProperty()).divide(2)
+        );
+        itemHotbarPanel.layoutYProperty().bind(
+                rootPane.heightProperty().subtract(itemHotbarPanel.heightProperty()).subtract(HUD_MARGIN)
+        );
+
+        // Hearts: above whichever hotbar is shown, aligned to its left edge
         healthBar = new HealthBar();
         healthBar.layoutXProperty().bind(
-                Bindings.when(hotbarPanel.visibleProperty()).then(hotbarPanel.layoutXProperty()).otherwise(HUD_MARGIN)
+                Bindings.when(hotbarPanel.visibleProperty())
+                        .then(hotbarPanel.layoutXProperty())
+                        .otherwise(itemHotbarPanel.layoutXProperty())
         );
         healthBar.layoutYProperty().bind(
                 Bindings.when(hotbarPanel.visibleProperty())
                         .then(hotbarPanel.layoutYProperty().subtract(healthBar.heightProperty()).subtract(HUD_GAP))
-                        .otherwise(rootPane.heightProperty().subtract(healthBar.heightProperty()).subtract(HUD_MARGIN))
+                        .otherwise(itemHotbarPanel.layoutYProperty().subtract(healthBar.heightProperty())
+                                .subtract(HUD_GAP))
         );
 
         // Inventory panel (centered)
@@ -365,6 +379,7 @@ public class GameApplication extends Application {
                     healthBar,
                     inventoryPanel,
                     hotbarPanel,
+                    itemHotbarPanel,
                     hintLabel,
                     deathOverlay,
                     gameStateManager,

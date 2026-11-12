@@ -42,6 +42,8 @@ public class Player extends Entity implements Container {
 
     // Inventory configuration
     private static final int INVENTORY_CAPACITY = 18;
+    /** Number of inventory slots, counted from the first, that form the hotbar. */
+    public static final int HOTBAR_SIZE = 9;
 
     // ==================================================================
     //  Instance Variables
@@ -59,6 +61,8 @@ public class Player extends Entity implements Container {
 
     // Inventory
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
+    /** The hotbar slot held in hand. It is a position, so it stays put while the items in the slots change. */
+    private int selectedHotbarIndex = 0;
 
     // Movement and pathfinding
     private final LinkedList<PathNode> currentPath = new LinkedList<>();
@@ -342,6 +346,77 @@ public class Player extends Entity implements Container {
             inventory.set(sourceSlot, targetItem);
             inventory.set(targetSlotIndex, draggedItem);
         }
+    }
+
+    // ==================================================================
+    //  Public API - Hotbar
+    // ==================================================================
+
+    /**
+     * Gives the hotbar slot that is held in hand.
+     *
+     * @return the slot index, from 0 to {@link #HOTBAR_SIZE} - 1
+     */
+    public int getSelectedHotbarIndex() {
+        return selectedHotbarIndex;
+    }
+
+    /**
+     * Holds a hotbar slot in hand. The choice is a position and is kept when the items move, are picked up, used up or
+     * thrown, so the slot keeps being the active one with whatever it holds next.
+     *
+     * @param index slot index from 0 to {@link #HOTBAR_SIZE} - 1; any other value changes nothing
+     */
+    public void selectHotbarSlot(int index) {
+        if (index >= 0 && index < HOTBAR_SIZE) {
+            selectedHotbarIndex = index;
+        }
+    }
+
+    /**
+     * Moves the hand along the hotbar, wrapping around at both ends.
+     *
+     * @param delta slots to move, positive toward the last slot and negative toward the first
+     */
+    public void cycleHotbar(int delta) {
+        selectedHotbarIndex = Math.floorMod(selectedHotbarIndex + delta, HOTBAR_SIZE);
+    }
+
+    /**
+     * Gives the stack in the selected hotbar slot, the item the player holds in hand.
+     *
+     * @return the stack, or null when the slot is empty, which means a bare hand
+     */
+    public Item getActiveItem() {
+        return inventory.get(selectedHotbarIndex);
+    }
+
+    /**
+     * Gives the type of the item held in hand.
+     *
+     * @return the type, or null for a bare hand
+     */
+    public ItemType getActiveItemType() {
+        final Item active = getActiveItem();
+        return active != null ? active.getType() : null;
+    }
+
+    /**
+     * Uses up one item of the stack held in hand, emptying the slot when it was the last one.
+     *
+     * @return true when an item was removed, false when the hand is empty
+     */
+    public boolean consumeActiveItem() {
+        final Item active = getActiveItem();
+        if (active == null) {
+            return false;
+        }
+        if (active.getQuantity() <= 1) {
+            inventory.set(selectedHotbarIndex, null);
+        } else {
+            active.removeQuantity(1);
+        }
+        return true;
     }
 
     // ==================================================================

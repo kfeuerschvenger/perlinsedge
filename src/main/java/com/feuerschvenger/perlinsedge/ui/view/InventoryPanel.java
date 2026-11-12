@@ -4,10 +4,8 @@ import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
+import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
-import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxItemDrawingHelper;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
@@ -16,10 +14,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import lombok.Getter;
@@ -93,7 +88,8 @@ public class InventoryPanel extends BorderPane {
 
     private void configurePanel() {
         getStyleClass().add(UiTheme.PANEL);
-        setPrefSize(800, 300);
+        // The width follows the content: the player grid is as wide as the hotbar, nine slots
+        setPrefSize(USE_COMPUTED_SIZE, 300);
     }
 
     private void initializeComponents() {
@@ -123,6 +119,10 @@ public class InventoryPanel extends BorderPane {
                 2 * DEFAULT_CAPACITY;
 
         List<StackPane> slots = createInventorySlots(playerCapacity, gameState.getPlayer());
+        // The first row is the hotbar, drawn with its own edge so it reads as the slots that are held in hand
+        for (int i = 0; i < Math.min(Player.HOTBAR_SIZE, slots.size()); i++) {
+            UiTheme.setClass(slots.get(i), UiTheme.SLOT_HOTBAR, true);
+        }
         playerInventoryGrid = GridUtils.createPlayerGrid(slots);
 
         container.getChildren().addAll(createTitle(PLAYER_INVENTORY_TITLE), playerInventoryGrid);
@@ -334,6 +334,7 @@ public class InventoryPanel extends BorderPane {
      */
     public void updateInventoryDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
+        markActiveHotbarSlot();
 
         if (secondaryContainer != null) {
             updateGridContents(secondaryInventoryGrid, secondaryContainer);
@@ -421,6 +422,34 @@ public class InventoryPanel extends BorderPane {
                 updateSlotVisuals(slot, index, container);
             }
         }
+    }
+
+    /** Gives the hotbar slot that is held in hand the active mark, and every other slot of the grid none. */
+    private void markActiveHotbarSlot() {
+        final Player player = gameState.getPlayer();
+        final int active = player != null ? player.getSelectedHotbarIndex() : -1;
+        final int cols = playerInventoryGrid.getColumnConstraints().size();
+        for (Node node : playerInventoryGrid.getChildren()) {
+            if (node instanceof StackPane slot) {
+                final int index = GridPane.getRowIndex(node) * cols + GridPane.getColumnIndex(node);
+                UiTheme.setClass(slot, UiTheme.SLOT_ACTIVE, index == active);
+            }
+        }
+    }
+
+    /**
+     * Tells which slot of the player grid carries the active mark, for the tests.
+     *
+     * @return the slot index, or -1 when none does
+     */
+    int activeHotbarSlotShown() {
+        final int cols = playerInventoryGrid.getColumnConstraints().size();
+        for (Node node : playerInventoryGrid.getChildren()) {
+            if (node instanceof StackPane slot && slot.getStyleClass().contains(UiTheme.SLOT_ACTIVE)) {
+                return GridPane.getRowIndex(node) * cols + GridPane.getColumnIndex(node);
+            }
+        }
+        return -1;
     }
 
     private void updateSlotContext(StackPane slot, int index, Container container) {
@@ -574,12 +603,7 @@ public class InventoryPanel extends BorderPane {
     }
 
     private ImageView createItemImage(Item item) {
-        ImageView imageView = new ImageView(getItemImage(item));
-        imageView.setFitWidth(ITEM_SIZE);
-        imageView.setFitHeight(ITEM_SIZE);
-        imageView.setPreserveRatio(true);
-        imageView.setSmooth(false);
-        return imageView;
+        return ItemIcons.view(item.getType(), ITEM_SIZE);
     }
 
     /** The stack size in the pixel font with a 1 px dark shadow, at the bottom right corner of the slot. */
@@ -590,26 +614,6 @@ public class InventoryPanel extends BorderPane {
         StackPane.setAlignment(count, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(count, new Insets(0, COUNT_MARGIN, 0, 0));
         return count;
-    }
-
-    /** Retrieves an item's image representation, generating a fallback when no sprite exists. */
-    Image getItemImage(Item item) {
-        if (item == null) return null;
-
-        SpriteManager.SpriteMetadata metadata = SpriteManager.getInstance().getItemSprite(item.getType());
-        if (metadata != null && metadata.getImage() != null) {
-            return metadata.getImage();
-        }
-
-        return generateFallbackImage(item.getType());
-    }
-
-    private Image generateFallbackImage(ItemType itemType) {
-        Canvas canvas = new Canvas(ITEM_SIZE, ITEM_SIZE);
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.clearRect(0, 0, ITEM_SIZE, ITEM_SIZE);
-        FxItemDrawingHelper.drawFallbackShape(gc, 0, 0, ITEM_SIZE, ITEM_SIZE, itemType, 1.0);
-        return canvas.snapshot(null, null);
     }
 
     // ==================================================================

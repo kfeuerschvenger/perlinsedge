@@ -37,6 +37,8 @@ public class GameOrchestrator {
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
     private final HotbarManager hotbarManager;
+    private final ItemHotbarManager itemHotbarManager;
+    private final ItemHotbarPanel itemHotbarPanel;
     private final DropKeyHandler dropKeys;
 
     private final FxRenderer renderer;
@@ -67,7 +69,8 @@ public class GameOrchestrator {
      * @param healthBar           player health view
      * @param inventoryPanel      inventory view
      * @param buildingHotbarPanel building hotbar view
-     * @param hintLabel           short on-screen hints for actions that did nothing
+     * @param itemHotbarPanel     hotbar of the items the player carries, shown outside building mode
+     * @param hintLabel          short on-screen hints for actions that did nothing
      * @param deathOverlay        death screen shown while the player is dead
      * @param gameState           shared state, a new one is created when null
      * @param recipeManager       recipes, a new one is created when null
@@ -75,8 +78,9 @@ public class GameOrchestrator {
     public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
                             FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
                             Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingHotbarPanel buildingHotbarPanel, HintLabel hintLabel,
-                            DeathOverlay deathOverlay, GameStateManager gameState, RecipeManager recipeManager) {
+                            BuildingHotbarPanel buildingHotbarPanel, ItemHotbarPanel itemHotbarPanel,
+                            HintLabel hintLabel, DeathOverlay deathOverlay, GameStateManager gameState,
+                            RecipeManager recipeManager) {
         this.renderer = renderer;
         this.camera = camera;
         this.inputHandler = inputHandler;
@@ -85,6 +89,7 @@ public class GameOrchestrator {
         this.mainCanvas = mainCanvas;
         this.inventoryPanel = inventoryPanel;
         this.deathOverlay = deathOverlay;
+        this.itemHotbarPanel = itemHotbarPanel;
 
         this.gameState = gameState != null ? gameState : new GameStateManager();
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
@@ -99,6 +104,7 @@ public class GameOrchestrator {
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
+        itemHotbarManager = new ItemHotbarManager(this.gameState, () -> { });
 
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
@@ -213,8 +219,9 @@ public class GameOrchestrator {
         mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerKeyboard(createKeyController());
-        inputWiring.registerWheelInterceptor(
-                (deltaY, ctrlDown) -> !gameState.isGameplayInputBlocked() && hotbarManager.handleWheel(deltaY, ctrlDown));
+        // Ctrl with the wheel zooms in every mode, the plain wheel belongs to whichever hotbar is showing
+        inputWiring.registerWheelInterceptor((deltaY, ctrlDown) -> !gameState.isGameplayInputBlocked()
+                && (itemHotbarManager.handleWheel(deltaY, ctrlDown) || hotbarManager.handleWheel(deltaY, ctrlDown)));
         inputWiring.registerMouseHandlers();
     }
 
@@ -241,12 +248,19 @@ public class GameOrchestrator {
                 transitions::toggleInventory,
                 combatManager::handlePlayerAttack,
                 transitions::toggleBuildingMode,
-                hotbarManager::handleHotbarNumberSelection,
+                this::handleNumberKey,
                 hotbarManager::changePage
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setInputBlocked(gameState::isGameplayInputBlocked);
         return controller;
+    }
+
+    /** Gives a number key to the item hotbar while exploring and to the building hotbar while building. */
+    private void handleNumberKey(int number) {
+        if (!itemHotbarManager.handleNumberKey(number)) {
+            hotbarManager.handleHotbarNumberSelection(number);
+        }
     }
 
     /**
@@ -437,6 +451,9 @@ public class GameOrchestrator {
         }
 
         renderer.render(alpha, deltaTime);
+        // The building hotbar takes the place of the item hotbar in building mode
+        itemHotbarPanel.setVisible(gameState.getCurrentGameMode() != GameMode.BUILDING_MODE);
+        itemHotbarPanel.update(gameState.getPlayer());
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());

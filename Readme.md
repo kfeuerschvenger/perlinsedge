@@ -47,6 +47,8 @@ Each map not only looks different but also features unique resources and special
 - **Move**: Right-click where you want to go.
 - **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore sits in rocky ground and needs a pickaxe in your bag.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, or a missing tool.
+- **Hotbar**: The first nine slots of your bag are always on the bar at the bottom of the screen. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand.
+- **Zoom**: `Ctrl` with the mouse wheel zooms the camera. In building mode the wheel flips the building pages and `Ctrl` with the wheel still zooms.
 - **Attack**: Point your cursor and press `SPACE`.
 - **Inventory**: `I` toggles your bag of holding.
 - **Pause**: `ESC` for a breather or snack.
@@ -66,10 +68,11 @@ Each map not only looks different but also features unique resources and special
 
 ### Inventory
 
+- The first row is your hotbar, framed apart from the rest, and the slot you hold in hand has an orange frame. Anything you put in that row shows on the bar at the bottom of the screen.
 - Drag a stack onto another slot to move, stack or swap it.
 - Drag a stack out of the panel (release it outside the panel) to throw the whole stack into the world. Releasing it over the panel but over no slot puts it back.
 - Right-click while dragging to throw one item and keep dragging the rest.
-- `Q` over a slot throws one item, and `Ctrl+Q` throws the whole stack. With the mouse over no slot, they act on the selected slot.
+- `Q` over a slot throws one item, and `Ctrl+Q` throws the whole stack. With the mouse over no slot, they act on the selected slot. With no inventory open they act on the slot you hold in hand.
 - Thrown items land one or two tiles ahead of you, in the direction you are facing, never inside a wall, water or a resource. Identical items you threw within a tile of each other merge into one stack.
 - You cannot pick up what you threw for two seconds, and items left on the ground vanish after five minutes of game time. Time spent paused does not count.
 

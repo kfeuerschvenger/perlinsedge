@@ -21,6 +21,7 @@ import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
+import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -108,6 +109,7 @@ class GameOrchestratorTest {
                     new HealthBar(),
                     new InventoryPanel(state),
                     new BuildingHotbarPanel(recipes),
+                    new ItemHotbarPanel(),
                     new HintLabel(),
                     new DeathOverlay(),
                     state,
