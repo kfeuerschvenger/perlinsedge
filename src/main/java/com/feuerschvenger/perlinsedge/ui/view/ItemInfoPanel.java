@@ -5,6 +5,8 @@ import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.geometry.Pos;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 
@@ -23,12 +25,21 @@ public class ItemInfoPanel extends VBox {
     private static final double PREF_WIDTH = 200;
     private static final double MIN_WIDTH = 150;
     private static final double MAX_WIDTH = 250;
+    /** Width of the text column: the panel without its padding. */
+    private static final double CONTENT_WIDTH = PREF_WIDTH - PANEL_PADDING * 2;
+    /** Room kept free at the right of the description for the scroll bar and a small gap. */
+    private static final double SCROLL_BAR_ROOM = 12;
+    /** Height of the title area, two lines of the heading font, so a long title never moves what is below it. */
+    private static final double TITLE_AREA_HEIGHT = 64;
+    /** Height of the area that holds the description and the ingredients; longer text scrolls inside it. */
+    private static final double DETAILS_AREA_HEIGHT = 160;
 
     private static final String DEFAULT_TITLE = "Select an Item";
 
     // UI components
     private Text titleText;
     private Text descriptionText;
+    private ScrollPane detailsScroll;
     /** The ingredient lines of a recipe, one text each so every line has its own colour. */
     private final VBox ingredientsBox = new VBox();
 
@@ -38,7 +49,7 @@ public class ItemInfoPanel extends VBox {
     public ItemInfoPanel() {
         configureLayout();
         initializeComponents();
-        getChildren().addAll(titleText, descriptionText, ingredientsBox);
+        getChildren().addAll(createTitleArea(), detailsScroll);
     }
 
     /**
@@ -61,9 +72,29 @@ public class ItemInfoPanel extends VBox {
         descriptionText = createStyledText(UiTheme.MUTED, "");
 
         // Set consistent wrapping width based on panel dimensions
-        double wrappingWidth = PREF_WIDTH - PANEL_PADDING * 2;
-        titleText.setWrappingWidth(wrappingWidth);
-        descriptionText.setWrappingWidth(wrappingWidth);
+        titleText.setWrappingWidth(CONTENT_WIDTH);
+        descriptionText.setWrappingWidth(CONTENT_WIDTH - SCROLL_BAR_ROOM);
+
+        // The description and the ingredients scroll inside an area of one fixed size, so neither the panel nor the
+        // window around it depends on how much there is to read
+        final VBox details = new VBox(CONTENT_SPACING, descriptionText, ingredientsBox);
+        detailsScroll = new ScrollPane(details);
+        detailsScroll.setFitToWidth(true);
+        detailsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        detailsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        detailsScroll.setMinSize(CONTENT_WIDTH, DETAILS_AREA_HEIGHT);
+        detailsScroll.setPrefSize(CONTENT_WIDTH, DETAILS_AREA_HEIGHT);
+        detailsScroll.setMaxSize(CONTENT_WIDTH, DETAILS_AREA_HEIGHT);
+    }
+
+    /** The title in an area of fixed height, which keeps the title from moving what is below it. */
+    private StackPane createTitleArea() {
+        final StackPane area = new StackPane(titleText);
+        StackPane.setAlignment(titleText, Pos.TOP_LEFT);
+        area.setMinHeight(TITLE_AREA_HEIGHT);
+        area.setPrefHeight(TITLE_AREA_HEIGHT);
+        area.setMaxHeight(TITLE_AREA_HEIGHT);
+        return area;
     }
 
     /**
@@ -90,9 +121,23 @@ public class ItemInfoPanel extends VBox {
             return;
         }
 
-        titleText.setText(UiTheme.caps(formatItemTitle(item)));
-        descriptionText.setText(item.getDescription());
+        show(formatItemTitle(item), item.getDescription());
         ingredientsBox.getChildren().clear();
+    }
+
+    /**
+     * Shows a title and a description and scrolls the description back to its start. The description may be of any
+     * length: the panel keeps its size and the text scrolls.
+     */
+    void show(String title, String description) {
+        titleText.setText(UiTheme.caps(title));
+        descriptionText.setText(description);
+        detailsScroll.setVvalue(0);
+    }
+
+    /** Gives the area that holds the description, for the tests. */
+    ScrollPane detailsArea() {
+        return detailsScroll;
     }
 
     /**
@@ -118,8 +163,7 @@ public class ItemInfoPanel extends VBox {
             return;
         }
 
-        titleText.setText(UiTheme.caps(recipe.getName()));
-        descriptionText.setText(formatRecipeDetails(recipe));
+        show(recipe.getName(), formatRecipeDetails(recipe));
         ingredientsBox.getChildren().setAll(createIngredientLines(recipe, have));
     }
 
@@ -166,7 +210,7 @@ public class ItemInfoPanel extends VBox {
     Text createIngredientLine(CraftingIngredient ingredient, int held) {
         Text line = createStyledText(held >= ingredient.quantity() ? UiTheme.TEXT_GOOD : UiTheme.TEXT_BAD,
                 ingredient.itemType().getDisplayName() + " " + held + "/" + ingredient.quantity());
-        line.setWrappingWidth(PREF_WIDTH - PANEL_PADDING * 2);
+        line.setWrappingWidth(CONTENT_WIDTH - SCROLL_BAR_ROOM);
         return line;
     }
 
@@ -179,8 +223,7 @@ public class ItemInfoPanel extends VBox {
      * Clears all displayed information and resets to default state.
      */
     public void clearInfo() {
-        titleText.setText(UiTheme.caps(DEFAULT_TITLE));
-        descriptionText.setText("");
+        show(DEFAULT_TITLE, "");
         ingredientsBox.getChildren().clear();
     }
 
