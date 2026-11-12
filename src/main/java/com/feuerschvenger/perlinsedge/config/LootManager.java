@@ -109,8 +109,7 @@ public class LootManager {
 
         // Skeleton enemy loot
         enemyLootTables.put(Skeleton.class, Arrays.asList(
-                new LootEntry(ItemType.BONE, 2, 4),
-                new LootEntry(ItemType.ARROW, 0, 5)
+                new LootEntry(ItemType.BONE, 2, 4)
         ));
 
         // Mimic enemy loot

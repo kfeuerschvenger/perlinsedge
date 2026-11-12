@@ -136,7 +136,7 @@ public final class FxItemDrawingHelper {
             case STONE -> drawStone(gc, x, y, width, height, margin);
             case CRYSTALS -> drawCrystals(gc, centerX, centerY, width * 0.4, height * 0.4);
             case SLIME_BALL -> drawSlimeBall(gc, x, y, width, height);
-            case PICKAXE, AXE, SWORD, SHOVEL, BOW -> drawTool(gc, x, y, width, height, itemType);
+            case PICKAXE, AXE, SWORD -> drawTool(gc, x, y, width, height, itemType);
             default -> drawDefaultShape(gc, x, y, width, height);
         }
 
@@ -279,11 +279,7 @@ public final class FxItemDrawingHelper {
                 gc.fillPolygon(swordX, swordY, swordX.length);
                 gc.strokePolygon(swordX, swordY, swordX.length);
             }
-            default -> { // SHOVEL, BOW
-                double toolY = y + (height * 0.1);
-                gc.fillRect(x + width * 0.3, toolY, width * 0.4, height * 0.15);
-                gc.strokeRect(x + width * 0.3, toolY, width * 0.4, height * 0.15);
-            }
+            default -> { }
         }
     }
 
