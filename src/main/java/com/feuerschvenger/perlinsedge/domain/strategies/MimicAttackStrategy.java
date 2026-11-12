@@ -10,7 +10,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MimicAttackStrategy implements EnemyAttackStrategy {
-    private static final double ATTACK_RANGE_TILES = 1.0; // Mimics attack when adjacent or on same tile
+    /** Distance in tiles from which a mimic hits: the eight tiles around it, where its chase ends. */
+    private static final double ATTACK_RANGE_TILES = 1.5;
 
     public MimicAttackStrategy() {
         // Constructor

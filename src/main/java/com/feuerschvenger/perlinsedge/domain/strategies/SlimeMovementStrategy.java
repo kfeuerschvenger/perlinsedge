@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
@@ -18,7 +19,6 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     // Configuration constants (specific to Slime movement)
     private static final double IDLE_JUMP_INTERVAL_MIN = 2.0;
     private static final double IDLE_JUMP_INTERVAL_MAX = 4.0;
-    private static final double AGGRO_RANGE = 8.0;
     private static final double JUMP_SPEED_AGGRO = 0.5; // Duration of jump
     private static final double JUMP_SPEED_IDLE = 0.8;  // Duration of jump
     public static final double JUMP_HEIGHT_FACTOR = 50.0; // Public for rendering
@@ -37,6 +37,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     private final Random random;
     private final PathPlanner pathPlanner = new PathPlanner();
+    private final ChaseLeash leash = new ChaseLeash(AppConfig.getInstance().enemies().slime());
 
     public SlimeMovementStrategy() {
         this.currentPath = new LinkedList<>();
@@ -57,20 +58,25 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         final boolean inReach = SlimeAttackStrategy.isInReach(enemy, player);
         if (inReach) {
             currentPath.clear();
-        } else if (shouldAggro(enemy, player)) {
+        } else if (leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime)) {
             handleAggroBehavior(enemy, map, player);
         } else {
+            // Without a chase the hops along a path to the player stop once the one in the air has landed
+            currentPath.clear();
             handleIdleBehavior(enemy, map, deltaTime);
         }
 
         if (isJumping) {
             updateJump(enemy, deltaTime);
         } else if (!inReach && shouldStartJump(enemy)) {
-            startNextJump(enemy);
+            startNextJump(enemy, map);
         }
     }
 
     public boolean isJumping() { return isJumping; }
+
+    /** @return true while the slime is chasing the player */
+    public boolean isChasing() { return leash.isChasing(); }
     public double getJumpPhase() { return jumpPhase; }
 
     private void resetIdleTimer() {
@@ -78,13 +84,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
                 (IDLE_JUMP_INTERVAL_MAX - IDLE_JUMP_INTERVAL_MIN) * random.nextDouble();
     }
 
-    private boolean shouldAggro(Enemy enemy, Player player) {
-        if (player.isDead()) { // Use isDead() from Entity
-            return false;
-        }
-        double dx = player.getCurrentTileX() - enemy.getCurrentTileX(); // Use inherited getters
-        double dy = player.getCurrentTileY() - enemy.getCurrentTileY();
-        return Math.sqrt(dx * dx + dy * dy) <= AGGRO_RANGE;
+    private static double distanceToPlayer(Enemy enemy, Player player) {
+        return Math.hypot(player.getCurrentTileX() - enemy.getCurrentTileX(),
+                player.getCurrentTileY() - enemy.getCurrentTileY());
     }
 
     private void handleAggroBehavior(Enemy enemy, TileMap map, Player player) {
@@ -148,17 +150,26 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
             int nextX = enemy.getCurrentTileX() + DX[i];
             int nextY = enemy.getCurrentTileY() + DY[i];
 
-            if (isValidMove(map, nextX, nextY)) {
+            if (canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextX, nextY)) {
                 moves.add(new int[]{nextX, nextY});
             }
         }
         return moves;
     }
 
+    /** A hop lands on a free tile, and a diagonal hop may not cut the corner of a blocked tile. */
+    private boolean canHop(TileMap map, int fromX, int fromY, int toX, int toY) {
+        if (!isValidMove(map, toX, toY)) {
+            return false;
+        }
+        final boolean diagonal = toX != fromX && toY != fromY;
+        return !diagonal || (isValidMove(map, toX, fromY) && isValidMove(map, fromX, toY));
+    }
+
     private boolean isValidMove(TileMap map, int x, int y) {
         return x >= 0 && x < map.getWidth() &&
                 y >= 0 && y < map.getHeight() &&
-                map.getTile(x, y).getType().isWalkable() && !map.getTile(x, y).hasResource() && !map.getTile(x,y).hasBuilding(); // Also check for buildings
+                map.getTile(x, y).isWalkable(); // The rule the pathfinder uses: water, resources and solid buildings block
     }
 
     private void startJump(Enemy enemy) {
@@ -195,8 +206,13 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         return !currentPath.isEmpty() && !isJumping;
     }
 
-    private void startNextJump(Enemy enemy) {
+    private void startNextJump(Enemy enemy, TileMap map) {
         PathNode nextStep = currentPath.removeFirst();
+        // Something may have been built on the tile since the path was searched
+        if (!canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextStep.x, nextStep.y)) {
+            currentPath.clear();
+            return;
+        }
         enemy.setTargetTileX(nextStep.x);
         enemy.setTargetTileY(nextStep.y);
 

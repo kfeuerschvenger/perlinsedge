@@ -23,6 +23,7 @@ public class AppConfig {
     private final DebugConfig debug = new DebugConfig();
     private final GameMechanicsConfig gameMechanics = new GameMechanicsConfig();
     private final GenerationConfig generationConfig = new GenerationConfig();
+    private final EnemyConfig enemies = new EnemyConfig();
 
     private AppConfig() {}
 
@@ -40,6 +41,7 @@ public class AppConfig {
     public PlayerConfig player() { return player; }
     public DebugConfig debug() { return debug; }
     public GameMechanicsConfig gameMechanics() { return gameMechanics; }
+    public EnemyConfig enemies() { return enemies; }
     public GenerationConfig generationConfig() { return generationConfig; }
 
     // ==================================================================
@@ -245,6 +247,42 @@ public class AppConfig {
                 default -> DEFAULT_MAX_HEALTH;
             };
         }
+    }
+
+    /**
+     * How far each enemy type notices the player and how far it follows before giving up.
+     */
+    public static class EnemyConfig {
+        /**
+         * The three distances that govern one enemy's chase.
+         *
+         * @param aggroTiles  distance in tiles within which the enemy starts chasing the player
+         * @param leashTiles  distance in tiles beyond which a chasing enemy gives up at once, larger than aggroTiles so
+         *                    an enemy at the edge of its range does not flip between chasing and idling
+         * @param loseSeconds seconds a chasing enemy keeps going while the player is outside aggroTiles, before it
+         *                    gives up
+         */
+        public record ChaseRange(double aggroTiles, double leashTiles, double loseSeconds) {
+            /** Validates that the leash encloses the aggro range. */
+            public ChaseRange {
+                if (aggroTiles <= 0 || leashTiles <= aggroTiles || loseSeconds < 0) {
+                    throw new IllegalArgumentException("need 0 < aggroTiles < leashTiles and loseSeconds >= 0");
+                }
+            }
+        }
+
+        private static final ChaseRange SLIME = new ChaseRange(8.0, 12.0, 3.0);
+        private static final ChaseRange SKELETON = new ChaseRange(10.0, 15.0, 4.0);
+        private static final ChaseRange MIMIC = new ChaseRange(2.5, 8.0, 3.0);
+
+        /** @return the chase distances of a slime */
+        public ChaseRange slime() { return SLIME; }
+
+        /** @return the chase distances of a skeleton */
+        public ChaseRange skeleton() { return SKELETON; }
+
+        /** @return the chase distances of a mimic, whose aggro range is the distance that wakes it */
+        public ChaseRange mimic() { return MIMIC; }
     }
 
     /**
