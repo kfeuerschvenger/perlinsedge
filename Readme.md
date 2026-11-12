@@ -45,7 +45,7 @@ Each map not only looks different but also features unique resources and special
 ### Exploration Mode
 
 - **Move**: Right-click where you want to go.
-- **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore sits in rocky ground and needs a pickaxe in your bag.
+- **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore and crystals need a pickaxe in your hand, see Tools below.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, or a missing tool.
 - **Hotbar**: The first nine slots of your bag are always on the bar at the bottom of the screen. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand.
 - **Zoom**: `Ctrl` with the mouse wheel zooms the camera. In building mode the wheel flips the building pages and `Ctrl` with the wheel still zooms.
@@ -54,6 +54,19 @@ Each map not only looks different but also features unique resources and special
 - **Pause**: `ESC` for a breather or snack.
 - **Center Camera**: `C` to bring the camera home.
 - **Minimap**: Click to warp the view.
+
+### Tools
+
+What you hold in hand decides how you gather and fight. Only the slot you hold counts, a tool that sits elsewhere in the bag does nothing. A tool that does not suit the target works like a bare hand.
+
+| Target | Health | Bare hand | Right tool |
+|---|---|---|---|
+| Tree | 30 | 8 hits, one every 0.6 s | Axe: 3 hits, one every 0.3 s |
+| Stone | 30 | 8 hits, one every 0.6 s | Pickaxe: 3 hits, one every 0.3 s |
+| Iron ore | 36 | Cannot be mined | Pickaxe: 3 hits, one every 0.3 s |
+| Crystals | 25 | Cannot be mined | Pickaxe: 3 hits, one every 0.3 s |
+
+Against enemies a bare hand and a pickaxe deal 10 damage per hit, the axe 12 and the sword 20. Without the pickaxe in hand, iron ore and crystals show a hint and flash red.
 
 ### Building Mode
 

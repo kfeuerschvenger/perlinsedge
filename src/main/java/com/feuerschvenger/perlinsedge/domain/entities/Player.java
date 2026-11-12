@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ToolStats;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -33,7 +34,6 @@ public class Player extends Entity implements Container {
 
     // Combat configuration
     private static final double DEFAULT_ATTACK_RANGE = 1.5;     // In tiles
-    private static final double DEFAULT_ATTACK_DAMAGE = 10.0;   // Base damage per attack
     private static final double DEFAULT_ATTACK_COOLDOWN = 0.8;  // Time between attacks
     private static final double ATTACK_ANIMATION_DURATION = 0.3;
 
@@ -51,7 +51,6 @@ public class Player extends Entity implements Container {
 
     // Combat state
     private double attackRange = DEFAULT_ATTACK_RANGE;
-    private double attackDamage = DEFAULT_ATTACK_DAMAGE;
     private double attackCooldown = DEFAULT_ATTACK_COOLDOWN;
     private double attackTimer = 0;
     private boolean isAttacking = false;
@@ -662,7 +661,12 @@ public class Player extends Entity implements Container {
     public List<Item> getInventory() { return Collections.unmodifiableList(inventory); }
     public int getDirection() { return direction; }
     public int getAnimationFrame() { return animationFrame; }
-    public double getAttackDamage() { return attackDamage; }
+    /**
+     * Gives the damage one melee hit deals, which depends on the item held in hand, see {@link ToolStats}.
+     *
+     * @return the damage of the item in hand, or of a bare hand
+     */
+    public double getAttackDamage() { return ToolStats.combatDamage(getActiveItemType()); }
     public double getAttackRange() { return attackRange; }
 
     // ==================================================================

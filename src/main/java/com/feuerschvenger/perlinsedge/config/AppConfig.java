@@ -218,15 +218,13 @@ public class AppConfig {
      * Game mechanics configuration (health, loot tables)
      */
     public static class GameMechanicsConfig {
-        // Resource health
+        // Resource health, balanced against the damage table of ToolStats so the right tool breaks a resource in three
+        // hits and a bare hand takes about eight where a hand can do it at all
         private static final int TREE_MAX_HEALTH = 30;
-        private static final int ROCK_MAX_HEALTH = 40;
+        private static final int ROCK_MAX_HEALTH = 30;
         private static final int CRYSTAL_MAX_HEALTH = 25;
-        private static final int IRON_ORE_MAX_HEALTH = 60;
+        private static final int IRON_ORE_MAX_HEALTH = 36;
         private static final int DEFAULT_MAX_HEALTH = 50;
-
-        // Cooldowns
-        private static final long resourceHitCooldownMs = 300;
 
         public int getResourceBaseHealth(ResourceType type) {
             return switch (type) {
@@ -237,8 +235,6 @@ public class AppConfig {
                 default -> DEFAULT_MAX_HEALTH;
             };
         }
-
-        public long getResourceHitCooldownMs() { return resourceHitCooldownMs; }
     }
 
     /**

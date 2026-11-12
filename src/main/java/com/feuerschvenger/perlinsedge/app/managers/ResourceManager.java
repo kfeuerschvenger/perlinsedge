@@ -1,11 +1,11 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.LootManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ToolStats;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -33,7 +33,6 @@ public class ResourceManager {
     }
 
     // Configuration constants
-    private static final int RESOURCE_HIT_DAMAGE = 10; // Damage per hit
     private static final int MAX_INTERACTION_DISTANCE = 1; // Adjacent tiles only (8-direction)
     private static final double MILLIS_PER_SECOND = 1000.0;
 
@@ -77,18 +76,18 @@ public class ResourceManager {
             hintMissingTool(tile);
             return HitResult.REFUSED;
         }
-        return handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY())
+        return handleResourceHit(player.getActiveItemType(), tile.getWorldResource(), tile.getX(), tile.getY())
                 ? HitResult.HIT : HitResult.COOLDOWN;
     }
 
     /**
-     * Checks that the player carries the tool the resource on a tile needs. It only answers: the caller decides
+     * Checks that the player holds in hand the tool the resource on a tile needs. It only answers: the caller decides
      * whether to tell the player, with {@link #hintMissingTool(Tile)}.
      * The distance is not checked, so it can be asked before the player walks up to the resource.
      *
      * @param player the player
      * @param tile   tile with a resource
-     * @return true when the resource needs no tool or the player carries it
+     * @return true when the resource needs no tool or the item in the player's hand is that tool
      */
     public boolean hasToolFor(Player player, Tile tile) {
         if (tile == null || !tile.hasResource()) return false;
@@ -105,39 +104,41 @@ public class ResourceManager {
         Resource resource = tile.getWorldResource();
         ItemType tool = resource.getType().getRequiredTool();
         if (tool == null) return;
-        log.debug("Cannot harvest {} at ({}, {}): the player has no {}",
+        log.debug("Cannot harvest {} at ({}, {}): the player does not hold a {}",
                 resource.getType(), tile.getX(), tile.getY(), tool);
-        hintSink.accept("You need a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
+        hintSink.accept("Hold a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
     }
 
     /**
-     * Checks that the player carries the tool a resource needs, such as the pickaxe for iron ore.
+     * Checks that the item in hand is the tool a resource needs, such as the pickaxe for iron ore. A tool in the bag
+     * outside the hotbar slot held in hand does not count.
      */
     private boolean hasRequiredTool(Player player, Resource resource) {
         ItemType tool = resource.getType().getRequiredTool();
-        return tool == null || player.canTakeItem(new Item(tool, 1), 1);
+        return tool == null || player.getActiveItemType() == tool;
     }
 
     /**
      * Processes a hit on a resource, applying damage and handling depletion.
-     * Enforces cooldown between hits and manages resource state.
+     * The damage and the time before the next hit come from {@link ToolStats} for the item in hand.
      *
+     * @param tool the item in hand, null for a bare hand
      * @param resource Resource being harvested
      * @param tileX Resource's X coordinate
      * @param tileY Resource's Y coordinate
      * @return true when the hit landed, false when the cooldown blocked it
      */
-    private boolean handleResourceHit(Resource resource, int tileX, int tileY) {
+    private boolean handleResourceHit(ItemType tool, Resource resource, int tileX, int tileY) {
         // The cooldown runs on the game clock, which stands still while paused, so a pause neither skips nor ends it
         double currentTime = gameState.getGameTime();
-        double cooldown = AppConfig.getInstance().gameMechanics().getResourceHitCooldownMs() / MILLIS_PER_SECOND;
+        double cooldown = ToolStats.resourceCooldownMs(tool, resource.getType()) / MILLIS_PER_SECOND;
 
         if (isOnCooldown(resource, currentTime, cooldown)) return false;
 
         resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
 
-        boolean depleted = resource.takeDamage(RESOURCE_HIT_DAMAGE);
+        boolean depleted = resource.takeDamage(ToolStats.resourceDamage(tool, resource.getType()));
         if (depleted) {
             processResourceDepletion(resource, tileX, tileY);
         }
