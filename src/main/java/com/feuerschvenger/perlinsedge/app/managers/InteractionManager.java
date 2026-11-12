@@ -14,12 +14,28 @@ import java.util.function.Consumer;
 
 /**
  * Carries out the interaction the player asks for with a click on a resource or on a building such as a chest or a door.
- * Within reach the interaction happens at once. Out of reach the player first walks to the nearest walkable tile next to
- * the target and the interaction happens once, on arrival. The walk is a pending interaction that a new click, a move
- * order, the death of the player, a change of game mode or the target disappearing cancels.
+ * Within reach the interaction happens at once. Out of reach the player first walks toward the nearest walkable tile
+ * next to the target and the interaction happens once, on arrival, which is the first moment the player is within
+ * reach: the walk ends there instead of going on to the stand tile. The walk is a pending interaction that a new
+ * click, a move order, the death of the player, a change of game mode or the target disappearing cancels.
  */
 @Slf4j
 public class InteractionManager {
+
+    /** What came of a click. */
+    public enum Outcome {
+        /** The interaction was done or the walk to it started. */
+        ACCEPTED,
+        /** The click was valid but had no effect, because the target was hit too recently; it earns no feedback. */
+        IGNORED,
+        /** The click was refused. */
+        REFUSED;
+
+        /** @return true when the click earns the accepted flash */
+        public boolean isAccepted() {
+            return this == ACCEPTED;
+        }
+    }
 
     /** What a click on a tile does. */
     private enum Kind { NONE, BUILDING, RESOURCE }
@@ -42,7 +58,7 @@ public class InteractionManager {
      * @param gameState         shared game state
      * @param buildingManager   opens chests and toggles doors
      * @param resourceManager   hits resources
-     * @param containerManager tells whether an interaction opened a container
+     * @param containerManager  tells whether an interaction opened a container
      * @param onContainerOpened called after an interaction opened a container, it shows the container
      * @param hintSink          receives the short message shown when the target cannot be reached
      */
@@ -63,43 +79,49 @@ public class InteractionManager {
      *
      * @param tileX tile column
      * @param tileY tile row
-     * @return true when the order was accepted, the interaction done or the walk started; false when there is nothing
-     *         to interact with, the tool is missing or the target cannot be reached
+     * @return {@link Outcome#ACCEPTED} when the interaction was done or the walk started, {@link Outcome#IGNORED} when
+     *         the target was hit too recently for another hit to land, {@link Outcome#REFUSED} when there is nothing to
+     *         interact with, the tool is missing or the target cannot be reached
      */
-    public boolean interact(int tileX, int tileY) {
+    public Outcome interact(int tileX, int tileY) {
         cancel();
         final Player player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
         if (player == null || map == null || player.isDead()) {
-            return false;
+            return Outcome.REFUSED;
         }
         final Tile tile = map.getTile(tileX, tileY);
         final Kind kind = kindOf(tile);
         if (kind == Kind.NONE) {
-            return false;
+            return Outcome.REFUSED;
         }
         if (kind == Kind.RESOURCE && !resourceManager.hasToolFor(player, tile)) {
-            return false;
+            return Outcome.REFUSED;
         }
 
         final List<PathNode> walk = InteractionPlanner.pathToReach(
                 map, player.getCurrentTileX(), player.getCurrentTileY(), tileX, tileY);
         if (walk == null) {
             hintSink.accept("You can't reach that");
-            return false;
+            return Outcome.REFUSED;
         }
         if (walk.isEmpty()) {
+            // A walk left over from an earlier order would carry the player away from the target
+            player.stop();
             return perform(player, tile, kind);
         }
         if (!player.walkAlong(walk)) {
-            return false;
+            return Outcome.REFUSED;
         }
         pending = new Pending(tileX, tileY, kind);
         log.debug("Walking to {} at ({}, {})", kind, tileX, tileY);
-        return true;
+        return Outcome.ACCEPTED;
     }
 
-    /** Advances a pending interaction by one game tick: performs it on arrival, or cancels it when it can no longer happen. */
+    /**
+     * Advances a pending interaction by one game tick: performs it and ends the walk the first time the player is in
+     * reach, or cancels it when it can no longer happen.
+     */
     public void update() {
         if (pending == null) {
             return;
@@ -120,6 +142,8 @@ public class InteractionManager {
         if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(),
                 pending.tileX(), pending.tileY())) {
             pending = null;
+            // The remaining steps only lead to the stand tile, which the interaction does not need
+            player.stop();
             perform(player, tile, kind);
         } else if (!player.isMoving()) {
             // The walk ended short of the target, for example because something blocked the way
@@ -137,15 +161,19 @@ public class InteractionManager {
         return pending != null;
     }
 
-    private boolean perform(Player player, Tile tile, Kind kind) {
+    private Outcome perform(Player player, Tile tile, Kind kind) {
         if (kind == Kind.BUILDING) {
             final boolean interacted = buildingManager.interactWithBuilding(tile.getX(), tile.getY());
             if (interacted && containerManager.isContainerOpen()) {
                 onContainerOpened.run();
             }
-            return interacted;
+            return interacted ? Outcome.ACCEPTED : Outcome.REFUSED;
         }
-        return resourceManager.handleTileInteraction(player, tile);
+        return switch (resourceManager.handleTileInteraction(player, tile)) {
+            case HIT -> Outcome.ACCEPTED;
+            case COOLDOWN -> Outcome.IGNORED;
+            case REFUSED -> Outcome.REFUSED;
+        };
     }
 
     /** What a click on a tile would interact with, a building taking precedence over a resource. */

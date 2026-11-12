@@ -22,6 +22,16 @@ import java.util.function.Consumer;
  */
 @Slf4j
 public class ResourceManager {
+    /** What a click on a resource did. */
+    public enum HitResult {
+        /** A hit landed. */
+        HIT,
+        /** The resource was hit too recently for another to land, so the click had no effect. */
+        COOLDOWN,
+        /** The click was not valid: no resource, out of reach or the tool is missing. */
+        REFUSED
+    }
+
     // Configuration constants
     private static final int RESOURCE_HIT_DAMAGE = 10; // Damage per hit
     private static final int MAX_INTERACTION_DISTANCE = 1; // Adjacent tiles only (8-direction)
@@ -57,14 +67,15 @@ public class ResourceManager {
      *
      * @param player Player attempting interaction
      * @param tile Target tile containing resource
-     * @return true when the order was valid, which includes a hit that waits for the cooldown; false when the tile has
-     *         no resource, the player is out of reach or lacks the tool
+     * @return {@link HitResult#HIT} when a hit landed, {@link HitResult#COOLDOWN} when the resource was hit too
+     *         recently for another to land, {@link HitResult#REFUSED} when the tile has no resource, the player is out
+     *         of reach or lacks the tool
      */
-    public boolean handleTileInteraction(Player player, Tile tile) {
-        if (!isValidInteraction(player, tile)) return false;
-        if (!hasToolFor(player, tile)) return false;
-        handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY());
-        return true;
+    public HitResult handleTileInteraction(Player player, Tile tile) {
+        if (!isValidInteraction(player, tile)) return HitResult.REFUSED;
+        if (!hasToolFor(player, tile)) return HitResult.REFUSED;
+        return handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY())
+                ? HitResult.HIT : HitResult.COOLDOWN;
     }
 
     /**
@@ -101,13 +112,14 @@ public class ResourceManager {
      * @param resource Resource being harvested
      * @param tileX Resource's X coordinate
      * @param tileY Resource's Y coordinate
+     * @return true when the hit landed, false when the cooldown blocked it
      */
-    private void handleResourceHit(Resource resource, int tileX, int tileY) {
+    private boolean handleResourceHit(Resource resource, int tileX, int tileY) {
         // The cooldown runs on the game clock, which stands still while paused, so a pause neither skips nor ends it
         double currentTime = gameState.getGameTime();
         double cooldown = AppConfig.getInstance().gameMechanics().getResourceHitCooldownMs() / MILLIS_PER_SECOND;
 
-        if (isOnCooldown(resource, currentTime, cooldown)) return;
+        if (isOnCooldown(resource, currentTime, cooldown)) return false;
 
         resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
@@ -116,6 +128,7 @@ public class ResourceManager {
         if (depleted) {
             processResourceDepletion(resource, tileX, tileY);
         }
+        return true;
     }
 
     /**

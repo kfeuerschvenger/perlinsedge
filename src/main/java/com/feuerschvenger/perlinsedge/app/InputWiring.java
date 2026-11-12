@@ -43,6 +43,7 @@ public class InputWiring {
 
     private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasPress;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
+    private final EventHandler<MouseEvent> canvasDragHandler = this::handleMouseDragOrRelease;
     private final EventHandler<MouseEvent> canvasExitHandler = this::handleMouseExit;
     private final EventHandler<MouseEvent> minimapClickHandler = this::handleMinimapClick;
 
@@ -97,6 +98,8 @@ public class InputWiring {
         unregisterMouseHandlers();
         mainCanvas.addEventHandler(MouseEvent.MOUSE_PRESSED, canvasClickHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
+        mainCanvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, canvasDragHandler);
+        mainCanvas.addEventHandler(MouseEvent.MOUSE_RELEASED, canvasDragHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
         if (minimapDrawer.getCanvas() != null) {
             minimapDrawer.getCanvas().addEventHandler(MouseEvent.MOUSE_CLICKED, minimapClickHandler);
@@ -107,6 +110,8 @@ public class InputWiring {
     public void unregisterMouseHandlers() {
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_PRESSED, canvasClickHandler);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
+        mainCanvas.removeEventHandler(MouseEvent.MOUSE_DRAGGED, canvasDragHandler);
+        mainCanvas.removeEventHandler(MouseEvent.MOUSE_RELEASED, canvasDragHandler);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
         if (minimapDrawer.getCanvas() != null) {
             minimapDrawer.getCanvas().removeEventHandler(MouseEvent.MOUSE_CLICKED, minimapClickHandler);
@@ -158,12 +163,17 @@ public class InputWiring {
 
     /**
      * Left click interacts with the tile, walking up to it first when it is out of reach; right click walks to it.
-     * Either order flashes the clicked tile green when it was accepted and red when it was refused.
+     * Either order flashes the clicked tile green when it was accepted and red when it was refused; a click with no
+     * effect, because the resource was hit a moment ago, does not flash.
      */
     private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY) {
         final boolean accepted;
         if (event.getButton() == MouseButton.PRIMARY) {
-            accepted = interactionManager.interact(tileX, tileY);
+            final InteractionManager.Outcome outcome = interactionManager.interact(tileX, tileY);
+            // A click that changed nothing, such as one during the hit cooldown, earns no flash: green would
+            // promise an effect and red a refusal
+            if (outcome == InteractionManager.Outcome.IGNORED) return;
+            accepted = outcome.isAccepted();
         } else if (event.getButton() == MouseButton.SECONDARY) {
             interactionManager.cancel();
             accepted = playerManager.movePlayer(gameState.getCurrentMap(), tileX, tileY);
@@ -203,6 +213,18 @@ public class InputWiring {
         lastMouseX = event.getX();
         lastMouseY = event.getY();
         mouseOverCanvas = true;
+    }
+
+    /**
+     * Follows the pointer while a button is held. JavaFX sends drag and release events instead of move events then,
+     * and keeps sending them after the pointer left the canvas, so whether the pointer is still over the canvas is read
+     * from its position.
+     */
+    private void handleMouseDragOrRelease(MouseEvent event) {
+        lastMouseX = event.getX();
+        lastMouseY = event.getY();
+        mouseOverCanvas = event.getX() >= 0 && event.getY() >= 0
+                && event.getX() <= mainCanvas.getWidth() && event.getY() <= mainCanvas.getHeight();
     }
 
     private boolean shouldIgnoreMouseInput() {

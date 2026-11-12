@@ -52,6 +52,19 @@ class ResourceManagerTest {
     }
 
     @Test
+    void aSecondClickDuringTheCooldownIsAnIgnoredHitNotARefusalNorAHit() {
+        tile.setWorldResource(new Resource(ResourceType.STONE, 3));
+
+        assertEquals(ResourceManager.HitResult.HIT, manager.handleTileInteraction(player, tile));
+        assertEquals(ResourceManager.HitResult.COOLDOWN, manager.handleTileInteraction(player, tile));
+    }
+
+    @Test
+    void anInvalidClickIsRefused() {
+        assertEquals(ResourceManager.HitResult.REFUSED, manager.handleTileInteraction(player, tile));
+    }
+
+    @Test
     void ironOreRequiresAPickaxe() {
         assertEquals(ItemType.PICKAXE, ResourceType.IRON_ORE.getRequiredTool());
         assertNull(ResourceType.STONE.getRequiredTool());

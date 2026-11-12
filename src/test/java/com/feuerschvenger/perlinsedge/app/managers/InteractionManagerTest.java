@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.Door;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -75,7 +76,7 @@ class InteractionManagerTest {
     void aResourceInReachIsHitAtOnceWithoutWalking() {
         Resource stone = stoneAt(1, 5);
 
-        assertTrue(interactions.interact(1, 5));
+        assertTrue(interactions.interact(1, 5).isAccepted());
 
         assertFalse(interactions.hasPending());
         assertEquals(0.0, stone.secondsSinceHit(state.getGameTime()), "the hit landed");
@@ -86,7 +87,7 @@ class InteractionManagerTest {
     void aFarResourceMakesThePlayerWalkThereAndHitItOnArrival() {
         Resource stone = stoneAt(8, 5);
 
-        assertTrue(interactions.interact(8, 5));
+        assertTrue(interactions.interact(8, 5).isAccepted());
         assertTrue(interactions.hasPending());
         assertTrue(player.isMoving());
         assertEquals(Double.POSITIVE_INFINITY, stone.secondsSinceHit(state.getGameTime()), "nothing is hit before arriving");
@@ -97,6 +98,49 @@ class InteractionManagerTest {
         assertEquals(7, player.getCurrentTileX(), "the player stopped on the tile next to the stone");
         assertEquals(5, player.getCurrentTileY());
         assertTrue(stone.secondsSinceHit(state.getGameTime()) < 0.5, "the stone was hit when the player arrived");
+    }
+
+    @Test
+    void aClickDuringTheHitCooldownEarnsNoFeedback() {
+        stoneAt(1, 5);
+
+        assertEquals(InteractionManager.Outcome.ACCEPTED, interactions.interact(1, 5));
+        assertEquals(InteractionManager.Outcome.IGNORED, interactions.interact(1, 5));
+        assertFalse(InteractionManager.Outcome.IGNORED.isAccepted());
+    }
+
+    @Test
+    void theWalkEndsAtTheFirstMomentInReachAndThePlayerRestsThere() {
+        stoneAt(8, 5);
+        interactions.interact(8, 5);
+        // A longer walk than the one needed, as when an earlier order left steps in the queue
+        player.walkAlong(List.of(new PathNode(1, 5), new PathNode(2, 5), new PathNode(3, 5), new PathNode(4, 5),
+                new PathNode(5, 5), new PathNode(6, 5), new PathNode(7, 5), new PathNode(8, 6), new PathNode(9, 6)));
+
+        tickUntilIdle();
+        for (int i = 0; i < 120; i++) {
+            player.update(STEP);
+        }
+
+        assertEquals(7, player.getCurrentTileX(), "the player stopped as soon as the stone was in reach");
+        assertEquals(7.0, player.getPosX(), 1e-9);
+        assertEquals(5, player.getCurrentTileY());
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void anInteractionInReachStopsTheWalkInProgress() {
+        Resource stone = stoneAt(1, 5);
+        player.walkAlong(List.of(new PathNode(0, 6), new PathNode(0, 7), new PathNode(0, 8)));
+
+        assertTrue(interactions.interact(1, 5).isAccepted());
+        for (int i = 0; i < 120; i++) {
+            player.update(STEP);
+        }
+
+        assertEquals(0, player.getCurrentTileX());
+        assertEquals(5, player.getCurrentTileY(), "the player did not walk off");
+        assertEquals(0.0, stone.secondsSinceHit(state.getGameTime()), "the stone was hit");
     }
 
     @Test
@@ -121,7 +165,7 @@ class InteractionManagerTest {
         Chest chest = new Chest(8, 5, 9);
         map.getTile(8, 5).setBuilding(chest);
 
-        assertTrue(interactions.interact(8, 5));
+        assertTrue(interactions.interact(8, 5).isAccepted());
         assertFalse(containers.isContainerOpen(), "the chest stays shut while the player walks");
         tickUntilIdle();
 
@@ -134,7 +178,7 @@ class InteractionManagerTest {
         Door door = new Door(8, 5);
         map.getTile(8, 5).setBuilding(door);
 
-        assertTrue(interactions.interact(8, 5));
+        assertTrue(interactions.interact(8, 5).isAccepted());
         assertFalse(door.isOpen());
         tickUntilIdle();
 
@@ -146,7 +190,7 @@ class InteractionManagerTest {
         Resource stone = stoneAt(8, 5);
         interactions.interact(8, 5);
 
-        boolean accepted = interactions.interact(2, 2);
+        boolean accepted = interactions.interact(2, 2).isAccepted();
 
         assertFalse(accepted, "a plain tile has nothing to interact with");
         assertFalse(interactions.hasPending());
@@ -231,7 +275,7 @@ class InteractionManagerTest {
             }
         }
 
-        assertFalse(interactions.interact(8, 5));
+        assertFalse(interactions.interact(8, 5).isAccepted());
 
         assertFalse(interactions.hasPending());
         assertFalse(player.isMoving());
@@ -242,7 +286,7 @@ class InteractionManagerTest {
     void aResourceThatNeedsAToolIsRefusedBeforeWalking() {
         map.getTile(8, 5).setWorldResource(new Resource(ResourceType.IRON_ORE, 1));
 
-        assertFalse(interactions.interact(8, 5));
+        assertFalse(interactions.interact(8, 5).isAccepted());
 
         assertFalse(player.isMoving(), "no point walking to ore the player cannot mine");
         assertEquals(1, hints.size());
@@ -255,7 +299,7 @@ class InteractionManagerTest {
         Resource ore = new Resource(ResourceType.IRON_ORE, 1);
         map.getTile(8, 5).setWorldResource(ore);
 
-        assertTrue(interactions.interact(8, 5));
+        assertTrue(interactions.interact(8, 5).isAccepted());
         tickUntilIdle();
 
         assertTrue(ore.secondsSinceHit(state.getGameTime()) < 0.5);
@@ -263,10 +307,10 @@ class InteractionManagerTest {
 
     @Test
     void aTileWithNothingToInteractWithIsRefused() {
-        assertFalse(interactions.interact(3, 3));
+        assertFalse(interactions.interact(3, 3).isAccepted());
 
         map.getTile(4, 4).setBuilding(new Wall(4, 4));
-        assertFalse(interactions.interact(4, 4), "a wall does nothing when clicked");
+        assertFalse(interactions.interact(4, 4).isAccepted(), "a wall does nothing when clicked");
         assertFalse(interactions.hasPending());
     }
 

@@ -174,6 +174,66 @@ class InputWiringTest {
         assertEquals(-1, running.getMouseOverTileX());
     }
 
+    private static void fireMouse(Canvas target, javafx.event.EventType<MouseEvent> type, double x, double y) {
+        Event.fireEvent(target, new MouseEvent(type, x, y, x, y, MouseButton.PRIMARY, 1,
+                false, false, false, false, true, false, false, true, false, false, null));
+    }
+
+    private InputWiring hoverWiring(GameStateManager running) {
+        TileMap map = new TileMap(8, 8);
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.GRASS));
+            }
+        }
+        running.setCurrentMap(map);
+        FxCamera camera = new FxCamera(0, 0, 1.0);
+        InputWiring hover = new InputWiring(running, null, null, null, camera, null,
+                new FxMinimapDrawer(minimapCanvas, camera, mainCanvas), mainCanvas);
+        hover.registerMouseHandlers();
+        return hover;
+    }
+
+    @Test
+    void draggingWithAButtonHeldKeepsTheHoverOnThePointer() {
+        GameStateManager running = new GameStateManager();
+        InputWiring hover = hoverWiring(running);
+
+        fireMouse(mainCanvas, MouseEvent.MOUSE_DRAGGED, 0, 112);
+        hover.refreshHover();
+
+        assertEquals(3, running.getMouseOverTileX());
+        assertEquals(3, running.getMouseOverTileY());
+    }
+
+    @Test
+    void draggingOutOfTheCanvasClearsTheHoverAndReleasingBackInsideRestoresIt() {
+        GameStateManager running = new GameStateManager();
+        InputWiring hover = hoverWiring(running);
+        move(mainCanvas, 0, 112);
+        hover.refreshHover();
+
+        fireMouse(mainCanvas, MouseEvent.MOUSE_DRAGGED, 500, 112);
+        hover.refreshHover();
+        assertEquals(-1, running.getMouseOverTileX(), "the pointer is outside the canvas");
+
+        fireMouse(mainCanvas, MouseEvent.MOUSE_RELEASED, 0, 112);
+        hover.refreshHover();
+        assertEquals(3, running.getMouseOverTileX(), "the release happened over the canvas");
+    }
+
+    @Test
+    void releasingOutsideTheCanvasLeavesNoHover() {
+        GameStateManager running = new GameStateManager();
+        InputWiring hover = hoverWiring(running);
+        move(mainCanvas, 0, 112);
+
+        fireMouse(mainCanvas, MouseEvent.MOUSE_RELEASED, -20, 112);
+        hover.refreshHover();
+
+        assertEquals(-1, running.getMouseOverTileX());
+    }
+
     @Test
     void handlersCanBeRegisteredAgainAfterUnregistering() {
         wiring.registerMouseHandlers();

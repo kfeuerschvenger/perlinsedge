@@ -136,6 +136,17 @@ class InputWiringClickTest {
     }
 
     @Test
+    void aClickOnAResourceDuringTheHitCooldownDoesNotFlash() {
+        map.getTile(3, 2).setWorldResource(new Resource(ResourceType.STONE, 3));
+        click(3, 2, MouseButton.PRIMARY);
+        state.getClickFeedback().clear();
+
+        click(3, 2, MouseButton.PRIMARY);
+
+        assertEquals(ClickFeedback.Kind.NONE, flash(), "no green for a click that had no effect, no red for a valid one");
+    }
+
+    @Test
     void aMoveOrderCancelsThePendingInteraction() {
         map.getTile(7, 2).setWorldResource(new Resource(ResourceType.STONE, 1));
         click(7, 2, MouseButton.PRIMARY);
