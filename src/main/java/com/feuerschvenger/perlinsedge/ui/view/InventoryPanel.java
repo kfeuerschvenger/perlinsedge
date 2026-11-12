@@ -55,6 +55,8 @@ public class InventoryPanel extends BorderPane {
     private CraftingListPanel craftingListPanel;
     /** The item that follows the mouse while a stack is dragged, or null. */
     private StackPane dragGhost;
+    /** The hotbar row at the bottom of the screen, which joins this panel while it is open, or null. */
+    private ItemHotbarPanel hotbar;
 
     // State management
     private final GameStateManager gameState;
@@ -180,16 +182,53 @@ public class InventoryPanel extends BorderPane {
         slot.getStyleClass().add(UiTheme.SLOT);
     }
 
+    /**
+     * Makes the slots of the hotbar at the bottom of the screen part of this panel while it is open: they take the
+     * same drag, drop, hover and throw actions as the slots of the grid. The hotbar keeps drawing itself, and its
+     * selection border, which marks the slot held in hand, is never touched by the highlights of this panel.
+     *
+     * @param hotbarPanel the hotbar of the items the player carries
+     */
+    public void attachHotbar(ItemHotbarPanel hotbarPanel) {
+        this.hotbar = Objects.requireNonNull(hotbarPanel, "Hotbar panel cannot be null");
+        for (int i = 0; i < Player.HOTBAR_SIZE; i++) {
+            StackPane slot = hotbarPanel.slotNode(i);
+            SlotContext context = new SlotContext(i, gameState.getPlayer());
+            context.hotbar = true;
+            slot.setUserData(context);
+            // While no inventory is open the row is a display: a press on it must not start a drag
+            slot.setOnMousePressed(e -> {
+                if (isVisible()) controller.handleSlotPressed(e, slot);
+            });
+            slot.setOnMouseClicked(e -> {
+                if (isVisible()) controller.handleSlotClick(e);
+            });
+            slot.setOnMouseEntered(e -> {
+                if (isVisible()) controller.handleSlotHover(slot, true);
+            });
+            slot.setOnMouseExited(e -> controller.handleSlotHover(slot, false));
+        }
+    }
+
     /** Highlights a slot as a valid drop target. */
     void showDropHighlight(StackPane slot) {
-        UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        if (!isHotbarSlot(slot)) {
+            UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        }
         UiTheme.setClass(slot, UiTheme.SLOT_DROP, true);
     }
 
     /** Restores a slot's default border. */
     void restoreSlotBorder(StackPane slot) {
-        UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        // The selection border of a hotbar slot marks the slot held in hand, which only the hotbar changes
+        if (!isHotbarSlot(slot)) {
+            UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        }
         UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
+    }
+
+    private static boolean isHotbarSlot(StackPane slot) {
+        return slot.getUserData() instanceof SlotContext context && context.hotbar;
     }
 
     /** Retrieves an item from a specific slot in a container. */
@@ -204,6 +243,8 @@ public class InventoryPanel extends BorderPane {
     static class SlotContext {
         int index;
         Container container;
+        /** True for the slots of the hotbar row at the bottom of the screen, false for the slots of the grids. */
+        boolean hotbar;
 
         SlotContext(int index, Container container) {
             this.index = index;
@@ -234,14 +275,17 @@ public class InventoryPanel extends BorderPane {
         if (slot == null && secondaryContainer != null) {
             slot = slotNodeAt(secondaryInventoryGrid, sceneX, sceneY);
         }
+        if (slot == null && hotbar != null && isVisible()) {
+            slot = slotNodeAt(hotbar, sceneX, sceneY);
+        }
         return slot;
     }
 
-    private static StackPane slotNodeAt(GridPane grid, double sceneX, double sceneY) {
-        if (grid == null) {
+    private static StackPane slotNodeAt(Pane parent, double sceneX, double sceneY) {
+        if (parent == null) {
             return null;
         }
-        for (Node node : grid.getChildren()) {
+        for (Node node : parent.getChildren()) {
             if (node instanceof StackPane slot && slot.localToScene(slot.getLayoutBounds()).contains(sceneX, sceneY)) {
                 return slot;
             }
@@ -328,6 +372,7 @@ public class InventoryPanel extends BorderPane {
      */
     public void updateInventoryDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
+        updateHotbarContext();
 
         if (secondaryContainer != null) {
             updateGridContents(secondaryInventoryGrid, secondaryContainer);
@@ -345,7 +390,11 @@ public class InventoryPanel extends BorderPane {
      * @return true when the point is within the bounds of the panel
      */
     boolean containsScenePoint(double sceneX, double sceneY) {
-        return localToScene(getLayoutBounds()).contains(sceneX, sceneY);
+        if (localToScene(getLayoutBounds()).contains(sceneX, sceneY)) {
+            return true;
+        }
+        // The hotbar is part of the inventory while it is open, so releasing over its gaps is not a throw either
+        return hotbar != null && isVisible() && hotbar.localToScene(hotbar.getLayoutBounds()).contains(sceneX, sceneY);
     }
 
     /**
@@ -400,6 +449,16 @@ public class InventoryPanel extends BorderPane {
     /** @return the recipe selected in the crafting list, or null */
     Recipe getSelectedCraftingRecipe() {
         return craftingListPanel.getSelectedRecipe();
+    }
+
+    /** Points the hotbar slots at the current player, who is a new object after a rebuild of the world. */
+    private void updateHotbarContext() {
+        if (hotbar == null) {
+            return;
+        }
+        for (int i = 0; i < Player.HOTBAR_SIZE; i++) {
+            ((SlotContext) hotbar.slotNode(i).getUserData()).container = gameState.getPlayer();
+        }
     }
 
     /** Redraws the slots of a grid. A slot keeps the index it was created with: the grid may show a range of a container. */

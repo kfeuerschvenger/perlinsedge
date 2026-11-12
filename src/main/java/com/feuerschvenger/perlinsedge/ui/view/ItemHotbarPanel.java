@@ -71,7 +71,7 @@ public class ItemHotbarPanel extends HBox {
     }
 
     /**
-     * Gives the slot node, for the tests.
+     * Gives the slot node, for the inventory panel that wires the slots to its drag and drop and for the tests.
      *
      * @param index slot index
      * @return the node of the slot

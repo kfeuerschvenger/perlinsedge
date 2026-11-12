@@ -279,7 +279,8 @@ public class GameApplication extends Application {
         createPlayerUIComponents();
 
         // Add components to layer
-        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, itemHotbarPanel, hotbarPanel, hintLabel,
+        // The inventory comes after the hotbars so the stack dragged out of it is drawn over their slots
+        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, hotbarPanel, inventoryPanel, hintLabel,
                 deathOverlay);
         return layer;
     }
@@ -342,6 +343,8 @@ public class GameApplication extends Application {
         );
         inventoryPanel.setVisible(false);
         inventoryPanel.setManaged(false);
+        // The hotbar stays on screen and takes part in the dragging while the inventory is open
+        inventoryPanel.attachHotbar(itemHotbarPanel);
 
         // Hint line (centered, above the hotbar)
         hintLabel = new HintLabel();
