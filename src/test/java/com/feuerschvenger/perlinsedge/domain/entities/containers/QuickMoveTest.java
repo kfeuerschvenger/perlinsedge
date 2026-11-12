@@ -130,6 +130,59 @@ class QuickMoveTest {
     }
 
     @Test
+    void withNoChestOpenACtrlClickOnTheHotbarGoesToTheInventory() {
+        player.setItemAt(1, new Item(ItemType.AXE, 1));
+
+        assertTrue(QuickMove.route(player, null, player, 1));
+
+        assertNull(player.getItemAt(1));
+        assertEquals(ItemType.AXE, player.getItemAt(HOTBAR).getType());
+    }
+
+    @Test
+    void withNoChestOpenACtrlClickOnTheInventoryGoesToTheHotbar() {
+        player.setItemAt(HOTBAR + 5, new Item(ItemType.AXE, 1));
+
+        assertTrue(QuickMove.route(player, null, player, HOTBAR + 5));
+
+        assertNull(player.getItemAt(HOTBAR + 5));
+        assertEquals(ItemType.AXE, player.getItemAt(0).getType());
+    }
+
+    @Test
+    void withAChestOpenACtrlClickOnEitherPartOfThePlayerGoesToTheChest() {
+        player.setItemAt(1, new Item(ItemType.AXE, 1));
+        player.setItemAt(HOTBAR + 5, new Item(ItemType.STICK, 2));
+
+        assertTrue(QuickMove.route(player, chest, player, 1));
+        assertTrue(QuickMove.route(player, chest, player, HOTBAR + 5));
+
+        assertNull(player.getItemAt(1));
+        assertNull(player.getItemAt(HOTBAR + 5));
+        assertEquals(ItemType.AXE, chest.getItemAt(0).getType());
+        assertEquals(ItemType.STICK, chest.getItemAt(1).getType());
+    }
+
+    @Test
+    void withAChestOpenACtrlClickInTheChestGoesToThePlayer() {
+        chest.setItemAt(4, new Item(ItemType.STICK, 2));
+
+        assertTrue(QuickMove.route(player, chest, chest, 4));
+
+        assertNull(chest.getItemAt(4));
+        assertEquals(ItemType.STICK, player.getItemAt(0).getType());
+    }
+
+    @Test
+    void aContainerThatIsNotOpenIsNotMovedFrom() {
+        chest.setItemAt(4, new Item(ItemType.STICK, 2));
+
+        assertFalse(QuickMove.route(player, null, chest, 4));
+
+        assertEquals(2, chest.getItemAt(4).getQuantity());
+    }
+
+    @Test
     void anEmptySlotMovesNothing() {
         assertFalse(QuickMove.move(player, 0, chest, 0, chest.getCapacity()));
     }

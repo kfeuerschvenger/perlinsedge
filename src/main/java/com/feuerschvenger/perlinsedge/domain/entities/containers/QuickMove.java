@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.containers;
 
+import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 
 /**
@@ -10,6 +11,34 @@ public final class QuickMove {
 
     private QuickMove() {
         throw new AssertionError("QuickMove is a utility class and should not be instantiated");
+    }
+
+    /**
+     * Moves the stack of a slot the way a Ctrl+click does, which depends on what is open.
+     * With no other container open a hotbar slot sends its stack to the inventory and an inventory slot sends it to
+     * the hotbar. With a container such as a chest open, a slot of the player sends its stack to the container and a
+     * slot of the container sends it to the player, in the fill order of the player: matching stacks first, then the
+     * first free hotbar slot, then the first free inventory slot.
+     *
+     * @param player the player
+     * @param other  the open container, or null when there is none
+     * @param source the container that holds the stack, the player or the open container
+     * @param slot   the slot of the stack
+     * @return true when at least one item moved
+     */
+    public static boolean route(Player player, Container other, Container source, int slot) {
+        if (player == null || source == null) {
+            return false;
+        }
+        if (source != player) {
+            return source == other && move(source, slot, player, 0, player.getCapacity());
+        }
+        if (other != null) {
+            return move(player, slot, other, 0, other.getCapacity());
+        }
+        return slot < Player.HOTBAR_SIZE
+                ? move(player, slot, player, Player.HOTBAR_SIZE, player.getCapacity())
+                : move(player, slot, player, 0, Player.HOTBAR_SIZE);
     }
 
     /**

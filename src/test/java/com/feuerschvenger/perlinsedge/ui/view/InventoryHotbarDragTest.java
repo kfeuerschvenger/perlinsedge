@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.ItemDropManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
@@ -225,6 +226,61 @@ class InventoryHotbarDragTest {
 
         assertFalse(held.getStyleClass().contains(UiTheme.SLOT_DROP));
         assertTrue(held.getStyleClass().contains(UiTheme.SLOT_SELECTED), "the hand mark survives the drop");
+    }
+
+    private void ctrlClick(StackPane slot) {
+        double[] at = centerOf(slot);
+        FxToolkitSupport.onFx(() -> {
+            Event.fireEvent(slot, new MouseEvent(MouseEvent.MOUSE_CLICKED, at[0], at[1], at[0], at[1],
+                    MouseButton.PRIMARY, 1, false, true, false, false, false, false, false, false, false, false, null));
+            return null;
+        });
+        // The refresh of the panel is queued, a later task on the toolkit runs after it
+        FxToolkitSupport.onFx(() -> null);
+    }
+
+    @Test
+    void aCtrlClickOnAHotbarSlotSendsItsStackToTheInventory() {
+        ctrlClick(hotbarSlot(HOTBAR_SLOT));
+
+        assertNull(player.getItemAt(HOTBAR_SLOT));
+        assertEquals(ItemType.STONE, player.getItemAt(Player.HOTBAR_SIZE).getType());
+        assertNull(FxToolkitSupport.onFx(panel::getHoveredOrSelectedSlot), "a quick move selects nothing");
+    }
+
+    @Test
+    void aCtrlClickOnAnInventorySlotSendsItsStackToTheHotbar() {
+        ctrlClick(gridSlot(GRID_SLOT));
+
+        assertNull(player.getItemAt(GRID_SLOT));
+        assertEquals(ItemType.WOOD_LOG, player.getItemAt(0).getType());
+    }
+
+    @Test
+    void withAChestOpenACtrlClickSendsTheStackToTheChestAndBack() {
+        Chest chest = new Chest(0, 0, 9);
+        chest.setItemAt(0, new Item(ItemType.STICK, 4));
+        FxToolkitSupport.onFx(() -> {
+            panel.openDualInventory(chest);
+            root.applyCss();
+            root.layout();
+            return null;
+        });
+
+        ctrlClick(hotbarSlot(HOTBAR_SLOT));
+        assertNull(player.getItemAt(HOTBAR_SLOT));
+        assertEquals(ItemType.STONE, chest.getItemAt(1).getType());
+
+        StackPane chestSlot = FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.SLOT).stream()
+                .map(StackPane.class::cast)
+                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).container == chest
+                        && ((InventoryPanel.SlotContext) node.getUserData()).index == 0)
+                .findFirst()
+                .orElseThrow());
+        ctrlClick(chestSlot);
+
+        assertNull(chest.getItemAt(0));
+        assertEquals(ItemType.STICK, player.getItemAt(0).getType(), "the first free hotbar slot");
     }
 
     @Test
