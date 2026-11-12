@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,6 +57,8 @@ public class ItemUseManager {
             return false;
         }
         final double restored = player.heal(type.getHealAmount());
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.HEAL, restored, player.getPosX(), player.getPosY(),
+                gameState.getGameTime());
         player.consumeActiveItem();
         onInventoryChanged.run();
         log.debug("Used {}: restored {} health", type, restored);

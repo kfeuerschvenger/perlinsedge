@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import lombok.RequiredArgsConstructor;
@@ -123,6 +124,8 @@ public class CombatManager {
         for (Enemy enemy : enemies) {
             if (isWithinAttackRange(attackPos, enemy, player.getAttackRange())) {
                 enemy.takeDamage(player.getAttackDamage());
+                gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, player.getAttackDamage(),
+                        enemy.getPosX(), enemy.getPosY(), gameState.getGameTime());
                 if (enemy.isDead()) {
                     handleEnemyDeath(enemy);
                 }

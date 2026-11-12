@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -105,6 +106,9 @@ public class PlayerManager {
         if (player == null) return;
 
         player.update(deltaTime);
+        // Every hit the player took since the last tick becomes one floating number over the player
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.PLAYER, player.drainDamageTaken(),
+                player.getPosX(), player.getPosY(), gameState.getGameTime());
         updatePlayerUI();
 
         // Handle player death only if not already processing respawn

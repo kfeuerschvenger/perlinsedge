@@ -370,6 +370,8 @@ public class FxRenderer {
         if (player != null) {
             renderPlayerAttack(gc, player, halfTileWidth, halfTileHeight, offsetX, offsetY);
         }
+        FxDamageNumbersPainter.draw(gc, gameState.getDamageNumbers(), currentFrameGameTime, halfTileWidth,
+                halfTileHeight, offsetX, offsetY, zoom, canvas.getWidth(), canvas.getHeight());
         gc.restore();
 
         if (player != null) {

@@ -128,6 +128,7 @@ public class MapManager implements IMapGenerationListener {
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
         gameState.getResourceHitTimes().clear();
+        gameState.getDamageNumbers().clear();
 
         try {
             mapConfigPanel.updateValuesFromGenerator(generator);

@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ToolStats;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -138,7 +139,9 @@ public class ResourceManager {
         resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
 
-        boolean depleted = resource.takeDamage(ToolStats.resourceDamage(tool, resource.getType()));
+        final int damage = ToolStats.resourceDamage(tool, resource.getType());
+        boolean depleted = resource.takeDamage(damage);
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, damage, tileX, tileY, currentTime);
         if (depleted) {
             processResourceDepletion(resource, tileX, tileY);
         }

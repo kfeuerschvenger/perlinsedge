@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -44,6 +45,8 @@ public class GameStateManager {
     private int mouseOverTileY = -1;
     /** The flash the cursor shows on the tile of the last click order. */
     private final ClickFeedback clickFeedback = new ClickFeedback();
+    /** The numbers that float up from a hit or a heal, on the game clock. */
+    private final DamageNumbers damageNumbers = new DamageNumbers();
     private boolean isGamePaused = false;
     private boolean isInventoryOpen = false;
     @Getter(lombok.AccessLevel.NONE)
@@ -74,6 +77,7 @@ public class GameStateManager {
         mouseOverTileX = -1;
         mouseOverTileY = -1;
         clickFeedback.clear();
+        damageNumbers.clear();
         isGamePaused = false;
         isInventoryOpen = false;
         shouldCenterCamera = false;

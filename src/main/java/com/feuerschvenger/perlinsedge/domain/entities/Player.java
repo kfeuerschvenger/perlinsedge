@@ -60,6 +60,8 @@ public class Player extends Entity implements Container {
     private double attackAnimationTime = 0;
     private int attackDirection = -1;
     private double secondsSinceHurt = Double.POSITIVE_INFINITY;
+    /** Health lost since {@link #drainDamageTaken()} was last called. */
+    private double damageTaken = 0;
 
     // Inventory
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
@@ -239,8 +241,22 @@ public class Player extends Entity implements Container {
         if (isDead || amount <= 0) {
             return;
         }
+        final double before = health;
         super.takeDamage(amount);
+        damageTaken += before - health;
         secondsSinceHurt = 0;
+    }
+
+    /**
+     * Gives the health the player lost since this method was last called, which the game turns into the floating
+     * number that shows the hit. Every source of damage goes through {@link #takeDamage}, so none of them reports its own.
+     *
+     * @return the health lost, 0 when the player took no damage meanwhile
+     */
+    public double drainDamageTaken() {
+        final double taken = damageTaken;
+        damageTaken = 0;
+        return taken;
     }
 
     /**
@@ -257,6 +273,7 @@ public class Player extends Entity implements Container {
     public void revive(int x, int y) {
         super.revive(x, y);
         secondsSinceHurt = Double.POSITIVE_INFINITY;
+        damageTaken = 0;
     }
 
     public boolean isMoving() {
