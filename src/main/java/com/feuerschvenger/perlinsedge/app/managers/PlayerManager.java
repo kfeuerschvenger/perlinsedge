@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -146,11 +147,13 @@ public class PlayerManager {
      * @param map Current game map
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
-     * @return true when the player started walking, false when the order did nothing
+     * @return true when the player started walking, false when the order did nothing, which includes an order onto a
+     *         tile an enemy occupies: the walk goes around enemies and never ends on one
      */
     public boolean movePlayer(TileMap map, int targetX, int targetY) {
         Player player = getPlayer();
-        return player != null && player.moveTo(map, targetX, targetY);
+        return player != null
+                && player.moveTo(map, targetX, targetY, OccupiedTiles.of(gameState.getEnemies()));
     }
 
     /**

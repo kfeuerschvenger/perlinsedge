@@ -47,6 +47,8 @@ public final class Pathfinder {
     }
 
     private final TileMap map;
+    /** Tiles that are walkable ground but occupied, so no path crosses or ends on them. Never null. */
+    private final Set<PathNode> occupied;
     /** Written once per search, so an instance must not run two searches at the same time. */
     private int lastExpandedNodes;
 
@@ -56,7 +58,20 @@ public final class Pathfinder {
      * @param map The TileMap to perform pathfinding on
      */
     public Pathfinder(TileMap map) {
+        this(map, Set.of());
+    }
+
+    /**
+     * Constructs a Pathfinder that treats some tiles as taken, such as the tiles enemies stand on: a path never
+     * crosses them and never ends on them. The start tile is exempt, so an entity standing on a taken tile can still
+     * walk off it.
+     *
+     * @param map      The TileMap to perform pathfinding on
+     * @param occupied tiles no path may use, null for none
+     */
+    public Pathfinder(TileMap map, Set<PathNode> occupied) {
         this.map = Objects.requireNonNull(map, "TileMap must not be null");
+        this.occupied = occupied == null ? Set.of() : occupied;
     }
 
     // ==================================================================
@@ -245,7 +260,7 @@ public final class Pathfinder {
             return false;
         }
         Tile tile = map.getTile(x, y);
-        return tile != null && tile.isWalkable();
+        return tile != null && tile.isWalkable() && (occupied.isEmpty() || !occupied.contains(new PathNode(x, y)));
     }
 
     // ==================================================================

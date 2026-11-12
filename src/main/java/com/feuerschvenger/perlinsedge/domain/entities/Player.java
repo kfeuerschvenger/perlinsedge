@@ -153,6 +153,20 @@ public class Player extends Entity implements Container {
      *         carry on past the tile that was clicked.
      */
     public boolean moveTo(TileMap map, int targetX, int targetY) {
+        return moveTo(map, targetX, targetY, Set.of());
+    }
+
+    /**
+     * Initiates movement like {@link #moveTo(TileMap, int, int)} around tiles that are taken: the walk neither crosses
+     * them nor ends on them, so an order onto one is refused.
+     *
+     * @param map      The game world tile map
+     * @param targetX  Target X coordinate
+     * @param targetY  Target Y coordinate
+     * @param occupied tiles the walk may not use, such as those the enemies stand on
+     * @return true when the player started walking, false when the order did nothing
+     */
+    public boolean moveTo(TileMap map, int targetX, int targetY, Set<PathNode> occupied) {
         // A dead player stays where it fell until the respawn
         if (isDead) return false;
         final PathNode step = stepInProgress();
@@ -166,12 +180,12 @@ public class Player extends Entity implements Container {
         // diagonal across a blocked corner from an off-grid position
         final int fromX = step != null ? step.x : currentTileX;
         final int fromY = step != null ? step.y : currentTileY;
-        if (step != null && fromX == targetX && fromY == targetY) {
+        if (step != null && fromX == targetX && fromY == targetY && !occupied.contains(step)) {
             startNewPath(List.of(step));
             return true;
         }
 
-        Pathfinder pathfinder = new Pathfinder(map);
+        Pathfinder pathfinder = new Pathfinder(map, occupied);
         List<PathNode> path = pathfinder.findPath(fromX, fromY, targetX, targetY);
 
         if (path == null || path.isEmpty()) {
