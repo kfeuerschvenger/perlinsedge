@@ -374,18 +374,18 @@ def pickaxe():
 
 def axe():
     cv = Canvas(SIZE, SIZE)
-    handle(cv, 2, 14, 9, 7)
-    # a broad head on the upper end of the handle, its cutting edge on the right
-    rows = {1: (9, 11), 2: (8, 12), 3: (8, 13), 4: (8, 14), 5: (8, 14), 6: (8, 13), 7: (8, 12), 8: (9, 11)}
+    # a wooden haft rising from the lower left, the head hung on its upper end and flaring to one side
+    handle(cv, 3, 14, 11, 4)
+    rows = {2: (8, 11), 3: (6, 11), 4: (4, 11), 5: (3, 10), 6: (3, 9), 7: (4, 8), 8: (6, 7)}
     for y, (x0, x1) in rows.items():
         rect(cv, x0, y, x1, y, STONE[2])
-        px(cv, x1, y, STONE[3])
-    rect(cv, 8, 6, 12, 8, STONE[1])
-    line(cv, 9, 2, 11, 2, STONE[3])
-    line(cv, 9, 3, 11, 3, STONE[3])
-    line(cv, 13, 4, 14, 5, "#fcf4e4")
-    px(cv, 8, 4, STONE[1])
-    px(cv, 8, 5, STONE[1])
+        # the steel behind the cutting edge is darker where it is thick, near the haft
+        rect(cv, max(x0, x1 - 2), y, x1, y, STONE[1])
+        # the bright cutting edge on the open side
+        px(cv, x0, y, STONE[3])
+    rect(cv, 8, 2, 10, 3, STONE[3])
+    px(cv, 11, 3, WOOD[3])
+    px(cv, 11, 4, WOOD[2])
     return finish(cv)
 
 
