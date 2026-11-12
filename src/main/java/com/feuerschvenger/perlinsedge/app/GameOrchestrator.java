@@ -92,7 +92,8 @@ public class GameOrchestrator {
         mapManager = new MapManager(this.gameState, mapConfigPanel);
         ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
-        dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot, itemDropManager);
+        dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot,
+                inventoryPanel::isStackInHand, itemDropManager);
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);

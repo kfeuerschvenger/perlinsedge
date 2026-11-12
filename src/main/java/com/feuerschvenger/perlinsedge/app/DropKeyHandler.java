@@ -6,30 +6,36 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
  * Turns the drop keys into throws: Q throws one item and Ctrl+Q throws the whole stack from the slot the mouse is
  * over, or from the selected slot when the mouse is over none.
  * The keys only act while an inventory is open, so they never reach into a slot the player cannot see, and never
- * while the game is paused or the player is dead.
+ * while the game is paused or the player is dead. They are also ignored while a stack is in hand, because the stack in
+ * hand is thrown with the right click or by releasing the mouse outside the panel.
  */
 @Slf4j
 public class DropKeyHandler {
     private final GameStateManager gameState;
     private final Supplier<SlotRef> targetSlot;
+    private final BooleanSupplier stackInHand;
     private final ItemDropManager drops;
 
     /**
      * Creates the handler.
      *
-     * @param gameState  shared game state
-     * @param targetSlot gives the slot to throw from, or null when there is none
-     * @param drops      throws the items into the world
+     * @param gameState   shared game state
+     * @param targetSlot  gives the slot to throw from, or null when there is none
+     * @param stackInHand tells whether a stack is being dragged
+     * @param drops       throws the items into the world
      */
-    public DropKeyHandler(GameStateManager gameState, Supplier<SlotRef> targetSlot, ItemDropManager drops) {
+    public DropKeyHandler(GameStateManager gameState, Supplier<SlotRef> targetSlot, BooleanSupplier stackInHand,
+                          ItemDropManager drops) {
         this.gameState = gameState;
         this.targetSlot = targetSlot;
+        this.stackInHand = stackInHand;
         this.drops = drops;
     }
 
@@ -50,6 +56,10 @@ public class DropKeyHandler {
         }
         if (!isInventoryMode(gameState.getCurrentGameMode())) {
             log.debug("DROP KEY: ignored, no inventory is open");
+            return;
+        }
+        if (stackInHand.getAsBoolean()) {
+            log.debug("DROP KEY: ignored, a stack is in hand");
             return;
         }
         SlotRef slot = targetSlot.get();

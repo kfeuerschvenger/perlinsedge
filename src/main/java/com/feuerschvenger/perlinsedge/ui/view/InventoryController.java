@@ -76,6 +76,9 @@ class InventoryController {
     /** True from the moment a drag starts until the next press: the click that ends the gesture selects nothing. */
     private boolean swallowClick;
 
+    /** Window whose focus is being followed, or null. */
+    private Window watchedWindow;
+
     private final EventHandler<MouseEvent> sceneMouseFilter = this::handleSceneMouse;
     private final ChangeListener<Boolean> focusListener = (observable, wasFocused, focused) -> handleWindowFocus(focused);
     private final ChangeListener<Window> windowListener = (observable, oldWindow, newWindow) -> {
@@ -143,13 +146,47 @@ class InventoryController {
     private void watchFocus(Window window) {
         if (window != null) {
             window.focusedProperty().addListener(focusListener);
+            watchedWindow = window;
         }
     }
 
     private void unwatchFocus(Window window) {
         if (window != null) {
             window.focusedProperty().removeListener(focusListener);
+            if (watchedWindow == window) {
+                watchedWindow = null;
+            }
         }
+    }
+
+    /**
+     * Test seam: the window whose focus property currently has {@link #focusListener} registered. The focus of a
+     * window cannot be flipped from a test, so a test checks the registration here and fires the listener through
+     * {@link #focusListener()}.
+     *
+     * @return the watched window, or null when none is watched
+     */
+    Window watchedWindow() {
+        return watchedWindow;
+    }
+
+    /**
+     * Test seam: the very listener that {@link #bindScene} registers on the focus property of the window, so a test
+     * can run what the window would run when it loses the focus.
+     *
+     * @return the focus listener
+     */
+    ChangeListener<Boolean> focusListener() {
+        return focusListener;
+    }
+
+    /**
+     * Tells whether a stack is being dragged.
+     *
+     * @return true while a stack is in hand
+     */
+    boolean isDragging() {
+        return session != null;
     }
 
     /**
@@ -326,6 +363,8 @@ class InventoryController {
         if (highlightedTarget != null) {
             view.restoreSlotBorder(highlightedTarget);
             highlightedTarget = null;
+            // The border of a slot is shared by the drop highlight and the selection, so the selection is drawn again
+            view.highlightSlot(selectedSlotIndex, true);
         }
     }
 

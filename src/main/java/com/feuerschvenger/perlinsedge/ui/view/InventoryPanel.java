@@ -66,6 +66,8 @@ public class InventoryPanel extends BorderPane {
 
     // State management
     private final GameStateManager gameState;
+    /** The behaviour of the panel, package-private so the tests can reach its window focus wiring. */
+    @Getter(lombok.AccessLevel.PACKAGE)
     private final InventoryController controller;
     @Getter(lombok.AccessLevel.PACKAGE)
     private Container secondaryContainer;
@@ -242,18 +244,6 @@ public class InventoryPanel extends BorderPane {
         return slot;
     }
 
-    /**
-     * Finds the slot under a point of the scene.
-     *
-     * @param sceneX X coordinate in the scene
-     * @param sceneY Y coordinate in the scene
-     * @return the slot, or null when the point is over no slot
-     */
-    SlotRef slotAt(double sceneX, double sceneY) {
-        StackPane slot = slotNodeAt(sceneX, sceneY);
-        return slot == null ? null : refOf(slot);
-    }
-
     private static StackPane slotNodeAt(GridPane grid, double sceneX, double sceneY) {
         if (grid == null) {
             return null;
@@ -365,12 +355,12 @@ public class InventoryPanel extends BorderPane {
     }
 
     /**
-     * Passes on that the window gained or lost the focus.
+     * Tells whether a stack is being dragged.
      *
-     * @param focused true when the window has the focus
+     * @return true from the moment a stack is picked up until it is released, put back or thrown
      */
-    void windowFocusChanged(boolean focused) {
-        controller.handleWindowFocus(focused);
+    public boolean isStackInHand() {
+        return controller.isDragging();
     }
 
     private void updateInformationDisplay() {

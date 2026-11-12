@@ -29,6 +29,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,7 +103,7 @@ class InventoryDragTest {
         return FxToolkitSupport.onFx(() -> {
             Bounds bounds = panel.localToScene(panel.getLayoutBounds());
             double[] point = {bounds.getMinX() + 2, bounds.getMinY() + 2};
-            assertNull(panel.slotAt(point[0], point[1]), "the test point must not be over a slot");
+            assertNull(panel.slotNodeAt(point[0], point[1]), "the test point must not be over a slot");
             return point;
         });
     }
@@ -296,10 +297,7 @@ class InventoryDragTest {
         moveTo(source, OUTSIDE);
         assertTrue(dragging());
 
-        FxToolkitSupport.onFx(() -> {
-            panel.windowFocusChanged(false);
-            return null;
-        });
+        loseFocus(panel.getController());
 
         assertFalse(dragging());
         assertEquals(5, player.getItemAt(3).getQuantity());
@@ -315,29 +313,64 @@ class InventoryDragTest {
         moveTo(source, OUTSIDE);
 
         FxToolkitSupport.onFx(() -> {
-            panel.windowFocusChanged(true);
+            panel.getController().focusListener().changed(null, false, true);
             return null;
         });
 
         assertTrue(dragging());
     }
 
+    /**
+     * The focus of a window cannot be flipped from a test, so this fires the listener that the panel registered on
+     * the focus property of its window, which is what the window does when it loses the focus.
+     */
+    private void loseFocus(InventoryController controller) {
+        FxToolkitSupport.onFx(() -> {
+            controller.focusListener().changed(null, true, false);
+            return null;
+        });
+    }
+
     @Test
-    void thePanelWatchesTheFocusOfTheWindowItIsShownIn() {
-        boolean cancelled = FxToolkitSupport.onFx(() -> {
+    void thePanelWatchesTheFocusOfTheWindowItIsShownInAndLetsGoWhenTheSceneLeaves() {
+        FxToolkitSupport.onFx(() -> {
             InventoryPanel created = new InventoryPanel(state);
             Pane root = new Pane(created);
             Scene scene = new Scene(root, 400, 300);
             Stage stage = new Stage();
+            InventoryController controller = created.getController();
+            assertNull(controller.watchedWindow(), "no window while the scene has none");
+
             stage.setScene(scene);
-            // Attaching and detaching the scene must leave no listener behind that fails later
+            assertSame(stage, controller.watchedWindow(), "the window the scene is shown in is watched");
+
             stage.setScene(null);
+            assertNull(controller.watchedWindow(), "a scene that left its window is not watched any more");
+
             stage.setScene(scene);
-            created.windowFocusChanged(false);
-            return true;
+            assertSame(stage, controller.watchedWindow());
+            return null;
+        });
+    }
+
+    @Test
+    void theFocusListenerRegisteredOnTheWindowPutsTheStackInHandBack() {
+        StackPane source = slot(player, 3);
+        press(source);
+        moveTo(source, OUTSIDE);
+        assertTrue(dragging());
+        // The panel of the fixture sits in a scene with no window, so the window wiring runs on a stage here
+        FxToolkitSupport.onFx(() -> {
+            Stage stage = new Stage();
+            stage.setScene(panel.getScene());
+            assertSame(stage, panel.getController().watchedWindow());
+            return null;
         });
 
-        assertTrue(cancelled);
+        loseFocus(panel.getController());
+
+        assertFalse(dragging());
+        assertEquals(5, player.getItemAt(3).getQuantity());
     }
 
     @Test
@@ -515,6 +548,42 @@ class InventoryDragTest {
         assertTrue(state.getDroppedItems().isEmpty());
         assertNull(player.getItemAt(3));
         assertFalse(dragging());
+    }
+
+    @Test
+    void theSelectedSlotStaysSelectedAfterADragOverItIsCancelled() {
+        StackPane selected = slot(player, 3);
+        StackPane other = slot(player, 6);
+        click(selected, MouseButton.PRIMARY);
+        FxToolkitSupport.onFx(() -> null);
+        assertTrue(isSelected(selected));
+        press(other);
+        moveTo(other, centerOf(selected));
+        assertFalse(isSelected(selected), "the drop highlight replaces the selection border while the stack hovers");
+
+        moveTo(other, panelBackground());
+        assertTrue(isSelected(selected), "moving off the slot gives the selection border back");
+
+        moveTo(other, centerOf(selected));
+        release(other, panelBackground());
+
+        assertTrue(isSelected(selected));
+        assertFalse(FxToolkitSupport.onFx(() -> selected.getStyleClass().contains(UiTheme.SLOT_DROP)));
+        assertEquals(1, player.getItemAt(6).getQuantity());
+    }
+
+    @Test
+    void theDropKeysSeeAStackInHandOnlyWhileItIsDragged() {
+        StackPane source = slot(player, 3);
+        assertFalse(FxToolkitSupport.onFx(panel::isStackInHand));
+        press(source);
+        moveTo(source, OUTSIDE);
+
+        assertTrue(FxToolkitSupport.onFx(panel::isStackInHand));
+
+        release(source, panelBackground());
+
+        assertFalse(FxToolkitSupport.onFx(panel::isStackInHand));
     }
 
     @Test

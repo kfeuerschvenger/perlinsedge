@@ -22,6 +22,7 @@ class DropKeyHandlerTest {
     private GameStateManager state;
     private Player player;
     private SlotRef target;
+    private boolean stackInHand;
     private DropKeyHandler keys;
 
     @BeforeEach
@@ -39,7 +40,18 @@ class DropKeyHandlerTest {
         state.setPlayer(player);
         state.setCurrentGameMode(GameMode.INVENTORY_OPEN);
         target = new SlotRef(player, 3);
-        keys = new DropKeyHandler(state, () -> target, new ItemDropManager(state, () -> { }));
+        keys = new DropKeyHandler(state, () -> target, () -> stackInHand, new ItemDropManager(state, () -> { }));
+    }
+
+    @Test
+    void nothingHappensWhileAStackIsInHand() {
+        stackInHand = true;
+
+        keys.dropOne();
+        keys.dropStack();
+
+        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertTrue(state.getDroppedItems().isEmpty());
     }
 
     @Test
