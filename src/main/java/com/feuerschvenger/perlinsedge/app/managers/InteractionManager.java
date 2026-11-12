@@ -17,7 +17,8 @@ import java.util.function.Consumer;
  * Within reach the interaction happens at once. Out of reach the player first walks toward the nearest walkable tile
  * next to the target and the interaction happens once, on arrival, which is the first moment the player is within
  * reach: the walk ends there instead of going on to the stand tile. A target hit too recently to be hit again keeps
- * the interaction pending until the hit lands. The walk is a pending interaction that a new click, a move order, a
+ * the interaction pending until the hit lands, whether the player arrives during the cooldown or was already in reach
+ * when it clicked. The walk is a pending interaction that a new click, a move order, a
  * pause, the death of the player, a change of game mode or the target disappearing cancels, and cancelling ends the
  * walk too, the player stopping on the tile it was stepping to.
  */
@@ -82,8 +83,9 @@ public class InteractionManager {
      * @param tileX tile column
      * @param tileY tile row
      * @return {@link Outcome#ACCEPTED} when the interaction was done or the walk started, {@link Outcome#IGNORED} when
-     *         the target was hit too recently for another hit to land, {@link Outcome#REFUSED} when there is nothing to
-     *         interact with, the tool is missing or the target cannot be reached
+     *         the target was hit too recently for another hit to land, which leaves the interaction pending until it
+     *         can, {@link Outcome#REFUSED} when there is nothing to interact with, the tool is missing or the target
+     *         cannot be reached
      */
     public Outcome interact(int tileX, int tileY) {
         cancel();
@@ -103,8 +105,8 @@ public class InteractionManager {
         }
 
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
-        final List<PathNode> walk = InteractionPlanner.pathToReach(
-                map, player.getWalkOriginX(), player.getWalkOriginY(), tileX, tileY);
+        final PathNode origin = player.getWalkOrigin();
+        final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY);
         if (walk == null) {
             hintSink.accept("You can't reach that");
             return Outcome.REFUSED;
@@ -113,7 +115,14 @@ public class InteractionManager {
             // A walk left over from an earlier order would carry the player away from the target
             player.stop();
             if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), tileX, tileY)) {
-                return perform(player, tile, kind);
+                final Outcome outcome = perform(player, tile, kind);
+                if (outcome == Outcome.IGNORED) {
+                    // The target was hit a moment ago: the interaction waits and lands when the cooldown ends, as it
+                    // does for a player that arrives during the cooldown
+                    pending = new Pending(tileX, tileY, kind);
+                    log.debug("Waiting for {} at ({}, {}) to be hittable again", kind, tileX, tileY);
+                }
+                return outcome;
             }
             // The step in progress ends next to the target: the interaction happens on arrival
         } else if (!player.walkAlong(walk)) {
@@ -179,7 +188,13 @@ public class InteractionManager {
         }
     }
 
-    /** @return true while the player is walking to an interaction */
+    /**
+     * Tells whether an interaction is waiting, either because the player is walking to it or because the target was
+     * hit too recently. It exists so the tests, which drive the game ticks by hand, can tell when the wait is over; the
+     * game itself never asks.
+     *
+     * @return true while an interaction is pending
+     */
     public boolean hasPending() {
         return pending != null;
     }

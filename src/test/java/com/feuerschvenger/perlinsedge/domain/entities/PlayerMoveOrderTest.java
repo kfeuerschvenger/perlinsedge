@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -174,13 +175,30 @@ class PlayerMoveOrderTest {
 
     @Test
     void theWalkOriginIsTheTileBeingApproachedWhileBetweenTilesAndTheCurrentTileOtherwise() {
-        assertTrue(player.getWalkOriginX() == 0 && player.getWalkOriginY() == 0);
+        assertEquals(new PathNode(0, 0), player.getWalkOrigin());
 
         assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0))));
-        assertTrue(player.getWalkOriginX() == 0, "still standing on the first tile");
+        assertEquals(new PathNode(0, 0), player.getWalkOrigin(), "still standing on the first tile");
         updateFrames(4);
 
-        assertTrue(player.getWalkOriginX() == 1 && player.getWalkOriginY() == 0);
+        assertEquals(new PathNode(1, 0), player.getWalkOrigin());
+    }
+
+    @Test
+    void aMoveOrderToTheTileJustReachedEndsTheWalkInsteadOfLeavingItRunning() {
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0))));
+        // One frame is enough to arrive on the first node, with the rest of the path still queued
+        for (int i = 0; i < 60 && player.getCurrentTileX() < 1; i++) {
+            player.update(1.0 / 60.0);
+        }
+        assertTrue(player.getCurrentTileX() == 1 && player.getPosX() == 1.0, "standing exactly on the first node");
+        assertTrue(player.isMoving(), "the rest of the walk is still queued");
+
+        assertFalse(player.moveTo(map, 1, 0));
+        updateFrames(120);
+
+        assertTrue(player.getCurrentTileX() == 1 && player.getCurrentTileY() == 0);
+        assertFalse(player.isMoving());
     }
 
     @Test

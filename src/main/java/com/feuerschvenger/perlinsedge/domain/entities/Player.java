@@ -140,14 +140,19 @@ public class Player extends Entity implements Container {
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
      * @return true when the player started walking, false when the order did nothing: the player is dead, already on
-     *         the tile, or the tile cannot be reached
+     *         the tile, or the tile cannot be reached. An order to the tile the player stands on ends the walk in
+     *         progress, as any refused order does, so a player that has just reached a node of a longer path does not
+     *         carry on past the tile that was clicked.
      */
     public boolean moveTo(TileMap map, int targetX, int targetY) {
         // A dead player stays where it fell until the respawn
         if (isDead) return false;
         final PathNode step = stepInProgress();
-        // Skip if already at target position
-        if (step == null && isAtPosition(targetX, targetY)) return false;
+        // Already at the target position: nothing to walk to, and no walk left over from an earlier order
+        if (step == null && isAtPosition(targetX, targetY)) {
+            stop();
+            return false;
+        }
 
         // A player between two tiles plans from the tile it is approaching, so the new walk never starts with a
         // diagonal across a blocked corner from an off-grid position
@@ -174,28 +179,18 @@ public class Player extends Entity implements Container {
     /**
      * Gives the tile a new walk is planned from: the tile the player is approaching when it is between two tiles,
      * otherwise the tile it stands on. {@link #walkAlong(List)} expects a path that starts next to this tile.
+     * Both coordinates come from one reading of the walk state, so they always belong to the same tile.
      *
-     * @return the column of the tile a new walk starts from
+     * @return the tile a new walk starts from
      */
-    public int getWalkOriginX() {
+    public PathNode getWalkOrigin() {
         final PathNode step = stepInProgress();
-        return step != null ? step.x : currentTileX;
-    }
-
-    /**
-     * Gives the row of the tile a new walk is planned from, see {@link #getWalkOriginX()}.
-     *
-     * @return the row of the tile a new walk starts from
-     */
-    public int getWalkOriginY() {
-        final PathNode step = stepInProgress();
-        return step != null ? step.y : currentTileY;
+        return step != null ? step : new PathNode(currentTileX, currentTileY);
     }
 
     /**
      * Starts walking along a path that was already found, replacing the walk in progress. A player between two tiles
-     * first finishes the step it is on, so the path must be planned from {@link #getWalkOriginX()} and
-     * {@link #getWalkOriginY()}.
+     * first finishes the step it is on, so the path must be planned from {@link #getWalkOrigin()}.
      *
      * @param path the tiles to walk, excluding the tile the walk starts from; an empty or null path changes nothing
      * @return true when the player started walking

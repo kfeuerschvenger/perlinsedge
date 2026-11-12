@@ -400,6 +400,23 @@ class InteractionManagerTest {
     }
 
     @Test
+    void aClickInReachInsideTheHitCooldownWaitsAndHitsWhenTheCooldownEnds() {
+        Resource stone = stoneAt(1, 5);
+        state.getResourceHitTimes().put(stone, state.getGameTime() + 0.2);
+
+        assertEquals(InteractionManager.Outcome.IGNORED, interactions.interact(1, 5));
+
+        assertTrue(interactions.hasPending(), "the click is not lost, it waits like an arrival does");
+        assertEquals(Double.POSITIVE_INFINITY, stone.secondsSinceHit(state.getGameTime()));
+
+        tickUntilIdle();
+
+        assertFalse(interactions.hasPending());
+        assertTrue(stone.secondsSinceHit(state.getGameTime()) < 0.5, "the hit landed when the cooldown ended");
+        assertFalse(player.isMoving());
+    }
+
+    @Test
     void arrivingInsideTheHitCooldownKeepsTheInteractionPendingUntilTheHitLands() {
         Resource stone = stoneAt(3, 5);
         // The stone was hit moments ago: its cooldown outlasts the walk
