@@ -5,7 +5,8 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Merges items dropped by the player into the piles of the same type that already lie nearby.
+ * Merges items dropped by the player into the piles of the same type that the player dropped earlier and that still
+ * lie nearby. Loot from resources and enemies is never merged into, so its source and timers stay as they were.
  * A pile is nearby when it is on the landing tile or on one of the eight tiles around it. Piles take items up to the
  * maximum stack size of the type, the closest pile first, so a long row of drops does not leave a scatter of small
  * stacks behind.
@@ -31,7 +32,8 @@ public final class DropMerger {
                                 double gameTime) {
         List<DroppedItem> nearby = new ArrayList<>();
         for (DroppedItem pile : drops) {
-            if (pile.getItemType() == type && pile.roomLeft() > 0 && isNear(pile, tileX, tileY)) {
+            if (pile.getSource() == DroppedItem.DropSource.PLAYER && pile.getItemType() == type
+                    && pile.roomLeft() > 0 && isNear(pile, tileX, tileY)) {
                 nearby.add(pile);
             }
         }

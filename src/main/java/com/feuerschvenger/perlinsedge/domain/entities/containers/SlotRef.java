@@ -11,7 +11,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
  */
 public record SlotRef(Container container, int slot) {
 
-    /** @return the stack in the slot, or null when the slot is empty or does not exist */
+    /**
+     * Reads the stack that lies in the slot.
+     *
+     * @return the stack in the slot, or null when the slot is empty or does not exist
+     */
     public Item item() {
         return container == null ? null : container.getItemAt(slot);
     }

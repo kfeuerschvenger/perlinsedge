@@ -171,12 +171,22 @@ class ItemDropManagerTest {
     }
 
     @Test
-    void aDropNextToAnExistingPileOfTheSameTypeMergesIntoIt() {
-        state.getDroppedItems().add(new DroppedItem(5, 2, new Item(ItemType.STONE, 10), 0, DroppedItem.DropSource.RESOURCE));
+    void aDropNextToAnExistingPlayerPileOfTheSameTypeMergesIntoIt() {
+        state.getDroppedItems().add(new DroppedItem(5, 2, new Item(ItemType.STONE, 10), 0, DroppedItem.DropSource.PLAYER));
 
         drops.dropFromSlot(player, 0, true);
 
         assertEquals(15, onlyDrop().getQuantity());
+    }
+
+    @Test
+    void aDropNextToResourceLootStaysSeparate() {
+        state.getDroppedItems().add(new DroppedItem(5, 2, new Item(ItemType.STONE, 10), 0, DroppedItem.DropSource.RESOURCE));
+
+        drops.dropFromSlot(player, 0, true);
+
+        assertEquals(2, state.getDroppedItems().size());
+        assertEquals(10, state.getDroppedItems().get(0).getQuantity());
     }
 
     @Test

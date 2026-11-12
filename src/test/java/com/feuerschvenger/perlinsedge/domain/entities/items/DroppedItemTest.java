@@ -83,12 +83,13 @@ class DroppedItemTest {
 
     @Test
     void absorbingUnitsAddsThemAndStartsTheDelayAndTheLifetimeAgain() {
-        DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 3), 10, DroppedItem.DropSource.RESOURCE);
+        DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 3), 10, DroppedItem.DropSource.PLAYER);
 
         pile.absorb(5, 100);
 
         assertEquals(8, pile.getQuantity());
-        assertEquals(DroppedItem.DropSource.PLAYER, pile.getSource(), "the pile now holds items the player threw");
+        assertEquals(DroppedItem.DropSource.PLAYER, pile.getSource());
+        assertEquals(10, pile.getDropTime(), "the drop time is the throw, the timers are kept apart");
         assertFalse(pile.canBePickedUp(4, 4, 101.9));
         assertTrue(pile.canBePickedUp(4, 4, 102.0));
         assertFalse(pile.isExpired(399.9));
@@ -138,13 +139,16 @@ class DroppedItemTest {
     }
 
     @Test
-    void absorbingUnitsStopsTheFlightOfAPile() {
+    void absorbingUnitsKeepsTheFlightOfAPileInTheAir() {
         DroppedItem item = new DroppedItem(2, 2, 4, 2, new Item(ItemType.STONE, 1), 10, DroppedItem.DropSource.PLAYER);
+        double before = item.flightX(10.1);
 
         item.absorb(1, 10.1);
 
-        assertEquals(1.0, item.flightProgress(10.1));
-        assertEquals(4.0, item.flightX(10.1));
+        assertEquals(2, item.getQuantity());
+        assertTrue(item.flightProgress(10.1) < 1.0, "the pile has not landed yet");
+        assertEquals(before, item.flightX(10.1), 1e-9, "the pile does not jump to its landing tile");
+        assertEquals(4.0, item.flightX(10 + DroppedItem.THROW_SECONDS), 1e-9);
     }
 
     @Test

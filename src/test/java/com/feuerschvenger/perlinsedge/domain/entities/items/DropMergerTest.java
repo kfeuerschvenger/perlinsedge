@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DropMergerTest {
 
@@ -110,7 +112,26 @@ class DropMergerTest {
 
         DropMerger.mergeInto(drops, ItemType.STONE, 1, 4, 4, 100);
 
-        assertEquals(100, pile.getDropTime());
+        assertFalse(pile.canBePickedUp(4, 4, 101.9));
+        assertTrue(pile.canBePickedUp(4, 4, 102.0));
+        assertFalse(pile.isExpired(399.9));
+        assertTrue(pile.isExpired(400.1));
+    }
+
+    @Test
+    void lootFromResourcesAndEnemiesIsNeverMergedInto() {
+        DroppedItem resource = new DroppedItem(4, 4, new Item(ItemType.STONE, 3), 0, DroppedItem.DropSource.RESOURCE);
+        DroppedItem enemy = new DroppedItem(5, 4, new Item(ItemType.STONE, 3), 0, DroppedItem.DropSource.ENEMY);
+        drops.add(resource);
+        drops.add(enemy);
+
+        int left = DropMerger.mergeInto(drops, ItemType.STONE, 2, 4, 4, 100);
+
+        assertEquals(2, left);
+        assertEquals(3, resource.getQuantity());
+        assertEquals(3, enemy.getQuantity());
+        assertEquals(DroppedItem.DropSource.RESOURCE, resource.getSource());
+        assertTrue(resource.canBePickedUp(4, 4, 100), "the loot keeps its own timers");
     }
 
     @Test

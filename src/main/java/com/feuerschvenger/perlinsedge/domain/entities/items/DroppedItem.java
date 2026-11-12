@@ -34,10 +34,13 @@ public class DroppedItem {
     private final Item item;
     private final int tileX;
     private final int tileY;
-    private int originX;
-    private int originY;
-    private double dropTime;
-    private DropSource source;
+    private final int originX;
+    private final int originY;
+    /** Game time of the throw: the flight is measured from it. */
+    private final double dropTime;
+    /** Game time the pickup delay and the lifetime are measured from: the drop, or the last merge into the pile. */
+    private double timerStart;
+    private final DropSource source;
 
     /**
      * Creates a new dropped item instance that appears on its tile without a flight.
@@ -80,6 +83,7 @@ public class DroppedItem {
         this.tileY = tileY;
         this.item = item;
         this.dropTime = dropTime;
+        this.timerStart = dropTime;
         this.source = source;
     }
 
@@ -171,10 +175,14 @@ public class DroppedItem {
      * @return True if the player is in range and the item's own delay has passed
      */
     public boolean canBePickedUp(int playerTileX, int playerTileY, double gameTime) {
-        return gameTime - dropTime >= pickupDelaySeconds() && isInPickupRange(playerTileX, playerTileY);
+        return gameTime - timerStart >= pickupDelaySeconds() && isInPickupRange(playerTileX, playerTileY);
     }
 
-    /** @return Seconds after the drop during which this item cannot be picked up */
+    /**
+     * Tells how long a fresh drop of this source stays out of reach.
+     *
+     * @return Seconds after the drop during which this item cannot be picked up
+     */
     public double pickupDelaySeconds() {
         return source == DropSource.PLAYER ? PLAYER_DROP_PICKUP_DELAY_SECONDS : 0.0;
     }
@@ -187,18 +195,23 @@ public class DroppedItem {
      * @return true once the item must despawn
      */
     public boolean isExpired(double gameTime) {
-        return gameTime - dropTime > LIFETIME_SECONDS;
+        return gameTime - timerStart > LIFETIME_SECONDS;
     }
 
-    /** @return how many more units this pile takes before it reaches the maximum stack size */
+    /**
+     * Tells how much more this pile takes.
+     *
+     * @return how many more units this pile takes before it reaches the maximum stack size
+     */
     public int roomLeft() {
         return Math.max(0, item.getMaxStackSize() - item.getQuantity());
     }
 
     /**
      * Adds units dropped by the player to this pile.
-     * The pile counts as dropped by the player from now on: its pickup delay and its despawn timer start again, and it
-     * stays where it is without a flight. The caller keeps the pile within the maximum stack size, see {@link #roomLeft()}.
+     * Its pickup delay and its despawn timer start again. The pile keeps its source, its tile and its flight: a pile
+     * still in the air goes on flying to the same landing tile. The caller keeps the pile within the maximum stack
+     * size, see {@link #roomLeft()}.
      *
      * @param amount   units to add, positive
      * @param gameTime current game time in seconds
@@ -209,10 +222,7 @@ public class DroppedItem {
             throw new IllegalArgumentException("Cannot add " + amount + " to a pile with room for " + roomLeft());
         }
         item.addQuantity(amount);
-        dropTime = gameTime;
-        source = DropSource.PLAYER;
-        originX = tileX;
-        originY = tileY;
+        timerStart = gameTime;
     }
 
     // ==================================================================
