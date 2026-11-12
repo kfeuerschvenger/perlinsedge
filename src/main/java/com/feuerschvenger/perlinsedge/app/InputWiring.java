@@ -54,7 +54,7 @@ public class InputWiring {
      * @param containerManager open container tracking
      * @param playerManager    player movement
      * @param resourceManager  resource harvesting
-     * @param camera          camera used to convert screen to tile coordinates
+     * @param camera           camera used to convert screen to tile coordinates
      * @param inputHandler     keyboard and scroll input source
      * @param minimapDrawer    minimap view
      * @param mainCanvas       canvas that receives game clicks
