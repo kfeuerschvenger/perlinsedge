@@ -97,6 +97,16 @@ class DroppedItemTest {
     }
 
     @Test
+    void theAgeIsMeasuredFromTheDespawnTimerLikeTheExpiry() {
+        DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 3), 10, DroppedItem.DropSource.PLAYER);
+        assertEquals(90, pile.ageSeconds(100), 1e-9);
+
+        pile.absorb(1, 100);
+
+        assertEquals(20, pile.ageSeconds(120), 1e-9, "the age starts again with the timer");
+    }
+
+    @Test
     void aPileOnlyTakesUnitsUpToTheMaximumStackSize() {
         DroppedItem pile = new DroppedItem(4, 4, new Item(ItemType.STONE, 60), 0, DroppedItem.DropSource.PLAYER);
 

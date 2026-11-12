@@ -199,6 +199,17 @@ public class DroppedItem {
     }
 
     /**
+     * Tells how long this item has been on the ground, on the same reference as {@link #isExpired(double)}: the last
+     * time its despawn timer started.
+     *
+     * @param gameTime current game time in seconds
+     * @return seconds since the despawn timer started
+     */
+    public double ageSeconds(double gameTime) {
+        return gameTime - timerStart;
+    }
+
+    /**
      * Tells how much more this pile takes.
      *
      * @return how many more units this pile takes before it reaches the maximum stack size

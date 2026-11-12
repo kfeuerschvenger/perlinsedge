@@ -143,9 +143,9 @@ public class ItemDropManager {
 
     private void logDespawn(DroppedItem item, double currentTime) {
         if (log.isDebugEnabled()) {
-            log.debug("Despawned {} (dropped {} minutes ago)",
+            log.debug("Despawned {} (on the ground for {} minutes)",
                     item.getItem().getType().getDisplayName(),
-                    String.format(Locale.ROOT, "%.1f", (currentTime - item.getDropTime()) / 60));
+                    String.format(Locale.ROOT, "%.1f", item.ageSeconds(currentTime) / 60));
         }
     }
 

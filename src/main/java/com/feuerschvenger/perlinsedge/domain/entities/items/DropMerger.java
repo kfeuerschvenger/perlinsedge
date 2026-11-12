@@ -7,6 +7,7 @@ import java.util.List;
 /**
  * Merges items dropped by the player into the piles of the same type that the player dropped earlier and that still
  * lie nearby. Loot from resources and enemies is never merged into, so its source and timers stay as they were.
+ * The loot a player leaves on death is a player pile and merges like one.
  * A pile is nearby when it is on the landing tile or on one of the eight tiles around it. Piles take items up to the
  * maximum stack size of the type, the closest pile first, so a long row of drops does not leave a scatter of small
  * stacks behind.
