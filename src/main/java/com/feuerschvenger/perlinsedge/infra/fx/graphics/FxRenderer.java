@@ -412,7 +412,8 @@ public class FxRenderer {
         final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
         final double screenX = (tileX - tileY) * graphics.getTileHalfWidth() * zoom + offsetX;
         final double centerY = cursorCenterY(tile, tileX, tileY, zoom, offsetY);
-        final boolean light = CursorStyle.isLightGround(AssetPaths.tileArt(activeMapType, tile.getType()));
+        final boolean light = CursorStyle.isLightGround(tile.getType(),
+                AssetPaths.tileArt(activeMapType, tile.getType()));
         renderQueue.add(screenX, centerY, centerY + 1,
                 highlightFor(flashSlot, screenX, centerY, graphics.getTileWidth() * zoom,
                         graphics.getTileHeight() * zoom, light, tone), null, false, null);

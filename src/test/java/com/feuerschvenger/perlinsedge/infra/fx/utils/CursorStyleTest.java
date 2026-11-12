@@ -26,6 +26,16 @@ class CursorStyleTest {
     }
 
     @Test
+    void waterIsDarkWhateverItsBedAndIceIsTheLightWater() {
+        assertFalse(CursorStyle.isLightGround(TileType.DEEP_WATER, "sand"), "a sandy bed under blue water");
+        assertFalse(CursorStyle.isLightGround(TileType.SHALLOW_WATER, "snow"));
+        assertTrue(CursorStyle.isLightGround(TileType.ICE, "ice"));
+        assertTrue(CursorStyle.isLightGround(TileType.BEACH, "sand"));
+        assertFalse(CursorStyle.isLightGround(TileType.GRASS, "grass"));
+        assertTrue(CursorStyle.isLightGround((TileType) null, "sand"));
+    }
+
+    @Test
     void theArtOfEveryTileTypeOnEveryBiomeHasAnAnswer() {
         for (MapType mapType : MapType.values()) {
             for (TileType type : TileType.values()) {

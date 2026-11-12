@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+
 import java.util.Set;
 
 /**
@@ -26,13 +28,27 @@ public final class CursorStyle {
 
     /**
      * Tells whether the ground drawn from an art is light.
-     * Water answers false whatever its bed is, because the sheet over it is blue and dark.
      *
      * @param art the tile art name of the ground, or null
      * @return true when the cursor should be dark to stand out
      */
     public static boolean isLightGround(String art) {
         return art != null && LIGHT_GROUND.contains(art);
+    }
+
+    /**
+     * Tells whether the ground of a tile is light, with the water rule stated here instead of left to the art names:
+     * a water tile is dark whatever its bed is, because the sheet over it is blue, except ice, whose sheet is pale.
+     *
+     * @param type the tile type
+     * @param art  the tile art name of the ground, or null
+     * @return true when the cursor should be dark to stand out
+     */
+    public static boolean isLightGround(TileType type, String art) {
+        if (type != null && type.isWater() && type != TileType.ICE) {
+            return false;
+        }
+        return isLightGround(art);
     }
 
     /**
