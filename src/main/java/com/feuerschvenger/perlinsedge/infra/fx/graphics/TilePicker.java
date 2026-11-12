@@ -48,13 +48,10 @@ public final class TilePicker {
         final Tile land = map.getTile(landX, landY);
         final Tile water = map.getTile(waterX, waterY);
         final boolean landShowsTop = land != null && !land.getType().isWater();
-        final boolean waterShowsTop = water != null && water.getType().isWater();
 
-        if (landShowsTop && waterShowsTop) {
-            // Tiles are drawn row by row, so the one in the later row, or further along its row, covers the other
-            final boolean landDrawnLater = landY > waterY || (landY == waterY && landX > waterX);
-            return write(out, landDrawnLater ? landX : waterX, landDrawnLater ? landY : waterY);
-        }
+        // Land wins whenever its top covers the point, also when the water sheet shows there too. The water sheet
+        // sits lower, so a land top that covers a point is in front of it, and the renderer draws the land after the
+        // water: the two cells are never ordered by their position in the grid.
         if (landShowsTop) {
             return write(out, landX, landY);
         }
@@ -63,6 +60,9 @@ public final class TilePicker {
             return write(out, waterX, waterY);
         }
         if (land != null) {
+            // The land layer holds a water tile and the water layer is off the map, which happens on the top edge:
+            // the point is on the margin above the sheet of an edge tile, with nothing else under it. The nearest
+            // tile drawn there is that water tile, so the hover stays on the map instead of dropping out at the edge.
             return write(out, landX, landY);
         }
         return false;
