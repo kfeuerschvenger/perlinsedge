@@ -66,12 +66,15 @@ class InputWiringClickTest {
         wiring.registerMouseHandlers();
     }
 
-    private void click(int tileX, int tileY, MouseButton button) {
-        double x = (tileX - tileY) * 32.0;
-        double y = (tileX + tileY) * 16.0 + 16.0;
-        Event.fireEvent(canvas, new MouseEvent(MouseEvent.MOUSE_CLICKED, x, y, x, y, button, 1,
+    private void fire(javafx.event.EventType<MouseEvent> type, double x, double y, MouseButton button) {
+        Event.fireEvent(canvas, new MouseEvent(type, x, y, x, y, button, 1,
                 false, false, false, false, button == MouseButton.PRIMARY, false, button == MouseButton.SECONDARY,
                 true, false, false, null));
+    }
+
+    /** Presses a button over the centre of a tile, which is all a click needs. */
+    private void click(int tileX, int tileY, MouseButton button) {
+        fire(MouseEvent.MOUSE_PRESSED, (tileX - tileY) * 32.0, (tileX + tileY) * 16.0 + 16.0, button);
     }
 
     private ClickFeedback.Kind flash() {
@@ -140,6 +143,33 @@ class InputWiringClickTest {
         click(2, 6, MouseButton.SECONDARY);
 
         assertFalse(interactions.hasPending());
+    }
+
+    @Test
+    void anOrderDoesNotWaitForTheReleaseOrTheClickEvent() {
+        // JavaFX never delivers the click to the canvas when the pointer is over another node at the release, so the
+        // order must already have happened at the press
+        click(5, 2, MouseButton.SECONDARY);
+
+        assertTrue(player.isMoving(), "the press alone started the walk");
+    }
+
+    @Test
+    void aClickEventOnItsOwnDoesNothing() {
+        fire(MouseEvent.MOUSE_CLICKED, (5 - 2) * 32.0, (5 + 2) * 16.0 + 16.0, MouseButton.SECONDARY);
+
+        assertFalse(player.isMoving());
+        assertEquals(ClickFeedback.Kind.NONE, flash(), "the press was the order, the click after it is not a second one");
+    }
+
+    @Test
+    void aMouseMovedBetweenPressAndReleaseStillActsOnThePressedTile() {
+        fire(MouseEvent.MOUSE_PRESSED, (5 - 2) * 32.0, (5 + 2) * 16.0 + 16.0, MouseButton.SECONDARY);
+        fire(MouseEvent.MOUSE_RELEASED, 300, 300, MouseButton.SECONDARY);
+
+        assertEquals(5, state.getClickFeedback().getTileX());
+        assertEquals(2, state.getClickFeedback().getTileY());
+        assertTrue(player.isMoving());
     }
 
     @Test

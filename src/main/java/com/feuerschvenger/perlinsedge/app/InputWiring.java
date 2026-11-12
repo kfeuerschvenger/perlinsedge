@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;
 import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.TilePicker;
@@ -42,7 +41,7 @@ public class InputWiring {
     private double lastMouseY;
     private boolean mouseOverCanvas;
 
-    private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasClick;
+    private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasPress;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
     private final EventHandler<MouseEvent> canvasExitHandler = this::handleMouseExit;
     private final EventHandler<MouseEvent> minimapClickHandler = this::handleMinimapClick;
@@ -96,7 +95,7 @@ public class InputWiring {
      */
     public void registerMouseHandlers() {
         unregisterMouseHandlers();
-        mainCanvas.addEventHandler(MouseEvent.MOUSE_CLICKED, canvasClickHandler);
+        mainCanvas.addEventHandler(MouseEvent.MOUSE_PRESSED, canvasClickHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
         mainCanvas.addEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
         if (minimapDrawer.getCanvas() != null) {
@@ -106,7 +105,7 @@ public class InputWiring {
 
     /** Removes the handlers added by {@link #registerMouseHandlers()}. */
     public void unregisterMouseHandlers() {
-        mainCanvas.removeEventHandler(MouseEvent.MOUSE_CLICKED, canvasClickHandler);
+        mainCanvas.removeEventHandler(MouseEvent.MOUSE_PRESSED, canvasClickHandler);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_MOVED, canvasMoveHandler);
         mainCanvas.removeEventHandler(MouseEvent.MOUSE_EXITED, canvasExitHandler);
         if (minimapDrawer.getCanvas() != null) {
@@ -118,15 +117,21 @@ public class InputWiring {
     //  Event handlers
     // ==================================================================
 
-    private void handleCanvasClick(MouseEvent event) {
+    /**
+     * Acts on the press of a button over the canvas, not on the click that follows its release.
+     * JavaFX delivers a click only to the node that is the deepest one common to the press and the release, so a click
+     * is lost when the pointer ends over another node, such as a panel that appeared under it. The press
+     * always reaches the canvas it happened on, and the tile is the one the cursor showed at that moment.
+     */
+    private void handleCanvasPress(MouseEvent event) {
+        lastMouseX = event.getX();
+        lastMouseY = event.getY();
+        mouseOverCanvas = true;
         if (gameState.isGamePaused() || gameState.isPlayerDead()) return;
 
         if (!pickTile(event.getX(), event.getY())) return;
         int tileX = pickedTile[0];
         int tileY = pickedTile[1];
-
-        Tile tile = gameState.getCurrentMap().getTile(tileX, tileY);
-        if (tile == null) return;
 
         switch (gameState.getCurrentGameMode()) {
             case BUILDING_MODE:

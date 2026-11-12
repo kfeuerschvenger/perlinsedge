@@ -50,8 +50,10 @@ class InputWiringTest {
         wiring = new InputWiring(state, null, null, null, camera, null, minimap, mainCanvas);
     }
 
-    private static void click(Canvas target) {
-        Event.fireEvent(target, new MouseEvent(MouseEvent.MOUSE_CLICKED, 10, 10, 10, 10, MouseButton.PRIMARY, 1,
+    /** A game click is handled on the press, a minimap click on the click that follows the release. */
+    private void click(Canvas target) {
+        Event.fireEvent(target, new MouseEvent(target == mainCanvas ? MouseEvent.MOUSE_PRESSED : MouseEvent.MOUSE_CLICKED,
+                10, 10, 10, 10, MouseButton.PRIMARY, 1,
                 false, false, false, false, true, false, false, true, false, false, null));
     }
 
