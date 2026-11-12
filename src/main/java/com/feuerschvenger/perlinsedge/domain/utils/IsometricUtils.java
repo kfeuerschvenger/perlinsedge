@@ -27,37 +27,6 @@ public final class IsometricUtils {
     // ==================================================================
 
     /**
-     * Converts screen coordinates to isometric tile coordinates.
-     *
-     * @param screenX        Screen X coordinate
-     * @param screenY        Screen Y coordinate
-     * @param cameraX        Camera X position
-     * @param cameraY        Camera Y position
-     * @param zoom           Current zoom level
-     * @param halfTileWidth  Half tile width (unzoomed)
-     * @param halfTileHeight Half tile height (unzoomed)
-     * @return Array containing integer tile coordinates [tileX, tileY]
-     */
-    public static int[] screenToTile(double screenX, double screenY,
-                                     double cameraX, double cameraY,
-                                     double zoom,
-                                     double halfTileWidth, double halfTileHeight) {
-        // Convert to world coordinates relative to camera
-        double worldX = screenX - cameraX;
-        double worldY = screenY - cameraY;
-
-        // Apply zoom scaling
-        double scaledHalfWidth = halfTileWidth * zoom;
-        double scaledHalfHeight = halfTileHeight * zoom;
-
-        // Perform isometric transformation
-        int tileX = (int) Math.floor((worldX / scaledHalfWidth + worldY / scaledHalfHeight) / 2);
-        int tileY = (int) Math.floor((worldY / scaledHalfHeight - worldX / scaledHalfWidth) / 2);
-
-        return new int[]{tileX, tileY};
-    }
-
-    /**
      * Converts screen coordinates to fractional isometric tile coordinates.
      * Useful for precise positioning and interpolation.
      *

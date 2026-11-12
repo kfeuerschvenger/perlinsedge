@@ -506,14 +506,8 @@ public class FxRenderer {
         final double lineWidth;
         final double alpha;
         switch (highlight.tone()) {
-            case ACCEPTED -> {
-                line = CURSOR_ACCEPTED;
-                outline = CURSOR_DARK_OUTLINE;
-                lineWidth = FLASH_LINE_WIDTH;
-                alpha = CursorStyle.flashAlpha(gameState.getClickFeedback().strength(currentFrameGameTime));
-            }
-            case REJECTED -> {
-                line = CURSOR_REJECTED;
+            case ACCEPTED, REJECTED -> {
+                line = highlight.tone() == ClickFeedback.Kind.ACCEPTED ? CURSOR_ACCEPTED : CURSOR_REJECTED;
                 outline = CURSOR_DARK_OUTLINE;
                 lineWidth = FLASH_LINE_WIDTH;
                 alpha = CursorStyle.flashAlpha(gameState.getClickFeedback().strength(currentFrameGameTime));

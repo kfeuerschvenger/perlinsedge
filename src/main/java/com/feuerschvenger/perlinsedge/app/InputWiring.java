@@ -43,7 +43,7 @@ public class InputWiring {
 
     private final EventHandler<MouseEvent> canvasClickHandler = this::handleCanvasPress;
     private final EventHandler<MouseEvent> canvasMoveHandler = this::handleMouseMovement;
-    private final EventHandler<MouseEvent> canvasDragHandler = this::handleMouseDragOrRelease;
+    private final EventHandler<MouseEvent> canvasDragHandler = this::trackPointer;
     private final EventHandler<MouseEvent> canvasExitHandler = this::handleMouseExit;
     private final EventHandler<MouseEvent> minimapClickHandler = this::handleMinimapClick;
 
@@ -220,7 +220,7 @@ public class InputWiring {
      * and keeps sending them after the pointer left the canvas, so whether the pointer is still over the canvas is read
      * from its position.
      */
-    private void handleMouseDragOrRelease(MouseEvent event) {
+    private void trackPointer(MouseEvent event) {
         lastMouseX = event.getX();
         lastMouseY = event.getY();
         mouseOverCanvas = event.getX() >= 0 && event.getY() >= 0
