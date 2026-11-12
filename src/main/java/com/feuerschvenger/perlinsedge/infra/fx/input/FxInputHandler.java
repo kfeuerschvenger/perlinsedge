@@ -76,9 +76,8 @@ public class FxInputHandler {
             return;
         }
         int steps = zoomWheel.add(event.getDeltaY());
-        int direction = Integer.signum(steps);
-        for (int i = 0; i < Math.abs(steps); i++) {
-            camera.zoomStep(direction, event.getX(), event.getY(), mainGameCanvas);
+        if (steps != 0) {
+            camera.zoomStep(steps, event.getX(), event.getY(), mainGameCanvas);
         }
     }
 

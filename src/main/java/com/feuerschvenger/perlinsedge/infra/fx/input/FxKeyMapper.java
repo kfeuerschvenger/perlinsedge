@@ -14,28 +14,6 @@ public final class FxKeyMapper {
     }
 
     /**
-     * Translates a JavaFX key code pressed without a modifier.
-     *
-     * @param code the key code from a key event
-     * @return the matching game key, or empty when the game does not use the key
-     */
-    public static Optional<GameKey> toGameKey(KeyCode code) {
-        return toGameKey(code, false);
-    }
-
-    /**
-     * Translates a JavaFX key code with only Ctrl as a possible modifier, see
-     * {@link #toGameKey(KeyCode, boolean, boolean, boolean, boolean)}.
-     *
-     * @param code     the key code from a key event
-     * @param ctrlDown true when Ctrl is held
-     * @return the matching game key, or empty when the game does not use the key
-     */
-    public static Optional<GameKey> toGameKey(KeyCode code, boolean ctrlDown) {
-        return toGameKey(code, ctrlDown, false, false, false);
-    }
-
-    /**
      * Translates a JavaFX key code. Only Q reads the modifiers: it throws one item alone, and the whole stack with
      * Ctrl alone. Q with Shift, Alt or Meta, and Ctrl combined with any of them (AltGr reports Ctrl and Alt), is not a
      * drop key and maps to nothing.

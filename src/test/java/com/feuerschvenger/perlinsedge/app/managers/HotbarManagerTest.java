@@ -64,14 +64,14 @@ class HotbarManagerTest {
     }
 
     @Test
-    void twoNotchesInOneEventFlipOnlyOnePageAndTheRestWaitsForTheNextEvent() {
+    void twoNotchesInOneEventFlipOnlyOnePageAndTheSurplusIsNotBanked() {
         assertTrue(wheel(-80, false));
 
         assertEquals(firstOfPageTwo, buildingInSlotOne(), "an event flips at most one page");
 
         assertTrue(wheel(-1, false));
 
-        assertEquals(firstOfPageOne, buildingInSlotOne(), "the second notch is paid out by the next event");
+        assertEquals(firstOfPageTwo, buildingInSlotOne(), "the second notch is dropped, not paid out later");
     }
 
     @Test

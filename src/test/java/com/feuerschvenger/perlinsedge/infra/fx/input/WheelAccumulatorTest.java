@@ -88,22 +88,35 @@ class WheelAccumulatorTest {
     }
 
     @Test
-    void aLargeDeltaYieldsOneStepAndCarriesTheRemainder() {
+    void aLargeDeltaYieldsOneStepAndCarriesOnlyTheFractionOfAStep() {
         long[] now = {0};
         WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
 
         assertEquals(1, wheel.add(100), "an event never yields more than one step");
-        assertEquals(1, wheel.add(20), "the 60 units left over and the 20 new ones make the next step");
-        assertEquals(1, wheel.add(10), "40 units were still left over");
-        assertEquals(0, wheel.add(10), "only 10 units are left now, with 10 more that is still short of a step");
+        assertEquals(0, wheel.add(10), "20 units are carried, with 10 more that is still short of a step");
+        assertEquals(1, wheel.add(10), "the carried 20 and the 20 new ones make a step");
+        assertEquals(0, wheel.add(10), "nothing is left over");
     }
 
     @Test
-    void aLargeDeltaDownwardsYieldsOneNegativeStep() {
+    void aLargeDeltaDownwardsYieldsOneNegativeStepAndCarriesTheFractionInTheSameDirection() {
         WheelAccumulator wheel = new WheelAccumulator(() -> 0L);
 
         assertEquals(-1, wheel.add(-125));
-        assertEquals(-1, wheel.add(-35), "the 85 units left over are carried in the same direction");
-        assertEquals(-1, wheel.add(-1), "80 units were still left over");
+        assertEquals(0, wheel.add(-30), "5 units are carried, with 30 more that is 35, still short of a step");
+        assertEquals(-1, wheel.add(-5), "the carried 35 and 5 more make a step");
+    }
+
+    @Test
+    void anOversizedDeltaFollowedByTinyEventsYieldsOneStepAndNotAStream() {
+        long[] now = {0};
+        WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
+
+        int steps = wheel.add(1000);
+        for (int i = 0; i < 30; i++) {
+            steps += wheel.add(1);
+        }
+
+        assertEquals(1, steps);
     }
 }
