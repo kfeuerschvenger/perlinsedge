@@ -143,6 +143,42 @@ class InventoryCraftingFlowTest {
     }
 
     @Test
+    void anUncraftableRecipeHasAGreyscaleIconAndACraftableOneKeepsItsColour() {
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
+
+        List<javafx.scene.effect.Effect> effects = FxToolkitSupport.onFx(() -> {
+            List<javafx.scene.effect.Effect> found = new ArrayList<>();
+            for (javafx.scene.Node cell : panel.lookupAll("." + UiTheme.CELL)) {
+                javafx.scene.image.ImageView icon = (javafx.scene.image.ImageView) ((Region) cell)
+                        .getChildrenUnmodifiable().stream()
+                        .filter(javafx.scene.image.ImageView.class::isInstance)
+                        .findFirst()
+                        .orElseThrow();
+                found.add(icon.getEffect());
+            }
+            return found;
+        });
+        List<Boolean> grey = FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.CELL).stream()
+                .map(node -> node.getStyleClass().contains(UiTheme.CELL_UNAVAILABLE))
+                .toList());
+
+        assertEquals(effects.size(), grey.size());
+        for (int i = 0; i < effects.size(); i++) {
+            if (grey.get(i)) {
+                assertTrue(effects.get(i) instanceof javafx.scene.effect.ColorAdjust adjust
+                        && adjust.getSaturation() == -1.0, "greyed cell " + i + " has a greyscale icon");
+            } else {
+                assertEquals(null, effects.get(i), "craftable cell " + i + " keeps its colour");
+            }
+        }
+        assertTrue(grey.contains(true) && grey.contains(false));
+    }
+
+    @Test
     void theListIsSortedAgainWhenTheInventoryChangesAndKeepsItsOrderInsideEachGroup() {
         List<String> before = recipeNamesInListOrder();
         player.addItem(new Item(ItemType.WOOD_LOG, 1));
