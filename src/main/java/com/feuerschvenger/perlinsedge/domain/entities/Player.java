@@ -139,22 +139,37 @@ public class Player extends Entity implements Container {
      * @param map     The game world tile map
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
+     * @return true when the player started walking, false when the order did nothing: the player is dead, already on
+     *         the tile, or the tile cannot be reached
      */
-    public void moveTo(TileMap map, int targetX, int targetY) {
+    public boolean moveTo(TileMap map, int targetX, int targetY) {
         // A dead player stays where it fell until the respawn
-        if (isDead) return;
+        if (isDead) return false;
         // Skip if already at target position
-        if (isAtPosition(targetX, targetY)) return;
+        if (isAtPosition(targetX, targetY)) return false;
 
         Pathfinder pathfinder = new Pathfinder(map);
         List<PathNode> path = pathfinder.findPath(currentTileX, currentTileY, targetX, targetY);
 
         if (path == null || path.isEmpty()) {
             clearPath();
-            return;
+            return false;
         }
 
         startNewPath(path);
+        return true;
+    }
+
+    /**
+     * Starts walking along a path that was already found, replacing the walk in progress.
+     *
+     * @param path the tiles to walk, excluding the one the player stands on; an empty or null path changes nothing
+     * @return true when the player started walking
+     */
+    public boolean walkAlong(List<PathNode> path) {
+        if (isDead || path == null || path.isEmpty()) return false;
+        startNewPath(path);
+        return true;
     }
 
     /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
@@ -561,12 +576,11 @@ public class Player extends Entity implements Container {
             currentTileY = next.y;
             currentPath.poll();
 
-            // Set next target if available
-            if (!currentPath.isEmpty()) {
-                PathNode nextNode = currentPath.peek();
-                targetTileX = nextNode.x;
-                targetTileY = nextNode.y;
-            }
+            // The target is the next node, or the node just reached when the walk is over: a target left on an
+            // earlier node would pull the player back to it
+            PathNode nextNode = currentPath.isEmpty() ? null : currentPath.peek();
+            targetTileX = nextNode != null ? nextNode.x : currentTileX;
+            targetTileY = nextNode != null ? nextNode.y : currentTileY;
         } else {
             // Move toward node
             posX += (dx / dist) * maxStep;

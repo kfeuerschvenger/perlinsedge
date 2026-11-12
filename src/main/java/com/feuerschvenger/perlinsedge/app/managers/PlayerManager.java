@@ -142,12 +142,11 @@ public class PlayerManager {
      * @param map Current game map
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
+     * @return true when the player started walking, false when the order did nothing
      */
-    public void movePlayer(TileMap map, int targetX, int targetY) {
+    public boolean movePlayer(TileMap map, int targetX, int targetY) {
         Player player = getPlayer();
-        if (player != null) {
-            player.moveTo(map, targetX, targetY);
-        }
+        return player != null && player.moveTo(map, targetX, targetY);
     }
 
     /**

@@ -57,18 +57,33 @@ public class ResourceManager {
      *
      * @param player Player attempting interaction
      * @param tile Target tile containing resource
+     * @return true when the order was valid, which includes a hit that waits for the cooldown; false when the tile has
+     *         no resource, the player is out of reach or lacks the tool
      */
-    public void handleTileInteraction(Player player, Tile tile) {
-        if (!isValidInteraction(player, tile)) return;
+    public boolean handleTileInteraction(Player player, Tile tile) {
+        if (!isValidInteraction(player, tile)) return false;
+        if (!hasToolFor(player, tile)) return false;
+        handleResourceHit(tile.getWorldResource(), tile.getX(), tile.getY());
+        return true;
+    }
+
+    /**
+     * Checks that the player carries the tool the resource on a tile needs, and tells the player what is missing when not.
+     * The distance is not checked, so it can be asked before the player walks up to the resource.
+     *
+     * @param player the player
+     * @param tile   tile with a resource
+     * @return true when the resource needs no tool or the player carries it
+     */
+    public boolean hasToolFor(Player player, Tile tile) {
+        if (tile == null || !tile.hasResource()) return false;
         Resource resource = tile.getWorldResource();
-        if (!hasRequiredTool(player, resource)) {
-            ItemType tool = resource.getType().getRequiredTool();
-            log.debug("Cannot harvest {} at ({}, {}): the player has no {}",
-                    resource.getType(), tile.getX(), tile.getY(), tool);
-            hintSink.accept("You need a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
-            return;
-        }
-        handleResourceHit(resource, tile.getX(), tile.getY());
+        if (hasRequiredTool(player, resource)) return true;
+        ItemType tool = resource.getType().getRequiredTool();
+        log.debug("Cannot harvest {} at ({}, {}): the player has no {}",
+                resource.getType(), tile.getX(), tile.getY(), tool);
+        hintSink.accept("You need a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
+        return false;
     }
 
     /**
