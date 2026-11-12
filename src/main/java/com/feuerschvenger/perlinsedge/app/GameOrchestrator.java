@@ -214,7 +214,7 @@ public class GameOrchestrator {
         setupInventoryCallbacks();
         inputWiring.registerKeyboard(createKeyController());
         inputWiring.registerWheelInterceptor(
-                (deltaY, ctrlDown) -> !gameState.isPlayerDead() && hotbarManager.handleWheel(deltaY, ctrlDown));
+                (deltaY, ctrlDown) -> !gameState.isGameplayInputBlocked() && hotbarManager.handleWheel(deltaY, ctrlDown));
         inputWiring.registerMouseHandlers();
     }
 
@@ -245,7 +245,7 @@ public class GameOrchestrator {
                 hotbarManager::changePage
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
-        controller.setInputBlocked(gameState::isPlayerDead);
+        controller.setInputBlocked(gameState::isGameplayInputBlocked);
         return controller;
     }
 

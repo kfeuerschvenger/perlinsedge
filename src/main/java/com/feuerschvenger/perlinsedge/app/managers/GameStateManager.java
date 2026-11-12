@@ -86,6 +86,16 @@ public class GameStateManager {
     }
 
     /**
+     * Tells whether gameplay keys and the gameplay use of the wheel must be ignored: there is no player to act for,
+     * as after a rebuild that failed halfway, or the player is dead.
+     *
+     * @return true when no live player can act
+     */
+    public boolean isGameplayInputBlocked() {
+        return player == null || player.isDead();
+    }
+
+    /**
      * Advances the game clock by the specified time delta.
      * @param deltaTime Time elapsed since last update (in seconds)
      */
