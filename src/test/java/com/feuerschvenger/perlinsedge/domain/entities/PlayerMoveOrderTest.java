@@ -127,6 +127,92 @@ class PlayerMoveOrderTest {
         assertTrue(player.getCurrentTileX() == 0 && player.getPosX() == 0);
     }
 
+    private void updateFrames(int frames) {
+        for (int i = 0; i < frames; i++) {
+            player.update(1.0 / 60.0);
+        }
+    }
+
+    @Test
+    void aMoveOrderMidStepFinishesTheStepBeforeTurningAndNeverCutsABlockedCorner() {
+        map.getTile(1, 1).setBuilding(new Wall(1, 1));
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0))));
+        updateFrames(4);
+        assertTrue(player.getPosX() > 0 && player.getPosX() < 1, "the player is between (0, 0) and (1, 0)");
+
+        assertTrue(player.moveTo(map, 0, 2));
+
+        int tileChanges = 0;
+        for (int i = 0; i < 240; i++) {
+            final int before = player.getCurrentTileX() * 10 + player.getCurrentTileY();
+            player.update(1.0 / 60.0);
+            final int after = player.getCurrentTileX() * 10 + player.getCurrentTileY();
+            if (before != after && tileChanges++ == 0) {
+                assertTrue(player.getCurrentTileX() == 1 && player.getCurrentTileY() == 0,
+                        "the step in progress ends on the tile that was being approached");
+            }
+            final int tileX = (int) Math.round(player.getPosX());
+            final int tileY = (int) Math.round(player.getPosY());
+            assertFalse(tileX == 1 && tileY == 1, "the player entered the blocked tile at frame " + i);
+        }
+
+        assertTrue(player.getCurrentTileX() == 0 && player.getCurrentTileY() == 2);
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void aMoveOrderToTheTileBeingApproachedEndsThereWithoutTurningBack() {
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0))));
+        updateFrames(4);
+
+        assertTrue(player.moveTo(map, 1, 0));
+        updateFrames(120);
+
+        assertTrue(player.getCurrentTileX() == 1 && player.getCurrentTileY() == 0);
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void theWalkOriginIsTheTileBeingApproachedWhileBetweenTilesAndTheCurrentTileOtherwise() {
+        assertTrue(player.getWalkOriginX() == 0 && player.getWalkOriginY() == 0);
+
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0))));
+        assertTrue(player.getWalkOriginX() == 0, "still standing on the first tile");
+        updateFrames(4);
+
+        assertTrue(player.getWalkOriginX() == 1 && player.getWalkOriginY() == 0);
+    }
+
+    @Test
+    void stoppingWithALongQueueMidStepThenWalkingAlongAgainFollowsOnlyTheNewPath() {
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0),
+                new PathNode(3, 1))));
+        updateFrames(4);
+        player.stop();
+
+        // The new path starts next to the tile the player is stepping to
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 1), new PathNode(1, 2))));
+        for (int i = 0; i < 240; i++) {
+            player.update(1.0 / 60.0);
+            assertTrue(player.getPosX() <= 1.0 + 1e-9, "no step of the earlier queue was left over, at frame " + i);
+        }
+
+        assertTrue(player.getCurrentTileX() == 1 && player.getCurrentTileY() == 2);
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void aFailedMoveOrderMidStepStopsOnTheTileBeingApproached() {
+        assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0))));
+        updateFrames(4);
+
+        assertFalse(player.moveTo(map, 4, 2));
+        updateFrames(120);
+
+        assertTrue(player.getCurrentTileX() == 1 && player.getCurrentTileY() == 0);
+        assertFalse(player.isMoving());
+    }
+
     @Test
     void anEmptyPathChangesNothing() {
         assertFalse(player.walkAlong(List.of()));
