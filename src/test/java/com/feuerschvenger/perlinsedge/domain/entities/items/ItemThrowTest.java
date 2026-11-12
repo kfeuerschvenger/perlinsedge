@@ -70,6 +70,29 @@ class ItemThrowTest {
     }
 
     @Test
+    void aDiagonalThrowNeverSqueezesBetweenTwoBlockedCorners() {
+        map.getTile(5, 4).setBuilding(new Wall(5, 4));
+        map.getTile(4, 3).setBuilding(new Wall(4, 3));
+
+        assertArrayEquals(new int[]{4, 4}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_UP_RIGHT));
+    }
+
+    @Test
+    void aDiagonalThrowStopsWhenTheSecondStepSqueezesBetweenBlockedCorners() {
+        map.getTile(6, 3).setBuilding(new Wall(6, 3));
+        map.getTile(5, 2).setBuilding(new Wall(5, 2));
+
+        assertArrayEquals(new int[]{5, 3}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_UP_RIGHT));
+    }
+
+    @Test
+    void aDiagonalThrowPassesWhenOnlyOneCornerIsBlocked() {
+        map.getTile(5, 4).setBuilding(new Wall(5, 4));
+
+        assertArrayEquals(new int[]{6, 2}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_UP_RIGHT));
+    }
+
+    @Test
     void waterNeverReceivesAnItem() {
         map.setTile(4, 2, new Tile(4, 2, TileType.SHALLOW_WATER));
         map.setTile(4, 3, new Tile(4, 3, TileType.GRASS));

@@ -61,12 +61,28 @@ public final class ItemThrow {
             int x = fromX + offset[0] * step;
             int y = fromY + offset[1] * step;
             Tile tile = map.getTile(x, y);
-            if (tile == null || !tile.isWalkable()) {
+            if (tile == null || !tile.isWalkable() || cutsCorner(map, landingX, landingY, offset)) {
                 break;
             }
             landingX = x;
             landingY = y;
         }
         return new int[]{landingX, landingY};
+    }
+
+    /**
+     * Tells whether a diagonal step squeezes between two blocked tiles: the item would pass through the gap where two
+     * walls meet at a corner.
+     */
+    private static boolean cutsCorner(TileMap map, int fromX, int fromY, int[] offset) {
+        if (offset[0] == 0 || offset[1] == 0) {
+            return false;
+        }
+        return !isOpen(map, fromX + offset[0], fromY) && !isOpen(map, fromX, fromY + offset[1]);
+    }
+
+    private static boolean isOpen(TileMap map, int x, int y) {
+        Tile tile = map.getTile(x, y);
+        return tile != null && tile.isWalkable();
     }
 }
