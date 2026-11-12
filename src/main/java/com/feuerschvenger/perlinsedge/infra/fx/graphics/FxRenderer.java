@@ -554,7 +554,7 @@ public class FxRenderer {
         final double zoom = camera.getZoom();
 
         if (enemy instanceof Slime) {
-            FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, (Slime) enemy);
+            FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, (Slime) enemy, currentFrameGameTime);
         } else {
             FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, enemy);
         }

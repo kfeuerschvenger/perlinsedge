@@ -72,6 +72,15 @@ public class Slime extends Enemy {
         return BASE_RENDER_OFFSET_Y;
     }
 
+    /**
+     * Gives how far the squash that telegraphs the next strike has gone.
+     *
+     * @return 0 when the slime is not squashing, rising to 1 at the moment of the strike
+     */
+    public double getWindupProgress() {
+        return getAttackStrategy() instanceof SlimeAttackStrategy strike ? strike.getWindupProgress() : 0.0;
+    }
+
     // ==================================================================
     //  Helper Methods
     // ==================================================================

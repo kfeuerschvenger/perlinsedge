@@ -52,7 +52,12 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         enemy.snapshot(); // Snapshot entity's position for interpolation
         pathPlanner.tick(deltaTime);
 
-        if (shouldAggro(enemy, player)) {
+        // Next to the player the slime holds its ground and strikes instead of hopping: a hop in the air finishes
+        // first, then no new one starts until the player is out of reach again
+        final boolean inReach = SlimeAttackStrategy.isInReach(enemy, player);
+        if (inReach) {
+            currentPath.clear();
+        } else if (shouldAggro(enemy, player)) {
             handleAggroBehavior(enemy, map, player);
         } else {
             handleIdleBehavior(enemy, map, deltaTime);
@@ -60,7 +65,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
         if (isJumping) {
             updateJump(enemy, deltaTime);
-        } else if (shouldStartJump(enemy)) {
+        } else if (!inReach && shouldStartJump(enemy)) {
             startNextJump(enemy);
         }
     }

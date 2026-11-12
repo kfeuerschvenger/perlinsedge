@@ -42,8 +42,10 @@ public final class FxEnemyDrawingHelper {
      * @param tileTopY Tile's top vertex Y coordinate
      * @param zoom Current zoom factor
      * @param slime Slime entity to render
+     * @param gameTime the game clock in seconds, which drives the breathing of a slime that stands still
      */
-    public static void drawSlime(GraphicsContext gc, double tileTopX, double tileTopY, double zoom, Slime slime) {
+    public static void drawSlime(GraphicsContext gc, double tileTopX, double tileTopY, double zoom, Slime slime,
+                                 double gameTime) {
         // Pre-calculate base position and size
         final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
         // Use slime.getRenderOffsetY() to correctly position based on its internal jump state
@@ -58,8 +60,17 @@ public final class FxEnemyDrawingHelper {
         if (frame != null) {
             // The sprite rests on the point the oval is centred on, whole pixels
             final double scale = ZoomSteps.artScale(zoom);
-            final double width = frame.getWidth() * scale;
-            final double height = frame.getHeight() * scale;
+            double widthFactor = 1.0;
+            double heightFactor = 1.0;
+            if (!jumping) {
+                // Standing still: breathing, or the squash before a strike. The feet stay on the ground point.
+                final double windup = slime.getWindupProgress();
+                final double breath = SlimeSquash.breath(gameTime, breathOffset(slime));
+                widthFactor = SlimeSquash.width(windup, breath);
+                heightFactor = SlimeSquash.height(windup, breath);
+            }
+            final double width = Math.rint(frame.getWidth() * scale * widthFactor);
+            final double height = Math.rint(frame.getHeight() * scale * heightFactor);
             gc.drawImage(frame, Math.rint(tileTopX - width / 2), Math.rint(baseDrawY - height), width, height);
             return;
         }
@@ -104,6 +115,11 @@ public final class FxEnemyDrawingHelper {
     public static void addGenericShadow(ShadowList shadows, double screenX, double screenY, double zoom) {
         final double size = GENERIC_ENEMY_SIZE * zoom;
         shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.artScale(zoom), 1.0);
+    }
+
+    /** Where in its breath a slime is at clock zero, in breaths: fixed per slime so neighbours breathe out of step. */
+    private static double breathOffset(Slime slime) {
+        return (System.identityHashCode(slime) & 0xFF) / 256.0;
     }
 
     /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */

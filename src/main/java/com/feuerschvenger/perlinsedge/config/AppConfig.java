@@ -226,6 +226,16 @@ public class AppConfig {
         private static final int IRON_ORE_MAX_HEALTH = 36;
         private static final int DEFAULT_MAX_HEALTH = 50;
 
+        // Slime strike cycle: it squashes in front of the player, strikes, then waits before it can squash again
+        private static final double SLIME_WINDUP_SECONDS = 0.6;
+        private static final double SLIME_STRIKE_WAIT_SECONDS = 1.5;
+
+        /** @return seconds a slime squashes in front of the player before it strikes */
+        public double getSlimeWindupSeconds() { return SLIME_WINDUP_SECONDS; }
+
+        /** @return seconds a slime waits after a strike before it starts the next squash */
+        public double getSlimeStrikeWaitSeconds() { return SLIME_STRIKE_WAIT_SECONDS; }
+
         public int getResourceBaseHealth(ResourceType type) {
             return switch (type) {
                 case TREE -> TREE_MAX_HEALTH;
