@@ -10,6 +10,7 @@ import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -21,6 +22,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.function.Function;
 
 /**
  * Behaviour of the {@link InventoryPanel}: dragging stacks between slots and out of the panel, slot and recipe
@@ -78,6 +81,10 @@ class InventoryController {
 
     /** Window whose focus is being followed, or null. */
     private Window watchedWindow;
+    /** The focus value of {@link #watchedWindow} that {@link #focusListener} is registered on, or null. */
+    private ObservableValue<Boolean> watchedFocus;
+    /** Where the focus of a window is read from: its own focus property. */
+    private Function<Window, ObservableValue<Boolean>> focusSource = Window::focusedProperty;
 
     private final EventHandler<MouseEvent> sceneMouseFilter = this::handleSceneMouse;
     private final ChangeListener<Boolean> focusListener = (observable, wasFocused, focused) -> handleWindowFocus(focused);
@@ -144,30 +151,41 @@ class InventoryController {
     }
 
     private void watchFocus(Window window) {
-        if (window != null) {
-            window.focusedProperty().addListener(focusListener);
-            watchedWindow = window;
+        if (window == null) {
+            return;
         }
+        final ObservableValue<Boolean> focus = focusSource.apply(window);
+        focus.addListener(focusListener);
+        // The window is only recorded once the listener is on its focus value, so the record is the registration
+        watchedWindow = window;
+        watchedFocus = focus;
     }
 
     private void unwatchFocus(Window window) {
-        if (window != null) {
-            window.focusedProperty().removeListener(focusListener);
-            if (watchedWindow == window) {
-                watchedWindow = null;
-            }
+        if (window != null && watchedWindow == window) {
+            watchedFocus.removeListener(focusListener);
+            watchedWindow = null;
+            watchedFocus = null;
         }
     }
 
     /**
-     * Test seam: the window whose focus property currently has {@link #focusListener} registered. The focus of a
-     * window cannot be flipped from a test, so a test checks the registration here and fires the listener through
-     * {@link #focusListener()}.
+     * Test seam: the window whose focus value currently has {@link #focusListener} registered.
      *
      * @return the watched window, or null when none is watched
      */
     Window watchedWindow() {
         return watchedWindow;
+    }
+
+    /**
+     * Test seam: replaces where the focus of a window is read from. The focus of a real window cannot be flipped from
+     * a test, so a test supplies a value it can flip itself. It applies to the windows the panel joins after the call.
+     *
+     * @param source gives the focus value of a window
+     */
+    void setFocusSource(Function<Window, ObservableValue<Boolean>> source) {
+        this.focusSource = source;
     }
 
     /**
@@ -363,8 +381,11 @@ class InventoryController {
         if (highlightedTarget != null) {
             view.restoreSlotBorder(highlightedTarget);
             highlightedTarget = null;
-            // The border of a slot is shared by the drop highlight and the selection, so the selection is drawn again
-            view.highlightSlot(selectedSlotIndex, true);
+            // The border of a slot is shared by the drop highlight and the selection, so the selection is drawn again,
+            // unless it is in a secondary grid whose container has closed, which would draw on a grid nobody sees
+            if (selectedSlotInPlayerInventory || view.getSecondaryContainer() != null) {
+                view.highlightSlot(selectedSlotIndex, true);
+            }
         }
     }
 
