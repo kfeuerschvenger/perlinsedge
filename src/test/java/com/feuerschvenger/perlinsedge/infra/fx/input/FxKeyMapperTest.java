@@ -41,6 +41,22 @@ class FxKeyMapperTest {
     }
 
     @Test
+    void qWithShiftAltOrMetaIsNotADropKey() {
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q, false, true, false, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q, false, false, true, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q, false, false, false, true).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q, true, true, false, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q, true, false, true, false).isEmpty(), "AltGr is Ctrl and Alt");
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.Q, true, false, false, true).isEmpty());
+    }
+
+    @Test
+    void qAndCtrlQStillMapWithNoOtherModifier() {
+        assertEquals(Optional.of(GameKey.DROP_ONE), FxKeyMapper.toGameKey(KeyCode.Q, false, false, false, false));
+        assertEquals(Optional.of(GameKey.DROP_STACK), FxKeyMapper.toGameKey(KeyCode.Q, true, false, false, false));
+    }
+
+    @Test
     void eStaysUnmappedSoItIsFreeForOtherActions() {
         assertTrue(FxKeyMapper.toGameKey(KeyCode.E).isEmpty());
         assertTrue(FxKeyMapper.toGameKey(KeyCode.E, true).isEmpty());

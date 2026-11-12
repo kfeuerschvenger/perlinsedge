@@ -88,19 +88,22 @@ class WheelAccumulatorTest {
     }
 
     @Test
-    void aLargeDeltaYieldsSeveralStepsAndCarriesTheRemainder() {
+    void aLargeDeltaYieldsOneStepAndCarriesTheRemainder() {
         long[] now = {0};
         WheelAccumulator wheel = new WheelAccumulator(() -> now[0]);
 
-        assertEquals(2, wheel.add(100), "100 units are two whole steps");
-        assertEquals(1, wheel.add(20), "the 20 units left over complete the next step");
+        assertEquals(1, wheel.add(100), "an event never yields more than one step");
+        assertEquals(1, wheel.add(20), "the 60 units left over and the 20 new ones make the next step");
+        assertEquals(1, wheel.add(10), "40 units were still left over");
+        assertEquals(0, wheel.add(10), "only 10 units are left now, with 10 more that is still short of a step");
     }
 
     @Test
-    void aLargeDeltaDownwardsYieldsNegativeSteps() {
+    void aLargeDeltaDownwardsYieldsOneNegativeStep() {
         WheelAccumulator wheel = new WheelAccumulator(() -> 0L);
 
-        assertEquals(-3, wheel.add(-125));
-        assertEquals(-1, wheel.add(-35), "the 5 units left over are carried in the same direction");
+        assertEquals(-1, wheel.add(-125));
+        assertEquals(-1, wheel.add(-35), "the 85 units left over are carried in the same direction");
+        assertEquals(-1, wheel.add(-1), "80 units were still left over");
     }
 }
