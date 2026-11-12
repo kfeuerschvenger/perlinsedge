@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.app;
 
+import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
@@ -148,10 +149,39 @@ class GameOrchestratorTest {
         // A null map type cannot be generated, so the rebuild throws after the world was left
         assertThrows(RuntimeException.class, () -> onFx(() -> applyConfig(null)));
         assertEquals(before, AppConfig.getInstance().world().getCurrentMapType(),
-                "the map type goes back to the one that matches the map on screen");
+                "the map type is still the one that matches the map on screen");
+        assertSame(first, state.getCurrentMap(), "the failed generation left the old map in place");
 
         onFx(orchestrator::regenerateMap);
         assertNotSame(first, state.getCurrentMap(), "the retry rebuilt the world");
+    }
+
+    @Test
+    void aRebuildClearsTheFlashOfTheOldWorld() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getClickFeedback().flash(3, 4, true, state.getGameTime());
+        assertEquals(ClickFeedback.Kind.ACCEPTED, state.getClickFeedback().kind(state.getGameTime()));
+
+        onFx(orchestrator::regenerateMap);
+
+        assertEquals(ClickFeedback.Kind.NONE, state.getClickFeedback().kind(state.getGameTime()));
+    }
+
+    @Test
+    void aFrameWithNoPlayerOrNoMapIsSkippedInsteadOfCrashing() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+
+        state.setPlayer(null);
+        onFx(() -> {
+            orchestrator.update(1.0 / 60.0);
+            orchestrator.render(0.5, 1.0 / 60.0);
+        });
+
+        state.setCurrentMap(null);
+        onFx(() -> {
+            orchestrator.update(1.0 / 60.0);
+            orchestrator.render(0.5, 1.0 / 60.0);
+        });
     }
 
     @Test

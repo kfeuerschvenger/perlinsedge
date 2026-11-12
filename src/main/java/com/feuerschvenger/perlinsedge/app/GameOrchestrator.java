@@ -276,8 +276,7 @@ public class GameOrchestrator {
 
     /**
      * Applies a map configuration chosen in the map tuning panel by rebuilding the world with it.
-     * The map type is only changed once the game is known to be running, and goes back to the previous one when the
-     * rebuild fails, so the type the renderer reads always matches the map on screen.
+     * The map type the renderer reads is only changed once the new map exists, so it always matches the map on screen.
      */
     void applyMapConfig(MapType mapType, long seed,
                         float heightFreq, int heightOctaves,
@@ -287,43 +286,45 @@ public class GameOrchestrator {
                         float crystalsFreq, float crystalsThreshold,
                         float treeDensity, float riverDensity) {
         if (!isGameRunning("a map configuration")) return;
-        final MapType previousType = AppConfig.getInstance().world().getCurrentMapType();
-        AppConfig.getInstance().world().setCurrentMapType(mapType);
-        try {
-            rebuildWorld(new MapGenerationContext(
-                    mapType, seed,
-                    heightFreq, heightOctaves,
-                    tempFreq, tempOctaves,
-                    moistureFreq, moistureOctaves,
-                    stoneFreq, stoneThreshold,
-                    crystalsFreq, crystalsThreshold,
-                    treeDensity, riverDensity
-            ));
-        } catch (RuntimeException failure) {
-            AppConfig.getInstance().world().setCurrentMapType(previousType);
-            throw failure;
-        }
+        rebuildWorld(new MapGenerationContext(
+                mapType, seed,
+                heightFreq, heightOctaves,
+                tempFreq, tempOctaves,
+                moistureFreq, moistureOctaves,
+                stoneFreq, stoneThreshold,
+                crystalsFreq, crystalsThreshold,
+                treeDensity, riverDensity
+        ));
     }
 
     /**
      * Replaces the current map while the game keeps running.
      * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
-     * Leaving the game stops the loop and clears the running flag, so when a step throws the loop is started again
-     * and the game stays active: the world is whatever the failed step left, and the map keys can try again.
+     * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
+     * the map keys can try again. When the generation throws, the previous world, map type and context are all still
+     * in place. When a later step throws, the new map is in place without a player to live on it: the player is
+     * removed, and the update and render steps skip a frame that has no map or no player.
      * The caller has already checked that a game is running.
      */
     private void rebuildWorld(MapGenerationContext context) {
         boolean rebuilt = false;
+        boolean mapReplaced = false;
         try {
             leaveGame();
+            gameState.getClickFeedback().clear();
             mapManager.generateNewMap(context);
+            mapReplaced = true;
+            AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
             playerManager.initializePlayer();
             mapManager.spawnEnemies();
             minimapDrawer.updateMap(gameState.getCurrentMap());
             centerOnPlayer();
             rebuilt = true;
         } finally {
+            if (!rebuilt && mapReplaced) {
+                gameState.setPlayer(null);
+            }
             startGameLoop();
             if (!rebuilt) {
                 log.error("The map rebuild failed, the game continues so the map keys can try again");
@@ -340,8 +341,10 @@ public class GameOrchestrator {
      *
      * @param deltaTime Fixed timestep value (1/60 second)
      */
-    private void update(double deltaTime) {
+    void update(double deltaTime) {
         if (gameState.isGamePaused()) return;
+        // A rebuild that failed halfway leaves no player or no map, and there is nothing to advance until the next one
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
 
         if (playerManager.handleRespawn(deltaTime)) {
             centerOnPlayer();
@@ -380,7 +383,7 @@ public class GameOrchestrator {
      * @param alpha Interpolation factor for smooth rendering
      * @param deltaTime Time since last render (seconds)
      */
-    private void render(double alpha, double deltaTime) {
+    void render(double alpha, double deltaTime) {
         if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
         lastAlpha = alpha;
         inputWiring.refreshHover();

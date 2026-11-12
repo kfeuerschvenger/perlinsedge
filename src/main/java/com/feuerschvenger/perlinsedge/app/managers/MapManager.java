@@ -48,9 +48,20 @@ public class MapManager implements IMapGenerationListener {
     private MapGenerationContext currentMapContext;
 
     public MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel) {
+        this(gameState, mapConfigPanel, new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY));
+    }
+
+    /**
+     * Creates a manager with the factory that builds its generators, so a test can supply a generator that fails.
+     *
+     * @param gameState           shared game state
+     * @param mapConfigPanel      panel that shows the values of the generator that built the map
+     * @param mapGeneratorFactory builds the generator for a map type
+     */
+    MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel, MapGeneratorFactory mapGeneratorFactory) {
         this.gameState = gameState;
         this.mapConfigPanel = mapConfigPanel;
-        this.mapGeneratorFactory = new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY);
+        this.mapGeneratorFactory = mapGeneratorFactory;
     }
 
     /**
@@ -83,12 +94,13 @@ public class MapManager implements IMapGenerationListener {
 
     /**
      * Generates a new map based on the provided context.
+     * The context becomes the current one only once the map exists, so a generation that throws leaves the context
+     * that still matches the map on screen.
      *
      * @param context Map generation parameters
      */
     public void generateNewMap(MapGenerationContext context) {
         logMapGeneration(context);
-        this.currentMapContext = context;
 
         IMapGenerator generator = mapGeneratorFactory.createGenerator(context.getMapType());
         TileMap newMap = generator.generateMap(
@@ -97,6 +109,7 @@ public class MapManager implements IMapGenerationListener {
                 context
         );
 
+        this.currentMapContext = context;
         onMapGenerated(newMap, generator);
     }
 
