@@ -20,7 +20,7 @@ public class CraftingListPanel extends VBox {
     // Layout constants; the colours, fonts and backgrounds come from the theme
     private static final int PANEL_SPACING = 10;
     private static final int LIST_SPACING = 5;
-    private static final int SCROLL_PANE_HEIGHT = 250;
+    private static final int SCROLL_PANE_HEIGHT = 130;
     private static final int ITEM_IMAGE_SIZE = 32;
 
     private static final String TITLE_TEXT = "Crafting Recipes";

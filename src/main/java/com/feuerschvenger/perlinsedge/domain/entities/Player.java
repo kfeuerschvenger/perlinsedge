@@ -41,9 +41,12 @@ public class Player extends Entity implements Container {
     private static final double MOVE_SPEED = 5.0;
 
     // Inventory configuration
-    private static final int INVENTORY_CAPACITY = 18;
-    /** Number of inventory slots, counted from the first, that form the hotbar. */
+    /** Number of slots of the hotbar, the first slots of the storage. */
     public static final int HOTBAR_SIZE = 9;
+    /** Number of slots of the inventory grid, the slots that follow the hotbar. */
+    public static final int INVENTORY_SIZE = 18;
+    /** Number of slots the player stores items in: the hotbar first, then the inventory, so the index order is the fill order. */
+    private static final int INVENTORY_CAPACITY = HOTBAR_SIZE + INVENTORY_SIZE;
 
     // ==================================================================
     //  Instance Variables
@@ -521,6 +524,14 @@ public class Player extends Entity implements Container {
         inventory.set(slotIndex, item);
     }
 
+    /**
+     * Stores an item in the fill order of the player: first into the stacks of the same type already held, hotbar
+     * before inventory, then into the first free hotbar slot, then into the first free inventory slot. Slot indexes
+     * run from the hotbar to the inventory, so both passes walk the slots in index order.
+     *
+     * @param item the item to store; its quantity is reduced by what was stored
+     * @return true when any part of it was stored
+     */
     @Override
     public boolean addItem(Item item) {
         if (item == null || item.getQuantity() <= 0) {

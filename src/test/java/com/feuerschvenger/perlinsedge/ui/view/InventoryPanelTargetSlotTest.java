@@ -22,6 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  */
 class InventoryPanelTargetSlotTest {
 
+    /** Slots of the inventory grid, which starts after the hotbar slots. */
+    private static final int STONE_SLOT = Player.HOTBAR_SIZE + 3;
+    private static final int LOG_SLOT = Player.HOTBAR_SIZE + 6;
+    private static final int EMPTY_SLOT = Player.HOTBAR_SIZE + 5;
+
     private Player player;
     private InventoryPanel panel;
 
@@ -29,8 +34,8 @@ class InventoryPanelTargetSlotTest {
     void setUp() {
         GameStateManager state = new GameStateManager();
         player = new Player(1, 1);
-        player.setItemAt(3, new Item(ItemType.STONE, 5));
-        player.setItemAt(6, new Item(ItemType.WOOD_LOG, 2));
+        player.setItemAt(STONE_SLOT, new Item(ItemType.STONE, 5));
+        player.setItemAt(LOG_SLOT, new Item(ItemType.WOOD_LOG, 2));
         state.setPlayer(player);
         panel = FxToolkitSupport.onFx(() -> {
             InventoryPanel created = new InventoryPanel(state);
@@ -70,45 +75,45 @@ class InventoryPanelTargetSlotTest {
 
     @Test
     void theHoveredSlotIsTheTarget() {
-        fire(slot(3), MouseEvent.MOUSE_ENTERED_TARGET);
+        fire(slot(STONE_SLOT),MouseEvent.MOUSE_ENTERED_TARGET);
 
         SlotRef ref = target();
 
         assertSame(player, ref.container());
-        assertEquals(3, ref.slot());
+        assertEquals(STONE_SLOT, ref.slot());
         assertEquals(ItemType.STONE, ref.item().getType());
     }
 
     @Test
     void anEmptyHoveredSlotIsStillTheTargetSoNothingElseIsThrownByMistake() {
-        fire(slot(5), MouseEvent.MOUSE_ENTERED_TARGET);
+        fire(slot(EMPTY_SLOT), MouseEvent.MOUSE_ENTERED_TARGET);
 
-        assertEquals(5, target().slot());
+        assertEquals(EMPTY_SLOT, target().slot());
     }
 
     @Test
     void theSelectedSlotIsTheTargetWhenNoSlotIsHovered() {
-        fire(slot(6), MouseEvent.MOUSE_CLICKED);
+        fire(slot(LOG_SLOT),MouseEvent.MOUSE_CLICKED);
 
-        assertEquals(6, target().slot());
+        assertEquals(LOG_SLOT, target().slot());
     }
 
     @Test
     void theHoveredSlotWinsOverTheSelectedOne() {
-        fire(slot(6), MouseEvent.MOUSE_CLICKED);
-        fire(slot(3), MouseEvent.MOUSE_ENTERED_TARGET);
+        fire(slot(LOG_SLOT),MouseEvent.MOUSE_CLICKED);
+        fire(slot(STONE_SLOT),MouseEvent.MOUSE_ENTERED_TARGET);
 
-        assertEquals(3, target().slot());
+        assertEquals(STONE_SLOT, target().slot());
 
-        fire(slot(3), MouseEvent.MOUSE_EXITED_TARGET);
+        fire(slot(STONE_SLOT),MouseEvent.MOUSE_EXITED_TARGET);
 
-        assertEquals(6, target().slot(), "back to the selected slot once the mouse leaves");
+        assertEquals(LOG_SLOT, target().slot(),"back to the selected slot once the mouse leaves");
     }
 
     @Test
     void closingThePanelForgetsTheHoverAndTheSelection() {
-        fire(slot(3), MouseEvent.MOUSE_ENTERED_TARGET);
-        fire(slot(6), MouseEvent.MOUSE_CLICKED);
+        fire(slot(STONE_SLOT),MouseEvent.MOUSE_ENTERED_TARGET);
+        fire(slot(LOG_SLOT),MouseEvent.MOUSE_CLICKED);
 
         FxToolkitSupport.onFx(() -> {
             panel.closeInventory();

@@ -49,10 +49,6 @@ public final class UiTheme {
     public static final String PAGE_BUTTON = "pe-page-button";
     /** Square slot of the hotbar or an inventory grid. */
     public static final String SLOT = "pe-slot";
-    /** Slot of the inventory grid that is also a hotbar slot. */
-    public static final String SLOT_HOTBAR = "pe-slot-hotbar";
-    /** Hotbar slot of the inventory grid that is held in hand. */
-    public static final String SLOT_ACTIVE = "pe-slot-active";
     /** Slot that holds nothing. */
     public static final String SLOT_EMPTY = "pe-slot-empty";
     /** Slot that is selected. */

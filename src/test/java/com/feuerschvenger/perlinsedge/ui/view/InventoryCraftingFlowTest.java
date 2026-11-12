@@ -116,6 +116,10 @@ class InventoryCraftingFlowTest {
 
     @Test
     void theInventoryGridShowsTheCraftedResultAtOnce() {
+        // The hotbar is full, so the planks go to the inventory grid that the test reads
+        for (int slot = 0; slot < Player.HOTBAR_SIZE; slot++) {
+            player.setItemAt(slot, new Item(ItemType.STONE, 1));
+        }
         player.addItem(new Item(ItemType.WOOD_LOG, 1));
         selectRecipe(ItemType.WOOD_PLANK);
 

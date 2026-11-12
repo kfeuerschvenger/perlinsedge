@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PlayerInventoryTest {
 
     private static final int STACK = ItemType.STONE.getMaxStackSize();
+    private static final int SLOTS = Player.HOTBAR_SIZE + Player.INVENTORY_SIZE;
 
     private Player player;
 
@@ -35,9 +36,45 @@ class PlayerInventoryTest {
     }
 
     @Test
-    void startsEmptyWithEighteenSlots() {
-        assertEquals(18, player.getCapacity());
+    void startsEmptyWithTheNineHotbarSlotsAndEighteenInventorySlots() {
+        assertEquals(9, Player.HOTBAR_SIZE);
+        assertEquals(18, Player.INVENTORY_SIZE);
+        assertEquals(SLOTS, player.getCapacity());
         assertEquals(0, usedSlots());
+    }
+
+    @Test
+    void anItemMergesIntoAnInventoryStackBeforeItTakesAFreeHotbarSlot() {
+        player.setItemAt(Player.HOTBAR_SIZE + 2, new Item(ItemType.STONE, 5));
+
+        player.addItem(new Item(ItemType.STONE, 3));
+
+        assertNull(player.getItemAt(0), "the free hotbar slot is only used when no stack can take the item");
+        assertEquals(8, player.getItemAt(Player.HOTBAR_SIZE + 2).getQuantity());
+    }
+
+    @Test
+    void aStackOfTheHotbarIsFilledBeforeOneOfTheInventory() {
+        player.setItemAt(4, new Item(ItemType.STONE, 5));
+        player.setItemAt(Player.HOTBAR_SIZE, new Item(ItemType.STONE, 5));
+
+        player.addItem(new Item(ItemType.STONE, 3));
+
+        assertEquals(8, player.getItemAt(4).getQuantity());
+        assertEquals(5, player.getItemAt(Player.HOTBAR_SIZE).getQuantity());
+    }
+
+    @Test
+    void aNewTypeTakesTheFirstFreeHotbarSlotThenTheFirstFreeInventorySlot() {
+        for (int slot = 0; slot < Player.HOTBAR_SIZE - 1; slot++) {
+            player.setItemAt(slot, new Item(ItemType.STONE, 1));
+        }
+
+        player.addItem(new Item(ItemType.STICK, 1));
+        player.addItem(new Item(ItemType.COAL, 1));
+
+        assertEquals(ItemType.STICK, player.getItemAt(Player.HOTBAR_SIZE - 1).getType());
+        assertEquals(ItemType.COAL, player.getItemAt(Player.HOTBAR_SIZE).getType());
     }
 
     @Test
@@ -76,8 +113,8 @@ class PlayerInventoryTest {
 
     @Test
     void fullInventoryRejectsAndLeavesTheRemainderOnTheItem() {
-        player.addItem(new Item(ItemType.STONE, STACK * 18));
-        assertEquals(18, usedSlots());
+        player.addItem(new Item(ItemType.STONE, STACK * SLOTS));
+        assertEquals(SLOTS, usedSlots());
 
         Item extra = new Item(ItemType.STONE, 5);
         assertFalse(player.addItem(extra));
@@ -87,12 +124,12 @@ class PlayerInventoryTest {
 
     @Test
     void partialFitReturnsTrueAndShrinksTheSourceItem() {
-        player.addItem(new Item(ItemType.STONE, STACK * 18 - 3));
+        player.addItem(new Item(ItemType.STONE, STACK * SLOTS - 3));
 
         Item extra = new Item(ItemType.STONE, 10);
         assertTrue(player.addItem(extra));
         assertEquals(7, extra.getQuantity(), "only three units fitted");
-        assertEquals(STACK * 18, count(ItemType.STONE));
+        assertEquals(STACK * SLOTS, count(ItemType.STONE));
     }
 
     @Test
@@ -154,7 +191,7 @@ class PlayerInventoryTest {
     void hasSpaceIsTrueWithAFreeSlotOrARoomyStack() {
         assertTrue(player.hasSpace(new Item(ItemType.STONE, 1)));
 
-        player.addItem(new Item(ItemType.STONE, STACK * 17));
+        player.addItem(new Item(ItemType.STONE, STACK * (SLOTS - 1)));
         player.addItem(new Item(ItemType.STICK, 1));
         assertFalse(player.hasSpace(new Item(ItemType.STONE, 1)));
         assertTrue(player.hasSpace(new Item(ItemType.STICK, 1)), "the stick stack has room");
@@ -209,7 +246,7 @@ class PlayerInventoryTest {
     @Test
     void invalidSlotsAreIgnored() {
         assertNull(player.getItemAt(-1));
-        assertNull(player.getItemAt(18));
+        assertNull(player.getItemAt(SLOTS));
 
         player.setItemAt(99, new Item(ItemType.STONE, 1));
         assertEquals(0, usedSlots());

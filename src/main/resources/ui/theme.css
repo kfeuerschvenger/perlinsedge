@@ -164,17 +164,6 @@
     -fx-background-color: rgba(29, 24, 48, 0.45);
 }
 
-/* The inventory row that is the hotbar has a lighter edge, and the slot held in hand gets the accent edge. They come
-   before the selection and drop rules so a click selection or a drop target still wins on a hotbar slot. */
-.pe-slot-hotbar {
-    -fx-border-color: -pe-line;
-}
-
-.pe-slot-active {
-    -fx-border-color: -pe-accent;
-    -fx-border-width: 2;
-}
-
 .pe-slot-selected {
     -fx-border-color: -pe-focus;
     -fx-border-width: 2;
