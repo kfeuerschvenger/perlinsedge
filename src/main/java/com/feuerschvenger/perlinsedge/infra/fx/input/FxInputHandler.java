@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.input;
 
 import com.feuerschvenger.perlinsedge.domain.events.IKeyListener;
+import com.feuerschvenger.perlinsedge.domain.utils.WheelAccumulator;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;

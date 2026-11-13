@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.infra.fx.input.WheelAccumulator;
+import com.feuerschvenger.perlinsedge.domain.utils.WheelAccumulator;
 
 /**
  * Chooses which hotbar slot the player holds in hand in exploration mode: the number keys 1 to 9 pick a slot and the
