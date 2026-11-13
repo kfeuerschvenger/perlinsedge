@@ -125,7 +125,8 @@ public class InventoryPanel extends BorderPane {
         return container;
     }
 
-    private List<StackPane> createInventorySlots(int capacity, Container container) {
+    /** Creates the slots of the grid of an open chest, indexed from zero. */
+    private List<StackPane> createChestSlots(int capacity, Container container) {
         List<StackPane> slots = new ArrayList<>(capacity);
         for (int i = 0; i < capacity; i++) {
             slots.add(createInventorySlot(i, container));
@@ -246,6 +247,10 @@ public class InventoryPanel extends BorderPane {
         Container container;
         /** True for the slots of the hotbar row at the bottom of the screen, false for the slots of the grids. */
         boolean hotbar;
+        /** The item type the slot node draws, null for an empty slot. */
+        ItemType shownType;
+        /** The count the slot node draws, 0 for an empty slot. */
+        int shownQuantity;
 
         SlotContext(int index, Container container) {
             this.index = index;
@@ -369,9 +374,16 @@ public class InventoryPanel extends BorderPane {
 
     /**
      * Updates the inventory display based on current state. A stack in hand follows its slot: its ghost shows the
-     * new quantity, and the drag ends when the stack is gone.
+     * new quantity, and the drag ends when the stack is gone. The game calls this every tick, so a panel that is not
+     * open does nothing: opening it draws everything, and from then on only what changed is redrawn.
      */
     public void updateInventoryDisplay() {
+        if (isVisible()) {
+            refreshDisplay();
+        }
+    }
+
+    private void refreshDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
         updateHotbarContext();
 
@@ -491,10 +503,19 @@ public class InventoryPanel extends BorderPane {
         }
     }
 
+    /** Redraws a slot only when its item type or its count differ from what the slot shows. */
     private void updateSlotVisuals(StackPane slot, int index, Container container) {
-        slot.getChildren().clear();
-        Item item = getItemInSlot(index, container);
+        final SlotContext context = (SlotContext) slot.getUserData();
+        final Item item = getItemInSlot(index, container);
+        final ItemType type = item != null ? item.getType() : null;
+        final int quantity = item != null ? item.getQuantity() : 0;
+        if (type == context.shownType && quantity == context.shownQuantity) {
+            return;
+        }
+        context.shownType = type;
+        context.shownQuantity = quantity;
 
+        slot.getChildren().clear();
         if (item != null) {
             slot.getChildren().add(createItemImage(item));
             if (item.getQuantity() > 1) {
@@ -511,9 +532,9 @@ public class InventoryPanel extends BorderPane {
     public void openPlayerInventory() {
         this.secondaryContainer = null;
         cleanRightContainer();
-        updateInventoryDisplay();
         setVisible(true);
         setManaged(true);
+        refreshDisplay();
     }
 
     /**
@@ -525,13 +546,13 @@ public class InventoryPanel extends BorderPane {
         this.secondaryContainer = Objects.requireNonNull(otherContainer, "Secondary container cannot be null");
         initializeSecondaryInventory();
         configureDualInventoryLayout();
-        updateInventoryDisplay();
         setVisible(true);
         setManaged(true);
+        refreshDisplay();
     }
 
     private void initializeSecondaryInventory() {
-        List<StackPane> slots = createInventorySlots(secondaryContainer.getCapacity(), secondaryContainer);
+        List<StackPane> slots = createChestSlots(secondaryContainer.getCapacity(), secondaryContainer);
         secondaryInventoryGrid = GridUtils.createGrid(slots);
     }
 
@@ -599,13 +620,22 @@ public class InventoryPanel extends BorderPane {
     // ==================================================================
 
     /**
-     * Highlights or unhighlights a slot of the grid that holds the current selection.
+     * Highlights or unhighlights the slot that holds the current selection: a slot of the hotbar row for an index
+     * below the hotbar size, a slot of the grid of the selected container otherwise. The hotbar slot gets its own
+     * marker, because its selection border already marks the slot held in hand.
      *
      * @param index     Slot index to modify
      * @param highlight True to highlight, false to restore
      */
     void highlightSlot(int index, boolean highlight) {
         if (index < 0) return;
+
+        if (index < Player.HOTBAR_SIZE && controller.isSelectedSlotInPlayerInventory()) {
+            if (hotbar != null) {
+                applySlotHighlight(hotbar.slotNode(index), highlight);
+            }
+            return;
+        }
 
         GridPane targetGrid = controller.isSelectedSlotInPlayerInventory() ?
                 playerInventoryGrid : secondaryInventoryGrid;
@@ -621,6 +651,13 @@ public class InventoryPanel extends BorderPane {
     }
 
     private void applySlotHighlight(StackPane slot, boolean highlight) {
+        if (isHotbarSlot(slot)) {
+            UiTheme.setClass(slot, UiTheme.SLOT_PICKED, highlight);
+            if (highlight) {
+                UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
+            }
+            return;
+        }
         if (highlight) {
             UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
             UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, true);

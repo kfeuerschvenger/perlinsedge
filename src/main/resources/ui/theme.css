@@ -185,6 +185,11 @@
     -fx-border-width: 2;
 }
 
+.pe-slot-picked {
+    -fx-border-color: -pe-accent;
+    -fx-border-width: 2;
+}
+
 .pe-slot-drop {
     -fx-border-color: -pe-accent;
     -fx-border-width: 2;

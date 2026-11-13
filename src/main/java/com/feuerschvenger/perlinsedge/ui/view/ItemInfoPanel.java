@@ -146,35 +146,50 @@ public class ItemInfoPanel extends VBox {
      * @param description the description
      */
     void show(Object subject, String title, String description) {
-        titleText.setText(UiTheme.caps(title));
-        descriptionText.setText(description);
+        final String caption = UiTheme.caps(title);
+        if (!caption.equals(titleText.getText())) {
+            titleText.setText(caption);
+        }
+        final String details = description == null ? "" : description;
+        if (!details.equals(descriptionText.getText())) {
+            descriptionText.setText(details);
+        }
         if (!Objects.equals(subject, shownSubject)) {
             shownSubject = subject;
             detailsScroll.setVvalue(0);
         }
     }
 
+    /** What an ingredient line reads and how it is coloured, compared before any node is built. */
+    private record IngredientLine(String text, String styleClass) { }
+
     /**
-     * Shows the ingredient lines. Lines that read and look the same as the ones shown are kept, so a refresh that
-     * changes nothing rebuilds nothing under the scroll bar.
+     * Shows the ingredient lines. Lines that read and look the same as the ones shown are kept and no node is built for
+     * them, so a refresh that changes nothing rebuilds nothing under the scroll bar.
      */
-    private void setIngredientLines(List<Text> lines) {
-        final boolean changed = !sameLines(ingredientsBox.getChildren(), lines);
-        if (changed) {
-            ingredientsBox.getChildren().setAll(lines);
+    private void setIngredientLines(List<IngredientLine> lines) {
+        if (!sameLines(ingredientsBox.getChildren(), lines)) {
+            final List<Text> nodes = new ArrayList<>(lines.size());
+            for (IngredientLine line : lines) {
+                nodes.add(createIngredientLine(line));
+            }
+            ingredientsBox.getChildren().setAll(nodes);
         }
-        ingredientsHeader.setVisible(!lines.isEmpty());
-        ingredientsHeader.setManaged(!lines.isEmpty());
+        final boolean any = !lines.isEmpty();
+        if (ingredientsHeader.isVisible() != any) {
+            ingredientsHeader.setVisible(any);
+            ingredientsHeader.setManaged(any);
+        }
     }
 
-    private static boolean sameLines(List<Node> shown, List<Text> lines) {
+    private static boolean sameLines(List<Node> shown, List<IngredientLine> lines) {
         if (shown.size() != lines.size()) {
             return false;
         }
         for (int i = 0; i < lines.size(); i++) {
             final Text current = (Text) shown.get(i);
-            final Text next = lines.get(i);
-            if (!current.getText().equals(next.getText()) || !current.getStyleClass().equals(next.getStyleClass())) {
+            final IngredientLine next = lines.get(i);
+            if (!current.getText().equals(next.text()) || !current.getStyleClass().contains(next.styleClass())) {
                 return false;
             }
         }
@@ -210,7 +225,7 @@ public class ItemInfoPanel extends VBox {
         }
 
         show(recipe, recipe.getName(), formatRecipeDetails(recipe));
-        setIngredientLines(createIngredientLines(recipe, have));
+        setIngredientLines(ingredientLines(recipe, have));
     }
 
     /**
@@ -237,26 +252,22 @@ public class ItemInfoPanel extends VBox {
     }
 
     /** One line per ingredient, such as "Planks 2/4", coloured by whether the player has enough. */
-    private List<Text> createIngredientLines(Recipe recipe, ToIntFunction<ItemType> have) {
-        List<Text> lines = new ArrayList<>();
+    private List<IngredientLine> ingredientLines(Recipe recipe, ToIntFunction<ItemType> have) {
+        List<IngredientLine> lines = new ArrayList<>();
         for (CraftingIngredient ingredient : recipe.getIngredients()) {
-            lines.add(createIngredientLine(ingredient, have.applyAsInt(ingredient.itemType())));
+            final int held = have.applyAsInt(ingredient.itemType());
+            lines.add(new IngredientLine(
+                    ingredient.itemType().getDisplayName() + " " + held + "/" + ingredient.quantity(),
+                    held >= ingredient.quantity() ? UiTheme.TEXT_GOOD : UiTheme.TEXT_BAD));
         }
         return lines;
     }
 
-    /**
-     * Builds the line of one ingredient.
-     *
-     * @param ingredient the ingredient
-     * @param held       how many the player holds
-     * @return the line, green when the player holds enough and red when not
-     */
-    Text createIngredientLine(CraftingIngredient ingredient, int held) {
-        Text line = createStyledText(held >= ingredient.quantity() ? UiTheme.TEXT_GOOD : UiTheme.TEXT_BAD,
-                ingredient.itemType().getDisplayName() + " " + held + "/" + ingredient.quantity());
-        line.setWrappingWidth(CONTENT_WIDTH - SCROLL_BAR_ROOM);
-        return line;
+    /** Builds the node of one ingredient line, green when the player holds enough and red when not. */
+    private Text createIngredientLine(IngredientLine line) {
+        Text node = createStyledText(line.styleClass(), line.text());
+        node.setWrappingWidth(CONTENT_WIDTH - SCROLL_BAR_ROOM);
+        return node;
     }
 
     /** Gives the ingredient lines now shown, for the tests. */
