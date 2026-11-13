@@ -109,6 +109,16 @@ class InventoryCraftingFlowTest {
     }
 
     @Test
+    void noButtonOfThePanelCanTakeKeyboardFocusSoSpaceStaysWithTheCamera() {
+        List<Boolean> focusable = FxToolkitSupport.onFx(() -> panel.lookupAll(".button").stream()
+                .map(node -> node.isFocusTraversable())
+                .toList());
+
+        assertFalse(focusable.isEmpty());
+        assertFalse(focusable.contains(true));
+    }
+
+    @Test
     void theCraftButtonIsDisabledAgainWhenTheIngredientsRunOut() {
         player.addItem(new Item(ItemType.WOOD_LOG, 1));
         selectRecipe(ItemType.WOOD_PLANK);

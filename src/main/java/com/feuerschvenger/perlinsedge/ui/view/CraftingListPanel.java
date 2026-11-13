@@ -122,6 +122,8 @@ public class CraftingListPanel extends VBox {
         Button button = new Button(UiTheme.caps(CRAFT_BUTTON_TEXT));
         button.setPrefWidth(Double.MAX_VALUE);
         button.setDisable(true);
+        // A focused button would take SPACE and craft again instead of centring the camera
+        button.setFocusTraversable(false);
         button.setOnAction(e -> {
             if (selectedRecipe != null && onCraftButtonClicked != null) {
                 onCraftButtonClicked.run();
@@ -168,22 +170,41 @@ public class CraftingListPanel extends VBox {
      * selected recipe.
      */
     private void arrange() {
+        // Each recipe is asked once per refresh, and the order is worked out only when an answer changed
+        boolean changed = recipesContainer.getChildren().size() != cells.size();
         for (CraftableItemCell cell : cells) {
-            cell.setCraftable(canCraft.test(cell.getRecipe()));
+            final boolean craftable = canCraft.test(cell.getRecipe());
+            changed |= craftable != cell.isCraftable();
+            cell.setCraftable(craftable);
         }
-        // A stable sort: false sorts before true, so the craftable cells come first and keep their relative order
-        List<CraftableItemCell> ordered = cells.stream()
-                .sorted(Comparator.comparing((CraftableItemCell cell) -> !cell.isCraftable()))
-                .toList();
         // With no cells the container holds the empty list notice, which must stay
-        if (!cells.isEmpty() && !ordered.equals(recipesContainer.getChildren())) {
-            recipesContainer.getChildren().setAll(ordered);
+        if (changed && !cells.isEmpty()) {
+            // A stable sort: false sorts before true, so the craftable cells come first and keep their relative order
+            List<CraftableItemCell> ordered = cells.stream()
+                    .sorted(Comparator.comparing((CraftableItemCell cell) -> !cell.isCraftable()))
+                    .toList();
+            if (!ordered.equals(recipesContainer.getChildren())) {
+                recipesContainer.getChildren().setAll(ordered);
+            }
         }
-        updateCraftButton();
+        updateCraftButton(selectedCellIsCraftable());
     }
 
+    /** Keeps the button in line with a newly selected recipe, which is asked about once, at the moment of selection. */
     private void updateCraftButton() {
-        craftButton.setDisable(selectedRecipe == null || !canCraft.test(selectedRecipe));
+        updateCraftButton(selectedRecipe != null && canCraft.test(selectedRecipe));
+    }
+
+    private void updateCraftButton(boolean selectedIsCraftable) {
+        if (craftButton.isDisabled() == selectedIsCraftable) {
+            craftButton.setDisable(!selectedIsCraftable);
+        }
+    }
+
+    /** The answer {@link #arrange()} just got for the selected recipe, so the refresh asks nothing twice. */
+    private boolean selectedCellIsCraftable() {
+        return selectedRecipe != null && cells.stream()
+                .anyMatch(cell -> cell.isCraftable() && cell.getRecipe().equals(selectedRecipe));
     }
 
     /**
@@ -281,6 +302,8 @@ public class CraftingListPanel extends VBox {
         private final Recipe recipe;
         private ImageView icon;
         private boolean craftable = true;
+        /** True once the cell has been styled for its craftability, so an unchanged state costs nothing. */
+        private boolean styled;
 
         /**
          * Creates a new craftable item cell.
@@ -342,6 +365,10 @@ public class CraftingListPanel extends VBox {
          * recipe needs.
          */
         void setCraftable(boolean craftable) {
+            if (styled && this.craftable == craftable) {
+                return;
+            }
+            styled = true;
             this.craftable = craftable;
             UiTheme.setClass(this, UiTheme.CELL_UNAVAILABLE, !craftable);
             // Real greyscale, not only a fade: a faded icon keeps its hue and still reads as craftable
