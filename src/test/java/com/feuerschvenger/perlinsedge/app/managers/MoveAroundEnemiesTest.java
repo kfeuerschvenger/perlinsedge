@@ -98,6 +98,41 @@ class MoveAroundEnemiesTest {
     }
 
     @Test
+    void anEnemyThatMovesOntoTheWalkAfterItWasPlannedStopsThePlayerBeforeIt() {
+        assertTrue(players.movePlayer(map, 8, 5));
+        for (int i = 0; i < 20; i++) {
+            player.update(STEP);
+        }
+        state.getEnemies().add(new Slime(3, 5));
+
+        for (int i = 0; i < 600; i++) {
+            players.keepClearOfEnemies();
+            player.update(STEP);
+            assertFalse(player.getCurrentTileX() == 3 && player.getCurrentTileY() == 5,
+                    "the player stepped onto the enemy");
+            assertFalse(Math.round(player.getPosX()) == 3 && Math.round(player.getPosY()) == 5,
+                    "the player is drawn over the enemy");
+        }
+
+        assertFalse(player.isMoving(), "the walk ended in front of the enemy");
+        assertTrue(player.getCurrentTileX() <= 2);
+    }
+
+    @Test
+    void aWalkThatIsNotBlockedIsLeftAlone() {
+        state.getEnemies().add(new Slime(3, 9));
+        assertTrue(players.movePlayer(map, 8, 5));
+
+        for (int i = 0; i < 600 && player.isMoving(); i++) {
+            players.keepClearOfEnemies();
+            player.update(STEP);
+        }
+
+        assertEquals(8, player.getCurrentTileX());
+        assertEquals(5, player.getCurrentTileY());
+    }
+
+    @Test
     void theOrderIsRefusedWhenTheOnlyWayIsThroughAnEnemy() {
         // A corridor one tile wide, closed by an enemy
         for (int x = 0; x < SIZE; x++) {

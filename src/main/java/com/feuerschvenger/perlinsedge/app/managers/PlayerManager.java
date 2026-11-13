@@ -106,6 +106,7 @@ public class PlayerManager {
         Player player = getPlayer();
         if (player == null) return;
 
+        keepClearOfEnemies();
         player.update(deltaTime);
         // Every hit the player took since the last tick becomes one floating number over the player
         gameState.getDamageNumbers().spawn(DamageNumbers.Kind.PLAYER, player.drainDamageTaken(),
@@ -115,6 +116,17 @@ public class PlayerManager {
         // Handle player death only if not already processing respawn
         if (player.isDead() && gameState.getPlayerRespawnTimer() <= 0) {
             handlePlayerDeath();
+        }
+    }
+
+    /**
+     * Ends the player's walk before it steps onto a tile an enemy has moved onto or toward since the walk was
+     * planned. It does nothing while the player is not walking.
+     */
+    public void keepClearOfEnemies() {
+        final Player player = getPlayer();
+        if (player != null && player.isMoving()) {
+            player.haltBefore(OccupiedTiles.of(gameState.getEnemies()));
         }
     }
 

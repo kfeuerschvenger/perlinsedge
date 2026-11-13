@@ -235,6 +235,29 @@ public class Player extends Entity implements Container {
         clearPath();
     }
 
+    /**
+     * Ends the walk when the next tile of it has become taken since the walk was planned, so the player never steps
+     * onto it. A player standing on a tile stops there, a player between two tiles walks back to the tile it left.
+     *
+     * @param occupied tiles the walk may not enter, such as those the enemies stand on or step to
+     * @return true when the walk was ended
+     */
+    public boolean haltBefore(Set<PathNode> occupied) {
+        final PathNode head = currentPath.peek();
+        if (head == null || !occupied.contains(head)) {
+            return false;
+        }
+        if (posX == currentTileX && posY == currentTileY) {
+            clearPath();
+        } else {
+            currentPath.clear();
+            currentPath.add(new PathNode(currentTileX, currentTileY));
+            targetTileX = currentTileX;
+            targetTileY = currentTileY;
+        }
+        return true;
+    }
+
     /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
     @Override
     public void handleDeath() {
