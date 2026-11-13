@@ -139,9 +139,11 @@ public class ResourceManager {
         resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
 
-        final int damage = ToolStats.resourceDamage(tool, resource.getType());
-        boolean depleted = resource.takeDamage(damage);
-        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, damage, tileX, tileY, currentTime);
+        // The number shows what the hit took off, so the last hit on a nearly broken resource shows what was left
+        final int healthBefore = resource.getHealth();
+        boolean depleted = resource.takeDamage(ToolStats.resourceDamage(tool, resource.getType()));
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, healthBefore - resource.getHealth(),
+                tileX, tileY, currentTime);
         if (depleted) {
             processResourceDepletion(resource, tileX, tileY);
         }

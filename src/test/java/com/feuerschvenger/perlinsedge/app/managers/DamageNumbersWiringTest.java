@@ -81,6 +81,41 @@ class DamageNumbersWiringTest {
     }
 
     @Test
+    void aBlowThatKillsAnEnemyShowsTheHealthItHadLeftNotTheFullDamageOfTheItem() {
+        player.setItemAt(0, new Item(ItemType.SWORD, 1));
+        Slime slime = new Slime(5, 5);
+        slime.takeDamage(slime.getHealth() - 5);
+        state.getEnemies().add(slime);
+
+        new CombatManager(state).strikeEnemy(slime);
+
+        assertTrue(slime.isDead());
+        assertEquals(5, only().getValue());
+    }
+
+    @Test
+    void theBlowThatBreaksAResourceShowsTheHealthItHadLeft() {
+        TileMap map = new TileMap(3, 3);
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                map.setTile(x, y, new Tile(x, y, TileType.HILL));
+            }
+        }
+        Tile tile = map.getTile(1, 1);
+        Resource tree = new Resource(ResourceType.TREE, 1);
+        tree.takeDamage(tree.getHealth() - 3);
+        tile.setWorldResource(tree);
+        player.setItemAt(0, new Item(ItemType.AXE, 1));
+        state.setCurrentMap(map);
+        player.setPosition(0, 0);
+
+        new ResourceManager(state, hint -> { }).handleTileInteraction(player, tile);
+
+        assertTrue(tree.isDepleted());
+        assertEquals(3, only().getValue());
+    }
+
+    @Test
     void aHealShowsAGreenKindNumberWithTheHealthRestored() {
         player.takeDamage(60);
         player.drainDamageTaken();

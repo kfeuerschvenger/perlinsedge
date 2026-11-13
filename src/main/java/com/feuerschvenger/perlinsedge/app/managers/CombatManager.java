@@ -124,8 +124,10 @@ public class CombatManager {
 
     /** Deals the damage of the item in hand to an enemy, shows the number and processes its death. */
     private void damage(Enemy enemy, Player player) {
+        // The number shows what the hit took off, so a blow that kills an enemy with little health left shows what was left
+        final double healthBefore = enemy.getHealth();
         enemy.takeDamage(player.getAttackDamage());
-        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, player.getAttackDamage(),
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, healthBefore - enemy.getHealth(),
                 enemy.getPosX(), enemy.getPosY(), gameState.getGameTime());
         if (enemy.isDead()) {
             handleEnemyDeath(enemy);
