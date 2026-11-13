@@ -231,9 +231,17 @@ public class InteractionManager {
     private Outcome attack(Player player, TileMap map, Enemy enemy) {
         final int enemyX = enemy.getCurrentTileX();
         final int enemyY = enemy.getCurrentTileY();
-        if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), enemyX, enemyY)) {
+        // Reach is measured from the tile the player is approaching, the same one the walk is planned from, so the
+        // swing never lands while the player is visibly walking away from the enemy
+        final PathNode origin = player.getWalkOrigin();
+        if (InteractionPlanner.inReach(origin.x, origin.y, enemyX, enemyY)) {
             // A walk left over from an earlier order would carry the player away from the enemy
             player.stop();
+            if (!standsOn(player, origin)) {
+                // The step in progress ends next to the enemy: the swing happens on arrival
+                pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+                return Outcome.ACCEPTED;
+            }
             return switch (combatManager.strikeEnemy(enemy)) {
                 case HIT -> Outcome.ACCEPTED;
                 case COOLDOWN -> {
@@ -268,11 +276,19 @@ public class InteractionManager {
             hintSink.accept("You can't reach that");
             return false;
         }
-        if (!walk.isEmpty() && !player.walkAlong(walk)) {
+        if (walk.isEmpty()) {
+            // Nothing left to walk: a walk left over from an earlier order would carry the player away, so it ends
+            // and the swing happens once the player stands next to the enemy, as for any other interaction
+            player.stop();
+        } else if (!player.walkAlong(walk)) {
             return false;
         }
         pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
         return true;
+    }
+
+    private static boolean standsOn(Player player, PathNode tile) {
+        return player.getCurrentTileX() == tile.x && player.getCurrentTileY() == tile.y;
     }
 
     /**
@@ -288,8 +304,14 @@ public class InteractionManager {
         }
         final int enemyX = enemy.getCurrentTileX();
         final int enemyY = enemy.getCurrentTileY();
-        if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), enemyX, enemyY)) {
+        final PathNode origin = player.getWalkOrigin();
+        if (InteractionPlanner.inReach(origin.x, origin.y, enemyX, enemyY)) {
             player.stop();
+            if (!standsOn(player, origin)) {
+                // The step in progress ends next to the enemy: wait for the arrival before swinging
+                pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+                return;
+            }
             switch (combatManager.strikeEnemy(enemy)) {
                 case HIT -> pending = null;
                 case COOLDOWN -> pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
