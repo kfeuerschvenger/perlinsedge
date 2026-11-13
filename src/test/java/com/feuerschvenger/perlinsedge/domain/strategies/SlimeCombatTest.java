@@ -130,6 +130,38 @@ class SlimeCombatTest {
     }
 
     @Test
+    void aSlimeInTheAirNeverSquashesAndEveryStrikeShowsTheFullTelegraph() {
+        TileMap map = grass(30);
+        Slime slime = new Slime(5, 5);
+        Player player = new Player(12, 5);
+        for (int i = 0; i < 60 * 10 && !((SlimeMovementStrategy) slime.getMovementStrategy()).isJumping(); i++) {
+            slime.update(STEP, map, player);
+        }
+        assertTrue(((SlimeMovementStrategy) slime.getMovementStrategy()).isJumping(), "precondition: in the air");
+
+        // The player appears next to the tile the slime took off from
+        player.setPosition(slime.getCurrentTileX() + 1, slime.getCurrentTileY());
+        double secondsFromLanding = 0;
+        boolean landed = false;
+        for (int i = 0; i < 60 * 5 && player.getHealth() == player.getMaxHealth(); i++) {
+            slime.update(STEP, map, player);
+            boolean jumping = ((SlimeMovementStrategy) slime.getMovementStrategy()).isJumping();
+            if (jumping) {
+                assertEquals(0.0, slime.getWindupProgress(), "squashing while in the air");
+            } else {
+                landed = true;
+            }
+            if (landed) {
+                secondsFromLanding += STEP;
+            }
+        }
+
+        assertTrue(landed);
+        assertTrue(player.getHealth() < player.getMaxHealth(), "it struck after landing");
+        assertTrue(secondsFromLanding >= 0.6 - 2 * STEP, "the strike came " + secondsFromLanding + " s after landing");
+    }
+
+    @Test
     void aDeadPlayerIsNotStruck() {
         TileMap map = grass(20);
         Slime slime = new Slime(5, 5);

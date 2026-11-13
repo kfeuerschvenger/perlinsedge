@@ -34,7 +34,10 @@ public class SlimeAttackStrategy implements EnemyAttackStrategy {
 
     @Override
     public void updateAttack(Enemy enemy, double deltaTime, Player player) {
-        if (cycle.update(deltaTime, isInReach(enemy, player))) {
+        // A slime in the air does not squash: the telegraph starts on the tile where it lands, so every strike shows it
+        final boolean landed = !(enemy.getMovementStrategy() instanceof SlimeMovementStrategy movement)
+                || !movement.isJumping();
+        if (cycle.update(deltaTime, landed && isInReach(enemy, player))) {
             player.takeDamage(enemy.getAttackDamage());
             enemy.resetAttackCooldown();
         }
