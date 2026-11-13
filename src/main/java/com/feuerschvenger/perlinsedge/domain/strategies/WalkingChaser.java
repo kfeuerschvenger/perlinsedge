@@ -15,14 +15,17 @@ import java.util.List;
  * and stops on a tile next to them, diagonals included, and it gives up under the rules of {@link ChaseLeash}.
  * The enemy only ever walks tile centre to tile centre along a path that the pathfinder built from walkable tiles
  * without cutting a corner, so it never enters water, a resource or a building.
- * The path is searched again every {@link #REPATH_INTERVAL_SECONDS} so the enemy follows a moving player, but only
- * once it stands on a tile centre: a search from the middle of a step would start from the tile it left and could
- * send it back across the corner of a blocked tile.
+ * The path is searched again every {@link #REPATH_INTERVAL_SECONDS}, and sooner when the player has moved to another
+ * tile, so the enemy follows a moving player. Between two tile centres the search starts from the tile the enemy is
+ * walking to, which keeps the step in progress as the first step of the new path: starting from the tile it left
+ * could send it back across the corner of a blocked tile.
  * The enemy never enters the tile of the player.
  */
 final class WalkingChaser {
 
     private static final double REPATH_INTERVAL_SECONDS = 0.5;
+    /** Shortest time between two searches, however often the player changes tile. */
+    private static final double MIN_REPATH_SPACING_SECONDS = 0.15;
     private static final double AT_TILE_CENTRE_EPSILON = 1e-9;
 
     private final double speedTilesPerSecond;
@@ -30,6 +33,8 @@ final class WalkingChaser {
     private final LinkedList<PathNode> path = new LinkedList<>();
     private final PathPlanner pathPlanner = new PathPlanner();
     private double secondsUntilRepath;
+    private int plannedPlayerX = Integer.MIN_VALUE;
+    private int plannedPlayerY = Integer.MIN_VALUE;
 
     /**
      * Creates a chaser that is not chasing.
@@ -57,13 +62,13 @@ final class WalkingChaser {
         final boolean chasing = leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime);
         if (!chasing || isNextToPlayer(enemy, player)) {
             finishCurrentStepOnly(enemy);
-        } else if (!isMidStep(enemy) && (path.isEmpty() || secondsUntilRepath <= 0)) {
+        } else if (path.isEmpty() || secondsUntilRepath <= 0 || playerMovedSincePlan(player)) {
             replan(enemy, map, player);
         }
         follow(enemy, deltaTime, map, player);
     }
 
-    /** Starts a chase regardless of distance. */
+    /** Starts a chase that holds for the lose time whatever the distance, see {@link ChaseLeash#alert()}. */
     void alert() {
         leash.alert();
     }
@@ -78,19 +83,32 @@ final class WalkingChaser {
         return leash.isChasing();
     }
 
+    private boolean playerMovedSincePlan(Player player) {
+        return secondsUntilRepath <= REPATH_INTERVAL_SECONDS - MIN_REPATH_SPACING_SECONDS
+                && (player.getCurrentTileX() != plannedPlayerX || player.getCurrentTileY() != plannedPlayerY);
+    }
+
     private void replan(Enemy enemy, TileMap map, Player player) {
         secondsUntilRepath = REPATH_INTERVAL_SECONDS;
-        final List<PathNode> found = pathPlanner.findPath(
-                map,
-                enemy.getCurrentTileX(), enemy.getCurrentTileY(),
-                player.getCurrentTileX(), player.getCurrentTileY());
-        if (found != null) {
-            path.clear();
-            path.addAll(found);
-            // The path ends on the tile of the player, the enemy stops one tile short of it
-            if (!path.isEmpty() && isPlayerTile(path.getLast(), player)) {
-                path.removeLast();
-            }
+        plannedPlayerX = player.getCurrentTileX();
+        plannedPlayerY = player.getCurrentTileY();
+        final boolean midStep = isMidStep(enemy);
+        final int originX = midStep ? enemy.getTargetTileX() : enemy.getCurrentTileX();
+        final int originY = midStep ? enemy.getTargetTileY() : enemy.getCurrentTileY();
+        final List<PathNode> found = pathPlanner.findPath(map, originX, originY, plannedPlayerX, plannedPlayerY);
+        if (found == null) {
+            return;
+        }
+        path.clear();
+        if (midStep) {
+            // The search leaves its start out: the tile being walked to stays the first step
+            path.add(new PathNode(originX, originY));
+        }
+        path.addAll(found);
+        // The path ends on the tile of the player, the enemy stops one tile short of it. A step in progress that
+        // happens to be that tile stays, and follow() turns the enemy back.
+        if (path.size() > (midStep ? 1 : 0) && isPlayerTile(path.getLast(), player)) {
+            path.removeLast();
         }
     }
 
@@ -105,8 +123,9 @@ final class WalkingChaser {
                 return;
             }
             if (!isWalkable(map, next)) {
-                // Something was built on the path after it was searched: stop and search again from where it stands
-                path.clear();
+                // Something was built on the path after it was searched: go back to the tile centre the enemy left,
+                // or stay on the one it stands on, and search again from there
+                turnBackToTileCentre(enemy);
                 secondsUntilRepath = 0;
                 return;
             }

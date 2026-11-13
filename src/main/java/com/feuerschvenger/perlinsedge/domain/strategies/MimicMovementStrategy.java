@@ -25,7 +25,8 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
     /**
      * Wakes or calms the mimic.
      *
-     * @param aggroed true to start a chase whatever the distance, false to end it
+     * @param aggroed true to start a chase that holds for the lose time whatever the distance, see
+     *                {@link ChaseLeash#alert()}, false to end it
      */
     public void setAggroed(boolean aggroed) {
         if (aggroed) {

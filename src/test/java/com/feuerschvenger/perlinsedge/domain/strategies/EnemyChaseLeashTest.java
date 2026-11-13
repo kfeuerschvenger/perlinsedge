@@ -185,7 +185,7 @@ class EnemyChaseLeashTest {
     }
 
     @Test
-    void aMimicHurtFromAfarWakesButGivesUpOnceTheAttackerIsBeyondTheLeash() {
+    void aMimicHurtFromAfarWakesAndHoldsTheChaseForTheLoseTimeThenGivesUpBeyondTheLeash() {
         TileMap map = grass(120, 20);
         Mimic mimic = new Mimic(10, 10);
         Player player = new Player(16, 10);
@@ -196,7 +196,57 @@ class EnemyChaseLeashTest {
 
         player.setPosition(60, 10);
         run(mimic, map, player, 0.2);
-        assertFalse(MimicChase.chasing(mimic));
+        assertTrue(MimicChase.chasing(mimic), "the alert holds whatever the distance");
+
+        run(mimic, map, player, AppConfig.getInstance().enemies().mimic().loseSeconds() + 0.2);
+        assertFalse(MimicChase.chasing(mimic), "the player is beyond the leash once the hold is over");
+    }
+
+    @Test
+    void aSlimeHurtFromAfarChasesForTheLoseTimeAndAMimicHitAgainHoldsLonger() {
+        TileMap map = grass(120, 20);
+        Slime slime = new Slime(10, 10);
+        Player player = new Player(20, 10);
+
+        slime.takeDamage(1);
+        run(slime, map, player, 0.2);
+        assertTrue(SlimeChase.chasing(slime), "10 tiles is outside the aggro range but the hit alerts it");
+
+        player.setPosition(100, 10);
+        run(slime, map, player, 0.2);
+        assertTrue(SlimeChase.chasing(slime), "the alert holds whatever the distance");
+        run(slime, map, player, AppConfig.getInstance().enemies().slime().loseSeconds() + 0.2);
+        assertFalse(SlimeChase.chasing(slime));
+
+        Mimic mimic = new Mimic(10, 10);
+        player.setPosition(16, 10);
+        mimic.takeDamage(1);
+        run(mimic, map, player, 2.0);
+        mimic.takeDamage(1);
+        player.setPosition(100, 10);
+        run(mimic, map, player, 2.0);
+        assertTrue(MimicChase.chasing(mimic), "the second hit renewed the hold");
+    }
+
+    @Test
+    void anAlertHoldsTheChaseForAtLeastTheLoseTimeWhateverTheDistance() {
+        ChaseLeash leash = new ChaseLeash(RANGE);
+        leash.alert();
+
+        assertTrue(leash.update(50, false, 3.9), "beyond the leash at the moment of the alert");
+        assertTrue(leash.update(50, false, 0.2), "the hold ends with this update");
+        assertFalse(leash.update(50, false, STEP), "the normal leash rules apply afterwards");
+    }
+
+    @Test
+    void anAlertEndsWithADeadPlayerAndAChaseStartedByAggroGetsNoHold() {
+        ChaseLeash alerted = new ChaseLeash(RANGE);
+        alerted.alert();
+        assertFalse(alerted.update(5, true, STEP));
+
+        ChaseLeash aggro = new ChaseLeash(RANGE);
+        assertTrue(aggro.update(5, false, STEP));
+        assertFalse(aggro.update(50, false, STEP), "beyond the leash it gives up at once");
     }
 
     // ------------------------------------------------------------------ never on a blocked tile

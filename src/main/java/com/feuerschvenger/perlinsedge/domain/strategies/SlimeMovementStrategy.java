@@ -77,6 +77,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** @return true while the slime is chasing the player */
     public boolean isChasing() { return leash.isChasing(); }
+
+    /** Starts a chase that holds for the lose time whatever the distance, for a slime hurt from beyond its range. */
+    public void alert() { leash.alert(); }
     public double getJumpPhase() { return jumpPhase; }
 
     private void resetIdleTimer() {

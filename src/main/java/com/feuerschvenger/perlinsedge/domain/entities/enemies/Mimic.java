@@ -58,14 +58,15 @@ public class Mimic extends Enemy {
     // ==================================================================
 
     /**
-     * A hit wakes the mimic even from outside its activation range.
+     * A hit wakes the mimic even from outside its activation range, and every hit renews the alert so a mimic that
+     * keeps being hurt from afar keeps chasing.
      *
      * @param amount Damage amount to apply
      */
     @Override
     public void takeDamage(double amount) {
-        if (!isDead) {
-            activate();
+        if (!isDead && getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
+            mimicMovement.setAggroed(true);
         }
         super.takeDamage(amount);
     }

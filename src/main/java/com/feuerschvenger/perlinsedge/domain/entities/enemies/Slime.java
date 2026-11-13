@@ -82,6 +82,23 @@ public class Slime extends Enemy {
     }
 
     // ==================================================================
+    //  Behavior Methods
+    // ==================================================================
+
+    /**
+     * A hit makes the slime chase the attacker even from outside its aggro range.
+     *
+     * @param amount Damage amount to apply
+     */
+    @Override
+    public void takeDamage(double amount) {
+        if (!isDead && getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement) {
+            slimeMovement.alert();
+        }
+        super.takeDamage(amount);
+    }
+
+    // ==================================================================
     //  Helper Methods
     // ==================================================================
 
