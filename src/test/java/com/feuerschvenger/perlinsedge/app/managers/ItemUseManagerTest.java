@@ -146,18 +146,16 @@ class ItemUseManagerTest {
     }
 
     @Test
-    void pressingTheNumberOfTheSlotInHandUsesItsPotionButAnotherNumberOnlySelects() {
-        ItemHotbarManager hotbar = new ItemHotbarManager(state, use::useActiveItem);
+    void pressingTheNumberOfTheSlotInHandOnlySelectsItAndNeverUsesThePotion() {
+        ItemHotbarManager hotbar = new ItemHotbarManager(state);
         player.setItemAt(0, new Item(ItemType.POTION_HEALTH, 2));
 
         hotbar.handleNumberKey(3);
-        assertEquals(2, player.getItemAt(0).getQuantity(), "selecting another slot uses nothing");
         hotbar.handleNumberKey(1);
-        assertEquals(2, player.getItemAt(0).getQuantity(), "moving to the potion slot only selects it");
         hotbar.handleNumberKey(1);
 
-        assertEquals(1, player.getItemAt(0).getQuantity());
-        assertEquals(90, player.getHealth(), 1e-9);
+        assertEquals(2, player.getItemAt(0).getQuantity());
+        assertEquals(40, player.getHealth(), 1e-9);
     }
 
     @Test

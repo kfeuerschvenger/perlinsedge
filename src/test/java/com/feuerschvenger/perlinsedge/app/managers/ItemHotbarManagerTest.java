@@ -1,11 +1,11 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,14 +16,13 @@ class ItemHotbarManagerTest {
     private GameStateManager state;
     private Player player;
     private ItemHotbarManager hotbar;
-    private final AtomicInteger uses = new AtomicInteger();
 
     @BeforeEach
     void setUp() {
         state = new GameStateManager();
         player = new Player(1, 1);
         state.setPlayer(player);
-        hotbar = new ItemHotbarManager(state, uses::incrementAndGet);
+        hotbar = new ItemHotbarManager(state);
     }
 
     @Test
@@ -31,17 +30,19 @@ class ItemHotbarManagerTest {
         assertTrue(hotbar.handleNumberKey(4));
 
         assertEquals(3, player.getSelectedHotbarIndex());
-        assertEquals(0, uses.get());
     }
 
     @Test
-    void pressingTheNumberOfTheSlotInHandUsesItsItem() {
+    void pressingTheNumberOfTheSlotInHandKeepsItSelectedAndUsesNothing() {
+        player.setItemAt(3, new Item(ItemType.POTION_HEALTH, 2));
+        player.takeDamage(60);
+        player.drainDamageTaken();
         hotbar.handleNumberKey(4);
 
         assertTrue(hotbar.handleNumberKey(4));
 
         assertEquals(3, player.getSelectedHotbarIndex());
-        assertEquals(1, uses.get());
+        assertEquals(2, player.getInventory().get(3).getQuantity(), "the potion was not drunk");
     }
 
     @Test
@@ -69,7 +70,6 @@ class ItemHotbarManagerTest {
         assertFalse(hotbar.handleNumberKey(5));
 
         assertEquals(0, player.getSelectedHotbarIndex());
-        assertEquals(0, uses.get());
     }
 
     @Test

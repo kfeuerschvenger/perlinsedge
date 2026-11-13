@@ -106,7 +106,7 @@ public class GameOrchestrator {
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
         itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
-        itemHotbarManager = new ItemHotbarManager(this.gameState, itemUseManager::useActiveItem);
+        itemHotbarManager = new ItemHotbarManager(this.gameState);
 
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,

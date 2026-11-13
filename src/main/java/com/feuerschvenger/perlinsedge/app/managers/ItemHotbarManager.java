@@ -6,23 +6,20 @@ import com.feuerschvenger.perlinsedge.infra.fx.input.WheelAccumulator;
 
 /**
  * Chooses which hotbar slot the player holds in hand in exploration mode: the number keys 1 to 9 pick a slot and the
- * mouse wheel moves along the slots. Pressing the number of the slot that is already held uses its item. The building
- * hotbar answers the same keys in building mode, see {@link HotbarManager}.
+ * mouse wheel moves along the slots. Choosing a slot never uses its item: that has a key of its own, see
+ * {@link ItemUseManager}. The building hotbar answers the same keys in building mode, see {@link HotbarManager}.
  */
 public class ItemHotbarManager {
     private final GameStateManager gameState;
-    private final Runnable useActiveItem;
     private final WheelAccumulator wheel = new WheelAccumulator();
 
     /**
      * Creates the manager.
      *
-     * @param gameState     shared game state
-     * @param useActiveItem runs when the number of the slot already held is pressed
+     * @param gameState shared game state
      */
-    public ItemHotbarManager(GameStateManager gameState, Runnable useActiveItem) {
+    public ItemHotbarManager(GameStateManager gameState) {
         this.gameState = gameState;
-        this.useActiveItem = useActiveItem;
     }
 
     /**
@@ -36,13 +33,7 @@ public class ItemHotbarManager {
         if (!isActive() || number < 1 || number > Player.HOTBAR_SIZE) {
             return false;
         }
-        final Player player = gameState.getPlayer();
-        final int index = number - 1;
-        if (player.getSelectedHotbarIndex() == index) {
-            useActiveItem.run();
-        } else {
-            player.selectHotbarSlot(index);
-        }
+        gameState.getPlayer().selectHotbarSlot(number - 1);
         return true;
     }
 
