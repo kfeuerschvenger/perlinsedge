@@ -83,6 +83,28 @@ class FxMinimapDrawerTest {
     }
 
     @Test
+    void aTranslucentSampleWeighsLessInTheColourOfAPixel() {
+        Rgba red = new Rgba(1, 0, 0, 1);
+        Rgba faintBlue = new Rgba(0, 0, 1, 0.25);
+
+        int mixed = FxMinimapDrawer.blend(new Rgba[]{red, faintBlue, null, null});
+
+        // Alpha: (1 + 0.25) / 4 of a full pixel. Colour: red 1 / 1.25 = 0.8 and blue 0.25 / 1.25 = 0.2
+        assertEquals(0x50CC0033, mixed);
+    }
+
+    @Test
+    void aPixelHalfOffTheMapKeepsTheExactColourOfTheTilesUnderIt() {
+        Rgba hill = new Rgba(0.2, 0.4, 0.6, 1);
+
+        int edge = FxMinimapDrawer.blend(new Rgba[]{hill, hill, null, null});
+
+        assertEquals(0x80, edge >>> 24, "half the samples are off the map");
+        assertEquals(FxMinimapDrawer.toArgb(hill) & 0xFFFFFF, edge & 0xFFFFFF);
+        assertEquals(0, FxMinimapDrawer.blend(new Rgba[]{null, null, null, null}));
+    }
+
+    @Test
     void thePaintedPixelsTakeTheColourOfTheTile() {
         TileMap map = uniformMap(20, TileType.HILL);
         Rgba hill = map.getTile(5, 5).getColor();

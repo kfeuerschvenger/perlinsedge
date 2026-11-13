@@ -84,7 +84,7 @@ public class FxMinimapDrawer {
 
     /**
      * Sets the map to display. The tile layer is cached as an image and rebuilt only when the map is a different
-     * instance or {@link #invalidateTileLayer()} was called, so calling this every frame is cheap.
+     * instance, so calling this every frame is cheap.
      *
      * @param newMap The new TileMap to display
      */
@@ -93,11 +93,6 @@ public class FxMinimapDrawer {
 
         this.map = newMap;
         calculateScaling();
-        tileLayerDirty = true;
-    }
-
-    /** Marks the cached tile layer as outdated, for example when the explored area of the map changes. */
-    public void invalidateTileLayer() {
         tileLayerDirty = true;
     }
 
@@ -111,11 +106,6 @@ public class FxMinimapDrawer {
         this.playerTileX = tileX;
         this.playerTileY = tileY;
         this.playerVisible = true;
-    }
-
-    /** Hides the player marker. */
-    public void clearPlayerTile() {
-        this.playerVisible = false;
     }
 
     /**
@@ -222,13 +212,9 @@ public class FxMinimapDrawer {
         final int width = map.getWidth();
         final int height = map.getHeight();
 
+        final Rgba[] samples = new Rgba[SAMPLES_PER_PIXEL];
         for (int py = 0; py < imageHeight; py++) {
             for (int px = 0; px < imageWidth; px++) {
-                double alpha = 0;
-                double red = 0;
-                double green = 0;
-                double blue = 0;
-                int covered = 0;
                 for (int sample = 0; sample < SAMPLES_PER_PIXEL; sample++) {
                     final double isoX = px + SAMPLE_OFFSETS[sample % 2] - offsetX;
                     final double isoY = py + SAMPLE_OFFSETS[sample / 2] - offsetY;
@@ -236,23 +222,42 @@ public class FxMinimapDrawer {
                     final double compY = isoY / tileH;
                     final int tileX = (int) Math.floor((compX + compY) / 2.0);
                     final int tileY = (int) Math.floor((compY - compX) / 2.0);
-                    if (tileX < 0 || tileY < 0 || tileX >= width || tileY >= height) {
-                        continue;
-                    }
-                    final Rgba color = map.getTile(tileX, tileY).getColor();
-                    alpha += color.a();
-                    red += color.r();
-                    green += color.g();
-                    blue += color.b();
-                    covered++;
+                    final boolean onMap = tileX >= 0 && tileY >= 0 && tileX < width && tileY < height;
+                    samples[sample] = onMap ? map.getTile(tileX, tileY).getColor() : null;
                 }
-                if (covered > 0) {
-                    pixels[py * imageWidth + px] = toArgb(new Rgba(red / covered, green / covered, blue / covered,
-                            alpha / SAMPLES_PER_PIXEL));
-                }
+                pixels[py * imageWidth + px] = blend(samples);
             }
         }
         return pixels;
+    }
+
+    /**
+     * Averages the samples of one pixel. The colour is weighted by alpha, as a premultiplied average is, so a
+     * translucent tile weighs less than an opaque one and the colour is the one the covered area really has. The alpha
+     * is the sum of the alphas over all the samples of the pixel, so a pixel half off the map is half transparent and
+     * keeps the exact colour of the tiles under it.
+     *
+     * @param samples the colours under the pixel, null for a sample that lies off the map
+     * @return the average in 0xAARRGGBB layout, 0 when nothing is covered
+     */
+    static int blend(Rgba[] samples) {
+        double alpha = 0;
+        double red = 0;
+        double green = 0;
+        double blue = 0;
+        for (Rgba color : samples) {
+            if (color == null) {
+                continue;
+            }
+            alpha += color.a();
+            red += color.r() * color.a();
+            green += color.g() * color.a();
+            blue += color.b() * color.a();
+        }
+        if (alpha <= 0) {
+            return 0;
+        }
+        return toArgb(new Rgba(red / alpha, green / alpha, blue / alpha, alpha / samples.length));
     }
 
     /**
