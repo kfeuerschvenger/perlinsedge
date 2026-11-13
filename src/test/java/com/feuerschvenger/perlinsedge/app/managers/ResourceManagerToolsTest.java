@@ -3,7 +3,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
-import com.feuerschvenger.perlinsedge.domain.entities.items.ToolStats;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ToolHits;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -89,8 +89,8 @@ class ResourceManagerToolsTest {
         tile.setWorldResource(new Resource(ResourceType.STONE, 1));
         int stoneByHand = hitsUntilGone();
 
-        assertEquals(ToolStats.hitsToBreak(null, ResourceType.TREE), treeByHand);
-        assertEquals(ToolStats.hitsToBreak(null, ResourceType.STONE), stoneByHand);
+        assertEquals(ToolHits.hitsToBreak(null, ResourceType.TREE), treeByHand);
+        assertEquals(ToolHits.hitsToBreak(null, ResourceType.STONE), stoneByHand);
         assertTrue(treeByHand >= 8 && stoneByHand >= 8, "tree " + treeByHand + ", stone " + stoneByHand);
 
         player.setItemAt(0, new Item(ItemType.AXE, 1));
@@ -124,7 +124,7 @@ class ResourceManagerToolsTest {
         player.setItemAt(0, new Item(ItemType.AXE, 1));
         tile.setWorldResource(new Resource(ResourceType.STONE, 1));
 
-        assertEquals(ToolStats.hitsToBreak(null, ResourceType.STONE), hitsUntilGone());
+        assertEquals(ToolHits.hitsToBreak(null, ResourceType.STONE), hitsUntilGone());
     }
 
     @Test

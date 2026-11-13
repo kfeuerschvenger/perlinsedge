@@ -11,17 +11,17 @@ class ToolStatsTest {
 
     @Test
     void theRightToolBreaksATreeAStoneIronOreAndCrystalsInThreeHits() {
-        assertEquals(3, ToolStats.hitsToBreak(ItemType.AXE, ResourceType.TREE));
-        assertEquals(3, ToolStats.hitsToBreak(ItemType.PICKAXE, ResourceType.STONE));
-        assertEquals(3, ToolStats.hitsToBreak(ItemType.PICKAXE, ResourceType.IRON_ORE));
-        assertEquals(3, ToolStats.hitsToBreak(ItemType.PICKAXE, ResourceType.CRYSTALS));
+        assertEquals(3, ToolHits.hitsToBreak(ItemType.AXE, ResourceType.TREE));
+        assertEquals(3, ToolHits.hitsToBreak(ItemType.PICKAXE, ResourceType.STONE));
+        assertEquals(3, ToolHits.hitsToBreak(ItemType.PICKAXE, ResourceType.IRON_ORE));
+        assertEquals(3, ToolHits.hitsToBreak(ItemType.PICKAXE, ResourceType.CRYSTALS));
     }
 
     @Test
     void aBareHandTakesAboutThreeTimesTheHitsOnATreeAndAStone() {
         for (ResourceType type : new ResourceType[]{ResourceType.TREE, ResourceType.STONE}) {
-            int hand = ToolStats.hitsToBreak(null, type);
-            int tool = ToolStats.hitsToBreak(type == ResourceType.TREE ? ItemType.AXE : ItemType.PICKAXE, type);
+            int hand = ToolHits.hitsToBreak(null, type);
+            int tool = ToolHits.hitsToBreak(type == ResourceType.TREE ? ItemType.AXE : ItemType.PICKAXE, type);
 
             assertTrue(hand >= tool * 2.5 && hand <= tool * 3.5, type + ": " + hand + " hits by hand against " + tool);
         }
@@ -41,10 +41,10 @@ class ToolStatsTest {
                 ToolStats.resourceDamage(ItemType.AXE, ResourceType.STONE));
         assertEquals(ToolStats.resourceCooldownMs(null, ResourceType.STONE),
                 ToolStats.resourceCooldownMs(ItemType.AXE, ResourceType.STONE));
-        assertEquals(ToolStats.hitsToBreak(null, ResourceType.TREE),
-                ToolStats.hitsToBreak(ItemType.PICKAXE, ResourceType.TREE));
-        assertEquals(ToolStats.hitsToBreak(null, ResourceType.TREE),
-                ToolStats.hitsToBreak(ItemType.SWORD, ResourceType.TREE));
+        assertEquals(ToolHits.hitsToBreak(null, ResourceType.TREE),
+                ToolHits.hitsToBreak(ItemType.PICKAXE, ResourceType.TREE));
+        assertEquals(ToolHits.hitsToBreak(null, ResourceType.TREE),
+                ToolHits.hitsToBreak(ItemType.SWORD, ResourceType.TREE));
     }
 
     @Test

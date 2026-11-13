@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 
 import java.util.EnumMap;
@@ -62,12 +61,13 @@ public final class ToolStats {
 
     /**
      * Tells whether a tool is the right one for a resource, which is what gives the fast hit and the full damage.
+     * The damage and the cooldown below build on it, and the tests read it directly.
      *
      * @param tool   the item held in hand, null for a bare hand
      * @param target the resource
      * @return true when the tool has an entry for the resource
      */
-    public static boolean isRightTool(ItemType tool, ResourceType target) {
+    static boolean isRightTool(ItemType tool, ResourceType target) {
         final Profile profile = tool != null ? PROFILES.get(tool) : null;
         return profile != null && profile.resourceDamage().containsKey(target);
     }
@@ -92,18 +92,6 @@ public final class ToolStats {
      */
     public static long resourceCooldownMs(ItemType tool, ResourceType target) {
         return isRightTool(tool, target) ? TOOL_COOLDOWN_MS : HAND_COOLDOWN_MS;
-    }
-
-    /**
-     * Gives the number of hits it takes to break a fresh resource.
-     *
-     * @param tool   the item held in hand, null for a bare hand
-     * @param target the resource
-     * @return the hits, rounded up
-     */
-    public static int hitsToBreak(ItemType tool, ResourceType target) {
-        final int health = AppConfig.getInstance().gameMechanics().getResourceBaseHealth(target);
-        return (int) Math.ceil(health / (double) resourceDamage(tool, target));
     }
 
     /**
