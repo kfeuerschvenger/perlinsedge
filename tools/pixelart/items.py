@@ -1,10 +1,11 @@
 """Draw every item icon as a 16x16 sprite in the palette, with the dark outline, with no raw input.
 
-Each icon is built from a few shapes (shaded blobs, rectangles, lines and single pixels) lit from the upper left, painted in colours of palette.hex and wrapped in the palette outline. One drawing function per ItemType: the file name is the lower case constant name, which is the name the game looks the icon up by. The script writes one file per drawing into assets/items and removes files of that folder that no drawing produces, so the folder never keeps an icon nothing references.
+Each icon is built from a few shapes (shaded blobs, rectangles, lines and single pixels) lit from the upper left, painted in colours of palette.hex and wrapped in the palette outline. One drawing function per ItemType: the file name is the lower case constant name, which is the name the game looks the icon up by. The script writes one file per drawing into assets/items and removes the stale icons of that folder, which are the files named like an item icon (lower case ItemType style names) that no drawing produces, printing each one it removes. It never touches any other file.
 
 usage: python -I tools/pixelart/items.py [--out <assets/items folder>] [--preview preview.png]
 """
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -17,6 +18,8 @@ sys.path.insert(0, str(HERE))
 from trees import OUTLINE, Canvas, blob, hexc  # noqa: E402
 
 SIZE = 16
+# The file name of an item icon: the ItemType constant in lower case, such as wood_log.png.
+ICON_FILE_NAME = re.compile(r"[a-z][a-z0-9_]*\.png")
 DEFAULT_OUT = HERE.parent.parent / "src" / "main" / "resources" / "assets" / "items"
 
 # colour ramps, dark to light
@@ -461,16 +464,19 @@ def draw_all():
 
 
 def write_all(out):
-    """Writes every icon and removes the icons of the folder that no drawing produces."""
+    """Writes every icon and removes the stale icons of the folder: files named like an item icon that no drawing produces.
+
+    Any other file of the folder, such as one with an upper case or hyphenated name, is not an item icon and is left alone.
+    """
     out.mkdir(parents=True, exist_ok=True)
     wanted = set()
     for name, img in draw_all():
         img.save(out / f"{name}.png")
         wanted.add(f"{name}.png")
     for stale in sorted(out.glob("*.png")):
-        if stale.name not in wanted:
+        if stale.name not in wanted and ICON_FILE_NAME.fullmatch(stale.name):
+            print(f"removing stale icon {stale.name}")
             stale.unlink()
-            print(f"removed {stale.name}")
     return len(wanted)
 
 
