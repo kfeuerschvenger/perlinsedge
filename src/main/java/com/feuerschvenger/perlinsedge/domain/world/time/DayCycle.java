@@ -16,11 +16,22 @@ public final class DayCycle {
 
     /** The tint of the night: a deep blue, dark enough that the world is only just playable without a light. */
     private static final Rgba NIGHT_COLOUR = new Rgba(0.03, 0.05, 0.16, 1.0);
-    private static final double NIGHT_STRENGTH = 0.66;
+    private static final double NIGHT_STRENGTH = 0.72;
 
-    /** The tint of the horizon at dawn and dusk: a strong warm orange. */
+    /** The tint of the horizon at dawn and dusk: a warm orange. */
     private static final Rgba WARM_COLOUR = new Rgba(1.0, 0.48, 0.14, 1.0);
-    private static final double WARM_STRENGTH = 0.30;
+    private static final double WARM_STRENGTH = 0.25;
+
+    /** Share of the dawn the night takes to turn fully warm. */
+    private static final double DAWN_WARM_SHARE = 0.4;
+    /** Share of the day the morning keeps the full warm light, 45 s of a 10 minute day. */
+    private static final double MORNING_WARM_SHARE = 0.075;
+    /** Share of the day the morning warm light takes to fade to neutral, 90 s of a 10 minute day. */
+    private static final double MORNING_FADE_SHARE = 0.15;
+    /** Share of the day the evening light takes to turn warm, 120 s of a 10 minute day. */
+    private static final double EVENING_FADE_SHARE = 0.2;
+    /** Share of the day before the dusk the evening light is already fully warm, 30 s of a 10 minute day. */
+    private static final double EVENING_WARM_SHARE = 0.05;
 
     /** The tint of midday: no tint at all. */
     private static final Rgba NEUTRAL_COLOUR = new Rgba(1.0, 1.0, 1.0, 1.0);
@@ -162,24 +173,41 @@ public final class DayCycle {
         return sampleTint().strength();
     }
 
-    /** Works out the tint of the moment from the keyframes: night, warm, neutral, neutral, warm and night again. */
+    /**
+     * Works out the tint of the moment from the keyframes. The night turns warm through the first part of the dawn, the
+     * warm light holds into the early morning and then fades to neutral. Well before the dusk the light turns warm again,
+     * holds through the first half of the dusk and then sinks into the night.
+     */
     private Tint sampleTint() {
         final double s = secondsIntoCycle();
         final double dawn = settings.dawnSeconds();
-        final double dayEnd = dawn + settings.daySeconds();
+        final double day = settings.daySeconds();
+        final double dayEnd = dawn + day;
         final double duskMid = dayEnd + settings.duskSeconds() / 2;
-        if (s < dawn / 2) {
-            return blend(NIGHT_COLOUR, NIGHT_STRENGTH, WARM_COLOUR, WARM_STRENGTH, s / (dawn / 2));
+        final double warmUp = dawn * DAWN_WARM_SHARE;
+        final double morningWarmEnd = dawn + day * MORNING_WARM_SHARE;
+        final double morningFadeEnd = morningWarmEnd + day * MORNING_FADE_SHARE;
+        final double eveningFadeStart = dayEnd - day * (EVENING_FADE_SHARE + EVENING_WARM_SHARE);
+        final double eveningWarmStart = dayEnd - day * EVENING_WARM_SHARE;
+        if (s < warmUp) {
+            return blend(NIGHT_COLOUR, NIGHT_STRENGTH, WARM_COLOUR, WARM_STRENGTH, s / warmUp);
         }
-        if (s < dawn) {
-            return blend(WARM_COLOUR, WARM_STRENGTH, NEUTRAL_COLOUR, NEUTRAL_STRENGTH, (s - dawn / 2) / (dawn / 2));
+        if (s < morningWarmEnd) {
+            return new Tint(WARM_COLOUR, WARM_STRENGTH);
         }
-        if (s < dayEnd) {
+        if (s < morningFadeEnd) {
+            return blend(WARM_COLOUR, WARM_STRENGTH, NEUTRAL_COLOUR, NEUTRAL_STRENGTH,
+                    (s - morningWarmEnd) / (morningFadeEnd - morningWarmEnd));
+        }
+        if (s < eveningFadeStart) {
             return new Tint(NEUTRAL_COLOUR, NEUTRAL_STRENGTH);
         }
-        if (s < duskMid) {
+        if (s < eveningWarmStart) {
             return blend(NEUTRAL_COLOUR, NEUTRAL_STRENGTH, WARM_COLOUR, WARM_STRENGTH,
-                    (s - dayEnd) / (duskMid - dayEnd));
+                    (s - eveningFadeStart) / (eveningWarmStart - eveningFadeStart));
+        }
+        if (s < duskMid) {
+            return new Tint(WARM_COLOUR, WARM_STRENGTH);
         }
         if (s < settings.daylightSeconds()) {
             return blend(WARM_COLOUR, WARM_STRENGTH, NIGHT_COLOUR, NIGHT_STRENGTH,

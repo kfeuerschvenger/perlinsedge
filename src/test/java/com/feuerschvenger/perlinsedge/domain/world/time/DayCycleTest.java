@@ -218,6 +218,21 @@ class DayCycleTest {
     }
 
     @Test
+    void theWarmLightReachesIntoTheMorningAndStartsWellBeforeTheDusk() {
+        final double dayEnd = DAWN + DAY;
+
+        assertTrue(at(DAWN + 30).skyTintStrength() > 0.2, "still fully warm half a minute after the dawn");
+        assertTrue(at(DAWN + 90).skyTintStrength() > 0.0, "still fading a minute and a half after the dawn");
+        assertEquals(0.0, at(DAWN + 180).skyTintStrength(), 1e-9, "neutral three minutes into the day");
+
+        assertEquals(0.0, at(dayEnd - 160).skyTintStrength(), 1e-9, "neutral before the evening fade");
+        assertTrue(at(dayEnd - 80).skyTintStrength() > 0.0, "turning warm more than a minute before the dusk");
+        assertTrue(at(dayEnd - 20).skyTintStrength() > 0.2, "fully warm just before the dusk");
+        final Rgba evening = at(dayEnd - 20).skyTint();
+        assertTrue(evening.r() > evening.g() && evening.g() > evening.b(), "warm: red over green over blue");
+    }
+
+    @Test
     void theTintStrengthAlwaysStaysWithinTheValidRange() {
         for (double s = 0; s < CYCLE; s += 3.1) {
             final double strength = at(s).skyTintStrength();
