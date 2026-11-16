@@ -9,11 +9,12 @@ flowchart LR
     survival --> digging[Digging and farming]
     survival --> bow[Player bow and arrows]
     survival --> fishing[Fishing]
-    world --> daynight[Day and night cycle with lighting]
+    world --> lighting[Light sources and darkness]
     world --> biomes[Magic and sinister biomes]
     digging --> shovel[Shovel]
     bow --> arrows[Arrows and archery combat]
-    daynight --> shadows[Light sources and shadows]
+    lighting --> shadows[Shadows from light sources]
+    lighting --> palettes[Sky palette per biome]
 ```
 
 ## Digging and farming
@@ -28,9 +29,9 @@ A bow and arrows the player crafts and fires at range, with ammunition that is s
 
 Rod, bait and a short catch mechanic at the water's edge, feeding the raw and cooked fish items that already exist.
 
-## Day and night cycle with lighting
+## Light sources and darkness
 
-A clock that moves the world through dawn, day, dusk and night, with light that changes the palette of every biome. Torches, campfires and standing torches become real light sources at night, and shadows follow the sun.
+The sun already moves through dawn, day, dusk and night, casts shadows shaped like the things that stand in its light, and tints the world. What is left is the night itself: torches, campfires and standing torches become real light sources that push back a darker night, and cast shadows of their own. The sky tint is the same for every biome today, so each biome can later get its own dawn, dusk and night palette.
 
 ## Magic and sinister biomes
 

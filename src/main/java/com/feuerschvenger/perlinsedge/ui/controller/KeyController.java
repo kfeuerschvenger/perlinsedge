@@ -160,8 +160,8 @@ public class KeyController implements IKeyListener {
             case F5:
                 generateNewRandomMap();
                 break;
-            case F6:
-                toggleFpsOverlay();
+            case F7:
+                toggleFastTime();
                 break;
             default:
                 break;
@@ -186,12 +186,13 @@ public class KeyController implements IKeyListener {
     }
 
     /**
-     * Toggles the FPS overlay. It is off by default and works without the debug mode.
+     * Toggles the fast time of the day cycle, which makes a whole day pass in about forty real seconds.
      */
-    private void toggleFpsOverlay() {
-        boolean newState = !debug.isFpsOverlayEnabled();
-        debug.setFpsOverlayEnabled(newState);
-        log.info("FPS Overlay: {}", newState ? "ON" : "OFF");
+    private void toggleFastTime() {
+        final AppConfig.DayCycleConfig dayCycle = AppConfig.getInstance().dayCycle();
+        final boolean newState = !dayCycle.isFastTime();
+        dayCycle.setFastTime(newState);
+        log.info("Fast time: {}", newState ? "ON" : "OFF");
     }
 
     /**

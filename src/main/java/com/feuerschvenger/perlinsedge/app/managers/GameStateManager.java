@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
@@ -9,6 +10,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -42,6 +44,8 @@ public class GameStateManager {
     @Setter(lombok.AccessLevel.NONE)
     private double gameTime = 0;
     private double playerRespawnTimer = -1;
+    /** The clock of the sky, advanced next to the game clock so a paused game stands still. */
+    private final DayCycle dayCycle = new DayCycle(AppConfig.getInstance().dayCycle().settings());
 
     // Input & UI State
     private int mouseOverTileX = -1;
@@ -75,6 +79,9 @@ public class GameStateManager {
 
         // Timer reset
         gameTime = 0;
+        dayCycle.reset();
+        // The fast time is a debug switch held in the shared configuration, so a new world does not inherit it
+        AppConfig.getInstance().dayCycle().setFastTime(false);
         playerRespawnTimer = -1;
 
         // UI/Input reset

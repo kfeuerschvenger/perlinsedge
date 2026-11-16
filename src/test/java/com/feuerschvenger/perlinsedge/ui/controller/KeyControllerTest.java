@@ -12,6 +12,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeyControllerTest {
@@ -22,14 +23,36 @@ class KeyControllerTest {
 
     @BeforeEach
     void setUp() {
-        AppConfig.getInstance().debug().setFpsOverlayEnabled(false);
         controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
                 numbers::add, pageChanges::add);
     }
 
     @AfterEach
     void tearDown() {
-        AppConfig.getInstance().debug().setFpsOverlayEnabled(false);
+        AppConfig.getInstance().dayCycle().setFastTime(false);
+    }
+
+    @Test
+    void f7TogglesTheFastTimeOfTheDayCycle() {
+        assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
+        assertEquals(1.0, AppConfig.getInstance().dayCycle().timeScale());
+
+        controller.onKeyAction(GameKey.F7);
+        assertTrue(AppConfig.getInstance().dayCycle().isFastTime());
+        assertEquals(30.0, AppConfig.getInstance().dayCycle().timeScale(), 1e-9, "a day of 1200 s in 40 s");
+
+        controller.onKeyAction(GameKey.F7);
+        assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
+    }
+
+    @Test
+    void theDayCycleSettingsAreBuiltOnceSoTheTimeScaleAllocatesNothingEveryTick() {
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+
+        assertSame(config.settings(), config.settings());
+        config.setFastTime(true);
+        assertEquals(config.getFastTimeMultiplier(), config.timeScale(), 0.0);
+        assertEquals(config.settings().cycleSeconds() / 40.0, config.getFastTimeMultiplier(), 1e-9);
     }
 
     @Test
@@ -118,27 +141,6 @@ class KeyControllerTest {
 
         assertEquals(List.of(3), numbers);
         assertTrue(pageChanges.isEmpty());
-    }
-
-    @Test
-    void fpsOverlayIsOffByDefaultAndF6TogglesIt() {
-        assertFalse(AppConfig.getInstance().debug().isFpsOverlayEnabled());
-
-        controller.onKeyAction(GameKey.F6);
-        assertTrue(AppConfig.getInstance().debug().isFpsOverlayEnabled());
-
-        controller.onKeyAction(GameKey.F6);
-        assertFalse(AppConfig.getInstance().debug().isFpsOverlayEnabled());
-    }
-
-    @Test
-    void fpsOverlayDoesNotNeedDebugMode() {
-        boolean debugBefore = AppConfig.getInstance().debug().isEnabled();
-
-        controller.onKeyAction(GameKey.F6);
-
-        assertEquals(debugBefore, AppConfig.getInstance().debug().isEnabled());
-        assertTrue(AppConfig.getInstance().debug().isFpsOverlayEnabled());
     }
 
     @Test

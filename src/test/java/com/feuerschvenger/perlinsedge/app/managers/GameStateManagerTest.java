@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
@@ -34,6 +35,23 @@ class GameStateManagerTest {
 
         player.revive(1, 1);
         assertFalse(state.isGameplayInputBlocked());
+    }
+
+    @Test
+    void aResetSwitchesTheFastTimeOffSoANewWorldRunsAtNormalSpeed() {
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+        final boolean before = config.isFastTime();
+        try {
+            GameStateManager state = new GameStateManager();
+            config.setFastTime(true);
+
+            state.resetGameState();
+
+            assertFalse(config.isFastTime());
+            assertEquals(1.0, config.timeScale());
+        } finally {
+            config.setFastTime(before);
+        }
     }
 
     @Test

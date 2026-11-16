@@ -251,6 +251,63 @@ class GameOrchestratorTest {
     }
 
     @Test
+    void theSkyAdvancesWithTheGameAndStandsStillWhilePaused() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        final double start = state.getDayCycle().secondsIntoCycle();
+
+        onFx(() -> orchestrator.update(1.0));
+        assertEquals(start + 1.0, state.getDayCycle().secondsIntoCycle(), 1e-9);
+
+        state.setGamePaused(true);
+        onFx(() -> orchestrator.update(1.0));
+        assertEquals(start + 1.0, state.getDayCycle().secondsIntoCycle(), 1e-9, "a paused game must not move the sun");
+    }
+
+    @Test
+    void theFastTimeSpeedsUpTheSkyButNotTheGameClock() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        final double start = state.getDayCycle().secondsIntoCycle();
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+        final boolean before = config.isFastTime();
+        config.setFastTime(true);
+        try {
+            onFx(() -> orchestrator.update(1.0));
+
+            assertEquals(start + config.getFastTimeMultiplier(), state.getDayCycle().secondsIntoCycle(), 1e-6);
+            assertEquals(1.0, state.getGameTime(), 1e-9);
+        } finally {
+            config.setFastTime(before);
+        }
+    }
+
+    @Test
+    void aNewGameSwitchesTheFastTimeOff() {
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+        final boolean before = config.isFastTime();
+        try {
+            config.setFastTime(true);
+
+            onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+
+            assertFalse(config.isFastTime(), "the fast time of the old world is not carried into the new one");
+        } finally {
+            config.setFastTime(before);
+        }
+    }
+
+    @Test
+    void aNewGameStartsTheSkyInTheEarlyMorningAgain() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getDayCycle().advance(5000);
+
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+
+        assertEquals(AppConfig.getInstance().dayCycle().settings().startSeconds(),
+                state.getDayCycle().secondsIntoCycle(), 1e-9);
+        assertEquals(1, state.getDayCycle().dayNumber());
+    }
+
+    @Test
     void aRebuildClearsTheFlashOfTheOldWorld() {
         onFx(() -> orchestrator.startNewGame(MapType.DESERT));
         state.getClickFeedback().flash(3, 4, true, state.getGameTime());

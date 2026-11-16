@@ -10,7 +10,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.model.*;
+import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
+import com.feuerschvenger.perlinsedge.domain.world.time.SunScreenMapping;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.CursorStyle;
@@ -47,8 +51,11 @@ public class FxRenderer {
     /** Shimmer lines fainter than this are skipped, since they are not visible. */
     private static final double MIN_SHIMMER_ALPHA = 0.02;
 
-    /** Width in art pixels the shadow is sized from for a resource drawn without art. */
-    private static final double FALLBACK_RESOURCE_ART_WIDTH = 12.0;
+    /** Height in art pixels of the tallest sprite that casts a shadow, which bounds how far a shadow can reach. */
+    static final double MAX_CASTER_ART_HEIGHT = 48.0;
+
+    /** Half the width in art pixels of the widest sprite that casts a shadow. */
+    static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
 
     /** Width in art pixels the shadow is sized from for a player drawn without art. */
     private static final double FALLBACK_PLAYER_ART_WIDTH = 12.0;
@@ -74,13 +81,24 @@ public class FxRenderer {
     private final RenderQueue tileQueue = new RenderQueue();
     /** The depth sorted objects of a frame: resources, buildings, entities, items and the tile cursor. */
     private final RenderQueue renderQueue = new RenderQueue();
-    private final ShadowList shadows = new ShadowList();
+    /** The shadows of the resources and buildings of the frame, collected while the tiles are walked. They stand still. */
+    private final ShadowList staticShadows = new ShadowList();
+    /** The shadows of the player and the enemies of the frame, which move and are kept apart from the static ones. */
+    private final ShadowList dynamicShadows = new ShadowList();
+    /** Casts the shadows of a frame into two layers, only what changed, and lays them over the canvas once. */
+    private final FxShadowPass shadowPass = new FxShadowPass();
+    /** Lays the tint of the time of day over the world. */
+    private final FxSkyTint skyTint = new FxSkyTint();
     private final ColumnPainter columns;
     /** The palm or cactus choice of the desert trees, worked out once per tree instead of once per frame. */
     private final ResourceKindCache resourceKinds = new ResourceKindCache();
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
+    /** How far above or beside the canvas, in pixels, a caster can stand and still cast a shadow into it this frame. */
+    private double shadowReach;
+    /** How far below the canvas, in pixels, a caster can stand and still cast a shadow into it this frame. */
+    private double shadowBottomReach;
     /** The map type of the frame, which picks the biome art of the ground and its decals. */
     private MapType activeMapType;
     /** The shimmer animation clock of the frame, computed once from the game time. */
@@ -161,11 +179,19 @@ public class FxRenderer {
         gc.setImageSmoothing(false);
         renderQueue.clear();
         tileQueue.clear();
-        shadows.clear();
+        staticShadows.clear();
+        dynamicShadows.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
         this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
         final boolean paused = gameState.isGamePaused();
+        // Nothing is cast, and nothing is read from the sprites, while the shadows are too faint to see
+        final DayCycle sky = gameState.getDayCycle();
+        final double shadowStrength = sky.shadowStrength();
+        final boolean castShadows = shadowStrength >= FxShadowHelper.MIN_VISIBLE_STRENGTH;
+        // The sun of the frame, read once and shared by the reach of the casters and the shadow pass
+        final double shadowSunProgress = sky.shadowSunProgress();
+        final double shadowLengthFactor = sky.shadowLengthFactor();
 
         TileMap map = gameState.getCurrentMap();
         final double zoom = camera.getZoom();
@@ -184,7 +210,6 @@ public class FxRenderer {
         final double tileHeight = config.graphics().getTileHeight() * zoom;
         final double halfTileWidth = config.graphics().getTileHalfWidth() * zoom;
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
-        final double waterDepthOffset = halfTileHeight * 0.5;
         final int mapWidth = map.getWidth();
         final int mapHeight = map.getHeight();
 
@@ -197,18 +222,40 @@ public class FxRenderer {
 
         final long worldSeed = gameState.getWorldSeed();
 
+        // An object outside the view still casts a shadow into it when the shadow is long enough to reach, so the
+        // walk covers a wider ring of tiles, and only the casting is done for the tiles outside the view
+        final double artScale = ZoomSteps.artScale(zoom);
+        shadowReach = castShadows ? FxShadowHelper.reachMargin(MAX_CASTER_ART_HEIGHT, MAX_CASTER_ART_HALF_WIDTH,
+                shadowLengthFactor, artScale) : 0.0;
+        // Shadows fall down the screen, so a caster below the view reaches into it far less than one above or beside it,
+        // and the ring is thinner on the sides of the tile bounds that face the bottom of the screen
+        shadowBottomReach = castShadows ? FxShadowHelper.bottomMargin(MAX_CASTER_ART_HALF_WIDTH, artScale) : 0.0;
+        final int nearTiles = castShadows ? FxShadowHelper.nearRingTiles(shadowReach, halfTileHeight) : 0;
+        final int farTiles = castShadows ? FxShadowHelper.farRingTiles(shadowReach, shadowBottomReach, halfTileHeight) : 0;
+        final int walkMinX = Math.max(0, minTileX - nearTiles);
+        final int walkMaxX = Math.min(mapWidth, maxTileX + farTiles);
+        final int walkMinY = Math.max(0, minTileY - nearTiles);
+        final int walkMaxY = Math.min(mapHeight, maxTileY + farTiles);
+
         // Render tiles and resources
-        for (int y = minTileY; y < maxTileY; y++) {
-            for (int x = minTileX; x < maxTileX; x++) {
+        for (int y = walkMinY; y < walkMaxY; y++) {
+            for (int x = walkMinX; x < walkMaxX; x++) {
+                final boolean insideView = x >= minTileX && x < maxTileX && y >= minTileY && y < maxTileY;
                 final Tile tile = map.getTile(x, y);
                 if (tile == null) continue;
+                // A tile outside the view only matters for the shadow of what stands on it, so one with nothing on it
+                // is skipped before any screen maths is done for it
+                if (!insideView && !(castShadows && !isGrayscaleEnabled && castsShadow(tile))) continue;
 
                 // Calculate screen coordinates
                 double screenX = (x - y) * halfTileWidth + offsetX;
                 double screenY = (x + y) * halfTileHeight + offsetY;
 
-                // Frustum culling
-                if (!isTileVisible(screenX, screenY, tileWidth, tileHeight)) {
+                // Frustum culling: a tile that is not drawn can still cast a shadow into the view
+                if (!insideView || !isTileVisible(screenX, screenY, tileWidth, tileHeight)) {
+                    if (castShadows && !isGrayscaleEnabled) {
+                        castOffscreenShadows(map, tile, x, y, screenX, screenY, halfTileHeight, artScale, worldSeed);
+                    }
                     continue;
                 }
 
@@ -219,9 +266,8 @@ public class FxRenderer {
 
                 // A water tile with art is drawn as its sunk bed and its sheet from the land top, the one without
                 // art is a flat stand-in lowered by hand
-                if (!isGrayscaleEnabled && tile.getType().isWater() && tileSprite == null) {
-                    screenY += waterDepthOffset;
-                }
+                screenY += FxObjectShadows.waterDrop(!isGrayscaleEnabled && tile.getType().isWater(),
+                        tileSprite != null, halfTileHeight);
                 tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
 
                 // Add resource if present
@@ -240,27 +286,26 @@ public class FxRenderer {
                     // without an image the painter draws a stand-in shape.
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
                     // A struck resource shakes sideways for a moment, its shadow stays on the ground
-                    final double artScale = ZoomSteps.artScale(zoom);
                     final double secondsSinceHit = paused
                             ? Double.POSITIVE_INFINITY : resource.secondsSinceHit(currentFrameGameTime);
                     final double shakeX = HitShake.screenOffset(secondsSinceHit, artScale);
                     // A low sprite is drawn lower so its foot touches the ground, and its shadow follows that contact point
                     final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * artScale : 0.0;
-                    final double contact = spriteMetadata != null ? spriteMetadata.getContactArtPixels() * artScale : 0.0;
                     renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
-                    shadows.add(screenX, screenY + halfTileHeight + contact,
-                            GroundShadow.widthFor(resource.getType(),
-                                    resourceImage != null ? resourceImage.getWidth() : FALLBACK_RESOURCE_ART_WIDTH),
-                            1.0);
+                    if (castShadows) {
+                        FxObjectShadows.addForTile(staticShadows, resource.getType(), resourceImage,
+                                spriteMetadata != null ? spriteMetadata.getContactArtPixels() : 0, null, screenX,
+                                screenY, halfTileHeight, artScale);
+                    }
                 }
                 // Add building if present
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
-                    final double buildingShadow = GroundShadow.widthFor(building.getType());
-                    if (buildingShadow > 0) {
-                        shadows.add(screenX, screenY + halfTileHeight, buildingShadow, 1.0);
+                    if (castShadows) {
+                        FxObjectShadows.addForTile(staticShadows, null, null, 0, building.getType(), screenX, screenY,
+                                halfTileHeight, artScale);
                     }
                 }
             }
@@ -309,9 +354,14 @@ public class FxRenderer {
             renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
             // The sprite stands on the tile centre
             final double playerFeetY = playerY + halfTileHeight;
-            if (FxShadowHelper.isOnScreen(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight())) {
-                final double playerWidth = playerSprite != null ? playerSprite.getWidth() : FALLBACK_PLAYER_ART_WIDTH;
-                shadows.add(playerX, playerFeetY, playerWidth * GroundShadow.PLAYER_FRACTION, 1.0);
+            if (castShadows && FxShadowHelper.canReach(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight(),
+                    shadowReach, shadowBottomReach)) {
+                if (playerSprite != null) {
+                    final Silhouette silhouette = SilhouetteSprites.of(playerSprite);
+                    dynamicShadows.addSilhouette(playerX, playerFeetY, silhouette, silhouette.height(), 1.0, 1.0);
+                } else {
+                    dynamicShadows.add(playerX, playerFeetY, FALLBACK_PLAYER_ART_WIDTH * GroundShadow.PLAYER_FRACTION, 1.0);
+                }
             }
         }
 
@@ -330,11 +380,14 @@ public class FxRenderer {
                 double enemyDrawDepth = enemyScreenY + (halfTileHeight * 1.5);
 
                 renderQueue.add(enemyScreenX, enemyScreenY, enemyDrawDepth, enemy, null, false, null);
-                if (FxShadowHelper.isOnScreen(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight())) {
+                if (castShadows
+                        && FxShadowHelper.canReach(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight(),
+                        shadowReach, shadowBottomReach)) {
                     if (enemy instanceof Slime slime) {
-                        FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime);
+                        FxEnemyDrawingHelper.addSlimeShadow(dynamicShadows, enemyScreenX, enemyScreenY, zoom, slime,
+                                currentFrameGameTime);
                     } else {
-                        FxEnemyDrawingHelper.addGenericShadow(shadows, enemyScreenX, enemyScreenY, zoom);
+                        FxEnemyDrawingHelper.addGenericShadow(dynamicShadows, enemyScreenX, enemyScreenY, zoom);
                     }
                 }
             }
@@ -362,7 +415,8 @@ public class FxRenderer {
         for (int i = 0, count = tileQueue.size(); i < count; i++) {
             drawRenderable(tileQueue.get(i));
         }
-        FxShadowHelper.draw(gc, shadows, zoom);
+        shadowPass.draw(gc, staticShadows, dynamicShadows, artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
+                SunScreenMapping.shadowAngle(shadowSunProgress), shadowLengthFactor, shadowStrength);
         renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {
             drawRenderable(renderQueue.get(i));
@@ -370,6 +424,10 @@ public class FxRenderer {
         if (player != null) {
             renderPlayerAttack(gc, player, halfTileWidth, halfTileHeight, offsetX, offsetY);
         }
+        // The sky tint covers the whole world, tiles, shadows and objects alike. It is laid on before the damage
+        // numbers, which are readable text and stay untinted, and the hurt glow, the debug text and the interface
+        // panels come after it or are not part of the canvas at all.
+        skyTint.draw(gc, sky, canvas.getWidth(), canvas.getHeight());
         FxDamageNumbersPainter.draw(gc, gameState.getDamageNumbers(), currentFrameGameTime, halfTileWidth,
                 halfTileHeight, offsetX, offsetY, zoom, canvas.getWidth(), canvas.getHeight());
         gc.restore();
@@ -379,13 +437,52 @@ public class FxRenderer {
         }
 
         // Draw debug info
-        FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, deltaTime);
-        if (config.debug().isFpsOverlayEnabled()) {
-            FxDebugDrawingHelper.drawFpsOverlay(gc, frameStats, tileQueue.size() + renderQueue.size());
-        }
+        FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, frameStats, tileQueue.size() + renderQueue.size());
     }
 
     // Helper methods --------------------------------------------------------
+
+    /**
+     * Casts the shadows of a tile that is not drawn, when they are long enough to reach into the view. Only the
+     * shadow is added, so nothing outside the view is queued for drawing. It goes through the same
+     * {@link FxObjectShadows} calls as a tile in the view, including the drop of a water tile with no art, so an
+     * object throws its shadow from the same point either way.
+     */
+    private void castOffscreenShadows(TileMap map, Tile tile, int x, int y, double screenX, double screenY,
+                                      double halfTileHeight, double artScale, long worldSeed) {
+        final Resource resource = tile.getWorldResource();
+        final boolean hasResource = tile.hasResource() && resource != null;
+        final Building building = tile.getBuilding();
+        final boolean hasBuilding = tile.hasBuilding() && building != null;
+        if (!hasResource && !hasBuilding) {
+            return;
+        }
+        if (!FxShadowHelper.canReach(screenX, screenY + halfTileHeight, canvas.getWidth(), canvas.getHeight(),
+                shadowReach, shadowBottomReach)) {
+            return;
+        }
+        final boolean water = tile.getType().isWater();
+        final double drop = FxObjectShadows.waterDrop(water,
+                water && spriteManager.getTileSprite(activeMapType, tile.getType(), x, y) != null, halfTileHeight);
+        Image image = null;
+        int contactArt = 0;
+        if (hasResource) {
+            final String preferredKind = resourceKinds.preferredKind(map, activeMapType, resource.getType(), x, y,
+                    worldSeed);
+            final SpriteManager.SpriteMetadata metadata = spriteManager.getResourceSprite(
+                    activeMapType, resource.getType(), x, y, worldSeed, preferredKind);
+            image = metadata != null ? metadata.getImage() : null;
+            contactArt = metadata != null ? metadata.getContactArtPixels() : 0;
+        }
+        FxObjectShadows.addForTile(staticShadows, hasResource ? resource.getType() : null, image, contactArt,
+                hasBuilding ? building.getType() : null, screenX, screenY + drop, halfTileHeight, artScale);
+    }
+
+    /** Tells whether something stands on a tile that casts a shadow: a resource or a building. */
+    private static boolean castsShadow(Tile tile) {
+        return (tile.hasResource() && tile.getWorldResource() != null)
+                || (tile.hasBuilding() && tile.getBuilding() != null);
+    }
 
     /** The preview of the building being placed, recreated only when the tile or the colour changes. */
     private BuildingPreview previewFor() {

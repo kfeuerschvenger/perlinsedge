@@ -1,0 +1,359 @@
+package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
+
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
+import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.PixelReader;
+import javafx.scene.paint.Color;
+import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class FxShadowPassTest {
+
+    private static final int WIDTH = 240;
+    private static final int HEIGHT = 160;
+    private static final double NOON = Math.PI / 2;
+
+    private static Silhouette block(int width, int height) {
+        final int[] pixels = new int[width * height];
+        Arrays.fill(pixels, 0xFFFFFFFF);
+        return new Silhouette(width, height, pixels);
+    }
+
+    /** The grey level of a white canvas that one frame of shadows was laid on, read back pixel by pixel. */
+    private static int[][] render(FxShadowPass pass, Canvas canvas, ShadowList shadows, double scale, double originX,
+                                  double originY, double strength) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        gc.setFill(Color.WHITE);
+        gc.fillRect(0, 0, WIDTH, HEIGHT);
+        pass.draw(gc, new ShadowList(), shadows, scale, originX, originY, WIDTH, HEIGHT, NOON, 1.0, strength);
+        final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
+        final int[][] grey = new int[HEIGHT][WIDTH];
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                grey[y][x] = reader.getArgb(x, y) & 0xFF;
+            }
+        }
+        return grey;
+    }
+
+    /** The silhouette every test block shares, as the sprite cache hands out one silhouette per sprite. */
+    private static final Silhouette BLOCK = block(10, 12);
+
+    private static ShadowList oneBlock(double x, double y) {
+        final ShadowList list = new ShadowList();
+        list.addSilhouette(x, y, BLOCK, 12, 1.0, 1.0);
+        return list;
+    }
+
+    @Test
+    void aShadowDarkensTheWorldByTheShadowOpacity() {
+        final int[][] grey = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(120, 60), 2.0, 0, 0, 1.0));
+
+        final int expected = (int) Math.round(255 * (1.0 - GroundShadow.OPACITY));
+        // Straight under the anchor of a noon shadow
+        assertEquals(expected, grey[63][120], 2);
+        assertEquals(255, grey[10][10], "far from every shadow the world is untouched");
+    }
+
+    @Test
+    void theStrengthOfTheDayScalesTheDarkness() {
+        final int[][] half = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(120, 60), 2.0, 0, 0, 0.5));
+        final int[][] none = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(120, 60), 2.0, 0, 0, 0.0));
+
+        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), half[63][120], 2);
+        for (int[] row : none) {
+            for (int value : row) {
+                assertEquals(255, value, "no shadow at all at night");
+            }
+        }
+    }
+
+    @Test
+    void overlappingShadowsAreAsDarkAsOneAndTheyAreOnlyCompositedOnce() {
+        final int[][] single = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(120, 60), 2.0, 0, 0, 1.0));
+
+        final ShadowList crowd = new ShadowList();
+        crowd.addSilhouette(120, 60, block(10, 12), 12, 1.0, 1.0);
+        crowd.addSilhouette(120, 60, block(10, 12), 12, 1.0, 1.0);
+        crowd.addSilhouette(124, 62, block(10, 12), 12, 1.0, 1.0);
+        crowd.add(120, 60, 14, 1.0);
+        final int[][] overlapped = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), crowd, 2.0, 0, 0, 1.0));
+
+        int darkest = 255;
+        int lightestInsideShadow = 0;
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                darkest = Math.min(darkest, overlapped[y][x]);
+                if (single[y][x] < 255) {
+                    lightestInsideShadow = Math.max(lightestInsideShadow, overlapped[y][x]);
+                    assertEquals(single[y][x], overlapped[y][x], 1, "same darkness as one shadow at " + x + "," + y);
+                }
+            }
+        }
+        final int expected = (int) Math.round(255 * (1.0 - GroundShadow.OPACITY));
+        assertEquals(expected, darkest, 2, "no cell is darker than a single shadow");
+        assertTrue(lightestInsideShadow <= expected + 2);
+    }
+
+    @Test
+    void aFadedShadowIsLighterThanAFullOne() {
+        final ShadowList faded = new ShadowList();
+        faded.addSilhouette(120, 60, block(10, 12), 12, 1.0, 0.5);
+        final int[][] grey = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), faded, 2.0, 0, 0, 1.0));
+
+        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), grey[63][120], 3);
+    }
+
+    @Test
+    void everyShadowPixelIsACrispBlockOfTheArtScaleAtEveryScale() {
+        for (double scale : new double[]{2.0, 3.0, 4.0}) {
+            final int[][] grey = FxToolkitSupport.onFx(() ->
+                    render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(120, 80), scale, 0, 0, 1.0));
+
+            final int block = (int) scale;
+            int shaded = 0;
+            for (int by = 0; by + block <= HEIGHT; by += block) {
+                for (int bx = 0; bx + block <= WIDTH; bx += block) {
+                    final int value = grey[by][bx];
+                    shaded += value < 255 ? 1 : 0;
+                    for (int dy = 0; dy < block; dy++) {
+                        for (int dx = 0; dx < block; dx++) {
+                            assertEquals(value, grey[by + dy][bx + dx],
+                                    "scale " + scale + " block " + bx + "," + by + " must be one flat colour");
+                        }
+                    }
+                }
+            }
+            assertTrue(shaded > 0, "scale " + scale);
+        }
+    }
+
+    @Test
+    void theGridFollowsTheCameraSoShadowsKeepTheirPlaceOnTheArt() {
+        // Camera origin 1 pixel off the screen grid: the blocks shift with it
+        final int[][] grey = FxToolkitSupport.onFx(() ->
+                render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(121, 60), 2.0, 1, 0, 1.0));
+
+        // Blocks are aligned to odd columns, so the pair (1,2) is a block and (0,1) is not
+        int sameInsideBlock = 0;
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 1; x + 1 < WIDTH; x += 2) {
+                if (grey[y][x] < 255) {
+                    assertEquals(grey[y][x], grey[y][x + 1], "block aligned to the camera at " + x + "," + y);
+                    sameInsideBlock++;
+                }
+            }
+        }
+        assertTrue(sameInsideBlock > 0);
+    }
+
+    @Test
+    void aFrameWithoutShadowsWipesTheShadowsOfThePreviousFrame() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final int[][] first = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        final int[][] second = FxToolkitSupport.onFx(() -> render(pass, canvas, new ShadowList(), 2.0, 0, 0, 1.0));
+        final int[][] third = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(60, 100), 2.0, 0, 0, 1.0));
+
+        assertTrue(first[63][120] < 255);
+        assertEquals(255, second[63][120]);
+        assertEquals(255, third[63][120], "the old place is clean once the shadow has moved");
+        assertTrue(third[103][60] < 255);
+    }
+
+    /** Draws one frame with an explicit sun, which the render helper above keeps at noon. */
+    private static int[][] renderWithSun(FxShadowPass pass, Canvas canvas, ShadowList shadows, double originX,
+                                         double strength, double angle, double length) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        gc.setFill(Color.WHITE);
+        gc.fillRect(0, 0, WIDTH, HEIGHT);
+        pass.draw(gc, new ShadowList(), shadows, 2.0, originX, 0, WIDTH, HEIGHT, angle, length, strength);
+        final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
+        final int[][] grey = new int[HEIGHT][WIDTH];
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                grey[y][x] = reader.getArgb(x, y) & 0xFF;
+            }
+        }
+        return grey;
+    }
+
+    @Test
+    void aFrameWithTheSameInputsKeepsTheLayerAndDoesNotCastOrUploadAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final int[][] first = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        assertEquals(1, pass.recasts());
+        assertEquals(1, pass.uploads());
+
+        // A new list with the same content is the same frame as far as the shadows go
+        final int[][] second = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        final int[][] third = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+
+        assertEquals(1, pass.recasts(), "nothing changed, so nothing was cast again");
+        assertEquals(1, pass.uploads(), "and nothing was uploaded again");
+        assertTrue(Arrays.deepEquals(first, second), "the kept layer is drawn exactly as before");
+        assertTrue(Arrays.deepEquals(first, third));
+    }
+
+    @Test
+    void theStrengthOfTheDayChangesTheDarknessWithoutCastingAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        final int[][] half = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 0.5));
+
+        assertEquals(1, pass.recasts());
+        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), half[63][120], 2);
+    }
+
+    @Test
+    void anythingTheLayerDependsOnCastsAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(122, 60), 2.0, 0, 0, 1.0));
+        assertEquals(2, pass.recasts(), "a shadow that moved");
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(122, 60), 2.0, 1, 0, 1.0));
+        assertEquals(3, pass.recasts(), "a camera that moved");
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(122, 60), 4.0, 1, 0, 1.0));
+        assertEquals(4, pass.recasts(), "another art scale");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, oneBlock(122, 60), 1, 1.0, NOON + 0.1, 1.0));
+        assertEquals(5, pass.recasts(), "another sun step");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, oneBlock(122, 60), 1, 1.0, NOON + 0.1, 1.5));
+        assertEquals(6, pass.recasts(), "another shadow length");
+        final ShadowList fainter = new ShadowList();
+        fainter.addSilhouette(122, 60, block(10, 12), 12, 1.0, 0.5);
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, fainter, 1, 1.0, NOON + 0.1, 1.5));
+        assertEquals(7, pass.recasts(), "a shadow that faded");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, fainter, 1, 0.0, NOON + 0.1, 1.5));
+        assertEquals(8, pass.recasts(), "shadows that became too faint to see are wiped");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, new ShadowList(), 1, 0.0, NOON + 0.1, 1.5));
+        assertEquals(8, pass.recasts(), "while they stay invisible the list does not matter");
+    }
+
+    @Test
+    void aShadowThatBecomesInvisibleLeavesNothingBehindWhenItReturnsElsewhere() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        final int[][] night = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 0.0));
+        final int[][] morning = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(40, 120), 2.0, 0, 0, 1.0));
+
+        assertEquals(255, night[63][120]);
+        assertEquals(255, morning[63][120], "the shadow of the old frame did not come back");
+        assertTrue(morning[123][40] < 255);
+    }
+
+    /** Draws one frame with a static and a dynamic list at art scale two and reads the grey levels back. */
+    private static int[][] renderBoth(FxShadowPass pass, Canvas canvas, ShadowList fixed, ShadowList moving,
+                                      double originX) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        gc.setFill(Color.WHITE);
+        gc.fillRect(0, 0, WIDTH, HEIGHT);
+        pass.draw(gc, fixed, moving, 2.0, originX, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
+        final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
+        final int[][] grey = new int[HEIGHT][WIDTH];
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                grey[y][x] = reader.getArgb(x, y) & 0xFF;
+            }
+        }
+        return grey;
+    }
+
+    private static int[][] freshBoth(ShadowList fixed, ShadowList moving, double originX) {
+        return FxToolkitSupport.onFx(() -> renderBoth(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), fixed, moving,
+                originX));
+    }
+
+    @Test
+    void movingOnlyADynamicShadowDoesNotCastTheStaticOnesAgainAndUploadsOnlyTheOldAndNewBox() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final ShadowList tree = oneBlock(60, 120);
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, tree, oneBlock(180, 60), 0));
+        assertEquals(1, pass.staticRecasts());
+        assertEquals(1, pass.recasts());
+        assertEquals(1, pass.uploads());
+
+        final int[][] moved = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, tree, oneBlock(184, 60), 0));
+
+        assertEquals(1, pass.staticRecasts(), "the static shadows were not stamped again");
+        assertEquals(2, pass.recasts());
+        assertEquals(2, pass.uploads());
+        final int[] box = pass.lastUpload();
+        // The static block stands on the left at about cell 30, the creature on the right at about cell 90
+        assertTrue(box[0] > 60, "the upload does not reach back to the static shadow: " + Arrays.toString(box));
+        assertTrue(box[2] <= 110 && box[3] <= 82, Arrays.toString(box));
+        assertTrue(Arrays.deepEquals(freshBoth(tree, oneBlock(184, 60), 0), moved),
+                "the combined image is what a full recast gives");
+    }
+
+    @Test
+    void aStaticAndADynamicShadowOnTheSameSpotAreAsDarkAsOne() {
+        final int[][] single = freshBoth(new ShadowList(), oneBlock(120, 60), 0);
+        final ShadowList faded = new ShadowList();
+        faded.addSilhouette(120, 60, BLOCK, 12, 1.0, 0.5);
+
+        final int[][] fadedStatic = freshBoth(faded, oneBlock(120, 60), 0);
+        final int[][] fadedDynamic = freshBoth(oneBlock(120, 60), faded, 0);
+        final int[][] both = freshBoth(oneBlock(120, 60), oneBlock(122, 60), 0);
+
+        assertTrue(Arrays.deepEquals(single, fadedStatic), "the stronger dynamic shadow wins over a fainter static one");
+        assertTrue(Arrays.deepEquals(single, fadedDynamic), "the stronger static shadow wins over a fainter dynamic one");
+        final int expected = (int) Math.round(255 * (1.0 - GroundShadow.OPACITY));
+        int darkest = 255;
+        for (int[] row : both) {
+            for (int value : row) {
+                darkest = Math.min(darkest, value);
+            }
+        }
+        assertEquals(expected, darkest, 2, "no cell is darker than a single shadow");
+    }
+
+    @Test
+    void aDynamicShadowThatLeavesAStaticOneGivesTheStaticCellsBack() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final ShadowList tree = oneBlock(120, 60);
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, tree, oneBlock(124, 64), 0));
+
+        final int[][] left = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, tree, new ShadowList(), 0));
+
+        assertTrue(Arrays.deepEquals(freshBoth(tree, new ShadowList(), 0), left));
+        assertEquals(1, pass.staticRecasts());
+    }
+
+    @Test
+    void aChangeOfTheCameraOrOfTheStaticListCastsTheStaticShadowsAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(60, 120), oneBlock(180, 60), 0));
+
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(60, 120), oneBlock(180, 60), 1));
+        assertEquals(2, pass.staticRecasts(), "a camera that moved by a pixel");
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(62, 120), oneBlock(180, 60), 1));
+        assertEquals(3, pass.staticRecasts(), "a static shadow that moved");
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(62, 120), oneBlock(184, 60), 1));
+        assertEquals(3, pass.staticRecasts(), "a creature that moved");
+    }
+}

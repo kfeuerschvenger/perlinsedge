@@ -33,6 +33,19 @@ class SlimeShadowTest {
     }
 
     @Test
+    void aWholeJumpTakesFewDistinctWidthFactors() {
+        final java.util.Set<Double> factors = new java.util.HashSet<>();
+        for (int frame = 0; frame <= 1000; frame++) {
+            final double height = Math.sin(Math.PI * frame / 1000.0) * MAX;
+            factors.add(SlimeShadow.quantiseFactor(SlimeShadow.width(SIZE, height, MAX) / SlimeShadow.width(SIZE, 0, MAX)));
+        }
+
+        assertTrue(factors.size() <= 7, "distinct factors: " + factors.size());
+        assertEquals(1.0, SlimeShadow.quantiseFactor(1.0));
+        assertEquals(0.6875, SlimeShadow.quantiseFactor(0.7), 1e-12);
+    }
+
+    @Test
     void aZeroMaximumHeightKeepsTheGroundShadow() {
         assertEquals(SlimeShadow.width(SIZE, 0, MAX), SlimeShadow.width(SIZE, 10, 0));
         assertEquals(SlimeShadow.opacity(0, MAX), SlimeShadow.opacity(10, 0));

@@ -25,8 +25,8 @@ public enum GameKey {
     F3,
     F4,
     F5,
-    /** Toggles the FPS overlay, which is independent of the debug mode. */
-    F6,
+    /** Toggles the fast time of the day cycle, so the sun can be watched crossing the sky. */
+    F7,
     DIGIT_1(1),
     DIGIT_2(2),
     DIGIT_3(3),
