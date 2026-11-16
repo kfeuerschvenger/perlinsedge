@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class FxDebugDrawingHelperTest {
 
     private static DayCycle cycleAt(double seconds) {
-        final DayCycle cycle = new DayCycle(new DayCycleSettings(90, 600, 90, 420, 0, 16, 0.6, 2.0));
+        final DayCycle cycle = new DayCycle(new DayCycleSettings(90, 600, 90, 420, 0, 17, 0.6, 2.0));
         cycle.advance(seconds);
         return cycle;
     }

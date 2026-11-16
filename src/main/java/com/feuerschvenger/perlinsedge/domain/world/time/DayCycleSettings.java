@@ -9,7 +9,8 @@ package com.feuerschvenger.perlinsedge.domain.world.time;
  * @param duskSeconds      length of the dusk
  * @param nightSeconds     length of the night
  * @param startSeconds     seconds into the cycle at which a new world starts, counted from the beginning of the dawn
- * @param shadowSteps      how many distinct sun positions the shadows take across the daylight arc
+ * @param shadowSteps      how many distinct sun positions the shadows take across the daylight arc, an odd number so the
+ *                         middle step is centred on noon and its shadow points straight down
  * @param minShadowLength  shadow length factor at noon, when the sun is highest
  * @param maxShadowLength  shadow length factor with the sun on the horizon
  */
@@ -20,22 +21,29 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
     /**
      * Validates the values.
      *
-     * @throws IllegalArgumentException if a duration is not positive, the start is negative, there is no shadow step
-     *                                  or the shadow length range is empty
+     * @throws IllegalArgumentException if a value is not a finite number, a duration is not positive, the start is
+     *                                  negative, the number of shadow steps is not odd or the shadow length range is
+     *                                  empty
      */
     public DayCycleSettings {
-        if (dawnSeconds <= 0 || daySeconds <= 0 || duskSeconds <= 0 || nightSeconds <= 0) {
+        if (!isPositive(dawnSeconds) || !isPositive(daySeconds) || !isPositive(duskSeconds)
+                || !isPositive(nightSeconds)) {
             throw new IllegalArgumentException("Every phase must last longer than zero seconds");
         }
-        if (startSeconds < 0) {
-            throw new IllegalArgumentException("The start cannot be negative");
+        if (!Double.isFinite(startSeconds) || startSeconds < 0) {
+            throw new IllegalArgumentException("The start must be a finite number that is not negative");
         }
-        if (shadowSteps < 1) {
-            throw new IllegalArgumentException("There must be at least one shadow step");
+        if (shadowSteps < 1 || shadowSteps % 2 == 0) {
+            throw new IllegalArgumentException("The shadow steps must be an odd number so one is centred on noon");
         }
-        if (minShadowLength <= 0 || maxShadowLength < minShadowLength) {
+        if (!isPositive(minShadowLength) || !Double.isFinite(maxShadowLength) || maxShadowLength < minShadowLength) {
             throw new IllegalArgumentException("The shadow length range must be positive and ordered");
         }
+    }
+
+    /** Tells whether a value is a finite number above zero, which rules out NaN and the infinities. */
+    private static boolean isPositive(double value) {
+        return Double.isFinite(value) && value > 0;
     }
 
     /** @return the length of a whole cycle in seconds */

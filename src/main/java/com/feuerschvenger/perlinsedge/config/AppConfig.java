@@ -185,19 +185,26 @@ public class AppConfig {
      * the sun are quantised and the fast time of the debug key.
      */
     public static class DayCycleConfig {
-        // Minecraft proportions: a cycle of twenty minutes
+        /** Game seconds the dawn lasts. The four phases follow Minecraft proportions, a cycle of twenty minutes. */
         private static final double DAWN_SECONDS = 90;
+        /** Game seconds of full daylight. */
         private static final double DAY_SECONDS = 600;
+        /** Game seconds the dusk lasts. */
         private static final double DUSK_SECONDS = 90;
+        /** Game seconds the night lasts. */
         private static final double NIGHT_SECONDS = 420;
         /** A new world starts half a minute after the dawn has ended. */
         private static final double START_SECONDS = 120;
-        private static final int SHADOW_STEPS = 16;
+        /** Distinct sun positions the shadows take across the day, an odd number so one is centred on noon. */
+        private static final int SHADOW_STEPS = 17;
+        /** Shadow length as a multiple of the height of what casts it, at noon. */
         private static final double MIN_SHADOW_LENGTH = 0.6;
+        /** Shadow length as a multiple of the height of what casts it, with the sun on the horizon. */
         private static final double MAX_SHADOW_LENGTH = 2.0;
         /** Real seconds a whole day lasts while the fast time of the debug key is on. */
         private static final double FAST_DAY_REAL_SECONDS = 40;
 
+        /** Whether the fast time of the debug key is on. */
         private boolean fastTime;
 
         /** @return the settings a {@link DayCycle} runs on */
@@ -208,7 +215,7 @@ public class AppConfig {
 
         /** @return how many game seconds pass per real second while the fast time is on */
         public double getFastTimeMultiplier() {
-            return (DAWN_SECONDS + DAY_SECONDS + DUSK_SECONDS + NIGHT_SECONDS) / FAST_DAY_REAL_SECONDS;
+            return settings().cycleSeconds() / FAST_DAY_REAL_SECONDS;
         }
 
         /** @return true while the fast time of the debug key is on */

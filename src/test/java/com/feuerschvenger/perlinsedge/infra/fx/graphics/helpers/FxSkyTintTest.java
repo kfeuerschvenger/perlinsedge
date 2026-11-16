@@ -19,7 +19,7 @@ class FxSkyTintTest {
     private static final double NIGHT = 420;
 
     private static DayCycle at(double seconds) {
-        final DayCycle cycle = new DayCycle(new DayCycleSettings(DAWN, DAY, DUSK, NIGHT, 0, 16, 0.6, 2.0));
+        final DayCycle cycle = new DayCycle(new DayCycleSettings(DAWN, DAY, DUSK, NIGHT, 0, 17, 0.6, 2.0));
         cycle.advance(seconds);
         return cycle;
     }

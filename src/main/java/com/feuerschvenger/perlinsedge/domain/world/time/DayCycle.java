@@ -16,10 +16,14 @@ public final class DayCycle {
 
     /** The tint of the night: a deep blue, dark enough that the world is only just playable without a light. */
     private static final Rgba NIGHT_COLOUR = new Rgba(0.03, 0.05, 0.16, 1.0);
+
+    /** How strongly the night tint is laid over the world, the most of any moment of the day. */
     private static final double NIGHT_STRENGTH = 0.72;
 
     /** The tint of the horizon at dawn and dusk: a warm orange. */
     private static final Rgba WARM_COLOUR = new Rgba(1.0, 0.48, 0.14, 1.0);
+
+    /** How strongly the warm tint of the dawn and the dusk is laid over the world. */
     private static final double WARM_STRENGTH = 0.25;
 
     /** Share of the dawn the night takes to turn fully warm. */
@@ -35,11 +39,18 @@ public final class DayCycle {
 
     /** The tint of midday: no tint at all. */
     private static final Rgba NEUTRAL_COLOUR = new Rgba(1.0, 1.0, 1.0, 1.0);
+
+    /** How strongly the neutral tint is laid over the world: not at all. */
     private static final double NEUTRAL_STRENGTH = 0.0;
 
+    /** The durations and the shadow rules the cycle runs on. */
     private final DayCycleSettings settings;
     /** Seconds since the world started, including the offset a new world begins at. */
     private double elapsed;
+    /** The value of {@link #elapsed} the cached tint was worked out for, NaN while there is none. */
+    private double tintAt = Double.NaN;
+    /** The tint worked out for {@link #tintAt}, so the colour and the strength of a frame share one calculation. */
+    private Tint tint;
 
     /**
      * Creates a cycle at the start of a new world.
@@ -72,10 +83,16 @@ public final class DayCycle {
         return settings;
     }
 
-    /** @return seconds into the current cycle, from zero at the beginning of the dawn */
+    /**
+     * Returns where the clock is inside the current cycle. Floating point rounding can leave the remainder a hair
+     * outside the cycle, so it is clamped to keep every phase lookup in range.
+     *
+     * @return seconds into the current cycle, from zero at the beginning of the dawn up to but excluding the cycle length
+     */
     public double secondsIntoCycle() {
         final double cycle = settings.cycleSeconds();
-        return elapsed - Math.floor(elapsed / cycle) * cycle;
+        final double seconds = elapsed - Math.floor(elapsed / cycle) * cycle;
+        return Math.max(0.0, Math.min(Math.nextDown(cycle), seconds));
     }
 
     /** @return the time of day from 0, the beginning of the dawn, up to but excluding 1, which is the next dawn */
@@ -109,7 +126,7 @@ public final class DayCycle {
      * @return 0 at sunrise, 0.5 at noon and 1 at sunset, and 1 for the whole night, when the sun cannot be seen
      */
     public double sunProgress() {
-        return Math.min(1.0, secondsIntoCycle() / settings.daylightSeconds());
+        return Math.max(0.0, Math.min(1.0, secondsIntoCycle() / settings.daylightSeconds()));
     }
 
     /** @return how high the sun stands, 0 on the horizon and 1 at noon, and 0 at night */
@@ -120,7 +137,8 @@ public final class DayCycle {
     /**
      * Returns the sun position the shadows are drawn from. The arc is cut into
      * {@link DayCycleSettings#shadowSteps()} equal steps and every position inside a step maps to the middle of it, so
-     * the shadows move in crisp jumps instead of shimmering with every frame.
+     * the shadows move in crisp jumps instead of shimmering with every frame. The number of steps is odd, so the middle
+     * step is centred on noon: its shadow points straight down and has the minimum length.
      *
      * @return the quantised position on the arc, strictly between 0 and 1
      */
@@ -174,11 +192,23 @@ public final class DayCycle {
     }
 
     /**
+     * Returns the tint of the moment. It is worked out once per position of the clock, so asking for the colour and
+     * then the strength in one frame costs a single calculation.
+     */
+    private Tint sampleTint() {
+        if (tint == null || tintAt != elapsed) {
+            tint = computeTint();
+            tintAt = elapsed;
+        }
+        return tint;
+    }
+
+    /**
      * Works out the tint of the moment from the keyframes. The night turns warm through the first part of the dawn, the
      * warm light holds into the early morning and then fades to neutral. Well before the dusk the light turns warm again,
      * holds through the first half of the dusk and then sinks into the night.
      */
-    private Tint sampleTint() {
+    private Tint computeTint() {
         final double s = secondsIntoCycle();
         final double dawn = settings.dawnSeconds();
         final double day = settings.daySeconds();
@@ -224,6 +254,7 @@ public final class DayCycle {
                 mix(fromStrength, toStrength, t));
     }
 
+    /** Returns the point a share of the way from one value to another, {@code from} at zero and {@code to} at one. */
     private static double mix(double from, double to, double t) {
         return from + (to - from) * t;
     }

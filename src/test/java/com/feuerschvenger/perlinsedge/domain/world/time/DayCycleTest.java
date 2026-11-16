@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,7 +19,7 @@ class DayCycleTest {
     private static final double DUSK = 90;
     private static final double NIGHT = 420;
     private static final double CYCLE = DAWN + DAY + DUSK + NIGHT;
-    private static final int STEPS = 16;
+    private static final int STEPS = 17;
 
     private static DayCycleSettings settings() {
         return new DayCycleSettings(DAWN, DAY, DUSK, NIGHT, 120, STEPS, 0.6, 2.0);
@@ -247,5 +249,106 @@ class DayCycleTest {
         assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, -1, 4, 0.5, 1));
         assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 0, 0.5, 1));
         assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 4, 1.5, 1));
+    }
+
+    @Test
+    void settingsRejectNotANumberAndInfiniteValues() {
+        final double nan = Double.NaN;
+        final double inf = Double.POSITIVE_INFINITY;
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(nan, 1, 1, 1, 0, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, nan, 1, 1, 0, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, nan, 1, 0, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, nan, 0, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, nan, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 3, nan, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 3, 0.5, nan));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(inf, 1, 1, 1, 0, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, inf, 0, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, inf, 3, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 3, 0.5, inf));
+    }
+
+    @Test
+    void anEvenNumberOfShadowStepsIsRejectedBecauseNoStepWouldBeCentredOnNoon() {
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 16, 0.5, 1));
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(1, 1, 1, 1, 0, 2, 0.5, 1));
+    }
+
+    @Test
+    void theClockAndTheSunStayInsideTheirRangeWhateverTheElapsedTime() {
+        final double[] elapsed = {0.0, 1e-12, CYCLE - 1e-9, CYCLE, CYCLE * 3 + 0.5, 1e9, 1e12 + 0.3, 1e15, 123456789.987};
+        for (double seconds : elapsed) {
+            final DayCycle cycle = at(seconds);
+            assertTrue(cycle.secondsIntoCycle() >= 0.0 && cycle.secondsIntoCycle() < CYCLE, "clock at " + seconds);
+            assertTrue(cycle.sunProgress() >= 0.0 && cycle.sunProgress() <= 1.0, "sun at " + seconds);
+            assertTrue(cycle.timeOfDay() >= 0.0 && cycle.timeOfDay() < 1.0, "time of day at " + seconds);
+        }
+    }
+
+    @Test
+    void oneLargeAdvanceAcrossSeveralDayBoundariesLandsOnTheRightDayAndPhase() {
+        final DayCycle dusk = at(CYCLE * 7 + DAWN + DAY + 5);
+        assertEquals(8, dusk.dayNumber());
+        assertEquals(DayPhase.DUSK, dusk.phase());
+        assertEquals(DAWN + DAY + 5, dusk.secondsIntoCycle(), 1e-6);
+
+        final DayCycle night = at(CYCLE * 12 + DAWN + DAY + DUSK + 1);
+        assertEquals(13, night.dayNumber());
+        assertEquals(DayPhase.NIGHT, night.phase());
+
+        final DayCycle dawn = at(CYCLE * 3);
+        assertEquals(4, dawn.dayNumber());
+        assertEquals(DayPhase.DAWN, dawn.phase());
+        assertEquals(0.0, dawn.secondsIntoCycle(), 1e-6);
+    }
+
+    @Test
+    void aVeryShortCycleStillWrapsAndKeepsItsPhases() {
+        final double unit = 0.001;
+        final DayCycle cycle = new DayCycle(new DayCycleSettings(unit, unit, unit, unit, 0, STEPS, 0.6, 2.0));
+
+        assertEquals(DayPhase.DAWN, cycle.phase());
+        cycle.advance(unit * 1.5);
+        assertEquals(DayPhase.DAY, cycle.phase());
+        cycle.advance(unit);
+        assertEquals(DayPhase.DUSK, cycle.phase());
+        cycle.advance(unit);
+        assertEquals(DayPhase.NIGHT, cycle.phase());
+        cycle.advance(unit * 1000);
+        assertTrue(cycle.secondsIntoCycle() >= 0.0 && cycle.secondsIntoCycle() < unit * 4);
+        assertTrue(cycle.dayNumber() > 200);
+        assertTrue(cycle.shadowStrength() >= 0.0 && cycle.shadowStrength() <= 1.0);
+        assertTrue(cycle.skyTintStrength() >= 0.0 && cycle.skyTintStrength() <= 1.0);
+    }
+
+    @Test
+    void noonIsTheMiddleOfAStepSoShadowsPointStraightDownAtTheMinimumLength() {
+        final DayCycle noon = at(settings().daylightSeconds() / 2);
+
+        assertEquals(0.5, noon.shadowSunProgress(), 1e-12);
+        assertEquals(Math.PI / 2, SunScreenMapping.shadowAngle(noon.shadowSunProgress()), 1e-12);
+        assertEquals(0.6, noon.shadowLengthFactor(), 1e-12);
+        assertEquals(0.0, SunScreenMapping.shadowDirectionX(noon.shadowSunProgress()), 1e-12);
+    }
+
+    @Test
+    void theFirstAndTheLastShadowStepAreMirrorImagesOfEachOther() {
+        final DayCycle first = at(0);
+        final DayCycle last = at(settings().daylightSeconds());
+
+        assertEquals(1.0, first.shadowSunProgress() + last.shadowSunProgress(), 1e-12);
+        assertEquals(first.shadowLengthFactor(), last.shadowLengthFactor(), 1e-12);
+        assertEquals(-SunScreenMapping.shadowDirectionX(first.shadowSunProgress()),
+                SunScreenMapping.shadowDirectionX(last.shadowSunProgress()), 1e-12);
+    }
+
+    @Test
+    void theColourAndTheStrengthOfOneMomentComeFromOneCalculation() {
+        final DayCycle cycle = at(10);
+
+        assertSame(cycle.skyTint(), cycle.skyTint());
+        final Rgba before = cycle.skyTint();
+        cycle.advance(1.0);
+        assertNotSame(before, cycle.skyTint(), "a new moment gets a new tint");
     }
 }
