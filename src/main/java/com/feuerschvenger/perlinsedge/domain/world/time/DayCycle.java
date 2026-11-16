@@ -27,11 +27,9 @@ public final class DayCycle {
     private static final double WARM_STRENGTH = 0.25;
 
     /** Share of the dawn the night takes to turn fully warm. */
-    private static final double DAWN_WARM_SHARE = 0.4;
-    /** Share of the day the morning keeps the full warm light, 45 s of a 10 minute day. */
-    private static final double MORNING_WARM_SHARE = 0.075;
-    /** Share of the day the morning warm light takes to fade to neutral, 90 s of a 10 minute day. */
-    private static final double MORNING_FADE_SHARE = 0.15;
+    private static final double DAWN_WARM_SHARE = 0.30;
+    /** Share of the dawn at which the warm light starts to fade to neutral, which it reaches as the dawn ends. */
+    private static final double DAWN_HOLD_SHARE = 0.55;
     /** Share of the day the evening light takes to turn warm, 120 s of a 10 minute day. */
     private static final double EVENING_FADE_SHARE = 0.2;
     /** Share of the day before the dusk the evening light is already fully warm, 30 s of a 10 minute day. */
@@ -62,7 +60,7 @@ public final class DayCycle {
         reset();
     }
 
-    /** Puts the clock back to the start of a new world, which is shortly after the dawn has ended. */
+    /** Puts the clock back to the start of a new world, at the clock hour the settings start it. */
     public void reset() {
         elapsed = settings.startSeconds();
     }
@@ -93,6 +91,29 @@ public final class DayCycle {
         final double cycle = settings.cycleSeconds();
         final double seconds = elapsed - Math.floor(elapsed / cycle) * cycle;
         return Math.max(0.0, Math.min(Math.nextDown(cycle), seconds));
+    }
+
+    /**
+     * Returns the time as a 24 hour clock. The cycle is one day of 24 hours, and the end of the dawn, when the full
+     * daylight begins, is {@link DayCycleSettings#DAY_START_CLOCK_HOURS}, so the dawn begins before it and the clock
+     * wraps at midnight.
+     *
+     * @return the hour of the day from 0 up to but excluding 24, with the minutes as the fraction
+     */
+    public double clockHours() {
+        final double hours = DayCycleSettings.DAY_START_CLOCK_HOURS
+                + (secondsIntoCycle() - settings.dawnSeconds()) / settings.cycleSeconds()
+                * DayCycleSettings.HOURS_PER_DAY;
+        final double wrapped = hours - Math.floor(hours / DayCycleSettings.HOURS_PER_DAY)
+                * DayCycleSettings.HOURS_PER_DAY;
+        return Math.max(0.0, Math.min(Math.nextDown(DayCycleSettings.HOURS_PER_DAY), wrapped));
+    }
+
+    /** @return the minutes since midnight on the 24 hour clock, 0 up to 1439, so 06:00 is 360 */
+    public int clockMinuteOfDay() {
+        // A hair above the exact minute keeps a time that lies on a minute from rounding down to the one before
+        final int minutes = (int) Math.floor(clockHours() * 60.0 + 1e-6);
+        return Math.min(minutes, (int) (DayCycleSettings.HOURS_PER_DAY * 60) - 1);
     }
 
     /** @return the time of day from 0, the beginning of the dawn, up to but excluding 1, which is the next dawn */
@@ -205,8 +226,8 @@ public final class DayCycle {
 
     /**
      * Works out the tint of the moment from the keyframes. The night turns warm through the first part of the dawn, the
-     * warm light holds into the early morning and then fades to neutral. Well before the dusk the light turns warm again,
-     * holds through the first half of the dusk and then sinks into the night.
+     * warm light holds and then fades to neutral, reaching it exactly as the dawn ends. Well before the dusk the light
+     * turns warm again, holds through the first half of the dusk and then sinks into the night.
      */
     private Tint computeTint() {
         final double s = secondsIntoCycle();
@@ -215,19 +236,18 @@ public final class DayCycle {
         final double dayEnd = dawn + day;
         final double duskMid = dayEnd + settings.duskSeconds() / 2;
         final double warmUp = dawn * DAWN_WARM_SHARE;
-        final double morningWarmEnd = dawn + day * MORNING_WARM_SHARE;
-        final double morningFadeEnd = morningWarmEnd + day * MORNING_FADE_SHARE;
+        final double morningHoldEnd = dawn * DAWN_HOLD_SHARE;
         final double eveningFadeStart = dayEnd - day * (EVENING_FADE_SHARE + EVENING_WARM_SHARE);
         final double eveningWarmStart = dayEnd - day * EVENING_WARM_SHARE;
         if (s < warmUp) {
             return blend(NIGHT_COLOUR, NIGHT_STRENGTH, WARM_COLOUR, WARM_STRENGTH, s / warmUp);
         }
-        if (s < morningWarmEnd) {
+        if (s < morningHoldEnd) {
             return new Tint(WARM_COLOUR, WARM_STRENGTH);
         }
-        if (s < morningFadeEnd) {
+        if (s < dawn) {
             return blend(WARM_COLOUR, WARM_STRENGTH, NEUTRAL_COLOUR, NEUTRAL_STRENGTH,
-                    (s - morningWarmEnd) / (morningFadeEnd - morningWarmEnd));
+                    (s - morningHoldEnd) / (dawn - morningHoldEnd));
         }
         if (s < eveningFadeStart) {
             return new Tint(NEUTRAL_COLOUR, NEUTRAL_STRENGTH);

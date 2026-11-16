@@ -18,6 +18,12 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
                                double startSeconds, int shadowSteps, double minShadowLength,
                                double maxShadowLength) {
 
+    /** Hours on the clock of a cycle, which is one day. */
+    public static final double HOURS_PER_DAY = 24.0;
+
+    /** The clock hour at which the dawn ends and the full daylight begins. */
+    public static final double DAY_START_CLOCK_HOURS = 6.0;
+
     /**
      * Validates the values.
      *
@@ -44,6 +50,21 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
     /** Tells whether a value is a finite number above zero, which rules out NaN and the infinities. */
     private static boolean isPositive(double value) {
         return Double.isFinite(value) && value > 0;
+    }
+
+    /**
+     * Returns the same settings with a new world starting at a clock hour.
+     *
+     * @param clockHour the hour of the 24 hour clock a new world starts at, where the end of the dawn is
+     *                  {@link #DAY_START_CLOCK_HOURS}
+     * @return settings whose start is the seconds into the cycle that hour falls at
+     */
+    public DayCycleSettings startingAtClockHour(double clockHour) {
+        final double cycle = cycleSeconds();
+        final double seconds = dawnSeconds + (clockHour - DAY_START_CLOCK_HOURS) / HOURS_PER_DAY * cycle;
+        final double wrapped = Math.max(0.0, seconds - Math.floor(seconds / cycle) * cycle);
+        return new DayCycleSettings(dawnSeconds, daySeconds, duskSeconds, nightSeconds, wrapped, shadowSteps,
+                minShadowLength, maxShadowLength);
     }
 
     /** @return the length of a whole cycle in seconds */

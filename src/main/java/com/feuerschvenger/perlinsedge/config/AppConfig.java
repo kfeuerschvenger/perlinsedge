@@ -186,15 +186,15 @@ public class AppConfig {
      */
     public static class DayCycleConfig {
         /** Game seconds the dawn lasts. The four phases follow Minecraft proportions, a cycle of twenty minutes. */
-        private static final double DAWN_SECONDS = 90;
+        private static final double DAWN_SECONDS = 150;
         /** Game seconds of full daylight. */
         private static final double DAY_SECONDS = 600;
         /** Game seconds the dusk lasts. */
         private static final double DUSK_SECONDS = 90;
         /** Game seconds the night lasts. */
-        private static final double NIGHT_SECONDS = 420;
-        /** A new world starts half a minute after the dawn has ended. */
-        private static final double START_SECONDS = 120;
+        private static final double NIGHT_SECONDS = 360;
+        /** The hour of the 24 hour clock a new world starts at: 06:00, when the dawn has ended and the light is neutral. */
+        private static final double START_HOUR = 6.0;
         /** Distinct sun positions the shadows take across the day, an odd number so one is centred on noon. */
         private static final int SHADOW_STEPS = 17;
         /** Shadow length as a multiple of the height of what casts it, at noon. */
@@ -209,8 +209,8 @@ public class AppConfig {
 
         /** @return the settings a {@link DayCycle} runs on */
         public DayCycleSettings settings() {
-            return new DayCycleSettings(DAWN_SECONDS, DAY_SECONDS, DUSK_SECONDS, NIGHT_SECONDS, START_SECONDS,
-                    SHADOW_STEPS, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH);
+            return new DayCycleSettings(DAWN_SECONDS, DAY_SECONDS, DUSK_SECONDS, NIGHT_SECONDS, 0,
+                    SHADOW_STEPS, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH).startingAtClockHour(START_HOUR);
         }
 
         /** @return how many game seconds pass per real second while the fast time is on */

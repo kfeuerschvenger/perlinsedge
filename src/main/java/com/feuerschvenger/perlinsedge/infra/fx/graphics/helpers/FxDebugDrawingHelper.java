@@ -44,16 +44,16 @@ public final class FxDebugDrawingHelper {
     }
 
     /**
-     * Describes the sky for the debug overlay: the day, the phase and the time into the cycle as minutes and seconds.
+     * Describes the sky for the debug overlay: the day, the phase and the time of day on the 24 hour clock.
      *
      * @param dayCycle the clock of the sky
      * @param fastTime whether the fast time of the debug key is on
-     * @return a line such as {@code Day 1 DAY 02:00}, followed by {@code (fast)} while the fast time is on
+     * @return a line such as {@code Sky: Day 1 DAY 06:00}, followed by {@code (fast)} while the fast time is on
      */
     public static String describeSky(DayCycle dayCycle, boolean fastTime) {
-        final int seconds = (int) dayCycle.secondsIntoCycle();
+        final int minutes = dayCycle.clockMinuteOfDay();
         return String.format(Locale.ROOT, "Sky: Day %d %s %02d:%02d%s", dayCycle.dayNumber(), dayCycle.phase().name(),
-                seconds / 60, seconds % 60, fastTime ? " (fast)" : "");
+                minutes / 60, minutes % 60, fastTime ? " (fast)" : "");
     }
 
     public static void drawDebugInfo(GraphicsContext gc, GameStateManager gameState, Canvas canvas, double deltaTime) {

@@ -14,15 +14,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DayCycleTest {
 
-    private static final double DAWN = 90;
+    private static final double DAWN = 150;
     private static final double DAY = 600;
     private static final double DUSK = 90;
-    private static final double NIGHT = 420;
+    private static final double NIGHT = 360;
     private static final double CYCLE = DAWN + DAY + DUSK + NIGHT;
     private static final int STEPS = 17;
 
+    /** The settings of a new world, which starts at 06:00. */
     private static DayCycleSettings settings() {
-        return new DayCycleSettings(DAWN, DAY, DUSK, NIGHT, 120, STEPS, 0.6, 2.0);
+        return new DayCycleSettings(DAWN, DAY, DUSK, NIGHT, 0, STEPS, 0.6, 2.0).startingAtClockHour(6.0);
     }
 
     /** A cycle that starts at the first moment of the dawn, so tests can place the clock exactly. */
@@ -40,16 +41,58 @@ class DayCycleTest {
     void aCycleLastsTwentyMinutesWithMinecraftProportions() {
         assertEquals(1200, CYCLE);
         assertEquals(1200, settings().cycleSeconds());
-        assertEquals(780, settings().daylightSeconds());
+        assertEquals(840, settings().daylightSeconds());
     }
 
     @Test
-    void aNewWorldStartsShortlyAfterTheDawnHasEnded() {
+    void aNewWorldStartsAtSixInTheMorningWithNeutralLight() {
         final DayCycle cycle = new DayCycle(settings());
 
         assertEquals(DayPhase.DAY, cycle.phase());
-        assertTrue(cycle.secondsIntoCycle() > DAWN && cycle.secondsIntoCycle() < DAWN + 60);
+        assertEquals(DAWN, cycle.secondsIntoCycle(), 1e-9);
+        assertEquals(6.0, cycle.clockHours(), 1e-9);
+        assertEquals(360, cycle.clockMinuteOfDay());
+        assertEquals(0.0, cycle.skyTintStrength(), 0.0, "the light is exactly neutral at the start");
         assertEquals(1, cycle.dayNumber());
+    }
+
+    @Test
+    void theClockIsAGameHourOfFiftySecondsAndTheEndOfTheDawnIsSixOClock() {
+        assertEquals(6.0, at(DAWN).clockHours(), 1e-9);
+        assertEquals(DayPhase.DAY, at(DAWN).phase());
+        assertEquals(3.0, at(0).clockHours(), 1e-9, "the dawn begins at 03:00");
+        assertEquals(DayPhase.DAWN, at(0).phase());
+        assertEquals(18.0, at(DAWN + DAY).clockHours(), 1e-9, "the dusk begins at 18:00");
+        assertEquals(DayPhase.DUSK, at(DAWN + DAY).phase());
+        assertEquals(19.8, at(DAWN + DAY + DUSK).clockHours(), 1e-9, "the night begins at 19:48");
+        assertEquals(19 * 60 + 48, at(DAWN + DAY + DUSK).clockMinuteOfDay());
+        assertEquals(7.0, at(DAWN + 50).clockHours(), 1e-9, "one game hour is fifty seconds");
+        assertEquals(4.5, at(75).clockHours(), 1e-9);
+    }
+
+    @Test
+    void theClockWrapsAtMidnightAndNeverReachesTwentyFour() {
+        // Midnight is 18 hours after the start of the day, that is 900 seconds into the day
+        assertEquals(0.0, at(DAWN + 18 * 50).clockHours(), 1e-9);
+        assertTrue(at(DAWN + 18 * 50 - 0.001).clockHours() > 23.99);
+        assertEquals(1.0, at(DAWN + 19 * 50).clockHours(), 1e-9);
+        for (double seconds : new double[]{0.0, CYCLE - 1e-9, CYCLE, CYCLE * 9 + 3.3, 1e12 + 0.7}) {
+            final DayCycle cycle = at(seconds);
+            assertTrue(cycle.clockHours() >= 0.0 && cycle.clockHours() < 24.0, "clock at " + seconds);
+            assertTrue(cycle.clockMinuteOfDay() >= 0 && cycle.clockMinuteOfDay() < 1440);
+        }
+    }
+
+    @Test
+    void theStartHourIsDerivedFromTheSettingsAndWrapsIntoTheCycle() {
+        final DayCycleSettings base = new DayCycleSettings(DAWN, DAY, DUSK, NIGHT, 0, STEPS, 0.6, 2.0);
+
+        assertEquals(DAWN, base.startingAtClockHour(6.0).startSeconds(), 1e-9);
+        assertEquals(0.0, base.startingAtClockHour(3.0).startSeconds(), 1e-9);
+        assertEquals(DAWN + DAY, base.startingAtClockHour(18.0).startSeconds(), 1e-9);
+        assertEquals(CYCLE - 150, base.startingAtClockHour(0.0).startSeconds(), 1e-9);
+        assertEquals(base.startingAtClockHour(5.0).startSeconds(), base.startingAtClockHour(29.0).startSeconds(), 1e-9);
+        assertEquals(0.0, new DayCycle(base.startingAtClockHour(0.0)).clockHours(), 1e-9);
     }
 
     @Test
@@ -101,7 +144,7 @@ class DayCycleTest {
 
         cycle.reset();
 
-        assertEquals(120, cycle.secondsIntoCycle(), 1e-9);
+        assertEquals(150, cycle.secondsIntoCycle(), 1e-9);
         assertEquals(1, cycle.dayNumber());
     }
 
@@ -220,12 +263,21 @@ class DayCycleTest {
     }
 
     @Test
-    void theWarmLightReachesIntoTheMorningAndStartsWellBeforeTheDusk() {
+    void theMorningLightIsWarmInsideTheDawnAndIsNeutralFromSixOClock() {
         final double dayEnd = DAWN + DAY;
 
-        assertTrue(at(DAWN + 30).skyTintStrength() > 0.2, "still fully warm half a minute after the dawn");
-        assertTrue(at(DAWN + 90).skyTintStrength() > 0.0, "still fading a minute and a half after the dawn");
-        assertEquals(0.0, at(DAWN + 180).skyTintStrength(), 1e-9, "neutral three minutes into the day");
+        final DayCycle halfPastFour = at(75);
+        assertEquals(4.5, halfPastFour.clockHours(), 1e-9);
+        assertEquals(0.25, halfPastFour.skyTintStrength(), 1e-9, "fully warm at 04:30");
+        assertTrue(halfPastFour.skyTint().r() > halfPastFour.skyTint().g()
+                && halfPastFour.skyTint().g() > halfPastFour.skyTint().b(), "warm: red over green over blue");
+        assertEquals(0.25, at(DAWN * 0.30).skyTintStrength(), 1e-9, "warm once the first 30% of the dawn is over");
+        assertEquals(0.25, at(DAWN * 0.55 - 0.01).skyTintStrength(), 1e-3, "and held until 55% of the dawn");
+        assertTrue(at(DAWN * 0.8).skyTintStrength() > 0.0 && at(DAWN * 0.8).skyTintStrength() < 0.25,
+                "fading to neutral through the rest of the dawn");
+        assertEquals(0.0, at(DAWN).skyTintStrength(), 0.0, "exactly neutral at 06:00");
+        assertEquals(0.0, at(DAWN + 1).skyTintStrength(), 0.0, "and neutral after it");
+        assertEquals(0.0, at(DAWN + 180).skyTintStrength(), 1e-9, "neutral through the morning");
 
         assertEquals(0.0, at(dayEnd - 160).skyTintStrength(), 1e-9, "neutral before the evening fade");
         assertTrue(at(dayEnd - 80).skyTintStrength() > 0.0, "turning warm more than a minute before the dusk");
