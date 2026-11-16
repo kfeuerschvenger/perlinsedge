@@ -5,6 +5,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationConte
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
+import com.feuerschvenger.perlinsedge.domain.world.time.DayCycleSettings;
 
 import java.util.Random;
 
@@ -19,6 +21,7 @@ public class AppConfig {
     private final CoreConfig core = new CoreConfig();
     private final WorldConfig world = new WorldConfig();
     private final GraphicsConfig graphics = new GraphicsConfig();
+    private final DayCycleConfig dayCycle = new DayCycleConfig();
     private final PlayerConfig player = new PlayerConfig();
     private final DebugConfig debug = new DebugConfig();
     private final GameMechanicsConfig gameMechanics = new GameMechanicsConfig();
@@ -38,6 +41,7 @@ public class AppConfig {
     public CoreConfig core() { return core; }
     public WorldConfig world() { return world; }
     public GraphicsConfig graphics() { return graphics; }
+    public DayCycleConfig dayCycle() { return dayCycle; }
     public PlayerConfig player() { return player; }
     public DebugConfig debug() { return debug; }
     public GameMechanicsConfig gameMechanics() { return gameMechanics; }
@@ -174,6 +178,47 @@ public class AppConfig {
         public double getTileVisualBaseHeight() { return tileVisualBaseHeight; }
         public double getMinimapWidth() { return minimapWidth; }
         public double getMinimapHeight() { return minimapHeight; }
+    }
+
+    /**
+     * The day and night cycle: the length of each phase in game seconds, where a new world starts, how the shadows of
+     * the sun are quantised and the fast time of the debug key.
+     */
+    public static class DayCycleConfig {
+        // Minecraft proportions: a cycle of twenty minutes
+        private static final double DAWN_SECONDS = 90;
+        private static final double DAY_SECONDS = 600;
+        private static final double DUSK_SECONDS = 90;
+        private static final double NIGHT_SECONDS = 420;
+        /** A new world starts half a minute after the dawn has ended. */
+        private static final double START_SECONDS = 120;
+        private static final int SHADOW_STEPS = 16;
+        private static final double MIN_SHADOW_LENGTH = 0.6;
+        private static final double MAX_SHADOW_LENGTH = 2.0;
+        /** Real seconds a whole day lasts while the fast time of the debug key is on. */
+        private static final double FAST_DAY_REAL_SECONDS = 40;
+
+        private boolean fastTime;
+
+        /** @return the settings a {@link DayCycle} runs on */
+        public DayCycleSettings settings() {
+            return new DayCycleSettings(DAWN_SECONDS, DAY_SECONDS, DUSK_SECONDS, NIGHT_SECONDS, START_SECONDS,
+                    SHADOW_STEPS, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH);
+        }
+
+        /** @return how many game seconds pass per real second while the fast time is on */
+        public double getFastTimeMultiplier() {
+            return (DAWN_SECONDS + DAY_SECONDS + DUSK_SECONDS + NIGHT_SECONDS) / FAST_DAY_REAL_SECONDS;
+        }
+
+        /** @return true while the fast time of the debug key is on */
+        public boolean isFastTime() { return fastTime; }
+
+        /** @param fastTime true to make the day pass in about forty real seconds */
+        public void setFastTime(boolean fastTime) { this.fastTime = fastTime; }
+
+        /** @return the game seconds that pass per real second: one normally, the fast multiplier with the fast time on */
+        public double timeScale() { return fastTime ? getFastTimeMultiplier() : 1.0; }
     }
 
     /**

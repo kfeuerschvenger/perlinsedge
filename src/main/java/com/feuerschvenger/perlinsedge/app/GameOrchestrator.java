@@ -402,6 +402,8 @@ public class GameOrchestrator {
         }
 
         gameState.incrementGameTime(deltaTime);
+        // The debug fast time scales only the sky, so cooldowns and animations keep their real pace
+        gameState.getDayCycle().advance(deltaTime * AppConfig.getInstance().dayCycle().timeScale());
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
         interactionManager.update();
