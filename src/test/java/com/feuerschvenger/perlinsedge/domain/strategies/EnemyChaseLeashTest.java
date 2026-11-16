@@ -229,6 +229,67 @@ class EnemyChaseLeashTest {
     }
 
     @Test
+    void aSkeletonHurtFromAfarChasesAndHoldsTheChaseForTheLoseTimeThenGivesUpBeyondTheLeash() {
+        TileMap map = grass(120, 20);
+        Skeleton skeleton = new Skeleton(10, 10);
+        Player player = new Player(22, 10);
+
+        run(skeleton, map, player, 0.2);
+        assertFalse(SkeletonChase.chasing(skeleton), "12 tiles is outside the aggro range");
+
+        skeleton.takeDamage(1);
+        run(skeleton, map, player, 0.2);
+        assertTrue(SkeletonChase.chasing(skeleton), "the hit alerts it");
+
+        player.setPosition(100, 10);
+        run(skeleton, map, player, 0.2);
+        assertTrue(SkeletonChase.chasing(skeleton), "the alert holds whatever the distance");
+
+        run(skeleton, map, player, AppConfig.getInstance().enemies().skeleton().loseSeconds() + 0.2);
+        assertFalse(SkeletonChase.chasing(skeleton));
+    }
+
+    @Test
+    void theAlertHoldOfASlimeRunsOutWhileThePlayerIsInReach() {
+        TileMap map = grass(120, 20);
+        Slime slime = new Slime(10, 10);
+        Player player = new Player(11, 10);
+        slime.takeDamage(1);
+
+        run(slime, map, player, AppConfig.getInstance().enemies().slime().loseSeconds() + 0.5);
+        player.setPosition(100, 10);
+        run(slime, map, player, 0.1);
+
+        assertFalse(SlimeChase.chasing(slime), "the hold was spent next to the player, so the leash applies at once");
+    }
+
+    @Test
+    void aSlimeNeverLandsOnTheTileThePlayerStandsOnOrIsSteppingTo() {
+        TileMap map = grass(60, 20);
+        Slime slime = new Slime(5, 10);
+        Player player = new Player(30, 10);
+        slime.takeDamage(1);
+        SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
+        for (int i = 0; i < 600 && !movement.isJumping(); i++) {
+            slime.update(STEP, map, player);
+        }
+        assertTrue(movement.isJumping(), "the alerted slime hops after the player");
+        final int targetX = slime.getTargetTileX();
+        final int targetY = slime.getTargetTileY();
+
+        // The player steps onto the tile the slime is hopping to
+        player.setPosition(targetX, targetY);
+        for (int i = 0; i < 120 && movement.isJumping(); i++) {
+            slime.update(STEP, map, player);
+        }
+
+        assertFalse(movement.isJumping());
+        assertFalse(slime.getCurrentTileX() == targetX && slime.getCurrentTileY() == targetY,
+                "it came down on the tile it took off from");
+        assertEquals(slime.getCurrentTileX(), slime.getPosX(), 1e-9);
+    }
+
+    @Test
     void anAlertHoldsTheChaseForAtLeastTheLoseTimeWhateverTheDistance() {
         ChaseLeash leash = new ChaseLeash(RANGE);
         leash.alert();
@@ -289,7 +350,7 @@ class EnemyChaseLeashTest {
     @Test
     void aMimicChasingAroundAWallNeverEntersAResourceTile() {
         Mimic mimic = new Mimic(5, 6);
-        mimic.activate();
+        ((MimicMovementStrategy) mimic.getMovementStrategy()).setAggroed(true);
         // A mimic gives up after the lose time, so its detour is short
         walksAroundTheStoneWithoutTouchingIt(mimic, new Player(11, 6), 20, 6);
     }
@@ -301,7 +362,7 @@ class EnemyChaseLeashTest {
             map.setTile(8, y, new Tile(8, y, TileType.DEEP_WATER));
         }
         Mimic mimic = new Mimic(5, 6);
-        mimic.activate();
+        ((MimicMovementStrategy) mimic.getMovementStrategy()).setAggroed(true);
         Player player = new Player(11, 6);
 
         for (int i = 0; i < 60 * 20; i++) {

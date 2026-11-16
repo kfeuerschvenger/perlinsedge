@@ -23,6 +23,11 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
         chaser.update(enemy, deltaTime, map, player);
     }
 
+    /** Starts a chase that holds for the lose time whatever the distance, for a skeleton hurt from beyond its range. */
+    public void alert() {
+        chaser.alert();
+    }
+
     /** @return true while the skeleton is chasing the player */
     public boolean isChasing() {
         return chaser.isChasing();

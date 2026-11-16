@@ -56,9 +56,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         // Next to the player the slime holds its ground and strikes instead of hopping: a hop in the air finishes
         // first, then no new one starts until the player is out of reach again
         final boolean inReach = SlimeAttackStrategy.isInReach(enemy, player);
+        // The leash advances every update, in reach or not, so the hold of an alert runs out while the slime strikes
+        final boolean chasing = leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime);
         if (inReach) {
             currentPath.clear();
-        } else if (leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime)) {
+        } else if (chasing) {
             handleAggroBehavior(enemy, map, player);
         } else {
             // Without a chase the hops along a path to the player stop once the one in the air has landed
@@ -67,12 +69,13 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         }
 
         if (isJumping) {
-            updateJump(enemy, deltaTime);
-        } else if (!inReach && shouldStartJump(enemy)) {
-            startNextJump(enemy, map);
+            updateJump(enemy, deltaTime, player);
+        } else if (!inReach && shouldStartJump()) {
+            startNextJump(enemy, map, player);
         }
     }
 
+    /** @return true while the slime is in the air during a hop */
     public boolean isJumping() { return isJumping; }
 
     /** @return true while the slime is chasing the player */
@@ -80,6 +83,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** Starts a chase that holds for the lose time whatever the distance, for a slime hurt from beyond its range. */
     public void alert() { leash.alert(); }
+
+    /** @return how far the hop in the air has gone, from 0.0 at take-off to 1.0 at landing, 0.0 on the ground */
     public double getJumpPhase() { return jumpPhase; }
 
     private void resetIdleTimer() {
@@ -142,7 +147,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
             int[] chosenMove = possibleMoves.get(random.nextInt(possibleMoves.size()));
             enemy.setTargetTileX(chosenMove[0]); // Update enemy's target
             enemy.setTargetTileY(chosenMove[1]); // Update enemy's target
-            startJump(enemy);
+            startJump();
         }
     }
 
@@ -175,14 +180,13 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
                 map.getTile(x, y).isWalkable(); // The rule the pathfinder uses: water, resources and solid buildings block
     }
 
-    private void startJump(Enemy enemy) {
+    /** Takes off. The path is kept: a hop along a path to the player is one step of it. */
+    private void startJump() {
         isJumping = true;
         currentJumpTime = 0;
-        // currentPath.clear(); // Clear path only if this is a random jump, not part of pathfinding
-        // For pathfinding, we're jumping *along* the path, so don't clear it.
     }
 
-    private void updateJump(Enemy enemy, double deltaTime) {
+    private void updateJump(Enemy enemy, double deltaTime, Player player) {
         currentJumpTime += deltaTime;
         jumpPhase = Math.min(1.0, currentJumpTime / totalJumpTime);
 
@@ -191,28 +195,45 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         enemy.setPosY(enemy.getPrevY() + (enemy.getTargetTileY() - enemy.getPrevY()) * jumpPhase);
 
         if (jumpPhase >= 1.0) {
-            completeJump(enemy);
+            completeJump(enemy, player);
         }
     }
 
-    private void completeJump(Enemy enemy) {
+    /**
+     * Lands the hop. A hop never lands on the tile the player stands on or is stepping to, whichever the player chose
+     * after the hop began: the slime comes down on the tile it took off from instead, and the path to the player is
+     * searched again.
+     */
+    private void completeJump(Enemy enemy, Player player) {
         isJumping = false;
         currentJumpTime = 0;
         jumpPhase = 0;
+        if (isPlayerTile(enemy.getTargetTileX(), enemy.getTargetTileY(), player)) {
+            enemy.setTargetTileX(enemy.getCurrentTileX());
+            enemy.setTargetTileY(enemy.getCurrentTileY());
+            currentPath.clear();
+        }
         enemy.setCurrentTileX(enemy.getTargetTileX()); // Update enemy's current tile position
         enemy.setCurrentTileY(enemy.getTargetTileY()); // Update enemy's current tile position
         enemy.setPosX(enemy.getCurrentTileX()); // Ensure interpolated matches current tile at end of jump
         enemy.setPosY(enemy.getCurrentTileY());
     }
 
-    private boolean shouldStartJump(Enemy enemy) {
+    /** True for the tile the player stands on and the tile the player is stepping to. */
+    private static boolean isPlayerTile(int x, int y, Player player) {
+        return (x == player.getCurrentTileX() && y == player.getCurrentTileY())
+                || (x == player.getTargetTileX() && y == player.getTargetTileY());
+    }
+
+    private boolean shouldStartJump() {
         return !currentPath.isEmpty() && !isJumping;
     }
 
-    private void startNextJump(Enemy enemy, TileMap map) {
+    private void startNextJump(Enemy enemy, TileMap map, Player player) {
         PathNode nextStep = currentPath.removeFirst();
-        // Something may have been built on the tile since the path was searched
-        if (!canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextStep.x, nextStep.y)) {
+        // Something may have been built on the tile since the path was searched, or the player may have stepped on it
+        if (!canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextStep.x, nextStep.y)
+                || isPlayerTile(nextStep.x, nextStep.y, player)) {
             currentPath.clear();
             return;
         }
@@ -220,10 +241,10 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         enemy.setTargetTileY(nextStep.y);
 
         if (!enemy.reachedPathTarget()) {
-            startJump(enemy);
+            startJump();
         } else {
             // If the path just has the current tile (e.g., path of 1), just complete it immediately
-            completeJump(enemy);
+            completeJump(enemy, player);
         }
     }
 

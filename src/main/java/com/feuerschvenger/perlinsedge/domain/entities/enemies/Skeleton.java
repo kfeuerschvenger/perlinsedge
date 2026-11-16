@@ -85,6 +85,20 @@ public class Skeleton extends Enemy {
         rangedBehavior(player);
     }
 
+    /**
+     * A hit makes the skeleton chase the attacker even from outside its aggro range. A skeleton built with another
+     * movement strategy has no chase to start and only takes the damage.
+     *
+     * @param amount Damage amount to apply
+     */
+    @Override
+    public void takeDamage(double amount) {
+        if (!isDead && getMovementStrategy() instanceof SkeletonMovementStrategy skeletonMovement) {
+            skeletonMovement.alert();
+        }
+        super.takeDamage(amount);
+    }
+
     // ==================================================================
     //  Rendering Properties
     // ==================================================================
