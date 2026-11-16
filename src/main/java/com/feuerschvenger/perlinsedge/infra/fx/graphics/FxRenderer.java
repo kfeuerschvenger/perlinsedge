@@ -81,9 +81,11 @@ public class FxRenderer {
     private final RenderQueue tileQueue = new RenderQueue();
     /** The depth sorted objects of a frame: resources, buildings, entities, items and the tile cursor. */
     private final RenderQueue renderQueue = new RenderQueue();
-    /** The ground shadows of the frame, collected while the frame is walked and cast once by the shadow pass. */
-    private final ShadowList shadows = new ShadowList();
-    /** Casts the shadows of a frame into one layer and lays it over the canvas once. */
+    /** The shadows of the resources and buildings of the frame, collected while the tiles are walked. They stand still. */
+    private final ShadowList staticShadows = new ShadowList();
+    /** The shadows of the player and the enemies of the frame, which move and are kept apart from the static ones. */
+    private final ShadowList dynamicShadows = new ShadowList();
+    /** Casts the shadows of a frame into two layers, only what changed, and lays them over the canvas once. */
     private final FxShadowPass shadowPass = new FxShadowPass();
     /** Lays the tint of the time of day over the world. */
     private final FxSkyTint skyTint = new FxSkyTint();
@@ -177,7 +179,8 @@ public class FxRenderer {
         gc.setImageSmoothing(false);
         renderQueue.clear();
         tileQueue.clear();
-        shadows.clear();
+        staticShadows.clear();
+        dynamicShadows.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
         this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
@@ -291,7 +294,7 @@ public class FxRenderer {
                     renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
                     if (castShadows) {
-                        FxObjectShadows.addForTile(shadows, resource.getType(), resourceImage,
+                        FxObjectShadows.addForTile(staticShadows, resource.getType(), resourceImage,
                                 spriteMetadata != null ? spriteMetadata.getContactArtPixels() : 0, null, screenX,
                                 screenY, halfTileHeight, artScale);
                     }
@@ -301,7 +304,7 @@ public class FxRenderer {
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
                     if (castShadows) {
-                        FxObjectShadows.addForTile(shadows, null, null, 0, building.getType(), screenX, screenY,
+                        FxObjectShadows.addForTile(staticShadows, null, null, 0, building.getType(), screenX, screenY,
                                 halfTileHeight, artScale);
                     }
                 }
@@ -355,9 +358,9 @@ public class FxRenderer {
                     shadowReach, shadowBottomReach)) {
                 if (playerSprite != null) {
                     final Silhouette silhouette = SilhouetteSprites.of(playerSprite);
-                    shadows.addSilhouette(playerX, playerFeetY, silhouette, silhouette.height(), 1.0, 1.0);
+                    dynamicShadows.addSilhouette(playerX, playerFeetY, silhouette, silhouette.height(), 1.0, 1.0);
                 } else {
-                    shadows.add(playerX, playerFeetY, FALLBACK_PLAYER_ART_WIDTH * GroundShadow.PLAYER_FRACTION, 1.0);
+                    dynamicShadows.add(playerX, playerFeetY, FALLBACK_PLAYER_ART_WIDTH * GroundShadow.PLAYER_FRACTION, 1.0);
                 }
             }
         }
@@ -381,10 +384,10 @@ public class FxRenderer {
                         && FxShadowHelper.canReach(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight(),
                         shadowReach, shadowBottomReach)) {
                     if (enemy instanceof Slime slime) {
-                        FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime,
+                        FxEnemyDrawingHelper.addSlimeShadow(dynamicShadows, enemyScreenX, enemyScreenY, zoom, slime,
                                 currentFrameGameTime);
                     } else {
-                        FxEnemyDrawingHelper.addGenericShadow(shadows, enemyScreenX, enemyScreenY, zoom);
+                        FxEnemyDrawingHelper.addGenericShadow(dynamicShadows, enemyScreenX, enemyScreenY, zoom);
                     }
                 }
             }
@@ -412,7 +415,7 @@ public class FxRenderer {
         for (int i = 0, count = tileQueue.size(); i < count; i++) {
             drawRenderable(tileQueue.get(i));
         }
-        shadowPass.draw(gc, shadows, artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
+        shadowPass.draw(gc, staticShadows, dynamicShadows, artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
                 SunScreenMapping.shadowAngle(shadowSunProgress), shadowLengthFactor, shadowStrength);
         renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {
@@ -474,7 +477,7 @@ public class FxRenderer {
             image = metadata != null ? metadata.getImage() : null;
             contactArt = metadata != null ? metadata.getContactArtPixels() : 0;
         }
-        FxObjectShadows.addForTile(shadows, hasResource ? resource.getType() : null, image, contactArt,
+        FxObjectShadows.addForTile(staticShadows, hasResource ? resource.getType() : null, image, contactArt,
                 hasBuilding ? building.getType() : null, screenX, screenY + drop, halfTileHeight, artScale);
     }
 
