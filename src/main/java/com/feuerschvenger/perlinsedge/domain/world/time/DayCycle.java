@@ -42,6 +42,19 @@ public final class DayCycle {
     /** How strongly the neutral tint is laid over the world: not at all. */
     private static final double NEUTRAL_STRENGTH = 0.0;
 
+    /**
+     * The tint strength below which the sky cannot be told from no tint at all, so nothing is laid over the world for it.
+     * It is the sky's own threshold, independent of the one the shadows use.
+     */
+    public static final double MIN_VISIBLE_TINT_STRENGTH = 0.004;
+
+    /** The tint the night holds, shared by every moment of it so a hold phase allocates nothing. */
+    private static final Tint NIGHT_TINT = new Tint(NIGHT_COLOUR, NIGHT_STRENGTH);
+    /** The tint the warm light of the dawn and the dusk holds, shared by every moment of it. */
+    private static final Tint WARM_TINT = new Tint(WARM_COLOUR, WARM_STRENGTH);
+    /** The tint of midday, shared by every moment of it. */
+    private static final Tint NEUTRAL_TINT = new Tint(NEUTRAL_COLOUR, NEUTRAL_STRENGTH);
+
     /** The durations and the shadow rules the cycle runs on. */
     private final DayCycleSettings settings;
     /** Seconds since the world started, including the offset a new world begins at. */
@@ -273,35 +286,41 @@ public final class DayCycle {
             return blend(NIGHT_COLOUR, NIGHT_STRENGTH, WARM_COLOUR, WARM_STRENGTH, s / warmUp);
         }
         if (s < morningHoldEnd) {
-            return new Tint(WARM_COLOUR, WARM_STRENGTH);
+            return WARM_TINT;
         }
         if (s < dawn) {
             return blend(WARM_COLOUR, WARM_STRENGTH, NEUTRAL_COLOUR, NEUTRAL_STRENGTH,
                     (s - morningHoldEnd) / (dawn - morningHoldEnd));
         }
         if (s < eveningFadeStart) {
-            return new Tint(NEUTRAL_COLOUR, NEUTRAL_STRENGTH);
+            return NEUTRAL_TINT;
         }
         if (s < eveningWarmStart) {
             return blend(NEUTRAL_COLOUR, NEUTRAL_STRENGTH, WARM_COLOUR, WARM_STRENGTH,
                     (s - eveningFadeStart) / (eveningWarmStart - eveningFadeStart));
         }
         if (s < duskMid) {
-            return new Tint(WARM_COLOUR, WARM_STRENGTH);
+            return WARM_TINT;
         }
         if (s < settings.daylightSeconds()) {
             return blend(WARM_COLOUR, WARM_STRENGTH, NIGHT_COLOUR, NIGHT_STRENGTH,
                     (s - duskMid) / (settings.daylightSeconds() - duskMid));
         }
-        return new Tint(NIGHT_COLOUR, NIGHT_STRENGTH);
+        return NIGHT_TINT;
     }
 
     /** Mixes two tints by an eased share. */
     private static Tint blend(Rgba from, double fromStrength, Rgba to, double toStrength, double share) {
         final double t = ease(share);
         return new Tint(new Rgba(
-                mix(from.r(), to.r(), t), mix(from.g(), to.g(), t), mix(from.b(), to.b(), t), 1.0),
+                channel(mix(from.r(), to.r(), t)), channel(mix(from.g(), to.g(), t)),
+                channel(mix(from.b(), to.b(), t)), 1.0),
                 mix(fromStrength, toStrength, t));
+    }
+
+    /** Keeps a mixed colour channel inside 0 to 1, so rounding at the ends of a mix can never leave the range. */
+    private static double channel(double value) {
+        return Math.max(0.0, Math.min(1.0, value));
     }
 
     /** Returns the point a share of the way from one value to another, {@code from} at zero and {@code to} at one. */

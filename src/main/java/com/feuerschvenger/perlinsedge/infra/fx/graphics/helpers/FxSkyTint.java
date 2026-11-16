@@ -34,7 +34,7 @@ public final class FxSkyTint {
      */
     public void draw(GraphicsContext gc, DayCycle sky, double width, double height) {
         final double strength = Math.min(1.0, sky.skyTintStrength());
-        if (strength < FxShadowHelper.MIN_VISIBLE_STRENGTH) {
+        if (strength < DayCycle.MIN_VISIBLE_TINT_STRENGTH) {
             return;
         }
         final Rgba tint = sky.skyTint();
