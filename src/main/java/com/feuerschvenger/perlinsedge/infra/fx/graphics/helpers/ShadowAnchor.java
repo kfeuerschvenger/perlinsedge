@@ -16,12 +16,13 @@ final class ShadowAnchor {
      * edge.
      *
      * @param centreX  screen X of the contact point, where the middle of the sprite would stand unrounded
-     * @param widthArt width of the sprite in art pixels
+     * @param widthArt width of the sprite as it is drawn in art pixels, which is a whole number of screen pixels
      * @param artScale screen pixels per art pixel
      * @return the screen X of the middle of the drawn sprite
      */
     static double baseX(double centreX, double widthArt, double artScale) {
-        final double half = widthArt * artScale / 2.0;
+        // A drawn width is a whole number of screen pixels, so a width given as a share of an art pixel is taken as that
+        final double half = Math.rint(widthArt * artScale) / 2.0;
         return Math.rint(centreX - half) + half;
     }
 
@@ -30,12 +31,14 @@ final class ShadowAnchor {
      * rounded top edge.
      *
      * @param groundY   screen Y of the contact point, where the ground row would lie unrounded
-     * @param groundRow the row of the sprite that touches the ground, counted from its top, in art pixels
+     * @param groundRow the row of the sprite that touches the ground, counted from its top, in art pixels as it is drawn,
+     *                  which is a whole number of screen pixels
      * @param artScale  screen pixels per art pixel
      * @return the screen Y of the ground row of the drawn sprite
      */
     static double baseY(double groundY, double groundRow, double artScale) {
-        final double rows = groundRow * artScale;
+        // A drawn height is a whole number of screen pixels, so a height given in art pixels is taken as that
+        final double rows = Math.rint(groundRow * artScale);
         return Math.rint(groundY - rows) + rows;
     }
 

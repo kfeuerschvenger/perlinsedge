@@ -16,6 +16,8 @@ import javafx.scene.image.Image;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
 import javafx.scene.paint.Color;
 
+import java.util.function.IntFunction;
+
 /**
  * Optimized helper for rendering slime enemies with proper shadow effects and animation.
  */
@@ -61,17 +63,9 @@ public final class FxEnemyDrawingHelper {
         if (frame != null) {
             // The sprite rests on the point the oval is centred on, whole pixels
             final double scale = ZoomSteps.artScale(zoom);
-            double widthFactor = 1.0;
-            double heightFactor = 1.0;
-            if (!jumping) {
-                // Standing still: breathing, or the squash before a strike. The feet stay on the ground point.
-                final double windup = slime.getWindupProgress();
-                final double breath = SlimeSquash.breath(gameTime, slime.getBreathPhase());
-                widthFactor = SlimeSquash.width(windup, breath);
-                heightFactor = SlimeSquash.height(windup, breath);
-            }
-            final double width = Math.rint(frame.getWidth() * scale * widthFactor);
-            final double height = Math.rint(frame.getHeight() * scale * heightFactor);
+            final double width = drawnSize(frame.getWidth(), scale, jumping ? 1.0 : restingWidthFactor(slime, gameTime));
+            final double height = drawnSize(frame.getHeight(), scale,
+                    jumping ? 1.0 : restingHeightFactor(slime, gameTime));
             gc.drawImage(frame, Math.rint(tileTopX - width / 2), Math.rint(baseDrawY - height), width, height);
             return;
         }
@@ -88,8 +82,28 @@ public final class FxEnemyDrawingHelper {
      * @param tileTopY  tile's top vertex Y coordinate
      * @param zoom      current zoom factor
      * @param slime     the slime
+     * @param gameTime  the game clock in seconds, which drives the breathing of a slime that stands still
      */
-    public static void addSlimeShadow(ShadowList shadows, double tileTopX, double tileTopY, double zoom, Slime slime) {
+    public static void addSlimeShadow(ShadowList shadows, double tileTopX, double tileTopY, double zoom, Slime slime,
+                                      double gameTime) {
+        addSlimeShadow(shadows, tileTopX, tileTopY, zoom, slime, gameTime, SpriteManager.getInstance()::getSlimeFrame);
+    }
+
+    /**
+     * Adds the shadow of a slime, taking its frames from a source. The shadow is cast from the frame the body is drawn
+     * with, at the size and with the rounding the body is drawn at, so the two stand on the same point and have the same
+     * form while the slime breathes, winds up or jumps.
+     *
+     * @param shadows   the shadows of the frame
+     * @param tileTopX  tile's top vertex X coordinate
+     * @param tileTopY  tile's top vertex Y coordinate
+     * @param zoom      current zoom factor
+     * @param slime     the slime
+     * @param gameTime  the game clock in seconds
+     * @param frames    gives the image of a slime frame, null when there is none, see {@link SpriteLayout#slimeFrame}
+     */
+    static void addSlimeShadow(ShadowList shadows, double tileTopX, double tileTopY, double zoom, Slime slime,
+                               double gameTime, IntFunction<Image> frames) {
         final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
         final double baseDrawY = tileTopY + (halfTileHeight * 1.5) + slime.getRenderOffsetY();
         final SlimeMovementStrategy slimeMove = movementOf(slime);
@@ -98,16 +112,24 @@ public final class FxEnemyDrawingHelper {
         final double jumpHeight = jumping
                 ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
         final double scale = ZoomSteps.artScale(zoom);
-        final Image frame = SpriteManager.getInstance().getSlimeFrame(0);
+        final Image frame = frames.apply(
+                SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
         final double fade = SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
         if (frame != null) {
-            // The shadow narrows with the height of the jump by the same share the oval would, and keeps the form of the slime
+            // The body is drawn at whole screen pixels, and the shadow is anchored and shaped from that same size
             final double size = frame.getWidth() * scale;
-            final double widthFactor = SlimeShadow.quantiseFactor(
+            final double drawnWidth = drawnSize(frame.getWidth(), scale,
+                    jumping ? 1.0 : restingWidthFactor(slime, gameTime));
+            final double drawnHeight = drawnSize(frame.getHeight(), scale,
+                    jumping ? 1.0 : restingHeightFactor(slime, gameTime));
+            // The shadow narrows with the height of the jump by the same share the oval would, in steps so a jump only
+            // takes a few shapes, and keeps the form of the slime
+            final double narrowing = SlimeShadow.quantiseFactor(
                     SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR)
                             / SlimeShadow.width(size, 0.0, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
             final Silhouette silhouette = SilhouetteSprites.of(frame);
-            shadows.addSilhouette(tileTopX, baseDrawY + jumpHeight, silhouette, silhouette.height(), widthFactor, fade);
+            shadows.addSilhouette(tileTopX, baseDrawY + jumpHeight, silhouette, silhouette.height(),
+                    narrowing * drawnWidth / size, drawnWidth / scale, drawnHeight / scale, fade);
             return;
         }
         shadows.add(tileTopX, baseDrawY + jumpHeight,
@@ -126,6 +148,28 @@ public final class FxEnemyDrawingHelper {
     public static void addGenericShadow(ShadowList shadows, double screenX, double screenY, double zoom) {
         final double size = GENERIC_ENEMY_SIZE * zoom;
         shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.artScale(zoom), 1.0);
+    }
+
+    /**
+     * Returns the size a slime frame is drawn at along one axis, in whole screen pixels.
+     *
+     * @param frameSize the size of the frame in art pixels along the axis
+     * @param scale     screen pixels per art pixel
+     * @param factor    how much the slime is stretched along the axis
+     * @return the drawn size
+     */
+    private static double drawnSize(double frameSize, double scale, double factor) {
+        return Math.rint(frameSize * scale * factor);
+    }
+
+    /** Returns how wide a slime that stands still is drawn: breathing, or spread by the squash before a strike. */
+    private static double restingWidthFactor(Slime slime, double gameTime) {
+        return SlimeSquash.width(slime.getWindupProgress(), SlimeSquash.breath(gameTime, slime.getBreathPhase()));
+    }
+
+    /** Returns how tall a slime that stands still is drawn: breathing, or squashed before a strike. */
+    private static double restingHeightFactor(Slime slime, double gameTime) {
+        return SlimeSquash.height(slime.getWindupProgress(), SlimeSquash.breath(gameTime, slime.getBreathPhase()));
     }
 
     /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */

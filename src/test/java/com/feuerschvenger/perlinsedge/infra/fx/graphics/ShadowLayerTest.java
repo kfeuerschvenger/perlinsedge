@@ -557,6 +557,20 @@ class ShadowLayerTest {
     }
 
     @Test
+    void aSpriteDrawnShorterCastsAShorterShadowOfTheSameWidth() {
+        final ShadowLayer tall = layer(NOON, 1.0);
+        tall.castSprite(block(10, 20), AX, AY, 20, 1.0, 1.0, 255);
+        final ShadowLayer squashed = layer(NOON, 1.0);
+        squashed.castSprite(block(10, 20), AX, AY, 20, 1.0, 0.5, 255);
+
+        final int[] tallBox = extent(tall);
+        final int[] squashedBox = extent(squashed);
+        assertEquals(tallBox[0], squashedBox[0]);
+        assertEquals(tallBox[2], squashedBox[2]);
+        assertTrue(squashedBox[3] - squashedBox[1] < tallBox[3] - tallBox[1]);
+    }
+
+    @Test
     void anAnchorThatIsNotANumberCastsNothing() {
         final ShadowLayer layer = layer(NOON, 1.0);
         layer.castSprite(tree(), Double.NaN, AY, 14, 1.0, 255);

@@ -154,4 +154,31 @@ class ShadowListTest {
         assertEquals(1, list.size());
         assertEquals(7, list.centreX(0));
     }
+
+    @Test
+    void aSpriteDrawnAtItsOwnSizeHasTheDrawnSizeOfItsSilhouette() {
+        final Silhouette sprite = new Silhouette(4, 6, new int[24]);
+        final ShadowList list = new ShadowList();
+        list.addSilhouette(10, 20, sprite, 5, 0.5, 1.0);
+
+        assertEquals(4, list.drawnWidth(0));
+        assertEquals(5, list.drawnHeight(0));
+        assertEquals(2, list.widthArt(0));
+    }
+
+    @Test
+    void theDrawnSizeIsKeptByCopiesAndTellsListsApart() {
+        final Silhouette sprite = new Silhouette(4, 6, new int[24]);
+        final ShadowList squashed = new ShadowList();
+        squashed.addSilhouette(10, 20, sprite, 6, 1.0, 4.5, 5.0, 1.0);
+        final ShadowList plain = new ShadowList();
+        plain.addSilhouette(10, 20, sprite, 6, 1.0, 1.0);
+
+        assertFalse(squashed.sameShadowsAs(plain));
+        final ShadowList copy = new ShadowList();
+        copy.copyFrom(squashed);
+        assertTrue(copy.sameShadowsAs(squashed));
+        assertEquals(4.5, copy.drawnWidth(0));
+        assertEquals(5.0, copy.drawnHeight(0));
+    }
 }

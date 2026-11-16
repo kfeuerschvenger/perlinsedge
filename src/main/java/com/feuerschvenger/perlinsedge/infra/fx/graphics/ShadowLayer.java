@@ -174,12 +174,31 @@ public final class ShadowLayer {
      */
     public void castSprite(Silhouette sprite, double anchorX, double anchorY, double groundRow, double widthFactor,
                            int alpha) {
-        if (alpha <= 0 || widthFactor <= 0 || groundRow <= 0 || !isFinite(anchorX, anchorY)) {
+        castSprite(sprite, anchorX, anchorY, groundRow, widthFactor, 1.0, alpha);
+    }
+
+    /**
+     * Casts the shadow of a sprite that is drawn squashed or stretched: the shadow is as tall as the sprite is drawn, so
+     * a squashed sprite casts a shorter shadow of the same form. The anchor is snapped to the sub-cell grid, and a shadow
+     * with a NaN or infinite anchor is skipped.
+     *
+     * @param sprite       the silhouette of the sprite
+     * @param anchorX      column of the point the sprite stands on, in cells, which may fall inside a cell
+     * @param anchorY      row of the point the sprite stands on, in cells, which may fall inside a cell
+     * @param groundRow    the row of the sprite that touches the ground, counted from its top, so the rows above it are
+     *                     its height
+     * @param widthFactor  how wide the shadow is relative to the sprite, 1 for the whole width
+     * @param heightFactor how tall the sprite is drawn relative to its silhouette, 1 for the whole height
+     * @param alpha        opacity of the shadow cells, 0 to 255
+     */
+    public void castSprite(Silhouette sprite, double anchorX, double anchorY, double groundRow, double widthFactor,
+                           double heightFactor, int alpha) {
+        if (alpha <= 0 || widthFactor <= 0 || heightFactor <= 0 || groundRow <= 0 || !isFinite(anchorX, anchorY)) {
             return;
         }
         final long subX = Math.round(anchorX * artScale);
         final long subY = Math.round(anchorY * artScale);
-        probe.set(sprite, widthFactor, groundRow, artScale, (int) Math.floorMod(subX, (long) artScale),
+        probe.set(sprite, widthFactor, heightFactor, groundRow, artScale, (int) Math.floorMod(subX, (long) artScale),
                 (int) Math.floorMod(subY, (long) artScale));
         stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) artScale), (int) Math.floorDiv(subY, (long) artScale),
                 alpha);
@@ -201,7 +220,7 @@ public final class ShadowLayer {
         }
         final long subX = Math.round(anchorX * artScale);
         final long subY = Math.round(anchorY * artScale);
-        probe.set(null, width, 0.0, artScale, (int) Math.floorMod(subX, (long) artScale),
+        probe.set(null, width, 1.0, 0.0, artScale, (int) Math.floorMod(subX, (long) artScale),
                 (int) Math.floorMod(subY, (long) artScale));
         stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) artScale), (int) Math.floorDiv(subY, (long) artScale),
                 alpha);
@@ -222,7 +241,7 @@ public final class ShadowLayer {
             final double fractionX = (double) key.subX / key.artScale;
             final double fractionY = (double) key.subY / key.artScale;
             mask = key.sprite != null
-                    ? rasteriseSprite(key.sprite, key.size, key.groundRow, fractionX, fractionY)
+                    ? rasteriseSprite(key.sprite, key.size, key.heightFactor, key.groundRow, fractionX, fractionY)
                     : rasteriseEllipse(key.size, fractionX, fractionY);
             masks.put(key.copy(), mask);
             rasterised++;
@@ -234,10 +253,12 @@ public final class ShadowLayer {
      * Works out the cells a sprite covers around an anchor that lies a fraction into its cell. Every cell is taken by
      * its centre, so the cells keep the crisp art pixel grid.
      */
-    private Mask rasteriseSprite(Silhouette sprite, double widthFactor, double groundRow, double fractionX,
-                                 double fractionY) {
+    private Mask rasteriseSprite(Silhouette sprite, double widthFactor, double heightFactor, double groundRow,
+                                 double fractionX, double fractionY) {
         final double halfWidth = sprite.width() / 2.0 * widthFactor;
-        final double reach = length * groundRow;
+        // A sprite drawn squashed is as tall as it is drawn, so its silhouette rows are spread over a shorter reach
+        final double drawnLength = length * heightFactor;
+        final double reach = drawnLength * groundRow;
         // The box of the four corners of the sprite after the projection
         resetBox();
         include(0, -halfWidth);
@@ -259,7 +280,7 @@ public final class ShadowLayer {
                 if (along < 0.0) {
                     continue;
                 }
-                final int row = (int) Math.ceil(groundRow - along / length) - 1;
+                final int row = (int) Math.ceil(groundRow - along / drawnLength) - 1;
                 final int column = (int) Math.floor((sine * dx - 2.0 * cosine * dy) / widthFactor + spriteWidth / 2.0);
                 if (row < 0 || row >= spriteHeight || column < 0 || column >= spriteWidth
                         || !sprite.isSolid(column, row)) {
@@ -548,6 +569,8 @@ public final class ShadowLayer {
         private Silhouette sprite;
         /** The width factor of a sprite shadow, or the width in art pixels of an ellipse. */
         private double size;
+        /** How tall a sprite is drawn relative to its silhouette, 1 for an ellipse. */
+        private double heightFactor;
         /** The ground row of a sprite shadow, zero for an ellipse. */
         private double groundRow;
         /** The number of sub-cells per cell, which gives the sub-cell indices their meaning. */
@@ -558,9 +581,11 @@ public final class ShadowLayer {
         private int subY;
 
         /** Sets every part of the key. */
-        private void set(Silhouette sprite, double size, double groundRow, int artScale, int subX, int subY) {
+        private void set(Silhouette sprite, double size, double heightFactor, double groundRow, int artScale, int subX,
+                          int subY) {
             this.sprite = sprite;
             this.size = size;
+            this.heightFactor = heightFactor;
             this.groundRow = groundRow;
             this.artScale = artScale;
             this.subX = subX;
@@ -570,7 +595,7 @@ public final class ShadowLayer {
         /** Returns an independent key with the same parts, for storing. */
         private MaskKey copy() {
             final MaskKey key = new MaskKey();
-            key.set(sprite, size, groundRow, artScale, subX, subY);
+            key.set(sprite, size, heightFactor, groundRow, artScale, subX, subY);
             return key;
         }
 
@@ -580,8 +605,8 @@ public final class ShadowLayer {
             if (!(other instanceof MaskKey key)) {
                 return false;
             }
-            return sprite == key.sprite && size == key.size && groundRow == key.groundRow
-                    && artScale == key.artScale && subX == key.subX && subY == key.subY;
+            return sprite == key.sprite && size == key.size && heightFactor == key.heightFactor
+                    && groundRow == key.groundRow && artScale == key.artScale && subX == key.subX && subY == key.subY;
         }
 
         /** Hashes every part the equality looks at, the silhouette by identity. */
@@ -589,6 +614,7 @@ public final class ShadowLayer {
         public int hashCode() {
             int hash = System.identityHashCode(sprite);
             hash = 31 * hash + Double.hashCode(size);
+            hash = 31 * hash + Double.hashCode(heightFactor);
             hash = 31 * hash + Double.hashCode(groundRow);
             hash = 31 * hash + artScale;
             hash = 31 * hash + subX;

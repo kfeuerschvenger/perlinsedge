@@ -371,7 +371,8 @@ public class FxRenderer {
                         && FxShadowHelper.canReach(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight(),
                         shadowReach)) {
                     if (enemy instanceof Slime slime) {
-                        FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime);
+                        FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime,
+                                currentFrameGameTime);
                     } else {
                         FxEnemyDrawingHelper.addGenericShadow(shadows, enemyScreenX, enemyScreenY, zoom);
                     }

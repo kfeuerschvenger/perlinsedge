@@ -139,11 +139,12 @@ public final class FxShadowPass {
         if (sprite != null) {
             // The layer grid has a cell of border before the first cell that lies on the canvas
             final double anchorX = ShadowAnchor.cell(
-                    ShadowAnchor.baseX(shadows.centreX(i), sprite.width(), artScale), phaseX, artScale);
+                    ShadowAnchor.baseX(shadows.centreX(i), shadows.drawnWidth(i), artScale), phaseX, artScale);
             final double anchorY = ShadowAnchor.cell(
-                    ShadowAnchor.baseY(shadows.centreY(i), shadows.groundRow(i), artScale), phaseY, artScale);
+                    ShadowAnchor.baseY(shadows.centreY(i), shadows.drawnHeight(i), artScale), phaseY, artScale);
+            final double heightFactor = shadows.groundRow(i) > 0 ? shadows.drawnHeight(i) / shadows.groundRow(i) : 1.0;
             layer.castSprite(sprite, anchorX, anchorY, shadows.groundRow(i), shadows.widthArt(i) / sprite.width(),
-                    alpha);
+                    heightFactor, alpha);
         } else {
             // An object drawn from shapes has no sprite to follow, so its ellipse sits on the art grid
             final double anchorX = Math.rint((shadows.centreX(i) - phaseX) / artScale) + 1;
