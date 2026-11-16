@@ -200,6 +200,9 @@ public class FxRenderer {
         dynamicShadows.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
+        // The light of the held torch is placed where the sprite of the player is drawn this frame, and is in the
+        // registry only while a torch is the selected item, which can change between two updates
+        gameState.syncLights(alpha);
         this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
         final boolean paused = gameState.isGamePaused();
         // Nothing is cast, and nothing is read from the sprites, while the shadows are too faint to see
@@ -457,10 +460,12 @@ public class FxRenderer {
         if (player != null) {
             renderPlayerAttack(gc, player, halfTileWidth, halfTileHeight, offsetX, offsetY);
         }
-        // The sky tint covers the whole world, tiles, shadows and objects alike. It is laid on before the damage
+        // The sky tint covers the whole world, tiles, shadows and objects alike, and is pushed back around the lights
+        // by the same pass, in the slot the plain tint always had. It is laid on before the damage
         // numbers, which are readable text and stay untinted, and the hurt glow, the debug text and the interface
         // panels come after it or are not part of the canvas at all.
-        skyTint.draw(gc, sky, canvas.getWidth(), canvas.getHeight());
+        skyTint.draw(gc, sky, gameState.getLights(), currentFrameGameTime, artScale, offsetX, offsetY,
+                canvas.getWidth(), canvas.getHeight());
         FxDamageNumbersPainter.draw(gc, gameState.getDamageNumbers(), currentFrameGameTime, halfTileWidth,
                 halfTileHeight, offsetX, offsetY, zoom, canvas.getWidth(), canvas.getHeight());
         gc.restore();
