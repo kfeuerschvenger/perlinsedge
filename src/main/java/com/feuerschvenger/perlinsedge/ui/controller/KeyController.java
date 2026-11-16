@@ -23,23 +23,22 @@ public class KeyController implements IKeyListener {
     private final Runnable generateNewMapAction;
     private final Runnable toggleMapConfigPanelAction;
     private final Runnable toggleInventoryPanelAction;
-    private final Runnable onAttack;
     private final Runnable toggleBuildingModeAction;
     private final Consumer<Integer> onNumberKeyPress;
     private final Consumer<Integer> onHotbarPageChange;
     private BooleanSupplier inputBlocked;
     private Runnable onDropOne;
     private Runnable onDropStack;
+    private Runnable onUseItem;
 
     /**
      * Constructs a KeyController with the specified actions for various key events.
      *
      * @param togglePauseMenuAction Action to toggle the pause menu.
-     * @param centerCameraAction Action to center the camera.
+     * @param centerCameraAction Action to center the camera, run by the space bar.
      * @param generateNewMapAction Action to generate a new random map.
      * @param toggleMapConfigPanelAction Action to toggle the map configuration panel.
      * @param toggleInventoryPanelAction Action to toggle the inventory panel.
-     * @param onAttack Action for player attack.
      * @param toggleBuildingModeAction Action to toggle the building mode.
      * @param onNumberKeyPress Action to handle number key presses for hotbar selection.
      * @param onHotbarPageChange Action to switch the building hotbar page, receives -1 for previous and 1 for next.
@@ -49,7 +48,6 @@ public class KeyController implements IKeyListener {
                          Runnable generateNewMapAction,
                          Runnable toggleMapConfigPanelAction,
                          Runnable toggleInventoryPanelAction,
-                         Runnable onAttack,
                          Runnable toggleBuildingModeAction,
                          Consumer<Integer> onNumberKeyPress,
                          Consumer<Integer> onHotbarPageChange) {
@@ -58,7 +56,6 @@ public class KeyController implements IKeyListener {
         this.generateNewMapAction = generateNewMapAction;
         this.toggleMapConfigPanelAction = toggleMapConfigPanelAction;
         this.toggleInventoryPanelAction = toggleInventoryPanelAction;
-        this.onAttack = onAttack;
         this.toggleBuildingModeAction = toggleBuildingModeAction;
         this.onNumberKeyPress = onNumberKeyPress;
         this.onHotbarPageChange = onHotbarPageChange;
@@ -83,6 +80,15 @@ public class KeyController implements IKeyListener {
     public void setDropActions(Runnable onDropOne, Runnable onDropStack) {
         this.onDropOne = onDropOne;
         this.onDropStack = onDropStack;
+    }
+
+    /**
+     * Sets the action of the use key. It is a gameplay key, so it is ignored while input is blocked.
+     *
+     * @param onUseItem action for E, which uses the item held in hand
+     */
+    public void setUseAction(Runnable onUseItem) {
+        this.onUseItem = onUseItem;
     }
 
     /** Tells whether a panel that covers the world currently takes the gameplay keys. */
@@ -113,16 +119,13 @@ public class KeyController implements IKeyListener {
                 if (togglePauseMenuAction != null) togglePauseMenuAction.run();
                 break;
             case SPACE:
-                if (onAttack != null) onAttack.run();
+                if (centerCameraAction != null) centerCameraAction.run();
                 break;
             case I:
                 if (toggleInventoryPanelAction != null) toggleInventoryPanelAction.run();
                 break;
             case B:
                 if (toggleBuildingModeAction != null) toggleBuildingModeAction.run();
-                break;
-            case C:
-                if (centerCameraAction != null) centerCameraAction.run();
                 break;
             case PAGE_UP:
                 if (onHotbarPageChange != null) onHotbarPageChange.accept(-1);
@@ -135,6 +138,9 @@ public class KeyController implements IKeyListener {
                 break;
             case DROP_STACK:
                 if (onDropStack != null) onDropStack.run();
+                break;
+            case USE_ITEM:
+                if (onUseItem != null) onUseItem.run();
                 break;
 
             // ----------- Debugging keys -----------
@@ -165,7 +171,7 @@ public class KeyController implements IKeyListener {
     /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
     private static boolean isGameplayKey(GameKey key) {
         return switch (key) {
-            case SPACE, I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK -> true;
+            case I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK, USE_ITEM -> true;
             default -> false;
         };
     }

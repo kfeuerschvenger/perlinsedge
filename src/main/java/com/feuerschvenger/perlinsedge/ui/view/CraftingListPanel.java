@@ -1,22 +1,20 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
-import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
-import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxItemDrawingHelper;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.geometry.Pos;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Displays a scrollable list of craftable recipes with selection capability.
@@ -26,7 +24,7 @@ public class CraftingListPanel extends VBox {
     // Layout constants; the colours, fonts and backgrounds come from the theme
     private static final int PANEL_SPACING = 10;
     private static final int LIST_SPACING = 5;
-    private static final int SCROLL_PANE_HEIGHT = 250;
+    private static final int SCROLL_PANE_HEIGHT = 130;
     private static final int ITEM_IMAGE_SIZE = 32;
 
     private static final String TITLE_TEXT = "Crafting Recipes";
@@ -39,6 +37,9 @@ public class CraftingListPanel extends VBox {
 
     // State management
     private Recipe selectedRecipe;
+    /** One cell per recipe, in the order the recipes were given. */
+    private final List<CraftableItemCell> cells = new ArrayList<>();
+    private Predicate<Recipe> canCraft = recipe -> true;
 
     // Event callbacks
     private Consumer<Recipe> onRecipeSelected;
@@ -121,6 +122,8 @@ public class CraftingListPanel extends VBox {
         Button button = new Button(UiTheme.caps(CRAFT_BUTTON_TEXT));
         button.setPrefWidth(Double.MAX_VALUE);
         button.setDisable(true);
+        // A focused button would take SPACE and craft again instead of centring the camera
+        button.setFocusTraversable(false);
         button.setOnAction(e -> {
             if (selectedRecipe != null && onCraftButtonClicked != null) {
                 onCraftButtonClicked.run();
@@ -130,13 +133,15 @@ public class CraftingListPanel extends VBox {
     }
 
     /**
-     * Sets the list of recipes to display.
+     * Sets the list of recipes to display. The recipes that can be crafted are listed first and the others after them,
+     * greyed but still selectable, each group in the order the recipes were given.
      *
      * @param recipes List of available recipes (null will be treated as empty)
      */
     public void setRecipes(List<Recipe> recipes) {
         recipes = Objects.requireNonNullElse(recipes, Collections.emptyList());
         recipesContainer.getChildren().clear();
+        cells.clear();
         setSelectedRecipe(null);
 
         if (recipes.isEmpty()) {
@@ -145,6 +150,60 @@ public class CraftingListPanel extends VBox {
         }
 
         populateRecipeList(recipes);
+        arrange();
+    }
+
+    /**
+     * Tells the list which recipes can be crafted now, and lists them first. The list calls this again whenever the
+     * inventory changes. The selection and the scroll position are kept, and the order inside each group stays that of
+     * the recipes as they were given.
+     *
+     * @param canCraft tells whether a recipe can be crafted with what the player holds
+     */
+    public void setCraftability(Predicate<Recipe> canCraft) {
+        this.canCraft = Objects.requireNonNull(canCraft, "canCraft");
+        arrange();
+    }
+
+    /**
+     * Marks every cell as craftable or not, puts the craftable ones first and keeps the craft button in line with the
+     * selected recipe.
+     */
+    private void arrange() {
+        // Each recipe is asked once per refresh, and the order is worked out only when an answer changed
+        boolean changed = recipesContainer.getChildren().size() != cells.size();
+        boolean selectedIsCraftable = false;
+        for (CraftableItemCell cell : cells) {
+            final boolean craftable = canCraft.test(cell.getRecipe());
+            changed |= craftable != cell.isCraftable();
+            cell.setCraftable(craftable);
+            // The answer for the selected recipe is taken here, so the button needs no second pass over the cells
+            if (craftable && cell.getRecipe().equals(selectedRecipe)) {
+                selectedIsCraftable = true;
+            }
+        }
+        // With no cells the container holds the empty list notice, which must stay
+        if (changed && !cells.isEmpty()) {
+            // A stable sort: false sorts before true, so the craftable cells come first and keep their relative order
+            List<CraftableItemCell> ordered = cells.stream()
+                    .sorted(Comparator.comparing((CraftableItemCell cell) -> !cell.isCraftable()))
+                    .toList();
+            if (!ordered.equals(recipesContainer.getChildren())) {
+                recipesContainer.getChildren().setAll(ordered);
+            }
+        }
+        updateCraftButton(selectedIsCraftable);
+    }
+
+    /** Keeps the button in line with a newly selected recipe, which is asked about once, at the moment of selection. */
+    private void updateCraftButton() {
+        updateCraftButton(selectedRecipe != null && canCraft.test(selectedRecipe));
+    }
+
+    private void updateCraftButton(boolean selectedIsCraftable) {
+        if (craftButton.isDisabled() == selectedIsCraftable) {
+            craftButton.setDisable(!selectedIsCraftable);
+        }
     }
 
     /**
@@ -163,7 +222,7 @@ public class CraftingListPanel extends VBox {
         for (Recipe recipe : recipes) {
             CraftableItemCell cell = new CraftableItemCell(recipe);
             cell.setOnMouseClicked(e -> handleRecipeSelection(recipe));
-            recipesContainer.getChildren().add(cell);
+            cells.add(cell);
         }
     }
 
@@ -192,10 +251,8 @@ public class CraftingListPanel extends VBox {
 
         if (recipe != null) {
             activateSelection(recipe);
-            craftButton.setDisable(false);
-        } else {
-            craftButton.setDisable(true);
         }
+        updateCraftButton();
     }
 
     /**
@@ -237,7 +294,15 @@ public class CraftingListPanel extends VBox {
      * Represents a single craftable recipe item in the list.
      */
     private class CraftableItemCell extends HBox {
+        private static final double UNAVAILABLE_ICON_OPACITY = 0.6;
+        /** Removes all the colour of an icon and darkens it a little. One instance is shared, it has no state. */
+        private static final ColorAdjust GREYSCALE = new ColorAdjust(0, -1, -0.2, 0);
+
         private final Recipe recipe;
+        private ImageView icon;
+        private boolean craftable = true;
+        /** True once the cell has been styled for its craftability, so an unchanged state costs nothing. */
+        private boolean styled;
 
         /**
          * Creates a new craftable item cell.
@@ -265,21 +330,16 @@ public class CraftingListPanel extends VBox {
          * Initializes the cell's UI components.
          */
         private void initializeCellComponents() {
-            ImageView imageView = createItemImageView();
+            icon = createItemImageView();
             Label nameLabel = createNameLabel();
-            getChildren().addAll(imageView, nameLabel);
+            getChildren().addAll(icon, nameLabel);
         }
 
         /**
          * Creates the item image view.
          */
         private ImageView createItemImageView() {
-            ImageView imageView = new ImageView(getItemImage(recipe.getOutputItemType()));
-            imageView.setFitWidth(ITEM_IMAGE_SIZE);
-            imageView.setFitHeight(ITEM_IMAGE_SIZE);
-            imageView.setPreserveRatio(true);
-            imageView.setSmooth(false);
-            return imageView;
+            return ItemIcons.view(recipe.getOutputItemType(), ITEM_IMAGE_SIZE);
         }
 
         /**
@@ -295,6 +355,26 @@ public class CraftingListPanel extends VBox {
             return recipe;
         }
 
+        boolean isCraftable() {
+            return craftable;
+        }
+
+        /**
+         * Greys the cell when the recipe cannot be crafted. The cell stays selectable so the player can read what the
+         * recipe needs.
+         */
+        void setCraftable(boolean craftable) {
+            if (styled && this.craftable == craftable) {
+                return;
+            }
+            styled = true;
+            this.craftable = craftable;
+            UiTheme.setClass(this, UiTheme.CELL_UNAVAILABLE, !craftable);
+            // Real greyscale, not only a fade: a faded icon keeps its hue and still reads as craftable
+            icon.setEffect(craftable ? null : GREYSCALE);
+            icon.setOpacity(craftable ? 1.0 : UNAVAILABLE_ICON_OPACITY);
+        }
+
         /**
          * Sets the selection state of the cell.
          *
@@ -304,29 +384,6 @@ public class CraftingListPanel extends VBox {
             UiTheme.setClass(this, UiTheme.CELL_SELECTED, selected);
         }
 
-        /**
-         * Retrieves the item image for display.
-         */
-        private Image getItemImage(ItemType itemType) {
-            SpriteManager.SpriteMetadata metadata = SpriteManager.getInstance().getItemSprite(itemType);
-            if (metadata != null && metadata.getImage() != null) {
-                return metadata.getImage();
-            }
-            return generateFallbackImage(itemType);
-        }
-
-        /**
-         * Generates a fallback image when no sprite is available.
-         */
-        private Image generateFallbackImage(ItemType itemType) {
-            Canvas canvas = new Canvas(ITEM_IMAGE_SIZE, ITEM_IMAGE_SIZE);
-            GraphicsContext gc = canvas.getGraphicsContext2D();
-            gc.clearRect(0, 0, ITEM_IMAGE_SIZE, ITEM_IMAGE_SIZE);
-            FxItemDrawingHelper.drawFallbackShape(
-                    gc, 0, 0, ITEM_IMAGE_SIZE, ITEM_IMAGE_SIZE, itemType, 1.0
-            );
-            return canvas.snapshot(null, null);
-        }
     }
 
 }

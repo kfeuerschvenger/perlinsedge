@@ -2,7 +2,10 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -24,6 +27,8 @@ public class GameStateManager {
     // Entity State
     private Player player;
     private final List<Enemy> enemies = new ArrayList<>();
+    /** Which enemy holds which tile, so every enemy stands on a tile of its own. */
+    private final EnemyOccupancy enemyOccupancy = new EnemyOccupancy();
     private final List<DroppedItem> droppedItems = new ArrayList<>();
 
     // World State
@@ -43,6 +48,8 @@ public class GameStateManager {
     private int mouseOverTileY = -1;
     /** The flash the cursor shows on the tile of the last click order. */
     private final ClickFeedback clickFeedback = new ClickFeedback();
+    /** The numbers that float up from a hit or a heal, on the game clock. */
+    private final DamageNumbers damageNumbers = new DamageNumbers();
     private boolean isGamePaused = false;
     private boolean isInventoryOpen = false;
     @Getter(lombok.AccessLevel.NONE)
@@ -59,6 +66,7 @@ public class GameStateManager {
         // Entity reset
         player = null;
         enemies.clear();
+        enemyOccupancy.clear();
         droppedItems.clear();
 
         // World reset
@@ -73,6 +81,7 @@ public class GameStateManager {
         mouseOverTileX = -1;
         mouseOverTileY = -1;
         clickFeedback.clear();
+        damageNumbers.clear();
         isGamePaused = false;
         isInventoryOpen = false;
         shouldCenterCamera = false;
@@ -82,6 +91,16 @@ public class GameStateManager {
     /** @return true while the player exists and is dead, which is when gameplay input is ignored */
     public boolean isPlayerDead() {
         return player != null && player.isDead();
+    }
+
+    /**
+     * Tells whether gameplay keys and the gameplay use of the wheel must be ignored: there is no player to act for,
+     * as after a rebuild that failed halfway, or the player is dead.
+     *
+     * @return true when no live player can act
+     */
+    public boolean isGameplayInputBlocked() {
+        return player == null || player.isDead();
     }
 
     /**
@@ -102,6 +121,7 @@ public class GameStateManager {
         if (enemies != null) {
             this.enemies.addAll(enemies);
         }
+        enemyOccupancy.rebuild(this.enemies);
     }
 
     /**

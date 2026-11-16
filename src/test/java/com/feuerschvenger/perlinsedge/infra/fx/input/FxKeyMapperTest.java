@@ -27,7 +27,11 @@ class FxKeyMapperTest {
         assertEquals(Optional.of(GameKey.SPACE), key(KeyCode.SPACE));
         assertEquals(Optional.of(GameKey.I), key(KeyCode.I));
         assertEquals(Optional.of(GameKey.B), key(KeyCode.B));
-        assertEquals(Optional.of(GameKey.C), key(KeyCode.C));
+    }
+
+    @Test
+    void theCKeyIsNotBound() {
+        assertEquals(Optional.empty(), key(KeyCode.C));
     }
 
     @Test
@@ -67,9 +71,12 @@ class FxKeyMapperTest {
     }
 
     @Test
-    void eStaysUnmappedSoItIsFreeForOtherActions() {
-        assertTrue(key(KeyCode.E).isEmpty());
-        assertTrue(key(KeyCode.E, true).isEmpty());
+    void eUsesTheItemInHandOnlyWithoutModifiers() {
+        assertEquals(Optional.of(GameKey.USE_ITEM), key(KeyCode.E));
+        assertTrue(key(KeyCode.E, true).isEmpty(), "Ctrl+E is not the use key");
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, false, true, false, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, false, false, true, false).isEmpty());
+        assertTrue(FxKeyMapper.toGameKey(KeyCode.E, false, false, false, true).isEmpty());
     }
 
     @Test

@@ -5,6 +5,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import lombok.RequiredArgsConstructor;
@@ -40,13 +43,17 @@ public class CombatManager {
 
         // Create a safe copy to avoid concurrent modification
         List<Enemy> enemies = new ArrayList<>(gameState.getEnemies());
+        final EnemyOccupancy occupancy = gameState.getEnemyOccupancy();
 
         for (Enemy enemy : enemies) {
-            // Skip dead enemies (should be removed but just in case)
-            if (enemy.isDead()) continue;
+            // Skip dead enemies (should be removed but just in case), which hold no tile
+            if (enemy.isDead()) {
+                occupancy.release(enemy);
+                continue;
+            }
 
             // Update enemy state
-            enemy.update(deltaTime, map, player);
+            enemy.update(deltaTime, map, player, occupancy);
 
             // Handle enemy attacks on player
             handleEnemyAttack(enemy, player, deltaTime);
@@ -72,31 +79,39 @@ public class CombatManager {
         }
     }
 
-    /**
-     * Initiates and processes a player attack based on mouse position.
-     * Validates game state and player conditions before attacking.
-     */
-    public void handlePlayerAttack() {
-        if (!isValidAttackState()) return;
-
-        Player player = gameState.getPlayer();
-        int[] attackDirection = calculateAttackVector(player);
-        int direction = calculateAttackDirection(attackDirection[0], attackDirection[1]);
-
-        // The player's own cooldown gates both the swing and the damage
-        if (!player.startAttack(direction)) return;
-        applyMeleeDamage(player);
+    /** What came of an order to hit one enemy. */
+    public enum Strike {
+        /** The swing landed on the enemy. */
+        HIT,
+        /** The player swung too recently to swing again. */
+        COOLDOWN,
+        /** The attack cannot happen: no player, a dead player or enemy, a paused game, or the enemy out of reach. */
+        REFUSED
     }
 
     /**
-     * Calculates the vector from player to mouse position in tile coordinates.
-     * @return [deltaX, deltaY] array
+     * Swings at one enemy with the item in hand. The player turns toward the enemy and the swing lands on that enemy
+     * alone, for the damage of the active item, so a click on an enemy never depends on where the mouse rests after
+     * the click. The player's own cooldown gates the swing.
+     *
+     * @param target the enemy to hit
+     * @return {@link Strike#HIT} when the swing landed, {@link Strike#COOLDOWN} when it must wait, and
+     *         {@link Strike#REFUSED} when the enemy is not within melee reach of the tile the player stands on
      */
-    private int[] calculateAttackVector(Player player) {
-        return new int[] {
-                gameState.getMouseOverTileX() - player.getCurrentTileX(),
-                gameState.getMouseOverTileY() - player.getCurrentTileY()
-        };
+    public Strike strikeEnemy(Enemy target) {
+        if (!isValidAttackState() || target == null || target.isDead()) return Strike.REFUSED;
+
+        final Player player = gameState.getPlayer();
+        if (!InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(),
+                target.getCurrentTileX(), target.getCurrentTileY())) {
+            return Strike.REFUSED;
+        }
+        final int direction = calculateAttackDirection(target.getCurrentTileX() - player.getCurrentTileX(),
+                target.getCurrentTileY() - player.getCurrentTileY());
+        if (!player.startAttack(direction)) return Strike.COOLDOWN;
+
+        damage(target, player);
+        return Strike.HIT;
     }
 
     /**
@@ -112,32 +127,16 @@ public class CombatManager {
         return (int) (adjustedAngle / DIRECTION_SECTOR_SIZE);
     }
 
-    /**
-     * Applies melee damage to enemies within attack range.
-     * Processes enemy death for defeated enemies.
-     */
-    private void applyMeleeDamage(Player player) {
-        double[] attackPos = player.getAttackPosition();
-        List<Enemy> enemies = new ArrayList<>(gameState.getEnemies()); // Safe copy for modification
-
-        for (Enemy enemy : enemies) {
-            if (isWithinAttackRange(attackPos, enemy, player.getAttackRange())) {
-                enemy.takeDamage(player.getAttackDamage());
-                if (enemy.isDead()) {
-                    handleEnemyDeath(enemy);
-                }
-            }
+    /** Deals the damage of the item in hand to an enemy, shows the number and processes its death. */
+    private void damage(Enemy enemy, Player player) {
+        // The number shows what the hit took off, so a blow that kills an enemy with little health left shows what was left
+        final double healthBefore = enemy.getHealth();
+        enemy.takeDamage(player.getAttackDamage());
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, healthBefore - enemy.getHealth(),
+                enemy.getPosX(), enemy.getPosY(), gameState.getGameTime());
+        if (enemy.isDead()) {
+            handleEnemyDeath(enemy);
         }
-    }
-
-    /**
-     * Checks if enemy is within circular attack range.
-     * @return true if distance <= attack radius
-     */
-    private boolean isWithinAttackRange(double[] attackPos, Enemy enemy, double range) {
-        double dx = attackPos[0] - enemy.getCurrentTileX();
-        double dy = attackPos[1] - enemy.getCurrentTileY();
-        return (dx * dx + dy * dy) <= (range * range); // Squared distance comparison
     }
 
     /**
@@ -149,6 +148,7 @@ public class CombatManager {
     private void handleEnemyDeath(Enemy enemy) {
         generateLootDrops(enemy);
         gameState.getEnemies().remove(enemy);
+        gameState.getEnemyOccupancy().release(enemy);
         log.debug("{} defeated", enemy.getClass().getSimpleName());
     }
 

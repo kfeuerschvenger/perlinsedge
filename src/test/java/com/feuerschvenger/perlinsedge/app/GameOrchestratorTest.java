@@ -1,12 +1,12 @@
 package com.feuerschvenger.perlinsedge.app;
 
-import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
@@ -21,6 +21,7 @@ import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
+import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -63,6 +64,8 @@ class GameOrchestratorTest {
     /** Draws the minimap until told to fail once. */
     private static final class FailingOnceMinimap extends FxMinimapDrawer {
         boolean failNext;
+        /** The map the minimap was last given successfully. */
+        TileMap shown;
 
         FailingOnceMinimap(Canvas minimapCanvas, FxCamera camera, Canvas canvas) {
             super(minimapCanvas, camera, canvas);
@@ -75,6 +78,7 @@ class GameOrchestratorTest {
                 throw new IllegalStateException("minimap failed");
             }
             super.updateMap(newMap);
+            shown = newMap;
         }
     }
 
@@ -105,6 +109,7 @@ class GameOrchestratorTest {
                     new HealthBar(),
                     new InventoryPanel(state),
                     new BuildingHotbarPanel(recipes),
+                    new ItemHotbarPanel(),
                     new HintLabel(),
                     new DeathOverlay(),
                     state,
@@ -225,6 +230,7 @@ class GameOrchestratorTest {
         assertNotSame(first, state.getCurrentMap(), "the new map is in place");
         assertNull(state.getPlayer(), "the player of the old map does not roam the new one");
         assertEquals(MapType.TUNDRA, AppConfig.getInstance().world().getCurrentMapType());
+        assertSame(state.getCurrentMap(), minimap.shown, "the minimap shows the map that replaced the old one");
 
         onFx(orchestrator::regenerateMap);
         assertNotNull(state.getPlayer(), "the retry placed a player again");

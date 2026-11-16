@@ -1,7 +1,8 @@
 package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
-import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
+import com.feuerschvenger.perlinsedge.app.managers.CombatManager;
 import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;
@@ -9,6 +10,7 @@ import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
 import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -59,8 +61,8 @@ class InputWiringClickTest {
         FxCamera camera = new FxCamera(0, 0, 1.0);
         ContainerManager containers = new ContainerManager();
         BuildingManager buildings = new BuildingManager(state, new RecipeManager(), containers);
-        interactions = new InteractionManager(state, buildings, new ResourceManager(state), containers,
-                () -> { }, message -> { });
+        interactions = new InteractionManager(state, buildings, new ResourceManager(state), new CombatManager(state),
+                containers, () -> { }, message -> { });
         InputWiring wiring = new InputWiring(state, buildings, new PlayerManager(state, null, null), interactions,
                 camera, null, new FxMinimapDrawer(minimapCanvas, camera, canvas), canvas);
         wiring.registerMouseHandlers();
@@ -111,6 +113,48 @@ class InputWiringClickTest {
         click(4, 4, MouseButton.PRIMARY);
 
         assertEquals(ClickFeedback.Kind.REJECTED, flash());
+    }
+
+    @Test
+    void aLeftClickOnASlimeInReachAttacksItAndFlashesGreen() {
+        final Slime slime = new Slime(3, 2);
+        state.getEnemies().add(slime);
+
+        click(3, 2, MouseButton.PRIMARY);
+
+        assertEquals(ClickFeedback.Kind.ACCEPTED, flash());
+        assertTrue(slime.getHealth() < slime.getMaxHealth());
+    }
+
+    @Test
+    void aLeftClickOnAFarSlimeFlashesGreenAndWalksToIt() {
+        state.getEnemies().add(new Slime(7, 2));
+
+        click(7, 2, MouseButton.PRIMARY);
+
+        assertEquals(ClickFeedback.Kind.ACCEPTED, flash());
+        assertTrue(interactions.hasPending());
+        assertTrue(player.isMoving());
+    }
+
+    @Test
+    void aRightClickOnASlimeFlashesRedAndDoesNotWalk() {
+        state.getEnemies().add(new Slime(7, 2));
+
+        click(7, 2, MouseButton.SECONDARY);
+
+        assertEquals(ClickFeedback.Kind.REJECTED, flash());
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void aRightClickCancelsThePendingAttack() {
+        state.getEnemies().add(new Slime(7, 2));
+        click(7, 2, MouseButton.PRIMARY);
+
+        click(2, 6, MouseButton.SECONDARY);
+
+        assertFalse(interactions.hasPending());
     }
 
     @Test

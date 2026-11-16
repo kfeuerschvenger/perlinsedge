@@ -4,6 +4,9 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
+import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -104,12 +107,46 @@ public class PlayerManager {
         Player player = getPlayer();
         if (player == null) return;
 
-        player.update(deltaTime);
+        advancePlayer(deltaTime);
+        // Every hit the player took since the last tick becomes one floating number over the player
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.PLAYER, player.drainDamageTaken(),
+                player.getPosX(), player.getPosY(), gameState.getGameTime());
         updatePlayerUI();
 
         // Handle player death only if not already processing respawn
         if (player.isDead() && gameState.getPlayerRespawnTimer() <= 0) {
             handlePlayerDeath();
+        }
+    }
+
+    /**
+     * Moves the player one tick while keeping it clear of the enemies. The walk is checked before the update, for an
+     * enemy that moved onto it, and again right after, because arriving on a node makes the next node the target at
+     * once: without the second check that node could be a tile an enemy holds for the rest of the tick.
+     *
+     * @param deltaTime Time since last update in seconds
+     */
+    void advancePlayer(double deltaTime) {
+        final Player player = getPlayer();
+        if (player == null) return;
+        keepClearOfEnemies();
+        player.update(deltaTime);
+        keepClearOfEnemies();
+    }
+
+    /**
+     * Ends the player's walk before it steps onto a tile an enemy has moved onto or toward since the walk was
+     * planned. It does nothing while the player is not walking.
+     */
+    public void keepClearOfEnemies() {
+        final Player player = getPlayer();
+        if (player == null || !player.isMoving()) {
+            return;
+        }
+        // The check runs every tick, so the set of taken tiles is only built on the rare tick that halts the walk
+        final PathNode next = player.getNextTile();
+        if (next != null && OccupiedTiles.contains(gameState.getEnemies(), next.x, next.y)) {
+            player.haltBefore(OccupiedTiles.of(gameState.getEnemies()));
         }
     }
 
@@ -142,11 +179,13 @@ public class PlayerManager {
      * @param map Current game map
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
-     * @return true when the player started walking, false when the order did nothing
+     * @return true when the player started walking, false when the order did nothing, which includes an order onto a
+     *         tile an enemy occupies: the walk goes around enemies and never ends on one
      */
     public boolean movePlayer(TileMap map, int targetX, int targetY) {
         Player player = getPlayer();
-        return player != null && player.moveTo(map, targetX, targetY);
+        return player != null
+                && player.moveTo(map, targetX, targetY, OccupiedTiles.of(gameState.getEnemies()));
     }
 
     /**

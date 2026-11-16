@@ -312,7 +312,8 @@ public final class SpriteManager {
             }
         }
         if (!missing.isEmpty()) {
-            log.info("{} item icons have no art, stand-in shapes are drawn", missing.size());
+            // Every item type has a drawn icon, so a missing file means the assets were not generated
+            log.warn("{} item icons have no art, stand-in shapes are drawn", missing.size());
             log.debug("Items without art: {}", missing);
         }
     }

@@ -93,8 +93,8 @@ class RecipeTest {
     private void fillWithCoalExceptTwoSlots() {
         player.addItem(new Item(ItemType.STONE, 5));
         player.addItem(new Item(ItemType.STICK, 3));
-        player.addItem(new Item(ItemType.COAL, 16 * ItemType.COAL.getMaxStackSize()));
-        assertEquals(18, player.getItems().stream().filter(java.util.Objects::nonNull).count());
+        player.addItem(new Item(ItemType.COAL, (player.getCapacity() - 2) * ItemType.COAL.getMaxStackSize()));
+        assertEquals(player.getCapacity(), player.getItems().stream().filter(java.util.Objects::nonNull).count());
     }
 
     @Test

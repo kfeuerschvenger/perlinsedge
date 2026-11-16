@@ -57,6 +57,11 @@ public class Resource {
         return lastHitTime;
     }
 
+    /** @return the health the resource has left, 0 once it is depleted */
+    public int getHealth() {
+        return currentHealth;
+    }
+
     // ==================================================================
     //  VISUAL AND FLASHING
     // ==================================================================

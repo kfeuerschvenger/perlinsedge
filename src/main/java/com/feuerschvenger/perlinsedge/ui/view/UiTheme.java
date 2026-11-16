@@ -53,6 +53,8 @@ public final class UiTheme {
     public static final String SLOT_EMPTY = "pe-slot-empty";
     /** Slot that is selected. */
     public static final String SLOT_SELECTED = "pe-slot-selected";
+    /** Hotbar slot picked in the open inventory, distinct from the selected slot that is held in hand. */
+    public static final String SLOT_PICKED = "pe-slot-picked";
     /** Slot that would accept the dragged item. */
     public static final String SLOT_DROP = "pe-slot-drop";
     /** Slot number shown in the corner of a hotbar slot. */
@@ -67,6 +69,12 @@ public final class UiTheme {
     public static final String CELL = "pe-cell";
     /** Selected row of a list. */
     public static final String CELL_SELECTED = "pe-cell-selected";
+    /** Crafting list cell of a recipe that cannot be crafted now. */
+    public static final String CELL_UNAVAILABLE = "pe-cell-unavailable";
+    /** Text that states a requirement that is met. */
+    public static final String TEXT_GOOD = "pe-good";
+    /** Text that states a requirement that is not met. */
+    public static final String TEXT_BAD = "pe-bad";
 
     private static boolean fontLoaded;
 

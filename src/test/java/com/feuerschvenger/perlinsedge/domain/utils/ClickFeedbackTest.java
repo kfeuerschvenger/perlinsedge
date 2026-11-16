@@ -1,4 +1,4 @@
-package com.feuerschvenger.perlinsedge.app.managers;
+package com.feuerschvenger.perlinsedge.domain.utils;
 
 import org.junit.jupiter.api.Test;
 

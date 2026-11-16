@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Plans how the player gets within reach of something to interact with.
@@ -43,12 +44,48 @@ public final class InteractionPlanner {
      *         otherwise, or null when no such tile can be reached
      */
     public static List<PathNode> pathToReach(TileMap map, int fromX, int fromY, int targetX, int targetY) {
+        return pathToReach(map, fromX, fromY, targetX, targetY, Set.of());
+    }
+
+    /**
+     * Plans the walk that brings the player within reach of a tile, around the tiles that are taken.
+     *
+     * @param map      the map
+     * @param fromX    player column
+     * @param fromY    player row
+     * @param targetX  target column
+     * @param targetY  target row
+     * @param occupied tiles the walk may neither cross nor end on, such as those of the enemies
+     * @return an empty list when the player is already in reach, the cheapest path to a free walkable tile around the
+     *         target otherwise, or null when no such tile can be reached
+     */
+    public static List<PathNode> pathToReach(TileMap map, int fromX, int fromY, int targetX, int targetY,
+                                             Set<PathNode> occupied) {
+        // The cap is the whole map, so anything a move order can reach is also reachable for an interaction
+        return pathToReach(map, fromX, fromY, targetX, targetY, occupied, Math.max(1, map.getWidth() * map.getHeight()));
+    }
+
+    /**
+     * Plans the walk like {@link #pathToReach(TileMap, int, int, int, int, Set)} but gives up once the search has
+     * expanded a number of tiles, so a target that cannot be reached costs a bounded search instead of every tile of
+     * the map.
+     *
+     * @param map              the map
+     * @param fromX            player column
+     * @param fromY            player row
+     * @param targetX          target column
+     * @param targetY          target row
+     * @param occupied         tiles the walk may neither cross nor end on, such as those of the enemies
+     * @param maxExpandedNodes largest number of tiles the search may expand
+     * @return an empty list when the player is already in reach, the cheapest path to a free walkable tile around the
+     *         target otherwise, or null when no such tile was found within the cap
+     */
+    public static List<PathNode> pathToReach(TileMap map, int fromX, int fromY, int targetX, int targetY,
+                                             Set<PathNode> occupied, int maxExpandedNodes) {
         if (inReach(fromX, fromY, targetX, targetY)) {
             return Collections.emptyList();
         }
-        // The search stops at the first reachable stand tile, so it is the cheapest one. The cap is the whole map, so
-        // anything a move order can reach is also reachable for an interaction.
-        final int cap = Math.max(1, map.getWidth() * map.getHeight());
-        return new Pathfinder(map).findPathNextTo(fromX, fromY, targetX, targetY, cap);
+        // The search stops at the first reachable stand tile, so it is the cheapest one
+        return new Pathfinder(map, occupied).findPathNextTo(fromX, fromY, targetX, targetY, maxExpandedNodes);
     }
 }

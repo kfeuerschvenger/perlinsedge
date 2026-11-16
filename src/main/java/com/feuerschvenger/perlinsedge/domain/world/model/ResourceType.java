@@ -7,9 +7,10 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
  */
 public enum ResourceType {
     STONE,
-    CRYSTALS,
+    /** Crystals in rocky ground, only a pickaxe held in hand can mine them. */
+    CRYSTALS(ItemType.PICKAXE),
     TREE,
-    /** Iron ore in rocky ground, only a pickaxe can mine it. */
+    /** Iron ore in rocky ground, only a pickaxe held in hand can mine it. */
     IRON_ORE(ItemType.PICKAXE);
 
     private final ItemType requiredTool;
@@ -23,7 +24,7 @@ public enum ResourceType {
     }
 
     /**
-     * Returns the tool the player must carry to harvest this resource.
+     * Returns the tool the player must hold in hand to harvest this resource.
      *
      * @return the required tool, or null when the resource can be harvested by hand
      */

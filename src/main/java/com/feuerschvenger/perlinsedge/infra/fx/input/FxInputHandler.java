@@ -1,11 +1,15 @@
 package com.feuerschvenger.perlinsedge.infra.fx.input;
 
 import com.feuerschvenger.perlinsedge.domain.events.IKeyListener;
+import com.feuerschvenger.perlinsedge.domain.utils.WheelAccumulator;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
+import javafx.beans.value.ChangeListener;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.stage.Window;
 
 import java.util.Arrays;
 
@@ -24,6 +28,11 @@ public class FxInputHandler {
     private IKeyListener keyListener;
     private ScrollInterceptor scrollInterceptor;
     private final WheelAccumulator zoomWheel = new WheelAccumulator();
+    private final KeyRepeatFilter keyRepeats = new KeyRepeatFilter();
+    /** Set by the press filter for the press that the bubbling handler is about to see. */
+    private boolean pressIsFirst;
+    /** Package-private so the tests can drive a focus change without a window. */
+    final ChangeListener<Boolean> focusListener = (obs, wasFocused, isFocused) -> keyRepeats.clear();
 
     /**
      * Constructs a new FxInputHandler for handling input events in the game.
@@ -37,17 +46,39 @@ public class FxInputHandler {
         this.camera = camera;
         this.edgeActive = new boolean[4];
 
+        // The tracking runs in filters, which see every event before any node can consume it: a control that consumes
+        // a release would otherwise leave its key held for good. The delivery to the game stays on the bubbling
+        // handler, so a key a control consumed does not also act on the world.
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> pressIsFirst = keyRepeats.firstPress(event.getCode()));
+        scene.addEventFilter(KeyEvent.KEY_RELEASED, event -> keyRepeats.release(event.getCode()));
         scene.setOnKeyPressed(event -> {
-            if (keyListener != null) {
+            final boolean first = pressIsFirst;
+            pressIsFirst = false;
+            if (keyListener != null && first) {
                 FxKeyMapper.toGameKey(event.getCode(), event.isControlDown(), event.isShiftDown(),
                         event.isAltDown(), event.isMetaDown()).ifPresent(keyListener::onKeyAction);
             }
         });
+        scene.windowProperty().addListener((obs, oldWindow, newWindow) -> moveFocusWatch(oldWindow, newWindow));
+        moveFocusWatch(null, scene.getWindow());
 
         mainGameCanvas.setOnScroll(this::handleScroll);
 
         mainGameCanvas.setOnMouseMoved(this::handleMouseMoved);
         mainGameCanvas.setOnMouseExited(this::handleMouseExited);
+    }
+
+    /**
+     * Forgets the held keys whenever the window gains or loses focus, since the release events of a key held across
+     * the change go to another window. The listener leaves the window the scene moves away from.
+     */
+    private void moveFocusWatch(Window oldWindow, Window newWindow) {
+        if (oldWindow != null) {
+            oldWindow.focusedProperty().removeListener(focusListener);
+        }
+        if (newWindow != null) {
+            newWindow.focusedProperty().addListener(focusListener);
+        }
     }
 
     public void setGameKeyListener(IKeyListener listener) {

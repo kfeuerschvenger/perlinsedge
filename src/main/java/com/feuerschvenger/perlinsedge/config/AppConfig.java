@@ -23,6 +23,7 @@ public class AppConfig {
     private final DebugConfig debug = new DebugConfig();
     private final GameMechanicsConfig gameMechanics = new GameMechanicsConfig();
     private final GenerationConfig generationConfig = new GenerationConfig();
+    private final EnemyConfig enemies = new EnemyConfig();
 
     private AppConfig() {}
 
@@ -40,6 +41,7 @@ public class AppConfig {
     public PlayerConfig player() { return player; }
     public DebugConfig debug() { return debug; }
     public GameMechanicsConfig gameMechanics() { return gameMechanics; }
+    public EnemyConfig enemies() { return enemies; }
     public GenerationConfig generationConfig() { return generationConfig; }
 
     // ==================================================================
@@ -218,15 +220,23 @@ public class AppConfig {
      * Game mechanics configuration (health, loot tables)
      */
     public static class GameMechanicsConfig {
-        // Resource health
+        // Resource health, balanced against the damage table of ToolStats so the right tool breaks a resource in three
+        // hits and a bare hand takes about eight where a hand can do it at all
         private static final int TREE_MAX_HEALTH = 30;
-        private static final int ROCK_MAX_HEALTH = 40;
+        private static final int ROCK_MAX_HEALTH = 30;
         private static final int CRYSTAL_MAX_HEALTH = 25;
-        private static final int IRON_ORE_MAX_HEALTH = 60;
+        private static final int IRON_ORE_MAX_HEALTH = 36;
         private static final int DEFAULT_MAX_HEALTH = 50;
 
-        // Cooldowns
-        private static final long resourceHitCooldownMs = 300;
+        // Slime strike cycle: it squashes in front of the player, strikes, then waits before it can squash again
+        private static final double SLIME_WINDUP_SECONDS = 0.6;
+        private static final double SLIME_STRIKE_WAIT_SECONDS = 1.5;
+
+        /** @return seconds a slime squashes in front of the player before it strikes */
+        public double getSlimeWindupSeconds() { return SLIME_WINDUP_SECONDS; }
+
+        /** @return seconds a slime waits after a strike before it starts the next squash */
+        public double getSlimeStrikeWaitSeconds() { return SLIME_STRIKE_WAIT_SECONDS; }
 
         public int getResourceBaseHealth(ResourceType type) {
             return switch (type) {
@@ -237,8 +247,42 @@ public class AppConfig {
                 default -> DEFAULT_MAX_HEALTH;
             };
         }
+    }
 
-        public long getResourceHitCooldownMs() { return resourceHitCooldownMs; }
+    /**
+     * How far each enemy type notices the player and how far it follows before giving up.
+     */
+    public static class EnemyConfig {
+        /**
+         * The three distances that govern one enemy's chase.
+         *
+         * @param aggroTiles  distance in tiles within which the enemy starts chasing the player
+         * @param leashTiles  distance in tiles beyond which a chasing enemy gives up at once, larger than aggroTiles so
+         *                    an enemy at the edge of its range does not flip between chasing and idling
+         * @param loseSeconds seconds a chasing enemy keeps going while the player is outside aggroTiles, before it
+         *                    gives up
+         */
+        public record ChaseRange(double aggroTiles, double leashTiles, double loseSeconds) {
+            /** Validates that the leash encloses the aggro range. */
+            public ChaseRange {
+                if (aggroTiles <= 0 || leashTiles <= aggroTiles || loseSeconds < 0) {
+                    throw new IllegalArgumentException("need 0 < aggroTiles < leashTiles and loseSeconds >= 0");
+                }
+            }
+        }
+
+        private static final ChaseRange SLIME = new ChaseRange(8.0, 12.0, 3.0);
+        private static final ChaseRange SKELETON = new ChaseRange(10.0, 15.0, 4.0);
+        private static final ChaseRange MIMIC = new ChaseRange(2.5, 8.0, 3.0);
+
+        /** @return the chase distances of a slime */
+        public ChaseRange slime() { return SLIME; }
+
+        /** @return the chase distances of a skeleton */
+        public ChaseRange skeleton() { return SKELETON; }
+
+        /** @return the chase distances of a mimic, whose aggro range is the distance that wakes it */
+        public ChaseRange mimic() { return MIMIC; }
     }
 
     /**

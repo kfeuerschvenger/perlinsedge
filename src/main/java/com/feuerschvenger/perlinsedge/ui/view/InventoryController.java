@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.QuickMove;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
@@ -413,10 +414,25 @@ class InventoryController {
             return;
         }
         InventoryPanel.SlotContext context = (InventoryPanel.SlotContext) ((Node) event.getSource()).getUserData();
+        if (event.isControlDown()) {
+            quickMove(context);
+            event.consume();
+            return;
+        }
         log.debug("SLOT CLICK: Slot {}", context.index);
 
         handleSlotSelection(context.index, context.container == gameState.getPlayer());
         event.consume();
+    }
+
+    /** Ctrl+click: sends the whole stack of the slot to the other side, see {@link QuickMove#route}. */
+    private void quickMove(InventoryPanel.SlotContext context) {
+        boolean moved = QuickMove.route(gameState.getPlayer(), view.getSecondaryContainer(), context.container,
+                context.index);
+        log.debug("QUICK MOVE: slot {} moved={}", context.index, moved);
+        if (moved) {
+            Platform.runLater(view::updateInventoryDisplay);
+        }
     }
 
     private void handleSlotSelection(int clickedSlotIndex, boolean isPlayerInventorySlot) {

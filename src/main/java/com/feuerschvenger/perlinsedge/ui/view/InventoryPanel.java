@@ -4,10 +4,9 @@ import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
+import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
-import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxItemDrawingHelper;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
@@ -16,10 +15,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import lombok.Getter;
@@ -40,11 +36,8 @@ import java.util.Objects;
  * {@link InventoryController}, which also keeps the callbacks exposed here.
  */
 public class InventoryPanel extends BorderPane {
-    // Constants
-    public static final int DEFAULT_CAPACITY = 9;
-
     // Layout dimensions
-    private static final int SLOT_SIZE = 44;
+    private static final int SLOT_SIZE = (int) BuildingHotbarPanel.SLOT_SIZE;
     /** Item icon size: the 16 px art at 2x, so every art pixel stays a whole square block. */
     static final int ITEM_SIZE = 32;
     private static final int ITEM_SPACING = 10;
@@ -63,6 +56,8 @@ public class InventoryPanel extends BorderPane {
     private CraftingListPanel craftingListPanel;
     /** The item that follows the mouse while a stack is dragged, or null. */
     private StackPane dragGhost;
+    /** The hotbar row at the bottom of the screen, which joins this panel while it is open, or null. */
+    private ItemHotbarPanel hotbar;
 
     // State management
     private final GameStateManager gameState;
@@ -71,6 +66,18 @@ public class InventoryPanel extends BorderPane {
     private final InventoryController controller;
     @Getter(lombok.AccessLevel.PACKAGE)
     private Container secondaryContainer;
+    // What the last refresh drew, so an unchanged inventory and selection cost nothing
+    /** The player and inventory version the crafting list was last marked for, valid only while the flag is set. */
+    private Player craftabilityPlayer;
+    private long craftabilityVersion;
+    private boolean craftabilityValid;
+    /** The player, inventory version and selection the information panel last showed, valid only while flagged. */
+    private boolean infoValid;
+    private Player infoPlayer;
+    private long infoVersion;
+    private int infoSlotIndex;
+    private boolean infoSlotInPlayer;
+    private Recipe infoRecipe;
 
     /**
      * Initializes the inventory panel with game state reference.
@@ -93,7 +100,8 @@ public class InventoryPanel extends BorderPane {
 
     private void configurePanel() {
         getStyleClass().add(UiTheme.PANEL);
-        setPrefSize(800, 300);
+        // Both sizes follow the content, so there is no empty band above or below the grid
+        setPrefSize(USE_COMPUTED_SIZE, USE_COMPUTED_SIZE);
     }
 
     private void initializeComponents() {
@@ -118,18 +126,19 @@ public class InventoryPanel extends BorderPane {
         VBox container = new VBox(ITEM_SPACING);
         container.setAlignment(Pos.CENTER);
 
-        int playerCapacity = (gameState.getPlayer() != null) ?
-                gameState.getPlayer().getCapacity() :
-                2 * DEFAULT_CAPACITY;
-
-        List<StackPane> slots = createInventorySlots(playerCapacity, gameState.getPlayer());
+        // The grid holds the inventory slots only: the hotbar slots come first in the storage and have their own row
+        List<StackPane> slots = new ArrayList<>(Player.INVENTORY_SIZE);
+        for (int i = Player.HOTBAR_SIZE; i < Player.HOTBAR_SIZE + Player.INVENTORY_SIZE; i++) {
+            slots.add(createInventorySlot(i, gameState.getPlayer()));
+        }
         playerInventoryGrid = GridUtils.createPlayerGrid(slots);
 
         container.getChildren().addAll(createTitle(PLAYER_INVENTORY_TITLE), playerInventoryGrid);
         return container;
     }
 
-    private List<StackPane> createInventorySlots(int capacity, Container container) {
+    /** Creates the slots of the grid of an open chest, indexed from zero. */
+    private List<StackPane> createChestSlots(int capacity, Container container) {
         List<StackPane> slots = new ArrayList<>(capacity);
         for (int i = 0; i < capacity; i++) {
             slots.add(createInventorySlot(i, container));
@@ -187,16 +196,53 @@ public class InventoryPanel extends BorderPane {
         slot.getStyleClass().add(UiTheme.SLOT);
     }
 
+    /**
+     * Makes the slots of the hotbar at the bottom of the screen part of this panel while it is open: they take the
+     * same drag, drop, hover and throw actions as the slots of the grid. The hotbar keeps drawing itself, and its
+     * selection border, which marks the slot held in hand, is never touched by the highlights of this panel.
+     *
+     * @param hotbarPanel the hotbar of the items the player carries
+     */
+    public void attachHotbar(ItemHotbarPanel hotbarPanel) {
+        this.hotbar = Objects.requireNonNull(hotbarPanel, "Hotbar panel cannot be null");
+        for (int i = 0; i < Player.HOTBAR_SIZE; i++) {
+            StackPane slot = hotbarPanel.slotNode(i);
+            SlotContext context = new SlotContext(i, gameState.getPlayer());
+            context.hotbar = true;
+            slot.setUserData(context);
+            // While no inventory is open the row is a display: a press on it must not start a drag
+            slot.setOnMousePressed(e -> {
+                if (isVisible()) controller.handleSlotPressed(e, slot);
+            });
+            slot.setOnMouseClicked(e -> {
+                if (isVisible()) controller.handleSlotClick(e);
+            });
+            slot.setOnMouseEntered(e -> {
+                if (isVisible()) controller.handleSlotHover(slot, true);
+            });
+            slot.setOnMouseExited(e -> controller.handleSlotHover(slot, false));
+        }
+    }
+
     /** Highlights a slot as a valid drop target. */
     void showDropHighlight(StackPane slot) {
-        UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        if (!isHotbarSlot(slot)) {
+            UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        }
         UiTheme.setClass(slot, UiTheme.SLOT_DROP, true);
     }
 
     /** Restores a slot's default border. */
     void restoreSlotBorder(StackPane slot) {
-        UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        // The selection border of a hotbar slot marks the slot held in hand, which only the hotbar changes
+        if (!isHotbarSlot(slot)) {
+            UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, false);
+        }
         UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
+    }
+
+    private static boolean isHotbarSlot(StackPane slot) {
+        return slot.getUserData() instanceof SlotContext context && context.hotbar;
     }
 
     /** Retrieves an item from a specific slot in a container. */
@@ -211,6 +257,12 @@ public class InventoryPanel extends BorderPane {
     static class SlotContext {
         int index;
         Container container;
+        /** True for the slots of the hotbar row at the bottom of the screen, false for the slots of the grids. */
+        boolean hotbar;
+        /** The item type the slot node draws, null for an empty slot. */
+        ItemType shownType;
+        /** The count the slot node draws, 0 for an empty slot. */
+        int shownQuantity;
 
         SlotContext(int index, Container container) {
             this.index = index;
@@ -241,14 +293,17 @@ public class InventoryPanel extends BorderPane {
         if (slot == null && secondaryContainer != null) {
             slot = slotNodeAt(secondaryInventoryGrid, sceneX, sceneY);
         }
+        if (slot == null && hotbar != null && isVisible()) {
+            slot = slotNodeAt(hotbar, sceneX, sceneY);
+        }
         return slot;
     }
 
-    private static StackPane slotNodeAt(GridPane grid, double sceneX, double sceneY) {
-        if (grid == null) {
+    private static StackPane slotNodeAt(Pane parent, double sceneX, double sceneY) {
+        if (parent == null) {
             return null;
         }
-        for (Node node : grid.getChildren()) {
+        for (Node node : parent.getChildren()) {
             if (node instanceof StackPane slot && slot.localToScene(slot.getLayoutBounds()).contains(sceneX, sceneY)) {
                 return slot;
             }
@@ -312,7 +367,8 @@ public class InventoryPanel extends BorderPane {
         if (dragGhost == null) return;
         Point2D local = sceneToLocal(sceneX, sceneY);
         if (local != null) {
-            dragGhost.relocate(local.getX() - ITEM_SIZE / 2.0, local.getY() - ITEM_SIZE / 2.0);
+            // On whole pixels: an icon that sits between two pixels has some of its art pixels drawn wider than others
+            dragGhost.relocate(Math.rint(local.getX() - ITEM_SIZE / 2.0), Math.rint(local.getY() - ITEM_SIZE / 2.0));
         }
     }
 
@@ -330,17 +386,61 @@ public class InventoryPanel extends BorderPane {
 
     /**
      * Updates the inventory display based on current state. A stack in hand follows its slot: its ghost shows the
-     * new quantity, and the drag ends when the stack is gone.
+     * new quantity, and the drag ends when the stack is gone. The game calls this every tick, so a panel that is not
+     * open does nothing: opening it draws everything, and from then on only what changed is redrawn.
      */
     public void updateInventoryDisplay() {
+        if (isVisible()) {
+            refreshDisplay();
+        }
+    }
+
+    private void refreshDisplay() {
         updateGridContents(playerInventoryGrid, gameState.getPlayer());
+        updateHotbarContext();
 
         if (secondaryContainer != null) {
             updateGridContents(secondaryInventoryGrid, secondaryContainer);
         }
 
-        updateInformationDisplay();
+        final Player player = gameState.getPlayer();
+        final long version = player == null ? -1 : player.getInventoryVersion();
+        // The crafting list is out of the layout while a chest is open, so nothing there needs the answers
+        if (secondaryContainer == null
+                && (!craftabilityValid || player != craftabilityPlayer || version != craftabilityVersion)) {
+            refreshCraftability();
+        }
+        if (secondaryContainer != null || !infoUpToDate(player, version)) {
+            updateInformationDisplay();
+            rememberInfoSubject(player, version);
+        }
         controller.refreshDrag();
+    }
+
+    /**
+     * Tells whether the information panel already shows what the selection and the inventory call for. A chest has no
+     * change count, so while one is open the panel is always redrawn.
+     */
+    private boolean infoUpToDate(Player player, long version) {
+        return infoValid && player == infoPlayer && version == infoVersion
+                && controller.getSelectedSlotIndex() == infoSlotIndex
+                && controller.isSelectedSlotInPlayerInventory() == infoSlotInPlayer
+                && Objects.equals(controller.getSelectedRecipe(), infoRecipe);
+    }
+
+    private void rememberInfoSubject(Player player, long version) {
+        infoValid = true;
+        infoPlayer = player;
+        infoVersion = version;
+        infoSlotIndex = controller.getSelectedSlotIndex();
+        infoSlotInPlayer = controller.isSelectedSlotInPlayerInventory();
+        infoRecipe = controller.getSelectedRecipe();
+    }
+
+    /** Makes the next refresh redraw the crafting list and the information panel. */
+    private void forgetShownState() {
+        craftabilityValid = false;
+        infoValid = false;
     }
 
     /**
@@ -351,7 +451,11 @@ public class InventoryPanel extends BorderPane {
      * @return true when the point is within the bounds of the panel
      */
     boolean containsScenePoint(double sceneX, double sceneY) {
-        return localToScene(getLayoutBounds()).contains(sceneX, sceneY);
+        if (localToScene(getLayoutBounds()).contains(sceneX, sceneY)) {
+            return true;
+        }
+        // The hotbar is part of the inventory while it is open, so releasing over its gaps is not a throw either
+        return hotbar != null && isVisible() && hotbar.localToScene(hotbar.getLayoutBounds()).contains(sceneX, sceneY);
     }
 
     /**
@@ -367,7 +471,7 @@ public class InventoryPanel extends BorderPane {
         if (controller.getSelectedSlotIndex() != -1) {
             updateItemSelectionDisplay();
         } else if (controller.getSelectedRecipe() != null) {
-            itemInfoPanel.displayRecipe(controller.getSelectedRecipe());
+            itemInfoPanel.displayRecipe(controller.getSelectedRecipe(), this::countHeld);
         } else {
             itemInfoPanel.clearInfo();
         }
@@ -400,7 +504,27 @@ public class InventoryPanel extends BorderPane {
 
     /** Shows a recipe in the information panel. */
     void showRecipeInfo(Recipe recipe) {
-        itemInfoPanel.displayRecipe(recipe);
+        itemInfoPanel.displayRecipe(recipe, this::countHeld);
+    }
+
+    /** Gives the ingredient lines of the recipe now shown in the information panel, for the tests. */
+    List<javafx.scene.text.Text> ingredientLinesShown() {
+        return itemInfoPanel.shownIngredientLines();
+    }
+
+    /** How many items of a type the player holds, hotbar and inventory together. */
+    private int countHeld(ItemType type) {
+        Player player = gameState.getPlayer();
+        return player == null ? 0 : player.getItemCount(new Item(type, 1));
+    }
+
+    /** Lists the recipes that can be crafted with what the player holds first, and greys the others. */
+    private void refreshCraftability() {
+        Player player = gameState.getPlayer();
+        craftabilityValid = true;
+        craftabilityPlayer = player;
+        craftabilityVersion = player == null ? -1 : player.getInventoryVersion();
+        craftingListPanel.setCraftability(recipe -> player != null && player.canCraft(recipe));
     }
 
     /** @return the recipe selected in the crafting list, or null */
@@ -408,31 +532,40 @@ public class InventoryPanel extends BorderPane {
         return craftingListPanel.getSelectedRecipe();
     }
 
-    private void updateGridContents(GridPane grid, Container container) {
-        int cols = grid.getColumnConstraints().size();
+    /** Points the hotbar slots at the current player, who is a new object after a rebuild of the world. */
+    private void updateHotbarContext() {
+        if (hotbar == null) {
+            return;
+        }
+        for (int i = 0; i < Player.HOTBAR_SIZE; i++) {
+            ((SlotContext) hotbar.slotNode(i).getUserData()).container = gameState.getPlayer();
+        }
+    }
 
+    /** Redraws the slots of a grid. A slot keeps the index it was created with: the grid may show a range of a container. */
+    private void updateGridContents(GridPane grid, Container container) {
         for (Node node : grid.getChildren()) {
             if (node instanceof StackPane slot) {
-                int row = GridPane.getRowIndex(node);
-                int col = GridPane.getColumnIndex(node);
-                int index = row * cols + col;
-
-                updateSlotContext(slot, index, container);
-                updateSlotVisuals(slot, index, container);
+                SlotContext context = (SlotContext) slot.getUserData();
+                context.container = container;
+                updateSlotVisuals(slot, context.index, container);
             }
         }
     }
 
-    private void updateSlotContext(StackPane slot, int index, Container container) {
-        SlotContext context = (SlotContext) slot.getUserData();
-        context.index = index;
-        context.container = container;
-    }
-
+    /** Redraws a slot only when its item type or its count differ from what the slot shows. */
     private void updateSlotVisuals(StackPane slot, int index, Container container) {
-        slot.getChildren().clear();
-        Item item = getItemInSlot(index, container);
+        final SlotContext context = (SlotContext) slot.getUserData();
+        final Item item = getItemInSlot(index, container);
+        final ItemType type = item != null ? item.getType() : null;
+        final int quantity = item != null ? item.getQuantity() : 0;
+        if (type == context.shownType && quantity == context.shownQuantity) {
+            return;
+        }
+        context.shownType = type;
+        context.shownQuantity = quantity;
 
+        slot.getChildren().clear();
         if (item != null) {
             slot.getChildren().add(createItemImage(item));
             if (item.getQuantity() > 1) {
@@ -448,10 +581,11 @@ public class InventoryPanel extends BorderPane {
     /** Opens the player inventory display. */
     public void openPlayerInventory() {
         this.secondaryContainer = null;
+        forgetShownState();
         cleanRightContainer();
-        updateInventoryDisplay();
         setVisible(true);
         setManaged(true);
+        refreshDisplay();
     }
 
     /**
@@ -461,15 +595,16 @@ public class InventoryPanel extends BorderPane {
      */
     public void openDualInventory(Container otherContainer) {
         this.secondaryContainer = Objects.requireNonNull(otherContainer, "Secondary container cannot be null");
+        forgetShownState();
         initializeSecondaryInventory();
         configureDualInventoryLayout();
-        updateInventoryDisplay();
         setVisible(true);
         setManaged(true);
+        refreshDisplay();
     }
 
     private void initializeSecondaryInventory() {
-        List<StackPane> slots = createInventorySlots(secondaryContainer.getCapacity(), secondaryContainer);
+        List<StackPane> slots = createChestSlots(secondaryContainer.getCapacity(), secondaryContainer);
         secondaryInventoryGrid = GridUtils.createGrid(slots);
     }
 
@@ -500,6 +635,7 @@ public class InventoryPanel extends BorderPane {
     public void closeInventory() {
         controller.cancelDrag();
         this.secondaryContainer = null;
+        forgetShownState();
         resetLayout();
         clearState();
         setVisible(false);
@@ -537,7 +673,9 @@ public class InventoryPanel extends BorderPane {
     // ==================================================================
 
     /**
-     * Highlights or unhighlights a slot of the grid that holds the current selection.
+     * Highlights or unhighlights the slot that holds the current selection: a slot of the hotbar row for an index
+     * below the hotbar size, a slot of the grid of the selected container otherwise. The hotbar slot gets its own
+     * marker, because its selection border already marks the slot held in hand.
      *
      * @param index     Slot index to modify
      * @param highlight True to highlight, false to restore
@@ -545,26 +683,34 @@ public class InventoryPanel extends BorderPane {
     void highlightSlot(int index, boolean highlight) {
         if (index < 0) return;
 
+        if (index < Player.HOTBAR_SIZE && controller.isSelectedSlotInPlayerInventory()) {
+            if (hotbar != null) {
+                applySlotHighlight(hotbar.slotNode(index), highlight);
+            }
+            return;
+        }
+
         GridPane targetGrid = controller.isSelectedSlotInPlayerInventory() ?
                 playerInventoryGrid : secondaryInventoryGrid;
 
         if (targetGrid == null) return;
 
-        int cols = targetGrid.getColumnConstraints().size();
-        int row = index / cols;
-        int col = index % cols;
-
         for (Node node : targetGrid.getChildren()) {
-            if (GridPane.getRowIndex(node) == row && GridPane.getColumnIndex(node) == col) {
-                if (node instanceof StackPane slot) {
-                    applySlotHighlight(slot, highlight);
-                }
+            if (node instanceof StackPane slot && ((SlotContext) slot.getUserData()).index == index) {
+                applySlotHighlight(slot, highlight);
                 break;
             }
         }
     }
 
     private void applySlotHighlight(StackPane slot, boolean highlight) {
+        if (isHotbarSlot(slot)) {
+            UiTheme.setClass(slot, UiTheme.SLOT_PICKED, highlight);
+            if (highlight) {
+                UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
+            }
+            return;
+        }
         if (highlight) {
             UiTheme.setClass(slot, UiTheme.SLOT_DROP, false);
             UiTheme.setClass(slot, UiTheme.SLOT_SELECTED, true);
@@ -574,12 +720,7 @@ public class InventoryPanel extends BorderPane {
     }
 
     private ImageView createItemImage(Item item) {
-        ImageView imageView = new ImageView(getItemImage(item));
-        imageView.setFitWidth(ITEM_SIZE);
-        imageView.setFitHeight(ITEM_SIZE);
-        imageView.setPreserveRatio(true);
-        imageView.setSmooth(false);
-        return imageView;
+        return ItemIcons.view(item.getType(), ITEM_SIZE);
     }
 
     /** The stack size in the pixel font with a 1 px dark shadow, at the bottom right corner of the slot. */
@@ -590,26 +731,6 @@ public class InventoryPanel extends BorderPane {
         StackPane.setAlignment(count, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(count, new Insets(0, COUNT_MARGIN, 0, 0));
         return count;
-    }
-
-    /** Retrieves an item's image representation, generating a fallback when no sprite exists. */
-    Image getItemImage(Item item) {
-        if (item == null) return null;
-
-        SpriteManager.SpriteMetadata metadata = SpriteManager.getInstance().getItemSprite(item.getType());
-        if (metadata != null && metadata.getImage() != null) {
-            return metadata.getImage();
-        }
-
-        return generateFallbackImage(item.getType());
-    }
-
-    private Image generateFallbackImage(ItemType itemType) {
-        Canvas canvas = new Canvas(ITEM_SIZE, ITEM_SIZE);
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.clearRect(0, 0, ITEM_SIZE, ITEM_SIZE);
-        FxItemDrawingHelper.drawFallbackShape(gc, 0, 0, ITEM_SIZE, ITEM_SIZE, itemType, 1.0);
-        return canvas.snapshot(null, null);
     }
 
     // ==================================================================
@@ -652,6 +773,7 @@ public class InventoryPanel extends BorderPane {
      */
     public void setCraftingRecipes(List<Recipe> recipes) {
         craftingListPanel.setRecipes(recipes);
+        refreshCraftability();
     }
 
     /**

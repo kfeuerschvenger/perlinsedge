@@ -5,9 +5,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Door;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -53,7 +55,7 @@ class InteractionManagerTest {
         state.setPlayer(player);
         BuildingManager buildings = new BuildingManager(state, new RecipeManager(), containers);
         ResourceManager resources = new ResourceManager(state, hints::add);
-        interactions = new InteractionManager(state, buildings, resources, containers,
+        interactions = new InteractionManager(state, buildings, resources, new CombatManager(state), containers,
                 containerShown::incrementAndGet, hints::add);
     }
 
@@ -400,6 +402,23 @@ class InteractionManagerTest {
     }
 
     @Test
+    void aClickInReachInsideTheHitCooldownWaitsAndHitsWhenTheCooldownEnds() {
+        Resource stone = stoneAt(1, 5);
+        state.getResourceHitTimes().put(stone, state.getGameTime() + 0.2);
+
+        assertEquals(InteractionManager.Outcome.IGNORED, interactions.interact(1, 5));
+
+        assertTrue(interactions.hasPending(), "the click is not lost, it waits like an arrival does");
+        assertEquals(Double.POSITIVE_INFINITY, stone.secondsSinceHit(state.getGameTime()));
+
+        tickUntilIdle();
+
+        assertFalse(interactions.hasPending());
+        assertTrue(stone.secondsSinceHit(state.getGameTime()) < 0.5, "the hit landed when the cooldown ended");
+        assertFalse(player.isMoving());
+    }
+
+    @Test
     void arrivingInsideTheHitCooldownKeepsTheInteractionPendingUntilTheHitLands() {
         Resource stone = stoneAt(3, 5);
         // The stone was hit moments ago: its cooldown outlasts the walk
@@ -461,6 +480,44 @@ class InteractionManagerTest {
         }
 
         assertTrue(stone.secondsSinceHit(state.getGameTime()) < 0.5, "the stone was hit on arrival");
+    }
+
+    @Test
+    void anEnemyOnlyTheTileLeftBehindReachesIsNotSwungAtWhileThePlayerWalksAwayFromIt() {
+        Slime slime = new Slime(1, 4);
+        state.getEnemies().add(slime);
+        final double healthBefore = slime.getHealth();
+        player.moveTo(map, 0, 8);
+        for (int i = 0; i < 5; i++) {
+            player.update(STEP);
+        }
+        assertTrue(player.getPosY() > 5.0 && player.getPosY() < 6.0, "precondition: between two tiles");
+
+        assertTrue(interactions.interact(1, 4).isAccepted());
+
+        assertEquals(healthBefore, slime.getHealth(), 1e-9, "no swing while leaving the reach");
+        tickUntilIdle();
+        assertTrue(slime.getHealth() < healthBefore, "the swing landed once the player was next to it");
+        assertTrue(Math.max(Math.abs(player.getCurrentTileX() - 1), Math.abs(player.getCurrentTileY() - 4)) <= 1);
+    }
+
+    @Test
+    void aStepEndingNextToTheEnemyStopsThereAndSwingsOnArrivalInsteadOfWalkingOn() {
+        Slime slime = new Slime(1, 3);
+        state.getEnemies().add(slime);
+        final double healthBefore = slime.getHealth();
+        player.moveTo(map, 0, 0);
+        for (int i = 0; i < 5; i++) {
+            player.update(STEP);
+        }
+        assertTrue(player.getPosY() < 5.0 && player.getPosY() > 4.0, "precondition: between two tiles");
+
+        assertTrue(interactions.interact(1, 3).isAccepted());
+        tickUntilIdle();
+
+        assertEquals(4, player.getCurrentTileY(), "the player rests on the tile it was stepping to");
+        assertFalse(player.isMoving());
+        assertTrue(slime.getHealth() < healthBefore, "the swing landed on arrival");
     }
 
     @Test

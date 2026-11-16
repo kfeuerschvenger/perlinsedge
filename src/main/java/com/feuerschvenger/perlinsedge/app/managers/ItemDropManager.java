@@ -60,6 +60,7 @@ public class ItemDropManager {
             container.setItemAt(slot, null);
         } else {
             stack.removeQuantity(amount);
+            container.noteStackChanged();
         }
         throwItem(new Item(stack.getType(), amount), player);
         onInventoryChanged.run();

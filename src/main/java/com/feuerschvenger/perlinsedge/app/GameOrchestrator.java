@@ -37,6 +37,9 @@ public class GameOrchestrator {
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
     private final HotbarManager hotbarManager;
+    private final ItemHotbarManager itemHotbarManager;
+    private final ItemUseManager itemUseManager;
+    private final ItemHotbarPanel itemHotbarPanel;
     private final DropKeyHandler dropKeys;
 
     private final FxRenderer renderer;
@@ -67,6 +70,7 @@ public class GameOrchestrator {
      * @param healthBar           player health view
      * @param inventoryPanel      inventory view
      * @param buildingHotbarPanel building hotbar view
+     * @param itemHotbarPanel     hotbar of the items the player carries, shown outside building mode
      * @param hintLabel           short on-screen hints for actions that did nothing
      * @param deathOverlay        death screen shown while the player is dead
      * @param gameState           shared state, a new one is created when null
@@ -75,8 +79,9 @@ public class GameOrchestrator {
     public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
                             FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
                             Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingHotbarPanel buildingHotbarPanel, HintLabel hintLabel,
-                            DeathOverlay deathOverlay, GameStateManager gameState, RecipeManager recipeManager) {
+                            BuildingHotbarPanel buildingHotbarPanel, ItemHotbarPanel itemHotbarPanel,
+                            HintLabel hintLabel, DeathOverlay deathOverlay, GameStateManager gameState,
+                            RecipeManager recipeManager) {
         this.renderer = renderer;
         this.camera = camera;
         this.inputHandler = inputHandler;
@@ -85,6 +90,7 @@ public class GameOrchestrator {
         this.mainCanvas = mainCanvas;
         this.inventoryPanel = inventoryPanel;
         this.deathOverlay = deathOverlay;
+        this.itemHotbarPanel = itemHotbarPanel;
 
         this.gameState = gameState != null ? gameState : new GameStateManager();
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
@@ -99,12 +105,14 @@ public class GameOrchestrator {
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
         hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
+        itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
+        itemHotbarManager = new ItemHotbarManager(this.gameState);
 
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
-                containerManager, transitions::showOpenContainer, hintLabel::show);
+                combatManager, containerManager, transitions::showOpenContainer, hintLabel::show);
         transitions.setOnPaused(() -> {
             interactionManager.cancel();
             render(lastAlpha, 0);
@@ -213,8 +221,9 @@ public class GameOrchestrator {
         mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerKeyboard(createKeyController());
-        inputWiring.registerWheelInterceptor(
-                (deltaY, ctrlDown) -> !gameState.isPlayerDead() && hotbarManager.handleWheel(deltaY, ctrlDown));
+        // Ctrl with the wheel zooms in every mode, the plain wheel belongs to whichever hotbar is showing
+        inputWiring.registerWheelInterceptor((deltaY, ctrlDown) -> !gameState.isGameplayInputBlocked()
+                && (itemHotbarManager.handleWheel(deltaY, ctrlDown) || hotbarManager.handleWheel(deltaY, ctrlDown)));
         inputWiring.registerMouseHandlers();
     }
 
@@ -239,14 +248,21 @@ public class GameOrchestrator {
                 this::regenerateMap,
                 this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
-                combatManager::handlePlayerAttack,
                 transitions::toggleBuildingMode,
-                hotbarManager::handleHotbarNumberSelection,
+                this::handleNumberKey,
                 hotbarManager::changePage
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
-        controller.setInputBlocked(gameState::isPlayerDead);
+        controller.setUseAction(itemUseManager::useActiveItem);
+        controller.setInputBlocked(gameState::isGameplayInputBlocked);
         return controller;
+    }
+
+    /** Gives a number key to the item hotbar while exploring and to the building hotbar while building. */
+    private void handleNumberKey(int number) {
+        if (!itemHotbarManager.handleNumberKey(number)) {
+            hotbarManager.handleHotbarNumberSelection(number);
+        }
     }
 
     /**
@@ -305,8 +321,9 @@ public class GameOrchestrator {
      * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
      * the map keys can try again. When the generation throws, the previous world, map type and context are all still
      * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
-     * set to match it, the player is removed, and the update and render steps skip a frame that has no map or no
-     * player. The mode switches are ignored while there is no player.
+     * set to match it, the player is removed first, the minimap is shown the new map, and the update and render steps
+     * skip a frame that has no map or no player. The mode switches are ignored while there is no player. None of
+     * the steps throws a checked exception, so catching the runtime exceptions and the errors covers every failure.
      * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
      * step draws the death overlay again from the player and the timer on every frame, so the overlay that
      * {@link #leaveGame()} hid comes back with the next frame.
@@ -325,16 +342,32 @@ public class GameOrchestrator {
             minimapDrawer.updateMap(gameState.getCurrentMap());
             centerOnPlayer();
             rebuilt = true;
-        } catch (Throwable e) {
+        } catch (RuntimeException | Error e) {
             log.error("The map rebuild failed, the game continues so the map keys can try again", e);
             // The map may have been replaced before the step that failed, whichever step it was
             if (gameState.getCurrentMap() != previousMap) {
-                AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+                // The player goes first: whatever is left to repair may throw, and a player on a map it does not
+                // belong to must not survive that
                 gameState.setPlayer(null);
+                repairAfterReplacedMap(context, e);
             }
             throw e;
         } finally {
             restartLoopAfterRebuild(rebuilt);
+        }
+    }
+
+    /**
+     * Brings the map type and the minimap in step with a map that replaced the old one before the rebuild failed. A
+     * failure here is recorded on the failure of the rebuild instead of hiding it.
+     */
+    private void repairAfterReplacedMap(MapGenerationContext context, Throwable rebuildFailure) {
+        try {
+            AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+            minimapDrawer.updateMap(gameState.getCurrentMap());
+        } catch (RuntimeException e) {
+            log.error("The map type and the minimap could not be brought in step with the new map", e);
+            rebuildFailure.addSuppressed(e);
         }
     }
 
@@ -420,6 +453,9 @@ public class GameOrchestrator {
         }
 
         renderer.render(alpha, deltaTime);
+        // The building hotbar takes the place of the item hotbar in building mode
+        itemHotbarPanel.setVisible(gameState.getCurrentGameMode() != GameMode.BUILDING_MODE);
+        itemHotbarPanel.update(gameState.getPlayer());
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());

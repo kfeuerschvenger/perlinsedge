@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.events.IMapGenerationListener;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
@@ -128,6 +129,7 @@ public class MapManager implements IMapGenerationListener {
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
         gameState.getResourceHitTimes().clear();
+        gameState.getDamageNumbers().clear();
 
         try {
             mapConfigPanel.updateValuesFromGenerator(generator);
@@ -145,9 +147,11 @@ public class MapManager implements IMapGenerationListener {
         TileMap map = gameState.getCurrentMap();
 
         int[] playerPosition = getPlayerPosition();
-        spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map);
-        spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map);
-        spawnEnemyType(enemies, Skeleton.class, AppConfig.getInstance().world().getBaseSkeletonsCount(), playerPosition, map);
+        // Every enemy takes a tile of its own: a tile held by one already spawned is never picked again
+        final EnemyOccupancy taken = new EnemyOccupancy();
+        spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map, taken);
+        spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map, taken);
+        spawnEnemyType(enemies, Skeleton.class, AppConfig.getInstance().world().getBaseSkeletonsCount(), playerPosition, map, taken);
 
         gameState.setEnemies(enemies);
         logSpawnSummary(enemies.size());
@@ -157,13 +161,15 @@ public class MapManager implements IMapGenerationListener {
      * Spawns multiple enemies of a specific type.
      */
     private void spawnEnemyType(List<Enemy> enemies, Class<? extends Enemy> type, int count,
-                                int[] playerPosition, TileMap map) {
+                                int[] playerPosition, TileMap map, EnemyOccupancy taken) {
         logSpawnAttempt(type.getSimpleName(), count);
 
         for (int i = 0; i < count; i++) {
-            int[] position = findSafePosition(playerPosition, map);
+            int[] position = findSafePosition(playerPosition, map, taken);
             if (position != null) {
-                enemies.add(createEnemy(type, position[0], position[1]));
+                final Enemy enemy = createEnemy(type, position[0], position[1]);
+                taken.sync(enemy);
+                enemies.add(enemy);
             } else {
                 logSpawnFailure(type.getSimpleName(), i);
             }
@@ -185,8 +191,9 @@ public class MapManager implements IMapGenerationListener {
      * - Walkable terrain
      * - Distance from player
      * - Sufficient adjacent walkable tiles
+     * - A tile no other enemy holds
      */
-    private int[] findSafePosition(int[] playerPosition, TileMap map) {
+    private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
         Random random = new Random();
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
 
@@ -194,7 +201,7 @@ public class MapManager implements IMapGenerationListener {
             int x = random.nextInt(map.getWidth());
             int y = random.nextInt(map.getHeight());
 
-            if (isValidSpawnPosition(x, y, playerPosition, map)) {
+            if (taken.ownerOf(x, y) == null && isValidSpawnPosition(x, y, playerPosition, map)) {
                 return new int[]{x, y};
             }
         }

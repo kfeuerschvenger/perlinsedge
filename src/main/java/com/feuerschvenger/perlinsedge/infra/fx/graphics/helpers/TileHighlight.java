@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
-import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 
 /**
  * A tile cursor to draw: where it is, how big the tile is, whether the ground under it is light, and which answer to a

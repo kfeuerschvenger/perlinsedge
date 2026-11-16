@@ -40,6 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InventoryDragTest {
     /** A scene point outside the panel and every slot. */
     private static final double[] OUTSIDE = {990, 590};
+    /** Two slots of the inventory grid, which starts after the hotbar slots. */
+    private static final int STONE_SLOT = Player.HOTBAR_SIZE + 3;
+    private static final int LOG_SLOT = Player.HOTBAR_SIZE + 6;
 
     private GameStateManager state;
     private Player player;
@@ -56,8 +59,8 @@ class InventoryDragTest {
             }
         }
         player = new Player(4, 4);
-        player.setItemAt(3, new Item(ItemType.STONE, 5));
-        player.setItemAt(6, new Item(ItemType.WOOD_LOG, 1));
+        player.setItemAt(STONE_SLOT, new Item(ItemType.STONE, 5));
+        player.setItemAt(LOG_SLOT, new Item(ItemType.WOOD_LOG, 1));
         state.setCurrentMap(map);
         state.setPlayer(player);
 
@@ -165,7 +168,7 @@ class InventoryDragTest {
 
     @Test
     void draggingAStackOutsideThePanelThrowsTheWholeStack() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, new double[]{centerOf(source)[0] + 30, centerOf(source)[1]});
         assertTrue(dragging());
@@ -175,14 +178,14 @@ class InventoryDragTest {
 
         assertFalse(dragging());
         assertFalse(hasGhost());
-        assertNull(player.getItemAt(3));
+        assertNull(player.getItemAt(STONE_SLOT));
         assertEquals(5, groundQuantity(ItemType.STONE));
         assertTrue(transfers.isEmpty());
     }
 
     @Test
     void releasingOverThePanelBackgroundPutsTheStackBack() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, panelBackground());
 
@@ -190,7 +193,7 @@ class InventoryDragTest {
 
         assertFalse(dragging());
         assertFalse(hasGhost());
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertTrue(state.getDroppedItems().isEmpty());
         assertTrue(transfers.isEmpty());
         assertEquals(1.0, FxToolkitSupport.onFx(source::getOpacity));
@@ -198,15 +201,15 @@ class InventoryDragTest {
 
     @Test
     void aStackThrownWithTheKeyWhileDraggingShrinksTheDragAndEndsItWhenTheStackIsGone() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
         ItemDropManager drops = new ItemDropManager(state, panel::updateInventoryDisplay);
 
-        FxToolkitSupport.onFx(() -> drops.dropFromSlot(player, 3, false));
+        FxToolkitSupport.onFx(() -> drops.dropFromSlot(player, STONE_SLOT, false));
 
         assertTrue(dragging(), "four stones are still in hand");
-        FxToolkitSupport.onFx(() -> drops.dropFromSlot(player, 3, true));
+        FxToolkitSupport.onFx(() -> drops.dropFromSlot(player, STONE_SLOT, true));
 
         assertFalse(dragging(), "the stack is gone, so the ghost is gone");
         assertEquals(1.0, FxToolkitSupport.onFx(source::getOpacity));
@@ -216,8 +219,8 @@ class InventoryDragTest {
 
     @Test
     void theClickThatFollowsTheReleaseOfADragSelectsNothing() {
-        StackPane source = slot(player, 3);
-        StackPane target = slot(player, 6);
+        StackPane source = slot(player, STONE_SLOT);
+        StackPane target = slot(player, LOG_SLOT);
         press(source);
         moveTo(source, centerOf(target));
         release(source, centerOf(target));
@@ -233,8 +236,8 @@ class InventoryDragTest {
 
     @Test
     void aSwallowedClickDoesNotLeakIntoTheNextGesture() {
-        StackPane source = slot(player, 3);
-        StackPane target = slot(player, 6);
+        StackPane source = slot(player, STONE_SLOT);
+        StackPane target = slot(player, LOG_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
         release(source, OUTSIDE);
@@ -249,7 +252,7 @@ class InventoryDragTest {
 
     @Test
     void onlyThePrimaryButtonSelectsASlot() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
 
         click(source, MouseButton.SECONDARY);
         click(source, MouseButton.MIDDLE);
@@ -263,7 +266,7 @@ class InventoryDragTest {
 
     @Test
     void afterADragTheHoveredSlotIsTheOneUnderTheRelease() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         StackPane target = slot(player, 9);
         press(source);
         moveTo(source, centerOf(target));
@@ -277,7 +280,7 @@ class InventoryDragTest {
 
     @Test
     void afterADragReleasedOverNoSlotNoSlotCountsAsHovered() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         FxToolkitSupport.onFx(() -> {
             Event.fireEvent(source, new MouseEvent(MouseEvent.MOUSE_ENTERED, 0, 0, 0, 0, MouseButton.NONE, 0,
                     false, false, false, false, false, false, false, false, false, false, null));
@@ -293,7 +296,7 @@ class InventoryDragTest {
 
     @Test
     void losingTheWindowFocusMidDragPutsTheStackBack() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
         assertTrue(dragging());
@@ -301,7 +304,7 @@ class InventoryDragTest {
         loseFocus(panel.getController());
 
         assertFalse(dragging());
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertEquals(1.0, FxToolkitSupport.onFx(source::getOpacity));
         release(source, OUTSIDE);
         assertTrue(state.getDroppedItems().isEmpty());
@@ -309,7 +312,7 @@ class InventoryDragTest {
 
     @Test
     void gainingTheWindowFocusDoesNotTouchADrag() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
 
@@ -358,7 +361,7 @@ class InventoryDragTest {
 
     @Test
     void theFocusListenerRegisteredOnTheWindowPutsTheStackInHandBack() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
         assertTrue(dragging());
@@ -379,17 +382,17 @@ class InventoryDragTest {
         });
 
         assertFalse(dragging(), "the listener the panel put on the focus of its window heard the focus go");
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
     }
 
     @Test
     void theThrownStackKeepsItsSlotUntilTheMouseIsReleased() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
 
         moveTo(source, OUTSIDE);
 
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertTrue(state.getDroppedItems().isEmpty());
     }
 
@@ -399,21 +402,21 @@ class InventoryDragTest {
 
     @Test
     void releasingOverAnotherSlotMovesTheStackThereAndThrowsNothing() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         StackPane target = slot(player, 9);
         press(source);
         moveTo(source, centerOf(target));
 
         release(source, centerOf(target));
 
-        assertEquals(List.of("3->9 Stone"), transfers);
+        assertEquals(List.of(STONE_SLOT + "->9 Stone"), transfers);
         assertTrue(state.getDroppedItems().isEmpty());
         assertFalse(dragging());
     }
 
     @Test
     void releasingOverTheSourceSlotChangesNothing() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         double[] away = {centerOf(source)[0] + 12, centerOf(source)[1] + 12};
         moveTo(source, away);
@@ -423,7 +426,7 @@ class InventoryDragTest {
 
         assertTrue(transfers.isEmpty());
         assertTrue(state.getDroppedItems().isEmpty());
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertFalse(dragging());
     }
 
@@ -453,13 +456,13 @@ class InventoryDragTest {
 
     @Test
     void aRightClickWhileDraggingThrowsOneItemAndKeepsDraggingTheRest() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
 
         rightClick(source, OUTSIDE);
 
-        assertEquals(4, player.getItemAt(3).getQuantity());
+        assertEquals(4, player.getItemAt(STONE_SLOT).getQuantity());
         assertEquals(1, groundQuantity(ItemType.STONE));
         assertTrue(dragging(), "the rest of the stack is still in hand");
         assertTrue(hasGhost());
@@ -467,20 +470,20 @@ class InventoryDragTest {
         rightClick(source, OUTSIDE);
         release(source, OUTSIDE);
 
-        assertNull(player.getItemAt(3), "releasing throws what is left");
+        assertNull(player.getItemAt(STONE_SLOT), "releasing throws what is left");
         assertEquals(5, groundQuantity(ItemType.STONE));
         assertFalse(dragging());
     }
 
     @Test
     void throwingTheLastItemWithARightClickEndsTheDrag() {
-        StackPane source = slot(player, 6);
+        StackPane source = slot(player, LOG_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
 
         rightClick(source, OUTSIDE);
 
-        assertNull(player.getItemAt(6));
+        assertNull(player.getItemAt(LOG_SLOT));
         assertEquals(1, groundQuantity(ItemType.WOOD_LOG));
         assertFalse(dragging());
         assertFalse(hasGhost());
@@ -488,11 +491,11 @@ class InventoryDragTest {
 
     @Test
     void aRightClickWithoutADragThrowsNothing() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
 
         rightClick(source, centerOf(source));
 
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertTrue(state.getDroppedItems().isEmpty());
     }
 
@@ -502,7 +505,7 @@ class InventoryDragTest {
 
     @Test
     void aTinyMovementIsAClickAndNotADrag() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         double[] nudged = {centerOf(source)[0] + 1, centerOf(source)[1] + 1};
 
@@ -510,7 +513,7 @@ class InventoryDragTest {
         release(source, nudged);
 
         assertFalse(dragging());
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertTrue(state.getDroppedItems().isEmpty());
     }
 
@@ -528,7 +531,7 @@ class InventoryDragTest {
 
     @Test
     void closingThePanelMidDragPutsTheStackBack() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
         assertTrue(dragging());
@@ -541,28 +544,28 @@ class InventoryDragTest {
 
         assertFalse(dragging());
         assertFalse(hasGhost());
-        assertEquals(5, player.getItemAt(3).getQuantity());
+        assertEquals(5, player.getItemAt(STONE_SLOT).getQuantity());
         assertTrue(state.getDroppedItems().isEmpty());
     }
 
     @Test
     void aStackThatLeftItsSlotMidDragIsNotThrownTwice() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
-        player.setItemAt(3, null);
+        player.setItemAt(STONE_SLOT, null);
 
         release(source, OUTSIDE);
 
         assertTrue(state.getDroppedItems().isEmpty());
-        assertNull(player.getItemAt(3));
+        assertNull(player.getItemAt(STONE_SLOT));
         assertFalse(dragging());
     }
 
     @Test
     void theSelectedSlotStaysSelectedAfterADragOverItIsCancelled() {
-        StackPane selected = slot(player, 3);
-        StackPane other = slot(player, 6);
+        StackPane selected = slot(player, STONE_SLOT);
+        StackPane other = slot(player, LOG_SLOT);
         click(selected, MouseButton.PRIMARY);
         // The click schedules the panel refresh with runLater, and a task that does nothing queued behind it
         // only returns once the refresh has run, because the FX thread runs its tasks in the order they were queued
@@ -580,12 +583,12 @@ class InventoryDragTest {
 
         assertTrue(isSelected(selected));
         assertFalse(FxToolkitSupport.onFx(() -> selected.getStyleClass().contains(UiTheme.SLOT_DROP)));
-        assertEquals(1, player.getItemAt(6).getQuantity());
+        assertEquals(1, player.getItemAt(LOG_SLOT).getQuantity());
     }
 
     @Test
     void theDropKeysSeeAStackInHandOnlyWhileItIsDragged() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         assertFalse(FxToolkitSupport.onFx(panel::isStackInHand));
         press(source);
         moveTo(source, OUTSIDE);
@@ -599,7 +602,7 @@ class InventoryDragTest {
 
     @Test
     void theSourceSlotIsDimmedWhileDraggingAndRestoredAfter() {
-        StackPane source = slot(player, 3);
+        StackPane source = slot(player, STONE_SLOT);
         press(source);
         moveTo(source, OUTSIDE);
         assertTrue(FxToolkitSupport.onFx(() -> source.getOpacity() < 1.0));

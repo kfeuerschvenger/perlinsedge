@@ -17,7 +17,9 @@ public final class Pathfinder {
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
 
     /**
-     * What a single search is looking for, kept apart from the Pathfinder so a search holds no state of its own.
+     * What a single search is looking for, kept apart from the Pathfinder so the target of a search is one value that
+     * the heuristic and the goal test both read. The search itself keeps the open set and the scores in locals; the
+     * only state an instance carries between searches is the expansion count behind {@link #getLastExpandedNodes()}.
      *
      * @param x         X coordinate of the target
      * @param y         Y coordinate of the target
@@ -29,6 +31,13 @@ public final class Pathfinder {
             return neighbour ? Math.sqrt(2) : 0;
         }
 
+        /**
+         * Tells whether a node ends the search.
+         *
+         * @param node the node taken off the open set
+         * @return for a neighbour goal, true on any of the eight tiles around the target but not on the target itself;
+         *         otherwise true on the target tile
+         */
         boolean isReached(PathNode node) {
             if (neighbour) {
                 return (node.x != x || node.y != y) && Math.abs(node.x - x) <= 1 && Math.abs(node.y - y) <= 1;
@@ -38,6 +47,10 @@ public final class Pathfinder {
     }
 
     private final TileMap map;
+    /** Tiles that are walkable ground but occupied, so no path crosses or ends on them. Never null. */
+    private final Set<PathNode> occupied;
+    /** The extra cost of entering a tile, on top of the length of the step. Never null. */
+    private final TilePenalty penalty;
     /** Written once per search, so an instance must not run two searches at the same time. */
     private int lastExpandedNodes;
 
@@ -47,7 +60,33 @@ public final class Pathfinder {
      * @param map The TileMap to perform pathfinding on
      */
     public Pathfinder(TileMap map) {
+        this(map, Set.of());
+    }
+
+    /**
+     * Constructs a Pathfinder that treats some tiles as taken, such as the tiles enemies stand on: a path never
+     * crosses them and never ends on them. The start tile is exempt, so an entity standing on a taken tile can still
+     * walk off it.
+     *
+     * @param map      The TileMap to perform pathfinding on
+     * @param occupied tiles no path may use, null for none
+     */
+    public Pathfinder(TileMap map, Set<PathNode> occupied) {
+        this(map, occupied, TilePenalty.NONE);
+    }
+
+    /**
+     * Constructs a Pathfinder that also prices the tiles it enters, so a path goes around a costly tile when a detour
+     * is cheaper than the penalty and through it otherwise.
+     *
+     * @param map      The TileMap to perform pathfinding on
+     * @param occupied tiles no path may use, null for none
+     * @param penalty  extra cost of entering a tile, null for none
+     */
+    public Pathfinder(TileMap map, Set<PathNode> occupied, TilePenalty penalty) {
         this.map = Objects.requireNonNull(map, "TileMap must not be null");
+        this.occupied = occupied == null ? Set.of() : occupied;
+        this.penalty = penalty == null ? TilePenalty.NONE : penalty;
     }
 
     // ==================================================================
@@ -156,7 +195,12 @@ public final class Pathfinder {
         return null; // No valid path exists
     }
 
-    /** @return number of tiles the most recent search expanded, 0 before any search */
+    /**
+     * Reports how much work the most recent search did, which the tests use to check that the cap stops a search
+     * early. It describes the last search of this instance only, so it is meaningful when one search runs at a time.
+     *
+     * @return number of tiles the most recent search expanded, 0 before any search
+     */
     public int getLastExpandedNodes() {
         return lastExpandedNodes;
     }
@@ -203,7 +247,7 @@ public final class Pathfinder {
                                  Map<PathNode, PathNode> cameFrom,
                                  Map<PathNode, Double> gScores) {
         PathNode neighbor = new PathNode(nx, ny);
-        double newGCost = current.gCost + DIRECTION_COSTS[directionIndex];
+        double newGCost = current.gCost + DIRECTION_COSTS[directionIndex] + penalty.extraCost(nx, ny);
 
         // Update neighbor if we found a better path
         if (newGCost < gScores.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
@@ -231,7 +275,7 @@ public final class Pathfinder {
             return false;
         }
         Tile tile = map.getTile(x, y);
-        return tile != null && tile.isWalkable();
+        return tile != null && tile.isWalkable() && (occupied.isEmpty() || !occupied.contains(new PathNode(x, y)));
     }
 
     // ==================================================================

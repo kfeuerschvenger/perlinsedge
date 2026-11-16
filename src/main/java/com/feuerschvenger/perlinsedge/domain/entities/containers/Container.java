@@ -48,6 +48,18 @@ public interface Container {
      */
     void setItems(List<Item> items);
 
+    /**
+     * Tells the container that the stack of one of its slots was changed in place, through the item that
+     * {@link #getItemAt(int)} returned, so a container that counts its changes can count this one. The default does
+     * nothing.
+     * <p>
+     * Any code that edits a stack in place on a player slot must call this afterwards, whether it changes the count
+     * or the item itself. The containers that go through their own add, remove and move methods count the change
+     * themselves, so only an edit made through the item that {@link #getItemAt(int)} returned needs the call.
+     */
+    default void noteStackChanged() {
+    }
+
     // ==================================================================
     //  Inventory Modification Methods
     // ==================================================================

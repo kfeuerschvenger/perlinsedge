@@ -3,13 +3,11 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Represents a Mimic enemy that disguises itself as a chest until activated.
  * Mimics remain passive until triggered, then become aggressive toward the player.
  */
-@Slf4j
 public class Mimic extends Enemy {
     // ==================================================================
     //  Configuration Constants
@@ -58,27 +56,17 @@ public class Mimic extends Enemy {
     // ==================================================================
 
     /**
-     * A hit wakes the mimic even from outside its activation range.
+     * A hit wakes the mimic even from outside its activation range, and every hit renews the alert so a mimic that
+     * keeps being hurt from afar keeps chasing.
      *
      * @param amount Damage amount to apply
      */
     @Override
     public void takeDamage(double amount) {
-        if (!isDead) {
-            activate();
+        if (!isDead && getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
+            mimicMovement.setAggroed(true);
         }
         super.takeDamage(amount);
-    }
-
-    /**
-     * Activates the Mimic when discovered by the player.
-     * Triggers aggressive behavior and combat mode.
-     */
-    public void activate() {
-        if (getMovementStrategy() instanceof MimicMovementStrategy mimicMovement && !mimicMovement.isAggroed()) {
-            mimicMovement.setAggroed(true);
-            log.debug("Mimic activated at ({}, {})", getPosX(), getPosY());
-        }
     }
 
 }

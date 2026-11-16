@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ToolStats;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -32,8 +33,6 @@ public class Player extends Entity implements Container {
     private static final double MAX_HEALTH = 100.0;
 
     // Combat configuration
-    private static final double DEFAULT_ATTACK_RANGE = 1.5;     // In tiles
-    private static final double DEFAULT_ATTACK_DAMAGE = 10.0;   // Base damage per attack
     private static final double DEFAULT_ATTACK_COOLDOWN = 0.8;  // Time between attacks
     private static final double ATTACK_ANIMATION_DURATION = 0.3;
 
@@ -41,24 +40,33 @@ public class Player extends Entity implements Container {
     private static final double MOVE_SPEED = 5.0;
 
     // Inventory configuration
-    private static final int INVENTORY_CAPACITY = 18;
+    /** Number of slots of the hotbar, the first slots of the storage. */
+    public static final int HOTBAR_SIZE = 9;
+    /** Number of slots of the inventory grid, the slots that follow the hotbar. */
+    public static final int INVENTORY_SIZE = 18;
+    /** Number of slots the player stores items in: the hotbar first, then the inventory, so the index order is the fill order. */
+    private static final int INVENTORY_CAPACITY = HOTBAR_SIZE + INVENTORY_SIZE;
 
     // ==================================================================
     //  Instance Variables
     // ==================================================================
 
     // Combat state
-    private double attackRange = DEFAULT_ATTACK_RANGE;
-    private double attackDamage = DEFAULT_ATTACK_DAMAGE;
     private double attackCooldown = DEFAULT_ATTACK_COOLDOWN;
     private double attackTimer = 0;
     private boolean isAttacking = false;
     private double attackAnimationTime = 0;
     private int attackDirection = -1;
     private double secondsSinceHurt = Double.POSITIVE_INFINITY;
+    /** Health lost since {@link #drainDamageTaken()} was last called. */
+    private double damageTaken = 0;
 
     // Inventory
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
+    /** The hotbar slot held in hand. It is a position, so it stays put while the items in the slots change. */
+    private int selectedHotbarIndex = 0;
+    /** Grows on every change to the content of a slot, see {@link #getInventoryVersion()}. */
+    private long inventoryVersion = 0;
 
     // Movement and pathfinding
     private final LinkedList<PathNode> currentPath = new LinkedList<>();
@@ -140,25 +148,44 @@ public class Player extends Entity implements Container {
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
      * @return true when the player started walking, false when the order did nothing: the player is dead, already on
-     *         the tile, or the tile cannot be reached
+     *         the tile, or the tile cannot be reached. An order to the tile the player stands on ends the walk in
+     *         progress, as any refused order does, so a player that has just reached a node of a longer path does not
+     *         carry on past the tile that was clicked.
      */
     public boolean moveTo(TileMap map, int targetX, int targetY) {
+        return moveTo(map, targetX, targetY, Set.of());
+    }
+
+    /**
+     * Initiates movement like {@link #moveTo(TileMap, int, int)} around tiles that are taken: the walk neither crosses
+     * them nor ends on them, so an order onto one is refused.
+     *
+     * @param map      The game world tile map
+     * @param targetX  Target X coordinate
+     * @param targetY  Target Y coordinate
+     * @param occupied tiles the walk may not use, such as those the enemies stand on
+     * @return true when the player started walking, false when the order did nothing
+     */
+    public boolean moveTo(TileMap map, int targetX, int targetY, Set<PathNode> occupied) {
         // A dead player stays where it fell until the respawn
         if (isDead) return false;
         final PathNode step = stepInProgress();
-        // Skip if already at target position
-        if (step == null && isAtPosition(targetX, targetY)) return false;
+        // Already at the target position: nothing to walk to, and no walk left over from an earlier order
+        if (step == null && isAtPosition(targetX, targetY)) {
+            stop();
+            return false;
+        }
 
         // A player between two tiles plans from the tile it is approaching, so the new walk never starts with a
         // diagonal across a blocked corner from an off-grid position
         final int fromX = step != null ? step.x : currentTileX;
         final int fromY = step != null ? step.y : currentTileY;
-        if (step != null && fromX == targetX && fromY == targetY) {
+        if (step != null && fromX == targetX && fromY == targetY && !occupied.contains(step)) {
             startNewPath(List.of(step));
             return true;
         }
 
-        Pathfinder pathfinder = new Pathfinder(map);
+        Pathfinder pathfinder = new Pathfinder(map, occupied);
         List<PathNode> path = pathfinder.findPath(fromX, fromY, targetX, targetY);
 
         if (path == null || path.isEmpty()) {
@@ -174,28 +201,18 @@ public class Player extends Entity implements Container {
     /**
      * Gives the tile a new walk is planned from: the tile the player is approaching when it is between two tiles,
      * otherwise the tile it stands on. {@link #walkAlong(List)} expects a path that starts next to this tile.
+     * Both coordinates come from one reading of the walk state, so they always belong to the same tile.
      *
-     * @return the column of the tile a new walk starts from
+     * @return the tile a new walk starts from
      */
-    public int getWalkOriginX() {
+    public PathNode getWalkOrigin() {
         final PathNode step = stepInProgress();
-        return step != null ? step.x : currentTileX;
-    }
-
-    /**
-     * Gives the row of the tile a new walk is planned from, see {@link #getWalkOriginX()}.
-     *
-     * @return the row of the tile a new walk starts from
-     */
-    public int getWalkOriginY() {
-        final PathNode step = stepInProgress();
-        return step != null ? step.y : currentTileY;
+        return step != null ? step : new PathNode(currentTileX, currentTileY);
     }
 
     /**
      * Starts walking along a path that was already found, replacing the walk in progress. A player between two tiles
-     * first finishes the step it is on, so the path must be planned from {@link #getWalkOriginX()} and
-     * {@link #getWalkOriginY()}.
+     * first finishes the step it is on, so the path must be planned from {@link #getWalkOrigin()}.
      *
      * @param path the tiles to walk, excluding the tile the walk starts from; an empty or null path changes nothing
      * @return true when the player started walking
@@ -220,6 +237,40 @@ public class Player extends Entity implements Container {
         clearPath();
     }
 
+    /**
+     * Gives the next tile of the walk in progress, for the checks that run every tick and must not allocate. The node
+     * is the one the walk itself holds, so it is read only: a caller must not change its costs, and gets a copy from
+     * {@code new PathNode(x, y)} when it needs one.
+     *
+     * @return the tile the player is walking to, or null when there is no walk
+     */
+    public PathNode getNextTile() {
+        return currentPath.peek();
+    }
+
+    /**
+     * Ends the walk when the next tile of it has become taken since the walk was planned, so the player never steps
+     * onto it. A player standing on a tile stops there, a player between two tiles walks back to the tile it left.
+     *
+     * @param occupied tiles the walk may not enter, such as those the enemies stand on or step to
+     * @return true when the walk was ended
+     */
+    public boolean haltBefore(Set<PathNode> occupied) {
+        final PathNode head = currentPath.peek();
+        if (head == null || !occupied.contains(head)) {
+            return false;
+        }
+        if (posX == currentTileX && posY == currentTileY) {
+            clearPath();
+        } else {
+            currentPath.clear();
+            currentPath.add(new PathNode(currentTileX, currentTileY));
+            targetTileX = currentTileX;
+            targetTileY = currentTileY;
+        }
+        return true;
+    }
+
     /** Stops any walk in progress, so a player that dies mid-path does not keep walking. */
     @Override
     public void handleDeath() {
@@ -238,8 +289,22 @@ public class Player extends Entity implements Container {
         if (isDead || amount <= 0) {
             return;
         }
+        final double before = health;
         super.takeDamage(amount);
+        damageTaken += before - health;
         secondsSinceHurt = 0;
+    }
+
+    /**
+     * Gives the health the player lost since this method was last called, which the game turns into the floating
+     * number that shows the hit. Every source of damage goes through {@link #takeDamage}, so none of them reports its own.
+     *
+     * @return the health lost, 0 when the player took no damage meanwhile
+     */
+    public double drainDamageTaken() {
+        final double taken = damageTaken;
+        damageTaken = 0;
+        return taken;
     }
 
     /**
@@ -256,6 +321,7 @@ public class Player extends Entity implements Container {
     public void revive(int x, int y) {
         super.revive(x, y);
         secondsSinceHurt = Double.POSITIVE_INFINITY;
+        damageTaken = 0;
     }
 
     public boolean isMoving() {
@@ -267,6 +333,7 @@ public class Player extends Entity implements Container {
     // ==================================================================
 
     public void clearInventory() {
+        inventoryVersion++;
         for (int i = 0; i < INVENTORY_CAPACITY; i++) {
             inventory.set(i, null);
         }
@@ -274,8 +341,26 @@ public class Player extends Entity implements Container {
 
     public void removeItemFromSlot(int slotIndex) {
         if (slotIndex >= 0 && slotIndex < INVENTORY_CAPACITY) {
+            inventoryVersion++;
             inventory.set(slotIndex, null);
         }
+    }
+
+    /**
+     * Gives a number that grows whenever the content of a slot changes: an item stored, removed, moved or crafted, a
+     * stack that grows or shrinks, or the whole inventory replaced. The views compare it with the value they last drew
+     * to skip work while nothing changed.
+     *
+     * @return the change count, which only ever increases
+     */
+    public long getInventoryVersion() {
+        return inventoryVersion;
+    }
+
+    /** Counts a change to a stack that code outside the player edited in place. */
+    @Override
+    public void noteStackChanged() {
+        inventoryVersion++;
     }
 
     /**
@@ -315,6 +400,7 @@ public class Player extends Entity implements Container {
             log.warn("Item not found in inventory");
             return;
         }
+        inventoryVersion++;
 
         Item targetItem = inventory.get(targetSlotIndex);
 
@@ -347,6 +433,78 @@ public class Player extends Entity implements Container {
             inventory.set(sourceSlot, targetItem);
             inventory.set(targetSlotIndex, draggedItem);
         }
+    }
+
+    // ==================================================================
+    //  Public API - Hotbar
+    // ==================================================================
+
+    /**
+     * Gives the hotbar slot that is held in hand.
+     *
+     * @return the slot index, from 0 to {@link #HOTBAR_SIZE} - 1
+     */
+    public int getSelectedHotbarIndex() {
+        return selectedHotbarIndex;
+    }
+
+    /**
+     * Holds a hotbar slot in hand. The choice is a position and is kept when the items move, are picked up, used up or
+     * thrown, so the slot keeps being the active one with whatever it holds next.
+     *
+     * @param index slot index from 0 to {@link #HOTBAR_SIZE} - 1; any other value changes nothing
+     */
+    public void selectHotbarSlot(int index) {
+        if (index >= 0 && index < HOTBAR_SIZE) {
+            selectedHotbarIndex = index;
+        }
+    }
+
+    /**
+     * Moves the hand along the hotbar, wrapping around at both ends.
+     *
+     * @param delta slots to move, positive toward the last slot and negative toward the first
+     */
+    public void cycleHotbar(int delta) {
+        selectedHotbarIndex = Math.floorMod(selectedHotbarIndex + delta, HOTBAR_SIZE);
+    }
+
+    /**
+     * Gives the stack in the selected hotbar slot, the item the player holds in hand.
+     *
+     * @return the stack, or null when the slot is empty, which means a bare hand
+     */
+    public Item getActiveItem() {
+        return inventory.get(selectedHotbarIndex);
+    }
+
+    /**
+     * Gives the type of the item held in hand.
+     *
+     * @return the type, or null for a bare hand
+     */
+    public ItemType getActiveItemType() {
+        final Item active = getActiveItem();
+        return active != null ? active.getType() : null;
+    }
+
+    /**
+     * Uses up one item of the stack held in hand, emptying the slot when it was the last one.
+     *
+     * @return true when an item was removed, false when the hand is empty
+     */
+    public boolean consumeActiveItem() {
+        final Item active = getActiveItem();
+        if (active == null) {
+            return false;
+        }
+        inventoryVersion++;
+        if (active.getQuantity() <= 1) {
+            inventory.set(selectedHotbarIndex, null);
+        } else {
+            active.removeQuantity(1);
+        }
+        return true;
     }
 
     // ==================================================================
@@ -449,9 +607,18 @@ public class Player extends Entity implements Container {
     @Override
     public void setItemAt(int slotIndex, Item item) {
         if (!isValidSlot(slotIndex)) return;
+        inventoryVersion++;
         inventory.set(slotIndex, item);
     }
 
+    /**
+     * Stores an item in the fill order of the player: first into the stacks of the same type already held, hotbar
+     * before inventory, then into the first free hotbar slot, then into the first free inventory slot. Slot indexes
+     * run from the hotbar to the inventory, so both passes walk the slots in index order.
+     *
+     * @param item the item to store; its quantity is reduced by what was stored
+     * @return true when any part of it was stored
+     */
     @Override
     public boolean addItem(Item item) {
         if (item == null || item.getQuantity() <= 0) {
@@ -459,6 +626,7 @@ public class Player extends Entity implements Container {
             return false;
         }
 
+        inventoryVersion++;
         int originalQuantity = item.getQuantity();
         int remaining = originalQuantity;
         // Try stacking with existing items
@@ -499,6 +667,7 @@ public class Player extends Entity implements Container {
             return false;
         }
 
+        inventoryVersion++;
         int remaining = quantity;
         for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             Item current = inventory.get(i);
@@ -554,6 +723,7 @@ public class Player extends Entity implements Container {
 
     @Override
     public void setItems(List<Item> items) {
+        // clearInventory counts the change
         clearInventory();
         for (int i = 0; i < items.size() && i < INVENTORY_CAPACITY; i++) {
             Item source = items.get(i);
@@ -592,8 +762,12 @@ public class Player extends Entity implements Container {
     public List<Item> getInventory() { return Collections.unmodifiableList(inventory); }
     public int getDirection() { return direction; }
     public int getAnimationFrame() { return animationFrame; }
-    public double getAttackDamage() { return attackDamage; }
-    public double getAttackRange() { return attackRange; }
+    /**
+     * Gives the damage one melee hit deals, which depends on the item held in hand, see {@link ToolStats}.
+     *
+     * @return the damage of the item in hand, or of a bare hand
+     */
+    public double getAttackDamage() { return ToolStats.combatDamage(getActiveItemType()); }
 
     // ==================================================================
     //  Private Helper Methods

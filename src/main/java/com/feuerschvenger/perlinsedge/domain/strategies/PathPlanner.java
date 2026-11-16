@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.TilePenalty;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.List;
@@ -23,6 +24,12 @@ final class PathPlanner {
 
     private double backoffSeconds;
     private double secondsUntilNextSearch;
+    private int searches;
+
+    /** @return how many searches have run, not counting the calls refused while backing off */
+    int searchCount() {
+        return searches;
+    }
 
     /**
      * Advances the retry timer.
@@ -49,11 +56,28 @@ final class PathPlanner {
      * @return the path, or null when none was found or the planner is backing off
      */
     List<PathNode> findPath(TileMap map, int startX, int startY, int targetX, int targetY) {
+        return findPath(map, startX, startY, targetX, targetY, TilePenalty.NONE);
+    }
+
+    /**
+     * Searches for a path that avoids costly tiles, unless the planner is backing off.
+     *
+     * @param map     map to search
+     * @param startX  start tile X
+     * @param startY  start tile Y
+     * @param targetX target tile X
+     * @param targetY target tile Y
+     * @param penalty extra cost of entering a tile, such as one another enemy holds
+     * @return the path, or null when none was found or the planner is backing off
+     */
+    List<PathNode> findPath(TileMap map, int startX, int startY, int targetX, int targetY, TilePenalty penalty) {
         if (isBackingOff()) {
             return null;
         }
 
-        List<PathNode> path = new Pathfinder(map).findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES);
+        searches++;
+        List<PathNode> path = new Pathfinder(map, null, penalty)
+                .findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES);
         if (path == null) {
             backoffSeconds = backoffSeconds == 0
                     ? INITIAL_BACKOFF_SECONDS

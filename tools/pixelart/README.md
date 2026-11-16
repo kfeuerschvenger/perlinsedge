@@ -13,9 +13,10 @@ Requires Python 3.12 and Pillow. `--raw` is required and points at your local ra
 ```mermaid
 flowchart LR
   R[raw folder] --> Q[quantise to palette.hex]
-  Q --> S[resources and items: crop and pad]
+  Q --> S[resources: crop and pad]
   Q --> E[slime strip]
   P[player.py] --> O
+  I[items.py] --> O
   Q --> G[hearts]
   L[tiles.py] --> O[src/main/resources/assets]
   T[trees.py] --> O
@@ -44,23 +45,32 @@ python -I tools/pixelart/trees.py
 
 `--preview <file>` renders every sprite side by side instead of writing the assets.
 
+## Item icons drawn by script
+
+```bash
+python -I tools/pixelart/items.py
+```
+
+`items.py` draws the icon of every `ItemType` with no raw input, 16x16 each, into `assets/items/<item>.png`. The file name is the lower case constant name, which is the name the game looks an icon up by. Every icon is built from a few shaded blobs, rectangles, lines and single pixels in colours of `palette.hex`, lit from the upper left and wrapped in the dark outline. The script has one drawing function per item and an `ICONS` table that maps the file name to it, so adding an item type is one function and one table entry. It writes every icon of the table and removes the stale icons of the folder, which are the files named like an item icon (lower case `ItemType` style names, such as `wood_log.png`) that no drawing produces. It prints each file it removes and never touches any other file, so a differently named image in the folder is safe. The game shows an icon at a whole multiple of its own size with image smoothing off, which keeps every art pixel a crisp block, and it only draws a stand-in shape for an item whose file is missing. `build.py` does not touch items, so running it never overwrites them.
+
+`--preview <file>` renders every icon on a dark panel at 4x instead of writing the assets.
+
 ## Raw layout
 
 | Raw input | Output |
 |---|---|
 | `resources/<biome>/<kind>-<n>.png`, any kind except tree, bush, rock, iron, palm and cactus | `assets/resources/<biome>/<kind>-<n>.png` |
-| `items/<item>.png` | `assets/items/<item>.png` |
 | `gui/heart-full.png`, `heart-half.png` | `assets/gui/`, plus a derived `heart-empty.png` when no raw one exists |
 | `entities/slime-<n>.png` | `assets/entities/slime-<n>.png`, a 6 frame strip |
 | none, drawn by `player.py` | `assets/entities/player.png`, a 128x72 sheet |
 
-Item files are named after the lower case `ItemType` constant. The game picks up any variant number it finds, so adding `willow-2.png` or a second tile variant `grass-2.png` needs no code change.
+The game picks up any variant number it finds, so adding `willow-2.png` or a second tile variant `grass-2.png` needs no code change.
 
 ## What the tool does
 
 - Every image is snapped to the 40 colours in `palette.hex` by nearest RGB distance, with no dithering, and its alpha becomes binary.
 - Resources are cropped to their content and centred on the bottom row of the canvas for their kind, for example 32x48 for a tree and 24x20 for a rock. Content larger than the canvas keeps its own size.
-- Items and hearts are centred on 16x16.
+- Hearts are centred on 16x16.
 - The slime strip has six frames of 20x16 made by squashing and stretching the single raw frame: rest, crouch, stretch, apex, fall, landing.
 - The player sheet has 8 columns by 3 rows of 16x24 cells, drawn by `player.py` from rectangles with no raw input. The rows are walk a, idle and walk b.
 

@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
-import com.feuerschvenger.perlinsedge.app.managers.ClickFeedback;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
@@ -370,6 +370,8 @@ public class FxRenderer {
         if (player != null) {
             renderPlayerAttack(gc, player, halfTileWidth, halfTileHeight, offsetX, offsetY);
         }
+        FxDamageNumbersPainter.draw(gc, gameState.getDamageNumbers(), currentFrameGameTime, halfTileWidth,
+                halfTileHeight, offsetX, offsetY, zoom, canvas.getWidth(), canvas.getHeight());
         gc.restore();
 
         if (player != null) {
@@ -554,7 +556,7 @@ public class FxRenderer {
         final double zoom = camera.getZoom();
 
         if (enemy instanceof Slime) {
-            FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, (Slime) enemy);
+            FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, (Slime) enemy, currentFrameGameTime);
         } else {
             FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, enemy);
         }

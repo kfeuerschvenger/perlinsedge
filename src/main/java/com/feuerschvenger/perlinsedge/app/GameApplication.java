@@ -43,6 +43,7 @@ public class GameApplication extends Application {
     private FxCamera camera;
     private FxRenderer renderer;
     private FxMinimapDrawer minimapDrawer;
+    private MinimapFrame minimapFrame;
 
     // Game systems
     private GameOrchestrator gameOrchestrator;
@@ -56,6 +57,7 @@ public class GameApplication extends Application {
     private InventoryPanel inventoryPanel;
     private MapConfigPanel mapConfigPanel;
     private BuildingHotbarPanel hotbarPanel;
+    private ItemHotbarPanel itemHotbarPanel;
     private HintLabel hintLabel;
     private DeathOverlay deathOverlay;
 
@@ -252,8 +254,9 @@ public class GameApplication extends Application {
                 config.graphics().getMinimapWidth(),
                 config.graphics().getMinimapHeight()
         );
-        minimapCanvas.setTranslateX(rootPane.getPrefWidth() - minimapCanvas.getWidth() - 12);
-        minimapCanvas.setTranslateY(rootPane.getPrefHeight() - minimapCanvas.getHeight() - 12);
+        minimapFrame = new MinimapFrame(minimapCanvas);
+        minimapFrame.setTranslateX(rootPane.getPrefWidth() - MinimapFrame.outerWidth(minimapCanvas) - 12);
+        minimapFrame.setTranslateY(rootPane.getPrefHeight() - MinimapFrame.outerHeight(minimapCanvas) - 12);
         minimapDrawer = new FxMinimapDrawer(minimapCanvas, camera, mainCanvas);
     }
 
@@ -261,7 +264,7 @@ public class GameApplication extends Application {
      * Creates the game layer containing rendering canvases.
      */
     private Pane createGameLayer() {
-        Pane layer = new Pane(mainCanvas, minimapDrawer.getCanvas());
+        Pane layer = new Pane(mainCanvas, minimapFrame);
         layer.setPrefSize(rootPane.getPrefWidth(), rootPane.getPrefHeight());
         return layer;
     }
@@ -278,7 +281,9 @@ public class GameApplication extends Application {
         createPlayerUIComponents();
 
         // Add components to layer
-        layer.getChildren().addAll(mapConfigPanel, healthBar, inventoryPanel, hotbarPanel, hintLabel, deathOverlay);
+        // The inventory comes after the hotbars so the stack dragged out of it is drawn over their slots
+        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, hotbarPanel, inventoryPanel, hintLabel,
+                deathOverlay);
         return layer;
     }
 
@@ -307,15 +312,27 @@ public class GameApplication extends Application {
                 rootPane.heightProperty().subtract(hotbarPanel.heightProperty()).subtract(HUD_MARGIN)
         );
 
-        // Hearts: above the hotbar and aligned to its left edge while it is shown, bottom-left otherwise
+        // Item hotbar: the same place as the building hotbar, which replaces it in building mode
+        itemHotbarPanel = new ItemHotbarPanel();
+        itemHotbarPanel.layoutXProperty().bind(
+                rootPane.widthProperty().subtract(itemHotbarPanel.widthProperty()).divide(2)
+        );
+        itemHotbarPanel.layoutYProperty().bind(
+                rootPane.heightProperty().subtract(itemHotbarPanel.heightProperty()).subtract(HUD_MARGIN)
+        );
+
+        // Hearts: above whichever hotbar is shown, aligned to its left edge
         healthBar = new HealthBar();
         healthBar.layoutXProperty().bind(
-                Bindings.when(hotbarPanel.visibleProperty()).then(hotbarPanel.layoutXProperty()).otherwise(HUD_MARGIN)
+                Bindings.when(hotbarPanel.visibleProperty())
+                        .then(hotbarPanel.layoutXProperty())
+                        .otherwise(itemHotbarPanel.layoutXProperty())
         );
         healthBar.layoutYProperty().bind(
                 Bindings.when(hotbarPanel.visibleProperty())
                         .then(hotbarPanel.layoutYProperty().subtract(healthBar.heightProperty()).subtract(HUD_GAP))
-                        .otherwise(rootPane.heightProperty().subtract(healthBar.heightProperty()).subtract(HUD_MARGIN))
+                        .otherwise(itemHotbarPanel.layoutYProperty().subtract(healthBar.heightProperty())
+                                .subtract(HUD_GAP))
         );
 
         // Inventory panel (centered)
@@ -328,6 +345,8 @@ public class GameApplication extends Application {
         );
         inventoryPanel.setVisible(false);
         inventoryPanel.setManaged(false);
+        // The hotbar stays on screen and takes part in the dragging while the inventory is open
+        inventoryPanel.attachHotbar(itemHotbarPanel);
 
         // Hint line (centered, above the hotbar)
         hintLabel = new HintLabel();
@@ -365,6 +384,7 @@ public class GameApplication extends Application {
                     healthBar,
                     inventoryPanel,
                     hotbarPanel,
+                    itemHotbarPanel,
                     hintLabel,
                     deathOverlay,
                     gameStateManager,

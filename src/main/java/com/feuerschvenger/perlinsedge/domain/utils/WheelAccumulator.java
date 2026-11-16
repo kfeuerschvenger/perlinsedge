@@ -1,4 +1,4 @@
-package com.feuerschvenger.perlinsedge.infra.fx.input;
+package com.feuerschvenger.perlinsedge.domain.utils;
 
 import java.util.function.LongSupplier;
 

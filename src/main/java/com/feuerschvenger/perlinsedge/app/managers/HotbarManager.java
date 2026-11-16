@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.infra.fx.input.WheelAccumulator;
+import com.feuerschvenger.perlinsedge.domain.utils.WheelAccumulator;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingHotbarPanel;
 import lombok.extern.slf4j.Slf4j;
 

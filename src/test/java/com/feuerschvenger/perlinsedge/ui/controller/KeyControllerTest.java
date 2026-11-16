@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,7 +23,7 @@ class KeyControllerTest {
     @BeforeEach
     void setUp() {
         AppConfig.getInstance().debug().setFpsOverlayEnabled(false);
-        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
+        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
                 numbers::add, pageChanges::add);
     }
 
@@ -41,10 +42,30 @@ class KeyControllerTest {
     }
 
     @Test
-    void noGameKeyIsNamedEBecauseItIsKeptFreeForOtherActions() {
-        for (GameKey key : GameKey.values()) {
-            assertFalse(key.name().equals("E"), key.name());
-        }
+    void theUseKeyRunsItsAction() {
+        List<String> calls = new ArrayList<>();
+        controller.setUseAction(() -> calls.add("use"));
+
+        controller.onKeyAction(GameKey.USE_ITEM);
+        controller.onKeyAction(GameKey.USE_ITEM);
+
+        assertEquals(List.of("use", "use"), calls);
+    }
+
+    @Test
+    void theUseKeyIsAGameplayKeyThatIsIgnoredWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        controller.setUseAction(() -> calls.add("use"));
+        controller.setInputBlocked(() -> true);
+
+        controller.onKeyAction(GameKey.USE_ITEM);
+
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void theUseKeyWithNoActionSetDoesNothing() {
+        assertDoesNotThrow(() -> controller.onKeyAction(GameKey.USE_ITEM));
     }
 
     @Test
@@ -124,11 +145,10 @@ class KeyControllerTest {
     void gameplayKeysAreIgnoredWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, () -> calls.add("inventory"), () -> calls.add("attack"),
+                () -> { }, () -> { }, () -> calls.add("inventory"),
                 () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
         blocked.setInputBlocked(() -> true);
 
-        blocked.onKeyAction(GameKey.SPACE);
         blocked.onKeyAction(GameKey.I);
         blocked.onKeyAction(GameKey.B);
         blocked.onKeyAction(GameKey.DIGIT_2);
@@ -142,33 +162,46 @@ class KeyControllerTest {
     void pauseAndCameraKeysWorkWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, n -> { }, p -> { });
+                () -> { }, () -> { }, () -> { }, () -> { }, n -> { }, p -> { });
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.ESCAPE);
-        blocked.onKeyAction(GameKey.C);
+        blocked.onKeyAction(GameKey.SPACE);
 
         assertEquals(List.of("pause", "centre"), calls);
+    }
+
+    @Test
+    void theSpaceBarCentresTheCameraAndNothingElse() {
+        List<String> calls = new ArrayList<>();
+        KeyController keys = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
+                () -> calls.add("map"), () -> calls.add("config"), () -> calls.add("inventory"),
+                () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
+
+        keys.onKeyAction(GameKey.SPACE);
+        keys.onKeyAction(GameKey.SPACE);
+
+        assertEquals(List.of("centre", "centre"), calls);
     }
 
     @Test
     void gameplayKeysWorkAgainOnceInputIsUnblocked() {
         List<String> calls = new ArrayList<>();
         boolean[] blocked = {true};
-        KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { },
-                () -> calls.add("attack"), () -> { }, n -> { }, p -> { });
+        KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { },
+                () -> calls.add("inventory"), () -> { }, n -> { }, p -> { });
         keys.setInputBlocked(() -> blocked[0]);
 
-        keys.onKeyAction(GameKey.SPACE);
+        keys.onKeyAction(GameKey.I);
         blocked[0] = false;
-        keys.onKeyAction(GameKey.SPACE);
+        keys.onKeyAction(GameKey.I);
 
-        assertEquals(List.of("attack"), calls);
+        assertEquals(List.of("inventory"), calls);
     }
 
     @Test
     void missingActionsAreIgnored() {
-        KeyController bare = new KeyController(null, null, null, null, null, null, null, null, null);
+        KeyController bare = new KeyController(null, null, null, null, null, null, null, null);
 
         bare.onKeyAction(GameKey.PAGE_UP);
         bare.onKeyAction(GameKey.PAGE_DOWN);
