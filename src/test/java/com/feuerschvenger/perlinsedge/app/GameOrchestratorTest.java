@@ -268,15 +268,31 @@ class GameOrchestratorTest {
         onFx(() -> orchestrator.startNewGame(MapType.DESERT));
         final double start = state.getDayCycle().secondsIntoCycle();
         final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+        final boolean before = config.isFastTime();
         config.setFastTime(true);
         try {
             onFx(() -> orchestrator.update(1.0));
-        } finally {
-            config.setFastTime(false);
-        }
 
-        assertEquals(start + config.getFastTimeMultiplier(), state.getDayCycle().secondsIntoCycle(), 1e-6);
-        assertEquals(1.0, state.getGameTime(), 1e-9);
+            assertEquals(start + config.getFastTimeMultiplier(), state.getDayCycle().secondsIntoCycle(), 1e-6);
+            assertEquals(1.0, state.getGameTime(), 1e-9);
+        } finally {
+            config.setFastTime(before);
+        }
+    }
+
+    @Test
+    void aNewGameSwitchesTheFastTimeOff() {
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+        final boolean before = config.isFastTime();
+        try {
+            config.setFastTime(true);
+
+            onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+
+            assertFalse(config.isFastTime(), "the fast time of the old world is not carried into the new one");
+        } finally {
+            config.setFastTime(before);
+        }
     }
 
     @Test

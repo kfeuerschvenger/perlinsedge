@@ -80,6 +80,8 @@ public class GameStateManager {
         // Timer reset
         gameTime = 0;
         dayCycle.reset();
+        // The fast time is a debug switch held in the shared configuration, so a new world does not inherit it
+        AppConfig.getInstance().dayCycle().setFastTime(false);
         playerRespawnTimer = -1;
 
         // UI/Input reset
