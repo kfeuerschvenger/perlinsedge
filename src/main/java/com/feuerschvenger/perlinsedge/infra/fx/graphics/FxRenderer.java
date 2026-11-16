@@ -51,6 +51,12 @@ public class FxRenderer {
     /** Shimmer lines fainter than this are skipped, since they are not visible. */
     private static final double MIN_SHIMMER_ALPHA = 0.02;
 
+    /** Height in art pixels of the tallest sprite that casts a shadow, which bounds how far a shadow can reach. */
+    private static final double MAX_CASTER_ART_HEIGHT = 48.0;
+
+    /** Half the width in art pixels of the widest sprite that casts a shadow. */
+    private static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
+
     /** Shadows weaker than this share of their full opacity are not cast. */
     private static final double MIN_SHADOW_STRENGTH = 0.004;
 
@@ -92,6 +98,8 @@ public class FxRenderer {
     private final FrameStats frameStats = new FrameStats();
     private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
+    /** How far outside the canvas, in pixels, a caster can stand and still cast a shadow into it this frame. */
+    private double shadowReach;
     /** The map type of the frame, which picks the biome art of the ground and its decals. */
     private MapType activeMapType;
     /** The shimmer animation clock of the frame, computed once from the game time. */
@@ -212,9 +220,21 @@ public class FxRenderer {
 
         final long worldSeed = gameState.getWorldSeed();
 
+        // An object outside the view still casts a shadow into it when the shadow is long enough to reach, so the
+        // walk covers a wider ring of tiles, and only the casting is done for the tiles outside the view
+        final double artScale = ZoomSteps.artScale(zoom);
+        shadowReach = castShadows ? FxShadowHelper.reachMargin(MAX_CASTER_ART_HEIGHT, MAX_CASTER_ART_HALF_WIDTH,
+                sky.shadowLengthFactor(), artScale) : 0.0;
+        final int extraTiles = castShadows ? (int) Math.ceil(shadowReach / halfTileHeight) : 0;
+        final int walkMinX = Math.max(0, minTileX - extraTiles);
+        final int walkMaxX = Math.min(mapWidth, maxTileX + extraTiles);
+        final int walkMinY = Math.max(0, minTileY - extraTiles);
+        final int walkMaxY = Math.min(mapHeight, maxTileY + extraTiles);
+
         // Render tiles and resources
-        for (int y = minTileY; y < maxTileY; y++) {
-            for (int x = minTileX; x < maxTileX; x++) {
+        for (int y = walkMinY; y < walkMaxY; y++) {
+            for (int x = walkMinX; x < walkMaxX; x++) {
+                final boolean insideView = x >= minTileX && x < maxTileX && y >= minTileY && y < maxTileY;
                 final Tile tile = map.getTile(x, y);
                 if (tile == null) continue;
 
@@ -222,8 +242,11 @@ public class FxRenderer {
                 double screenX = (x - y) * halfTileWidth + offsetX;
                 double screenY = (x + y) * halfTileHeight + offsetY;
 
-                // Frustum culling
-                if (!isTileVisible(screenX, screenY, tileWidth, tileHeight)) {
+                // Frustum culling: a tile that is not drawn can still cast a shadow into the view
+                if (!insideView || !isTileVisible(screenX, screenY, tileWidth, tileHeight)) {
+                    if (castShadows && !isGrayscaleEnabled) {
+                        castOffscreenShadows(map, tile, x, y, screenX, screenY, halfTileHeight, artScale, worldSeed);
+                    }
                     continue;
                 }
 
@@ -255,7 +278,6 @@ public class FxRenderer {
                     // without an image the painter draws a stand-in shape.
                     Image resourceImage = spriteMetadata != null ? spriteMetadata.getImage() : null;
                     // A struck resource shakes sideways for a moment, its shadow stays on the ground
-                    final double artScale = ZoomSteps.artScale(zoom);
                     final double secondsSinceHit = paused
                             ? Double.POSITIVE_INFINITY : resource.secondsSinceHit(currentFrameGameTime);
                     final double shakeX = HitShake.screenOffset(secondsSinceHit, artScale);
@@ -265,16 +287,8 @@ public class FxRenderer {
                     renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
                     if (castShadows) {
-                        if (resourceImage != null) {
-                            // A low sprite touches the ground at its lowest painted row, a tall one at its bottom edge
-                            final Silhouette silhouette = SilhouetteSprites.of(resourceImage);
-                            final double groundRow = contact > 0 ? silhouette.paintedBottom() : silhouette.height();
-                            shadows.addSilhouette(screenX, screenY + halfTileHeight + contact, silhouette, groundRow,
-                                    1.0, 1.0);
-                        } else {
-                            shadows.add(screenX, screenY + halfTileHeight + contact,
-                                    GroundShadow.widthFor(resource.getType(), FALLBACK_RESOURCE_ART_WIDTH), 1.0);
-                        }
+                        addResourceShadow(resource.getType(), resourceImage, screenX,
+                                screenY + halfTileHeight + contact, contact > 0);
                     }
                 }
                 // Add building if present
@@ -332,7 +346,8 @@ public class FxRenderer {
             renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
             // The sprite stands on the tile centre
             final double playerFeetY = playerY + halfTileHeight;
-            if (castShadows && FxShadowHelper.isOnScreen(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight())) {
+            if (castShadows && FxShadowHelper.canReach(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight(),
+                    shadowReach)) {
                 if (playerSprite != null) {
                     final Silhouette silhouette = SilhouetteSprites.of(playerSprite);
                     shadows.addSilhouette(playerX, playerFeetY, silhouette, silhouette.height(), 1.0, 1.0);
@@ -358,7 +373,8 @@ public class FxRenderer {
 
                 renderQueue.add(enemyScreenX, enemyScreenY, enemyDrawDepth, enemy, null, false, null);
                 if (castShadows
-                        && FxShadowHelper.isOnScreen(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight())) {
+                        && FxShadowHelper.canReach(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight(),
+                        shadowReach)) {
                     if (enemy instanceof Slime slime) {
                         FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime);
                     } else {
@@ -419,6 +435,55 @@ public class FxRenderer {
     }
 
     // Helper methods --------------------------------------------------------
+
+    /**
+     * Adds the shadow of a resource: the silhouette of its sprite, or an ellipse when it is drawn without art.
+     *
+     * @param type    the resource type
+     * @param image   its sprite, or null when it has none
+     * @param screenX screen X of the ground contact point
+     * @param groundY screen Y of the ground contact point
+     * @param low     true for a low sprite, which touches the ground at its lowest painted row
+     */
+    private void addResourceShadow(ResourceType type, Image image, double screenX, double groundY, boolean low) {
+        if (image != null) {
+            // A low sprite touches the ground at its lowest painted row, a tall one at its bottom edge
+            final Silhouette silhouette = SilhouetteSprites.of(image);
+            final double groundRow = low ? silhouette.paintedBottom() : silhouette.height();
+            shadows.addSilhouette(screenX, groundY, silhouette, groundRow, 1.0, 1.0);
+        } else {
+            shadows.add(screenX, groundY, GroundShadow.widthFor(type, FALLBACK_RESOURCE_ART_WIDTH), 1.0);
+        }
+    }
+
+    /**
+     * Casts the shadows of a tile that is not drawn, when they are long enough to reach into the view. Only the
+     * shadow is added, so nothing outside the view is queued for drawing.
+     */
+    private void castOffscreenShadows(TileMap map, Tile tile, int x, int y, double screenX, double screenY,
+                                      double halfTileHeight, double artScale, long worldSeed) {
+        final double groundY = screenY + halfTileHeight;
+        if (!FxShadowHelper.canReach(screenX, groundY, canvas.getWidth(), canvas.getHeight(), shadowReach)) {
+            return;
+        }
+        final Resource resource = tile.getWorldResource();
+        if (tile.hasResource() && resource != null) {
+            final String preferredKind = resourceKinds.preferredKind(map, activeMapType, resource.getType(), x, y,
+                    worldSeed);
+            final SpriteManager.SpriteMetadata metadata = spriteManager.getResourceSprite(
+                    activeMapType, resource.getType(), x, y, worldSeed, preferredKind);
+            final Image image = metadata != null ? metadata.getImage() : null;
+            final double contact = metadata != null ? metadata.getContactArtPixels() * artScale : 0.0;
+            addResourceShadow(resource.getType(), image, screenX, groundY + contact, contact > 0);
+        }
+        final Building building = tile.getBuilding();
+        if (tile.hasBuilding() && building != null) {
+            final double width = GroundShadow.widthFor(building.getType());
+            if (width > 0) {
+                shadows.add(screenX, groundY, width, 1.0);
+            }
+        }
+    }
 
     /** The preview of the building being placed, recreated only when the tile or the colour changes. */
     private BuildingPreview previewFor() {
