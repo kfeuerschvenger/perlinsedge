@@ -318,7 +318,13 @@ class FxShadowPassTest {
         final int[][] fadedDynamic = freshBoth(oneBlock(120, 60), faded, 0);
         final int[][] both = freshBoth(oneBlock(120, 60), oneBlock(122, 60), 0);
 
-        assertTrue(Arrays.deepEquals(single, fadedStatic), "the stronger dynamic shadow wins over a fainter static one");
+        // Two draws that blend to the stronger shadow differ from one draw by the rounding of two 8 bit blends
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                assertEquals(single[y][x], fadedStatic[y][x], 2,
+                        "the stronger dynamic shadow wins over a fainter static one at " + x + "," + y);
+            }
+        }
         assertTrue(Arrays.deepEquals(single, fadedDynamic), "the stronger static shadow wins over a fainter dynamic one");
         final int expected = (int) Math.round(255 * (1.0 - GroundShadow.OPACITY));
         int darkest = 255;
@@ -344,16 +350,104 @@ class FxShadowPassTest {
     }
 
     @Test
-    void aChangeOfTheCameraOrOfTheStaticListCastsTheStaticShadowsAgain() {
+    void aChangeOfTheStaticListCastsTheStaticShadowsAgainButACreatureDoesNot() {
         final FxShadowPass pass = new FxShadowPass();
         final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
         FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(60, 120), oneBlock(180, 60), 0));
 
-        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(60, 120), oneBlock(180, 60), 1));
-        assertEquals(2, pass.staticRecasts(), "a camera that moved by a pixel");
-        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(62, 120), oneBlock(180, 60), 1));
-        assertEquals(3, pass.staticRecasts(), "a static shadow that moved");
-        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(62, 120), oneBlock(184, 60), 1));
-        assertEquals(3, pass.staticRecasts(), "a creature that moved");
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(62, 120), oneBlock(180, 60), 0));
+        assertEquals(2, pass.staticRecasts(), "a static shadow that moved");
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, oneBlock(62, 120), oneBlock(184, 60), 0));
+        assertEquals(2, pass.staticRecasts(), "a creature that moved");
+    }
+
+    @Test
+    void aCameraPanOfWholeArtPixelsDoesNotCastTheStaticShadowsAgainAndLooksLikeAFreshCast() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        // Static shadows are kept in world coordinates, so the same list is the same world at every camera offset
+        final ShadowList world = new ShadowList();
+        world.addSilhouette(60, 120, BLOCK, 12, 1.0, 1.0);
+        world.addSilhouette(140, 90, BLOCK, 12, 1.0, 1.0);
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, world, oneBlock(150, 80), 0));
+        assertEquals(1, pass.staticRecasts());
+
+        for (int pan = 1; pan <= 12; pan++) {
+            // The creature stays on the screen where it is, as one that walks with the camera does
+            final double origin = -2.0 * pan;
+            final int[][] panned = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, world, oneBlock(150, 80), origin));
+
+            assertEquals(1, pass.staticRecasts(), "a pan of " + pan + " art pixels cast the static shadows again");
+            assertTrue(Arrays.deepEquals(freshBoth(world, oneBlock(150, 80), origin), panned),
+                    "the panned frame is what a fresh cast gives at " + origin);
+        }
+    }
+
+    @Test
+    void aCameraPanOfSeveralPixelsInsideTheArtPixelAndAcrossItNeverCastsTheStaticShadowsAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final ShadowList world = new ShadowList();
+        world.addSilhouette(60, 120, BLOCK, 12, 1.0, 1.0);
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, world, new ShadowList(), 0));
+
+        for (int pan = 1; pan <= 9; pan++) {
+            final double origin = 3.0 * pan;
+            final int[][] panned = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, world, new ShadowList(), origin));
+
+            assertEquals(1, pass.staticRecasts(), "a pan of " + origin + " pixels cast the static shadows again");
+            assertTrue(Arrays.deepEquals(freshBoth(world, new ShadowList(), origin), panned), "at " + origin);
+        }
+    }
+
+    @Test
+    void aCameraThatLeavesTheStaticWindowMovesItAndStillLooksLikeAFreshCast() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final ShadowList world = new ShadowList();
+        world.addSilhouette(60, 120, BLOCK, 12, 1.0, 1.0);
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, world, new ShadowList(), 0));
+
+        // Far past the margin of cells, in both directions
+        final double far = -2.0 * (FxShadowPass.WINDOW_MARGIN_CELLS + 20);
+        final int[][] moved = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, world, new ShadowList(), far));
+
+        assertEquals(2, pass.staticRecasts(), "the window had to move");
+        assertTrue(Arrays.deepEquals(freshBoth(world, new ShadowList(), far), moved));
+    }
+
+    @Test
+    void aStaticShadowPannedUnderACreatureStaysAsDarkAsOneAtEveryOffset() {
+        final ShadowList faded = new ShadowList();
+        faded.addSilhouette(120, 60, BLOCK, 12, 1.0, 0.5);
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, faded, oneBlock(120, 60), 0));
+
+        for (int pan = 1; pan <= 6; pan++) {
+            final double origin = 2.0 * pan;
+            // The creature walks with the camera, so its screen position moves while the world shadow stays
+            final ShadowList creature = oneBlock(120 + origin, 60);
+            final int[][] panned = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, faded, creature, origin));
+
+            assertTrue(Arrays.deepEquals(freshBoth(faded, creature, origin), panned), "at " + origin);
+        }
+        assertEquals(1, pass.staticRecasts());
+    }
+
+    @Test
+    void theStaticWindowCoversTheCanvasWithAMarginOnEverySide() {
+        final FxShadowPass pass = new FxShadowPass();
+        pass.beginFrame(2.0, 10, 20, WIDTH, HEIGHT);
+
+        final double margin = FxShadowPass.WINDOW_MARGIN_CELLS * 2.0;
+        assertTrue(pass.windowLeft() <= -margin + 1e-9, "left " + pass.windowLeft());
+        assertTrue(pass.windowTop() <= -margin + 1e-9, "top " + pass.windowTop());
+        assertTrue(pass.windowLeft() + pass.windowWidth() >= WIDTH + margin - 1e-9);
+        assertTrue(pass.windowTop() + pass.windowHeight() >= HEIGHT + margin - 1e-9);
+        final double before = pass.windowLeft();
+        pass.beginFrame(2.0, 10, 20, WIDTH, HEIGHT);
+        assertEquals(before, pass.windowLeft(), "asking twice in a frame changes nothing");
+        assertTrue(FxShadowPass.windowOverhangPixels(2.0) >= 2 * margin);
     }
 }
