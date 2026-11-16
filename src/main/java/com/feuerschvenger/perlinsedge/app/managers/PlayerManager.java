@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -125,7 +126,12 @@ public class PlayerManager {
      */
     public void keepClearOfEnemies() {
         final Player player = getPlayer();
-        if (player != null && player.isMoving()) {
+        if (player == null || !player.isMoving()) {
+            return;
+        }
+        // The check runs every tick, so the set of taken tiles is only built on the rare tick that halts the walk
+        final PathNode next = player.getNextTile();
+        if (next != null && OccupiedTiles.contains(gameState.getEnemies(), next.x, next.y)) {
             player.haltBefore(OccupiedTiles.of(gameState.getEnemies()));
         }
     }

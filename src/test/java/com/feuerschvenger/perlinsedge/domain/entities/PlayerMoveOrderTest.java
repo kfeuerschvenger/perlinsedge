@@ -72,6 +72,58 @@ class PlayerMoveOrderTest {
     }
 
     @Test
+    void haltBeforeLeavesAWalkAloneWhileTheNextTileIsFree() {
+        player.moveTo(map, 3, 0);
+
+        assertFalse(player.haltBefore(java.util.Set.of(new PathNode(2, 0))), "only the next tile counts");
+        assertTrue(player.isMoving());
+        assertFalse(new Player(0, 0).haltBefore(java.util.Set.of(new PathNode(1, 0))), "no walk, nothing to halt");
+    }
+
+    @Test
+    void haltBeforeStopsAPlayerStandingOnATileWhereItIs() {
+        player.moveTo(map, 3, 0);
+
+        assertTrue(player.haltBefore(java.util.Set.of(new PathNode(1, 0))));
+        for (int i = 0; i < 120; i++) {
+            player.update(1.0 / 60.0);
+        }
+
+        assertEquals(0, player.getCurrentTileX());
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void haltBeforeSendsAPlayerBetweenTwoTilesBackToTheTileItLeftWhenTheNextTileBecomesTaken() {
+        player.moveTo(map, 3, 0);
+        for (int i = 0; i < 3; i++) {
+            player.update(1.0 / 60.0);
+        }
+        assertTrue(player.getPosX() > 0.0 && player.getPosX() < 1.0, "precondition: between two tiles");
+
+        assertTrue(player.haltBefore(java.util.Set.of(new PathNode(1, 0))));
+        assertEquals(0, player.getTargetTileX(), "it heads back to the tile it left");
+        for (int i = 0; i < 120; i++) {
+            player.update(1.0 / 60.0);
+            assertTrue(player.getPosX() <= 0.5, "never reaches the taken tile: " + player.getPosX());
+        }
+
+        assertEquals(0.0, player.getPosX(), 1e-9);
+        assertEquals(0, player.getCurrentTileX());
+        assertFalse(player.isMoving());
+    }
+
+    @Test
+    void getNextTileGivesTheHeadOfTheWalkWithoutChangingIt() {
+        assertEquals(null, player.getNextTile());
+
+        player.moveTo(map, 3, 0);
+
+        assertEquals(new PathNode(1, 0), player.getNextTile());
+        assertEquals(new PathNode(1, 0), player.getNextTile());
+    }
+
+    @Test
     void aWalkOfEveryLengthEndsOnTheTileThatWasClicked() {
         for (int steps = 1; steps <= 3; steps++) {
             Player walker = new Player(0, 0);

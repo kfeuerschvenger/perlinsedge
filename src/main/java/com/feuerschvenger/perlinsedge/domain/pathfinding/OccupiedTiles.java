@@ -35,4 +35,29 @@ public final class OccupiedTiles {
         }
         return tiles;
     }
+
+    /**
+     * Tells whether a tile is taken by an enemy, without building the set of {@link #of(Collection)}, so a check that
+     * runs every tick allocates nothing.
+     *
+     * @param enemies the enemies, null for none
+     * @param x       tile column
+     * @param y       tile row
+     * @return true when a living enemy stands on the tile or is stepping to it
+     */
+    public static boolean contains(Collection<? extends Enemy> enemies, int x, int y) {
+        if (enemies == null) {
+            return false;
+        }
+        for (Enemy enemy : enemies) {
+            if (enemy.isDead()) {
+                continue;
+            }
+            if ((enemy.getCurrentTileX() == x && enemy.getCurrentTileY() == y)
+                    || (enemy.getTargetTileX() == x && enemy.getTargetTileY() == y)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
