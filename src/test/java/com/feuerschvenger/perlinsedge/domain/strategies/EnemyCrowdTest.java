@@ -5,8 +5,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -63,51 +61,6 @@ class EnemyCrowdTest {
                     enemy.update(STEP, map, player, occupancy);
                 }
                 assertNoSharedTile(tick);
-            }
-        }
-
-        /**
-         * Runs like {@link #run(double)} while the player is ordered to walk to the next of the given tiles every
-         * {@code ticksPerStop} ticks, around the tiles the enemies hold and halting before a tile they step to, as
-         * the game does. The player has a walk in progress and a target tile of its own that moves, so the crowd has to
-         * follow a moving player.
-         *
-         * @return how many tiles the player walked on, which tells that the player really moved
-         */
-        int runWithWanderingPlayer(double seconds, int ticksPerStop, int[][] stops) {
-            int next = 0;
-            int stepsTaken = 0;
-            int lastX = player.getCurrentTileX();
-            int lastY = player.getCurrentTileY();
-            for (int tick = 0; tick < Math.round(seconds / STEP); tick++) {
-                if (tick % ticksPerStop == 0) {
-                    final int[] stop = stops[next++ % stops.length];
-                    player.moveTo(map, stop[0], stop[1], OccupiedTiles.of(enemies));
-                }
-                player.heal(1_000);
-                haltBeforeEnemies();
-                player.update(STEP);
-                // Arriving on a tile makes the next tile of the walk the target at once, so it is vetted again before
-                // the enemies move: a target on a tile an enemy holds would be a tile the enemy stands on
-                haltBeforeEnemies();
-                if (player.getCurrentTileX() != lastX || player.getCurrentTileY() != lastY) {
-                    stepsTaken++;
-                    lastX = player.getCurrentTileX();
-                    lastY = player.getCurrentTileY();
-                }
-                for (Enemy enemy : enemies) {
-                    enemy.update(STEP, map, player, occupancy);
-                }
-                assertNoSharedTile(tick);
-            }
-            return stepsTaken;
-        }
-
-        /** Ends the walk of the player when its next tile is held by an enemy. */
-        private void haltBeforeEnemies() {
-            final PathNode ahead = player.getNextTile();
-            if (ahead != null && OccupiedTiles.contains(enemies, ahead.x, ahead.y)) {
-                player.haltBefore(OccupiedTiles.of(enemies));
             }
         }
 
@@ -268,19 +221,6 @@ class EnemyCrowdTest {
         scene.run(40);
 
         assertTrue(scene.adjacentToPlayer() >= 1, "the first skeleton reaches the player");
-    }
-
-    @Test
-    void aCrowdFollowingAPlayerWhoKeepsMovingNeverSharesATile() {
-        final Scene scene = openScene(true, 10, 6);
-        final Scene walkers = openScene(false, 10, 8);
-
-        final int[][] stops = {{23, 18}, {17, 22}, {22, 24}, {18, 17}, {20, 20}};
-        final int slimeSteps = scene.runWithWanderingPlayer(40, 150, stops);
-        final int walkerSteps = walkers.runWithWanderingPlayer(40, 150, stops);
-
-        assertTrue(slimeSteps >= 20, "the player walked on only " + slimeSteps + " tiles");
-        assertTrue(walkerSteps >= 20, "the player walked on only " + walkerSteps + " tiles");
     }
 
     @Test

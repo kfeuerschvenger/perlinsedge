@@ -107,8 +107,7 @@ public class PlayerManager {
         Player player = getPlayer();
         if (player == null) return;
 
-        keepClearOfEnemies();
-        player.update(deltaTime);
+        advancePlayer(deltaTime);
         // Every hit the player took since the last tick becomes one floating number over the player
         gameState.getDamageNumbers().spawn(DamageNumbers.Kind.PLAYER, player.drainDamageTaken(),
                 player.getPosX(), player.getPosY(), gameState.getGameTime());
@@ -118,6 +117,21 @@ public class PlayerManager {
         if (player.isDead() && gameState.getPlayerRespawnTimer() <= 0) {
             handlePlayerDeath();
         }
+    }
+
+    /**
+     * Moves the player one tick while keeping it clear of the enemies. The walk is checked before the update, for an
+     * enemy that moved onto it, and again right after, because arriving on a node makes the next node the target at
+     * once: without the second check that node could be a tile an enemy holds for the rest of the tick.
+     *
+     * @param deltaTime Time since last update in seconds
+     */
+    void advancePlayer(double deltaTime) {
+        final Player player = getPlayer();
+        if (player == null) return;
+        keepClearOfEnemies();
+        player.update(deltaTime);
+        keepClearOfEnemies();
     }
 
     /**
