@@ -24,8 +24,13 @@ import java.util.List;
 final class WalkingChaser {
 
     private static final double REPATH_INTERVAL_SECONDS = 0.5;
-    /** Shortest time between two searches, however often the player changes tile. */
-    private static final double MIN_REPATH_SPACING_SECONDS = 0.15;
+    /**
+     * Shortest time between two searches caused by the player changing tile, however often that happens. A player
+     * running across the map would otherwise start a search per enemy every few frames.
+     */
+    private static final double MIN_REPATH_SPACING_SECONDS = 0.4;
+    /** Wait before searching again after the next tile of the path turned out to be the player's. */
+    private static final double PLAYER_BLOCK_WAIT_SECONDS = 0.15;
     private static final double AT_TILE_CENTRE_EPSILON = 1e-9;
 
     private final double speedTilesPerSecond;
@@ -33,6 +38,7 @@ final class WalkingChaser {
     private final LinkedList<PathNode> path = new LinkedList<>();
     private final PathPlanner pathPlanner = new PathPlanner();
     private double secondsUntilRepath;
+    private double secondsOfPlayerBlockWait;
     private int plannedPlayerX = Integer.MIN_VALUE;
     private int plannedPlayerY = Integer.MIN_VALUE;
 
@@ -58,11 +64,13 @@ final class WalkingChaser {
     void update(Enemy enemy, double deltaTime, TileMap map, Player player) {
         pathPlanner.tick(deltaTime);
         secondsUntilRepath -= deltaTime;
+        secondsOfPlayerBlockWait = Math.max(0, secondsOfPlayerBlockWait - deltaTime);
 
         final boolean chasing = leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime);
         if (!chasing || isNextToPlayer(enemy, player)) {
             finishCurrentStepOnly(enemy);
-        } else if (path.isEmpty() || secondsUntilRepath <= 0 || playerMovedSincePlan(player)) {
+        } else if ((path.isEmpty() && secondsOfPlayerBlockWait <= 0)
+                || secondsUntilRepath <= 0 || playerMovedSincePlan(player)) {
             replan(enemy, map, player);
         }
         follow(enemy, deltaTime, map, player);
@@ -118,8 +126,10 @@ final class WalkingChaser {
         while (remaining > 0 && !path.isEmpty()) {
             final PathNode next = path.peek();
             if (isPlayerTile(next, player)) {
-                // The player stepped onto the tile the enemy is walking to: go back to the tile it left and wait
+                // The player stands on or is stepping to the tile the enemy is walking to: go back to the tile it left
+                // and wait, without a new search on every update meanwhile
                 turnBackToTileCentre(enemy);
+                secondsOfPlayerBlockWait = PLAYER_BLOCK_WAIT_SECONDS;
                 return;
             }
             if (!isWalkable(map, next)) {
@@ -184,8 +194,10 @@ final class WalkingChaser {
         return tile != null && tile.isWalkable();
     }
 
+    /** True for the tile the player stands on and the tile the player is stepping to. */
     private static boolean isPlayerTile(PathNode node, Player player) {
-        return node.x == player.getCurrentTileX() && node.y == player.getCurrentTileY();
+        return (node.x == player.getCurrentTileX() && node.y == player.getCurrentTileY())
+                || (node.x == player.getTargetTileX() && node.y == player.getTargetTileY());
     }
 
     private static boolean isMidStep(Enemy enemy) {

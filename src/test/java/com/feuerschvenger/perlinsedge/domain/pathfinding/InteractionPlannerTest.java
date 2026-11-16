@@ -42,6 +42,17 @@ class InteractionPlannerTest {
     }
 
     @Test
+    void aSearchCapStopsTheSearchForATargetThatIsReachableOnlyFartherOut() {
+        TileMap map = grassMap();
+
+        assertNotNull(InteractionPlanner.pathToReach(map, 0, 0, 8, 8, java.util.Set.of()));
+        assertNull(InteractionPlanner.pathToReach(map, 0, 0, 8, 8, java.util.Set.of(), 3),
+                "three expanded tiles are not enough to get that far");
+        assertTrue(InteractionPlanner.pathToReach(map, 4, 4, 5, 5, java.util.Set.of(), 1).isEmpty(),
+                "a player in reach needs no search, so no cap applies");
+    }
+
+    @Test
     void aPlayerInReachNeedsNoWalk() {
         List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 4, 4, 5, 5);
 

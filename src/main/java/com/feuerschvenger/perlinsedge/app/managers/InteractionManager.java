@@ -44,6 +44,9 @@ public class InteractionManager {
         }
     }
 
+    /** Largest number of tiles the search for the walk to an enemy may expand, which is also its largest cost. */
+    static final int ENEMY_SEARCH_MAX_NODES = 6_000;
+
     /** What a click on a tile does. */
     private enum Kind { NONE, BUILDING, RESOURCE, ENEMY }
 
@@ -270,8 +273,9 @@ public class InteractionManager {
         final int enemyY = enemy.getCurrentTileY();
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
+        // Capped: an enemy that cannot be reached, such as one across water, must not make the click search the map
         final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, enemyX, enemyY,
-                OccupiedTiles.of(gameState.getEnemies()));
+                OccupiedTiles.of(gameState.getEnemies()), ENEMY_SEARCH_MAX_NODES);
         if (walk == null) {
             hintSink.accept("You can't reach that");
             return false;

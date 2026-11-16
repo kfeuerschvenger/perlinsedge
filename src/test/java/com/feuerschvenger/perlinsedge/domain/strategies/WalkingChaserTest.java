@@ -83,6 +83,35 @@ class WalkingChaserTest {
     }
 
     @Test
+    void anEnemyNeverEntersTheTileThePlayerIsSteppingTo() {
+        TileMap map = grass(30, 20);
+        Skeleton skeleton = new Skeleton(8, 10);
+        Player player = new Player(10, 10);
+        assertTrue(player.walkAlong(List.of(new PathNode(9, 10))), "precondition: the player steps toward the enemy");
+
+        for (int i = 0; i < 60; i++) {
+            skeleton.update(STEP, map, player);
+            assertEquals(8.0, skeleton.getPosX(), 1e-9, "stepped toward the player's tile at update " + i);
+            assertEquals(8, skeleton.getTargetTileX());
+        }
+    }
+
+    @Test
+    void aPlayerChangingTileSoonAfterASearchDoesNotStartAnotherOneBeforeTheSpacingHasPassed() {
+        TileMap map = grass(40, 30);
+        Skeleton skeleton = new Skeleton(10, 10);
+        Player player = new Player(20, 10);
+        run(skeleton, map, player, 0.2);
+
+        player.setPosition(10, 17);
+        run(skeleton, map, player, 0.15);
+        assertEquals(10, skeleton.getTargetTileY(), "still on the path to the old tile, no new search yet");
+
+        run(skeleton, map, player, 1.0);
+        assertTrue(skeleton.getTargetTileY() > 10, "the new position is followed once the spacing has passed");
+    }
+
+    @Test
     void aPlayerThatMovesMidChaseIsFollowedWithoutWaitingForTheOldPathToEnd() {
         TileMap map = grass(40, 30);
         Skeleton skeleton = new Skeleton(10, 10);
