@@ -30,6 +30,14 @@ import javafx.scene.image.WritableImage;
  */
 public final class FxShadowPass {
 
+    /**
+     * How far into a cell, as a share of a screen pixel per art pixel, the source of the composite is moved. The software
+     * pipeline walks the source in fixed point, so a step of one third of a cell is stored a hair short and the first
+     * pixel of every third cell samples the cell before it. A quarter of a screen pixel is far from every cell edge for
+     * a sampler that reads at the corner of a pixel and for one that reads at its centre alike.
+     */
+    private static final double SAMPLE_NUDGE = 0.25;
+
     /** The shadows of the things that stay where they are, cast into their own layer. */
     private final ShadowLayer staticLayer = new ShadowLayer();
     /** The shadows of the things that move, cast into their own layer. */
@@ -129,7 +137,8 @@ public final class FxShadowPass {
         final int wide = right - left;
         final int high = bottom - top;
         gc.setGlobalAlpha(GroundShadow.OPACITY * Math.min(1.0, strength));
-        gc.drawImage(image, left, top, wide, high, phaseX + (left - 1) * artScale, phaseY + (top - 1) * artScale,
+        final double nudge = SAMPLE_NUDGE / artScale;
+        gc.drawImage(image, left + nudge, top + nudge, wide, high, phaseX + (left - 1) * artScale, phaseY + (top - 1) * artScale,
                 wide * artScale, high * artScale);
         gc.setGlobalAlpha(1.0);
     }
