@@ -18,7 +18,7 @@ import javafx.scene.paint.Color;
  * allocates nothing.
  * <p>
  * Where there are lights, the tint is pushed back around them. The part of the canvas that holds the lights is drawn
- * from the cells of a {@link LightLayer}, at the integer art scale with smoothing off so every ring is a crisp block, and
+ * from the cells of a {@link LightLayer}, at the integer art scale with smoothing off so every cell of the gradient is a crisp block, and
  * the rest of the canvas is filled with the plain tint, so a light costs only the area it lights. With no light in view
  * the whole canvas is one fill, as it is without lights at all, and a tint with no strength draws nothing whatever the
  * lights are.
