@@ -10,8 +10,12 @@ public final class Silhouette {
     /** A painted pixel of a silhouette: black and fully opaque. */
     public static final int SOLID = 0xFF000000;
 
-    /** Source pixels with at least this alpha count as painted, so a faint edge does not widen the shadow. */
-    private static final int PAINTED_ALPHA = 0x80;
+    /**
+     * Source pixels with at least this alpha count as painted, so a faint edge does not widen the shadow. The anchor of
+     * a low resource sprite counts its empty rows with the same threshold, so the sprite and its shadow agree on where
+     * the lowest painted row is.
+     */
+    public static final int PAINTED_ALPHA = 0x80;
 
     /** Width of the sprite in pixels. */
     private final int width;

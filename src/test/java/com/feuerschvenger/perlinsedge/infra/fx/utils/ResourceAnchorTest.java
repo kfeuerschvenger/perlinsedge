@@ -96,10 +96,44 @@ class ResourceAnchorTest {
         assertTrue(checked >= 20, "checked " + checked);
     }
 
+    @Test
+    void theAnchorAndTheSilhouetteAgreeOnTheLowestPaintedRowOfEveryShippedLowSprite() throws IOException {
+        int checked = 0;
+        for (String folder : FOLDERS) {
+            for (String kind : LOW) {
+                for (int variant = 1; variant < 10; variant++) {
+                    BufferedImage image = read(AssetPaths.resource(folder, kind, variant));
+                    if (image == null) {
+                        break;
+                    }
+                    final int[] pixels = image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0,
+                            image.getWidth());
+                    final Silhouette silhouette = new Silhouette(image.getWidth(), image.getHeight(), pixels);
+                    assertEquals(image.getHeight() - silhouette.paintedBottom(), paddingOf(image),
+                            folder + "/" + kind + "-" + variant);
+                    checked++;
+                }
+            }
+        }
+        assertTrue(checked >= 15, "checked " + checked);
+    }
+
+    @Test
+    void aFaintRowDoesNotCountAsPaintedForTheAnchorOrTheSilhouette() {
+        final int faint = (Silhouette.PAINTED_ALPHA - 1) << 24;
+        final int solid = Silhouette.PAINTED_ALPHA << 24;
+        final int[] pixels = {solid, solid, faint, faint};
+        final Silhouette silhouette = new Silhouette(2, 2, pixels);
+
+        assertEquals(1, silhouette.paintedBottom());
+        assertEquals(1, ResourceAnchor.bottomPadding(2, row -> (pixels[row * 2] >>> 24) < Silhouette.PAINTED_ALPHA
+                && (pixels[row * 2 + 1] >>> 24) < Silhouette.PAINTED_ALPHA));
+    }
+
     private static int paddingOf(BufferedImage image) {
         return ResourceAnchor.bottomPadding(image.getHeight(), row -> {
             for (int x = 0; x < image.getWidth(); x++) {
-                if ((image.getRGB(x, row) >>> 24) != 0) {
+                if ((image.getRGB(x, row) >>> 24) >= Silhouette.PAINTED_ALPHA) {
                     return false;
                 }
             }
