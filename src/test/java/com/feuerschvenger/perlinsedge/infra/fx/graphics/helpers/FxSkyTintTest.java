@@ -47,11 +47,12 @@ class FxSkyTintTest {
     }
 
     @Test
-    void nightShiftsTheWorldTowardBlueWithoutBlackingItOut() {
+    void nightDarkensTheWorldTowardBlueWithoutBlackingItOut() {
         final int[] night = centreOver(new FxSkyTint(), at(DAWN + DAY + DUSK + NIGHT / 2));
 
         assertTrue(night[2] > night[0] && night[2] > night[1], "blue wins");
-        assertTrue(night[0] > 40 && night[1] > 40 && night[2] > 100, "still readable");
+        assertTrue(night[0] < 70 && night[1] < 70 && night[2] < 90, "clearly darker than the mid grey below");
+        assertTrue(night[0] > 30 && night[1] > 30 && night[2] > 55, "not black, so the night stays barely playable");
     }
 
     @Test

@@ -213,8 +213,8 @@ class DayCycleTest {
         final DayCycle midnight = at(DAWN + DAY + DUSK + NIGHT / 2);
         final Rgba night = midnight.skyTint();
         assertTrue(night.b() > night.r() && night.b() > night.g(), "cool blue");
-        assertTrue(midnight.skyTintStrength() > 0.2 && midnight.skyTintStrength() < 0.5,
-                "moderate, so the night stays readable");
+        assertTrue(midnight.skyTintStrength() > 0.55 && midnight.skyTintStrength() < 0.8,
+                "dark, but short of black so the night stays barely playable");
     }
 
     @Test

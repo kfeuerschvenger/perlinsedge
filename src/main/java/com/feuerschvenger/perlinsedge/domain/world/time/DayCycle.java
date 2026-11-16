@@ -10,17 +10,17 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
  * A cycle starts at the beginning of the dawn. The sun is up from then until the end of the dusk and crosses the sky
  * from east to west across that stretch, highest in the middle. Shadows are strongest in the day, fade out through the
  * dusk, are absent at night and come back through the dawn. The sky tint is neutral at midday, warm at dawn and dusk and
- * a moderate moonlit blue at night. Every change between phases is eased, so nothing jumps.
+ * a deep moonlit blue at night. Every change between phases is eased, so nothing jumps.
  */
 public final class DayCycle {
 
-    /** The tint of the night: a cool blue that keeps the world readable. */
-    private static final Rgba NIGHT_COLOUR = new Rgba(0.12, 0.20, 0.48, 1.0);
-    private static final double NIGHT_STRENGTH = 0.34;
+    /** The tint of the night: a deep blue, dark enough that the world is only just playable without a light. */
+    private static final Rgba NIGHT_COLOUR = new Rgba(0.03, 0.05, 0.16, 1.0);
+    private static final double NIGHT_STRENGTH = 0.66;
 
-    /** The tint of the horizon at dawn and dusk: a warm orange. */
-    private static final Rgba WARM_COLOUR = new Rgba(1.0, 0.55, 0.22, 1.0);
-    private static final double WARM_STRENGTH = 0.18;
+    /** The tint of the horizon at dawn and dusk: a strong warm orange. */
+    private static final Rgba WARM_COLOUR = new Rgba(1.0, 0.48, 0.14, 1.0);
+    private static final double WARM_STRENGTH = 0.30;
 
     /** The tint of midday: no tint at all. */
     private static final Rgba NEUTRAL_COLOUR = new Rgba(1.0, 1.0, 1.0, 1.0);

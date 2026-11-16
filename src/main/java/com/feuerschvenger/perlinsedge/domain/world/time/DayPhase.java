@@ -10,6 +10,6 @@ public enum DayPhase {
     DAY,
     /** The sun goes down in the west and the world cools from the neutral day light to the night blue. */
     DUSK,
-    /** The sun is below the horizon: no shadows, a moderate blue tint. */
+    /** The sun is below the horizon: no shadows, a deep blue tint. */
     NIGHT
 }
