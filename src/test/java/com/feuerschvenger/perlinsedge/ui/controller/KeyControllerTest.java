@@ -30,6 +30,20 @@ class KeyControllerTest {
     @AfterEach
     void tearDown() {
         AppConfig.getInstance().debug().setFpsOverlayEnabled(false);
+        AppConfig.getInstance().dayCycle().setFastTime(false);
+    }
+
+    @Test
+    void f7TogglesTheFastTimeOfTheDayCycle() {
+        assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
+        assertEquals(1.0, AppConfig.getInstance().dayCycle().timeScale());
+
+        controller.onKeyAction(GameKey.F7);
+        assertTrue(AppConfig.getInstance().dayCycle().isFastTime());
+        assertEquals(30.0, AppConfig.getInstance().dayCycle().timeScale(), 1e-9, "a day of 1200 s in 40 s");
+
+        controller.onKeyAction(GameKey.F7);
+        assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
     }
 
     @Test

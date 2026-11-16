@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FrameStats;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -42,6 +43,19 @@ public final class FxDebugDrawingHelper {
         gc.restore();
     }
 
+    /**
+     * Describes the sky for the debug overlay: the day, the phase and the time into the cycle as minutes and seconds.
+     *
+     * @param dayCycle the clock of the sky
+     * @param fastTime whether the fast time of the debug key is on
+     * @return a line such as {@code Day 1 DAY 02:00}, followed by {@code (fast)} while the fast time is on
+     */
+    public static String describeSky(DayCycle dayCycle, boolean fastTime) {
+        final int seconds = (int) dayCycle.secondsIntoCycle();
+        return String.format(Locale.ROOT, "Sky: Day %d %s %02d:%02d%s", dayCycle.dayNumber(), dayCycle.phase().name(),
+                seconds / 60, seconds % 60, fastTime ? " (fast)" : "");
+    }
+
     public static void drawDebugInfo(GraphicsContext gc, GameStateManager gameState, Canvas canvas, double deltaTime) {
         if (!AppConfig.getInstance().debug().isEnabled()) return;
 
@@ -60,6 +74,8 @@ public final class FxDebugDrawingHelper {
         gc.fillText(String.format(Locale.ROOT, "Frame: %.3fms", deltaTime * 1000), xPos, yPos);
         yPos += 20;
         gc.fillText(String.format(Locale.ROOT, "Game Time: %.1fs", gameState.getGameTime()), xPos, yPos);
+        yPos += 20;
+        gc.fillText(describeSky(gameState.getDayCycle(), AppConfig.getInstance().dayCycle().isFastTime()), xPos, yPos);
 
         Player player = gameState.getPlayer();
         if (player != null) {

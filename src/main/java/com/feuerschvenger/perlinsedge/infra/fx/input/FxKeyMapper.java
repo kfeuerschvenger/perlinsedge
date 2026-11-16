@@ -45,6 +45,7 @@ public final class FxKeyMapper {
             case F4 -> GameKey.F4;
             case F5 -> GameKey.F5;
             case F6 -> GameKey.F6;
+            case F7 -> GameKey.F7;
             case DIGIT1 -> GameKey.DIGIT_1;
             case DIGIT2 -> GameKey.DIGIT_2;
             case DIGIT3 -> GameKey.DIGIT_3;
