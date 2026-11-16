@@ -1,11 +1,13 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
 import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
+import javafx.scene.image.Image;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
@@ -37,6 +39,20 @@ class SilhouetteSpritesTest {
         assertEquals(0, silhouette.argbAt(0, 0));
         assertEquals(0, silhouette.argbAt(3, 2));
         assertEquals(2, silhouette.paintedBottom());
+    }
+
+    @Test
+    void anImageWithNoPixelsGivesAnEmptySilhouetteInsteadOfFailing() {
+        // A missing file leaves an image with no size and no pixel reader
+        final Image missing = FxToolkitSupport.onFx(() -> new Image("file:/no/such/sprite.png"));
+
+        final Silhouette[] seen = FxToolkitSupport.onFx(() -> new Silhouette[]{
+                SilhouetteSprites.of(missing), SilhouetteSprites.of(missing)});
+
+        assertEquals(0, seen[0].width());
+        assertEquals(0, seen[0].height());
+        assertEquals(0, seen[0].paintedBottom());
+        assertNotNull(seen[1], "asking again does not fail");
     }
 
     @Test

@@ -13,9 +13,13 @@ public final class Silhouette {
     /** Source pixels with at least this alpha count as painted, so a faint edge does not widen the shadow. */
     private static final int PAINTED_ALPHA = 0x80;
 
+    /** Width of the sprite in pixels. */
     private final int width;
+    /** Height of the sprite in pixels. */
     private final int height;
+    /** The number of rows from the top down to and including the lowest painted row, zero for an empty sprite. */
     private final int paintedBottom;
+    /** The pixels, {@link #SOLID} where the sprite is painted and zero elsewhere, row by row. */
     private final int[] argb;
 
     /**
