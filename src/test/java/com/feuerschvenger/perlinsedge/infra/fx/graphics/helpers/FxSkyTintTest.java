@@ -9,6 +9,8 @@ import javafx.scene.paint.Color;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FxSkyTintTest {
@@ -70,5 +72,31 @@ class FxSkyTintTest {
         final DayCycle night = at(DAWN + DAY + DUSK + 100);
 
         assertEquals(centreOver(tint, night)[2], centreOver(tint, night)[2]);
+    }
+
+    @Test
+    void aSecondFrameOfTheSameSkyReusesTheColourInsteadOfBuildingANewOne() {
+        final FxSkyTint tint = new FxSkyTint();
+        final DayCycle night = at(DAWN + DAY + DUSK + 100);
+
+        centreOver(tint, night);
+        final Color first = tint.colour();
+        centreOver(tint, night);
+
+        assertSame(first, tint.colour());
+        assertEquals(0.72, first.getOpacity(), 0.01);
+    }
+
+    @Test
+    void aSkyThatMovedGetsANewColour() {
+        final FxSkyTint tint = new FxSkyTint();
+        final DayCycle sky = at(10);
+
+        centreOver(tint, sky);
+        final Color first = tint.colour();
+        sky.advance(5);
+        centreOver(tint, sky);
+
+        assertNotSame(first, tint.colour());
     }
 }

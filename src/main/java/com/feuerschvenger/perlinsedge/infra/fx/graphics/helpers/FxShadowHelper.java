@@ -5,24 +5,14 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
  */
 public final class FxShadowHelper {
 
-    /** Shadows whose centre is this far outside the canvas, in pixels, are skipped. */
-    private static final double MARGIN = 96.0;
+    /**
+     * The share of full opacity below which a shadow or a sky tint cannot be seen, so nothing is cast or laid over the
+     * world for it.
+     */
+    public static final double MIN_VISIBLE_STRENGTH = 0.004;
 
     /** Not instantiable: the class only holds static rules. */
     private FxShadowHelper() {}
-
-    /**
-     * Tells whether a shadow centred on a point can reach the canvas.
-     *
-     * @param x            screen X of the shadow centre
-     * @param y            screen Y of the shadow centre
-     * @param canvasWidth  canvas width
-     * @param canvasHeight canvas height
-     * @return true when the shadow may be on screen
-     */
-    public static boolean isOnScreen(double x, double y, double canvasWidth, double canvasHeight) {
-        return canReach(x, y, canvasWidth, canvasHeight, MARGIN);
-    }
 
     /**
      * Returns how far outside the canvas a caster can stand and still throw its shadow into it. A shadow reaches the

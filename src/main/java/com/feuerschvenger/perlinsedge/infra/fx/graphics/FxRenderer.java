@@ -57,9 +57,6 @@ public class FxRenderer {
     /** Half the width in art pixels of the widest sprite that casts a shadow. */
     private static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
 
-    /** Shadows weaker than this share of their full opacity are not cast. */
-    private static final double MIN_SHADOW_STRENGTH = 0.004;
-
     /** Width in art pixels the shadow is sized from for a resource drawn without art. */
     private static final double FALLBACK_RESOURCE_ART_WIDTH = 12.0;
 
@@ -188,7 +185,7 @@ public class FxRenderer {
         // Nothing is cast, and nothing is read from the sprites, while the shadows are too faint to see
         final DayCycle sky = gameState.getDayCycle();
         final double shadowStrength = sky.shadowStrength();
-        final boolean castShadows = shadowStrength >= MIN_SHADOW_STRENGTH;
+        final boolean castShadows = shadowStrength >= FxShadowHelper.MIN_VISIBLE_STRENGTH;
 
         TileMap map = gameState.getCurrentMap();
         final double zoom = camera.getZoom();

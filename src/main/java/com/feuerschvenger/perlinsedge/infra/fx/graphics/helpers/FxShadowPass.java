@@ -21,9 +21,6 @@ import javafx.scene.image.WritableImage;
  */
 public final class FxShadowPass {
 
-    /** Strengths below this are not visible, so the pass casts nothing. */
-    private static final double MIN_STRENGTH = 0.004;
-
     private final ShadowLayer layer = new ShadowLayer();
     private WritableImage image;
 
@@ -51,7 +48,7 @@ public final class FxShadowPass {
         final double phaseY = snappedY - Math.floor(snappedY / artScale) * artScale;
 
         layer.prepare(cellsWide, cellsHigh, angle, length);
-        if (strength >= MIN_STRENGTH) {
+        if (strength >= FxShadowHelper.MIN_VISIBLE_STRENGTH) {
             for (int i = 0, count = shadows.size(); i < count; i++) {
                 // The layer grid has a cell of border before the first cell that lies on the canvas
                 final double anchorX = Math.rint((shadows.centreX(i) - phaseX) / artScale) + 1;
@@ -68,7 +65,7 @@ public final class FxShadowPass {
         }
         upload(cellsWide, cellsHigh);
 
-        if (strength < MIN_STRENGTH || !layer.hasShadows()) {
+        if (strength < FxShadowHelper.MIN_VISIBLE_STRENGTH || !layer.hasShadows()) {
             return;
         }
         final int left = layer.stampedLeft();

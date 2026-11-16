@@ -8,16 +8,18 @@ import org.junit.jupiter.api.Test;
 
 class FxShadowHelperTest {
 
+    private static final double MARGIN = 96.0;
+
     @Test
-    void shadowsInsideTheCanvasAreOnScreen() {
-        assertTrue(FxShadowHelper.isOnScreen(400, 300, 800, 600));
-        assertTrue(FxShadowHelper.isOnScreen(0, 0, 800, 600));
+    void shadowsInsideTheCanvasCanReachIt() {
+        assertTrue(FxShadowHelper.canReach(400, 300, 800, 600, MARGIN));
+        assertTrue(FxShadowHelper.canReach(1, 1, 800, 600, MARGIN));
     }
 
     @Test
     void aShadowJustOutsideTheCanvasStillReachesIt() {
-        assertTrue(FxShadowHelper.isOnScreen(-40, 300, 800, 600));
-        assertTrue(FxShadowHelper.isOnScreen(400, 640, 800, 600));
+        assertTrue(FxShadowHelper.canReach(-40, 300, 800, 600, MARGIN));
+        assertTrue(FxShadowHelper.canReach(400, 640, 800, 600, MARGIN));
     }
 
     @Test
@@ -47,9 +49,9 @@ class FxShadowHelperTest {
 
     @Test
     void shadowsFarOutsideTheCanvasAreSkipped() {
-        assertFalse(FxShadowHelper.isOnScreen(-500, 300, 800, 600));
-        assertFalse(FxShadowHelper.isOnScreen(1400, 300, 800, 600));
-        assertFalse(FxShadowHelper.isOnScreen(400, -500, 800, 600));
-        assertFalse(FxShadowHelper.isOnScreen(400, 1400, 800, 600));
+        assertFalse(FxShadowHelper.canReach(-500, 300, 800, 600, MARGIN));
+        assertFalse(FxShadowHelper.canReach(1400, 300, 800, 600, MARGIN));
+        assertFalse(FxShadowHelper.canReach(400, -500, 800, 600, MARGIN));
+        assertFalse(FxShadowHelper.canReach(400, 1400, 800, 600, MARGIN));
     }
 }
