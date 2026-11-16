@@ -16,18 +16,19 @@ import java.util.Map;
  * tall on the screen as it is wide. A ground point is described by two coordinates: how far it lies along the direction
  * of the shadow and how far across it. Along the shadow, one unit moves the point by {@code (cos, sin / 2)} on the
  * screen, and across it by {@code (sin, -cos / 2)}. A sprite is stood up on the ground at its anchor with its height
- * mapped to the along coordinate, scaled by the shadow length factor, and its width to the across coordinate, which flips
- * it onto the ground and shears it toward the sun. An object with no sprite casts an ellipse on the ground, stretched
- * along the shadow. The class holds plain arrays and no framework type, so it is tested without a window.
+ * mapped to the along coordinate, scaled by the shadow length factor, and its width to the across coordinate, which
+ * flips it onto the ground and shears it toward the sun. An object with no sprite casts an ellipse on the ground,
+ * stretched along the shadow. The class holds plain arrays and no framework type, so it is tested without a window.
  * <p>
- * The cells a shadow covers depend only on the shape, the sun and where the anchor falls inside its cell, never on which
- * cell that is. An anchor is snapped to the sub-cell grid of the art scale, since the art is drawn in whole screen
- * pixels, so the fraction is a small whole number of sub-cells and equal positions always share one mask. The covered
- * cells are worked out once per shape, sun and sub-cell of the anchor, kept as a mask and stamped at the anchor of every
- * later cast, so an object that stands still is not rasterised again until the sun moves a step. The masks are kept in
- * least recently used order, and the one unused for the longest is dropped when the cache is full. Only the cells a mask covers are written, and the area a frame touched is exactly their box, which is
- * what is cleared for the next frame and handed on for upload. The arrays are reused, so a frame whose shapes are all
- * known allocates nothing.
+ * The cells a shadow covers depend only on the shape, the sun and where the anchor falls inside its cell, never on
+ * which cell that is. An anchor is snapped to a sub-cell grid of half a screen pixel, since the art is drawn in whole
+ * screen pixels and the middle of a sprite with an odd drawn width falls on the middle of a pixel, so the fraction is a
+ * small whole number of sub-cells and equal positions always share one mask. The covered cells are worked out once per
+ * shape, sun and sub-cell of the anchor, kept as a mask and stamped at the anchor of every later cast, so an object
+ * that stands still is not rasterised again until the sun moves a step. The masks are kept in least recently used
+ * order, and the one unused for the longest is dropped when the cache is full. Only the cells a mask covers are
+ * written, and the area a frame touched is exactly their box, which is what is cleared for the next frame and handed
+ * on for upload. The arrays are reused, so a frame whose shapes are all known allocates nothing.
  */
 public final class ShadowLayer {
 
@@ -75,8 +76,14 @@ public final class ShadowLayer {
     /** How long a shadow is as a multiple of the height of what casts it. */
     private double length = 1.0;
 
-    /** The sub-cells per cell on each axis, which is the art scale of the layer. */
+    /** The screen pixels per cell, which is the art scale of the layer. */
     private int artScale = 1;
+
+    /**
+     * The sub-cells per cell on each axis: two for every screen pixel, so an anchor can lie on the middle of a screen
+     * pixel, which is where the middle of a sprite drawn an odd number of screen pixels wide falls.
+     */
+    private int subSteps = 2;
 
     /** The masks of the sun of the moment, least recently used first, which are dropped when the sun moves. */
     private final Map<MaskKey, Mask> masks;
@@ -111,7 +118,7 @@ public final class ShadowLayer {
      * @param cellsHigh number of cells down
      * @param angle     direction of the shadow on the screen in radians, zero to the right and pi / 2 down
      * @param length    how long a shadow is as a multiple of the height of what casts it
-     * @param artScale  screen pixels per cell, above zero, which sets the sub-cell grid an anchor is snapped to
+     * @param artScale  screen pixels per cell, above zero, which sets the half pixel grid an anchor is snapped to
      */
     public void prepare(int cellsWide, int cellsHigh, double angle, double length, int artScale) {
         if (cellsWide != width || cellsHigh != height) {
@@ -151,6 +158,7 @@ public final class ShadowLayer {
         this.sine = newSine;
         this.length = length;
         this.artScale = Math.max(1, artScale);
+        this.subSteps = this.artScale * 2;
     }
 
     /** Zeroes the cells of the last frame's box. */
@@ -196,11 +204,11 @@ public final class ShadowLayer {
         if (alpha <= 0 || widthFactor <= 0 || heightFactor <= 0 || groundRow <= 0 || !isFinite(anchorX, anchorY)) {
             return;
         }
-        final long subX = Math.round(anchorX * artScale);
-        final long subY = Math.round(anchorY * artScale);
-        probe.set(sprite, widthFactor, heightFactor, groundRow, artScale, (int) Math.floorMod(subX, (long) artScale),
-                (int) Math.floorMod(subY, (long) artScale));
-        stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) artScale), (int) Math.floorDiv(subY, (long) artScale),
+        final long subX = Math.round(anchorX * subSteps);
+        final long subY = Math.round(anchorY * subSteps);
+        probe.set(sprite, widthFactor, heightFactor, groundRow, subSteps, (int) Math.floorMod(subX, (long) subSteps),
+                (int) Math.floorMod(subY, (long) subSteps));
+        stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) subSteps), (int) Math.floorDiv(subY, (long) subSteps),
                 alpha);
     }
 
@@ -218,11 +226,11 @@ public final class ShadowLayer {
         if (alpha <= 0 || width <= 0 || !isFinite(anchorX, anchorY)) {
             return;
         }
-        final long subX = Math.round(anchorX * artScale);
-        final long subY = Math.round(anchorY * artScale);
-        probe.set(null, width, 1.0, 0.0, artScale, (int) Math.floorMod(subX, (long) artScale),
-                (int) Math.floorMod(subY, (long) artScale));
-        stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) artScale), (int) Math.floorDiv(subY, (long) artScale),
+        final long subX = Math.round(anchorX * subSteps);
+        final long subY = Math.round(anchorY * subSteps);
+        probe.set(null, width, 1.0, 0.0, subSteps, (int) Math.floorMod(subX, (long) subSteps),
+                (int) Math.floorMod(subY, (long) subSteps));
+        stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) subSteps), (int) Math.floorDiv(subY, (long) subSteps),
                 alpha);
     }
 
@@ -238,8 +246,8 @@ public final class ShadowLayer {
     private Mask maskFor(MaskKey key) {
         Mask mask = masks.get(key);
         if (mask == null) {
-            final double fractionX = (double) key.subX / key.artScale;
-            final double fractionY = (double) key.subY / key.artScale;
+            final double fractionX = (double) key.subX / key.subSteps;
+            final double fractionY = (double) key.subY / key.subSteps;
             mask = key.sprite != null
                     ? rasteriseSprite(key.sprite, key.size, key.heightFactor, key.groundRow, fractionX, fractionY)
                     : rasteriseEllipse(key.size, fractionX, fractionY);
@@ -574,20 +582,20 @@ public final class ShadowLayer {
         /** The ground row of a sprite shadow, zero for an ellipse. */
         private double groundRow;
         /** The number of sub-cells per cell, which gives the sub-cell indices their meaning. */
-        private int artScale;
-        /** The sub-cell the anchor lies in across, 0 up to but excluding the art scale. */
+        private int subSteps;
+        /** The sub-cell the anchor lies in across, 0 up to but excluding the number of sub-cells. */
         private int subX;
-        /** The sub-cell the anchor lies in down, 0 up to but excluding the art scale. */
+        /** The sub-cell the anchor lies in down, 0 up to but excluding the number of sub-cells. */
         private int subY;
 
         /** Sets every part of the key. */
-        private void set(Silhouette sprite, double size, double heightFactor, double groundRow, int artScale, int subX,
+        private void set(Silhouette sprite, double size, double heightFactor, double groundRow, int subSteps, int subX,
                           int subY) {
             this.sprite = sprite;
             this.size = size;
             this.heightFactor = heightFactor;
             this.groundRow = groundRow;
-            this.artScale = artScale;
+            this.subSteps = subSteps;
             this.subX = subX;
             this.subY = subY;
         }
@@ -595,7 +603,7 @@ public final class ShadowLayer {
         /** Returns an independent key with the same parts, for storing. */
         private MaskKey copy() {
             final MaskKey key = new MaskKey();
-            key.set(sprite, size, heightFactor, groundRow, artScale, subX, subY);
+            key.set(sprite, size, heightFactor, groundRow, subSteps, subX, subY);
             return key;
         }
 
@@ -606,7 +614,7 @@ public final class ShadowLayer {
                 return false;
             }
             return sprite == key.sprite && size == key.size && heightFactor == key.heightFactor
-                    && groundRow == key.groundRow && artScale == key.artScale && subX == key.subX && subY == key.subY;
+                    && groundRow == key.groundRow && subSteps == key.subSteps && subX == key.subX && subY == key.subY;
         }
 
         /** Hashes every part the equality looks at, the silhouette by identity. */
@@ -616,7 +624,7 @@ public final class ShadowLayer {
             hash = 31 * hash + Double.hashCode(size);
             hash = 31 * hash + Double.hashCode(heightFactor);
             hash = 31 * hash + Double.hashCode(groundRow);
-            hash = 31 * hash + artScale;
+            hash = 31 * hash + subSteps;
             hash = 31 * hash + subX;
             hash = 31 * hash + subY;
             return hash;

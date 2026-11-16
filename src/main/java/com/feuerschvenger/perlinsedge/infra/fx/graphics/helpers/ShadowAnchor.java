@@ -13,7 +13,8 @@ final class ShadowAnchor {
 
     /**
      * Returns the screen X of the base of a sprite as it is drawn: the middle of its width, counted from its rounded left
-     * edge.
+     * edge. A sprite drawn an odd number of screen pixels wide has its middle on the middle of a pixel, and the result
+     * keeps that half pixel, which the shadow layer resolves.
      *
      * @param centreX  screen X of the contact point, where the middle of the sprite would stand unrounded
      * @param widthArt width of the sprite as it is drawn in art pixels, which is a whole number of screen pixels
