@@ -11,10 +11,11 @@ import javafx.scene.layout.StackPane;
 
 /**
  * The hotbar of the items the player carries: nine slots of their own, ahead of the inventory slots, always shown at
- * the bottom of the screen in exploration mode. The selected slot has the white border, the count sits at the bottom right and the number key
- * that selects the slot at the top left, in the same dark rounded squares as the building hotbar.
- * The panel shows what the player holds and keeps no state the player does not have. {@link #update(Player)} redraws only
- * the slots whose item, count or selection changed, so it is cheap enough to call on every frame.
+ * the bottom of the screen in exploration mode. The selected slot has the white border, the count sits at the bottom
+ * right and the number key that selects the slot at the top left, in the same dark rounded squares as the building
+ * hotbar.
+ * The panel shows what the player holds and keeps no state the player does not have. {@link #update(Player)} redraws
+ * only the slots whose item, count or selection changed, so it is cheap enough to call on every frame.
  */
 public class ItemHotbarPanel extends HBox {
     /** Icon edge: the 16 px art at 2x, so every art pixel stays a whole square block. */

@@ -43,6 +43,7 @@ public class ItemUseManager {
      *         already at full health
      */
     public boolean useActiveItem() {
+        // isGameplayInputBlocked() also covers a missing player, so the player is not null past this check
         if (gameState.isGameplayInputBlocked() || gameState.isGamePaused()
                 || gameState.getCurrentGameMode() != GameMode.EXPLORATION) {
             return false;

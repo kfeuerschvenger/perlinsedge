@@ -71,7 +71,7 @@ public class GameOrchestrator {
      * @param inventoryPanel      inventory view
      * @param buildingHotbarPanel building hotbar view
      * @param itemHotbarPanel     hotbar of the items the player carries, shown outside building mode
-     * @param hintLabel          short on-screen hints for actions that did nothing
+     * @param hintLabel           short on-screen hints for actions that did nothing
      * @param deathOverlay        death screen shown while the player is dead
      * @param gameState           shared state, a new one is created when null
      * @param recipeManager       recipes, a new one is created when null
