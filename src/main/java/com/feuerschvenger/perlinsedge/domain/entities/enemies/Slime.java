@@ -49,7 +49,7 @@ public class Slime extends Enemy {
                 MAX_HEALTH,
                 ATTACK_DAMAGE,
                 ATTACK_COOLDOWN,
-                new SlimeMovementStrategy(),
+                new SlimeMovementStrategy(spawnSeed(startX, startY)),
                 new SlimeAttackStrategy()
         );
         this.setColor(selectRandomColor());
@@ -64,6 +64,11 @@ public class Slime extends Enemy {
      */
     public double getBreathPhase() {
         return breathPhase;
+    }
+
+    /** The seed of the timing of a slime, a hash of the tile it spawned on, so the same tile always gives the same timing. */
+    private static long spawnSeed(int tileX, int tileY) {
+        return ((long) tileX << 32) ^ (tileY * 0x9E3779B97F4A7C15L);
     }
 
     /** Spreads spawn tiles over 256 phases with a hash of the coordinates. */

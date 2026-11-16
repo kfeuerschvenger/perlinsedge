@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -42,13 +43,17 @@ public class CombatManager {
 
         // Create a safe copy to avoid concurrent modification
         List<Enemy> enemies = new ArrayList<>(gameState.getEnemies());
+        final EnemyOccupancy occupancy = gameState.getEnemyOccupancy();
 
         for (Enemy enemy : enemies) {
-            // Skip dead enemies (should be removed but just in case)
-            if (enemy.isDead()) continue;
+            // Skip dead enemies (should be removed but just in case), which hold no tile
+            if (enemy.isDead()) {
+                occupancy.release(enemy);
+                continue;
+            }
 
             // Update enemy state
-            enemy.update(deltaTime, map, player);
+            enemy.update(deltaTime, map, player, occupancy);
 
             // Handle enemy attacks on player
             handleEnemyAttack(enemy, player, deltaTime);
@@ -143,6 +148,7 @@ public class CombatManager {
     private void handleEnemyDeath(Enemy enemy) {
         generateLootDrops(enemy);
         gameState.getEnemies().remove(enemy);
+        gameState.getEnemyOccupancy().release(enemy);
         log.debug("{} defeated", enemy.getClass().getSimpleName());
     }
 

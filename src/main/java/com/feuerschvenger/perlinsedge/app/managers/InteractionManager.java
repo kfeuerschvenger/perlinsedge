@@ -352,19 +352,30 @@ public class InteractionManager {
         }
     }
 
-    /** Finds the living enemy that a click on a tile points at: the one standing on it or drawn over it. */
+    /**
+     * Finds the living enemy that a click on a tile points at: the one standing on it or drawn over it. Every enemy
+     * holds a tile of its own, so a tile has one such enemy at rest; while enemies hop, a sprite drawn over the tile
+     * may belong to a neighbour, and the enemy whose sprite is nearest to the centre of the tile is the one picked.
+     */
     private Enemy enemyAt(int tileX, int tileY) {
+        Enemy best = null;
+        double bestDistance = Double.MAX_VALUE;
         for (Enemy enemy : gameState.getEnemies()) {
             if (enemy.isDead()) {
                 continue;
             }
             final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
             final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
-            if (standsThere || drawnThere) {
-                return enemy;
+            if (!standsThere && !drawnThere) {
+                continue;
+            }
+            final double distance = Math.hypot(enemy.getPosX() - tileX, enemy.getPosY() - tileY);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = enemy;
             }
         }
-        return null;
+        return best;
     }
 
     private Outcome perform(Player player, Tile tile, Kind kind) {

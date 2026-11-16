@@ -3,12 +3,14 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 import com.feuerschvenger.perlinsedge.config.AppConfig.EnemyConfig.ChaseRange;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * The walking chase shared by the enemies that follow the player on foot: it walks the shortest path to the player
@@ -32,6 +34,11 @@ final class WalkingChaser {
     /** Wait before searching again after the next tile of the path turned out to be the player's. */
     private static final double PLAYER_BLOCK_WAIT_SECONDS = 0.15;
     private static final double AT_TILE_CENTRE_EPSILON = 1e-9;
+    /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
+    private static final double HELD_TILE_PENALTY = 6.0;
+    /** Shortest and longest wait before searching again after the next tile turned out to be held by another enemy. */
+    private static final double HELD_WAIT_MIN_SECONDS = 0.15;
+    private static final double HELD_WAIT_MAX_SECONDS = 0.45;
 
     private final double speedTilesPerSecond;
     private final ChaseLeash leash;
@@ -41,6 +48,9 @@ final class WalkingChaser {
     private double secondsOfPlayerBlockWait;
     private int plannedPlayerX = Integer.MIN_VALUE;
     private int plannedPlayerY = Integer.MIN_VALUE;
+    private final Random random = new Random();
+    /** Which enemy holds which tile, set on every update. */
+    private EnemyOccupancy occupancy;
 
     /**
      * Creates a chaser that is not chasing.
@@ -60,8 +70,10 @@ final class WalkingChaser {
      * @param deltaTime seconds since the previous update
      * @param map       the map to search and walk
      * @param player    the player being chased
+     * @param occupancy which enemy holds which tile: the enemy never steps onto a tile another enemy holds
      */
-    void update(Enemy enemy, double deltaTime, TileMap map, Player player) {
+    void update(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
+        this.occupancy = occupancy;
         pathPlanner.tick(deltaTime);
         secondsUntilRepath -= deltaTime;
         secondsOfPlayerBlockWait = Math.max(0, secondsOfPlayerBlockWait - deltaTime);
@@ -86,6 +98,11 @@ final class WalkingChaser {
         leash.release();
     }
 
+    /** @return how many path searches the chaser has run, for the tests */
+    int searchCount() {
+        return pathPlanner.searchCount();
+    }
+
     /** @return true while the enemy is chasing the player */
     boolean isChasing() {
         return leash.isChasing();
@@ -103,7 +120,8 @@ final class WalkingChaser {
         final boolean midStep = isMidStep(enemy);
         final int originX = midStep ? enemy.getTargetTileX() : enemy.getCurrentTileX();
         final int originY = midStep ? enemy.getTargetTileY() : enemy.getCurrentTileY();
-        final List<PathNode> found = pathPlanner.findPath(map, originX, originY, plannedPlayerX, plannedPlayerY);
+        final List<PathNode> found = pathPlanner.findPath(map, originX, originY, plannedPlayerX, plannedPlayerY,
+                occupancy.penaltyFor(enemy, HELD_TILE_PENALTY));
         if (found == null) {
             return;
         }
@@ -137,6 +155,15 @@ final class WalkingChaser {
                 // or stay on the one it stands on, and search again from there
                 turnBackToTileCentre(enemy);
                 secondsUntilRepath = 0;
+                return;
+            }
+            if (!isStepReserved(enemy, next) && !occupancy.tryReserve(enemy, next.x, next.y)) {
+                // Another enemy holds the tile: stand still and search again after a short random wait, which keeps a
+                // crowd from searching in step. The enemy is on a tile centre here, a step in progress is reserved.
+                path.clear();
+                secondsOfPlayerBlockWait = HELD_WAIT_MIN_SECONDS
+                        + (HELD_WAIT_MAX_SECONDS - HELD_WAIT_MIN_SECONDS) * random.nextDouble();
+                secondsUntilRepath = Math.max(secondsUntilRepath, secondsOfPlayerBlockWait);
                 return;
             }
 
@@ -184,6 +211,12 @@ final class WalkingChaser {
         if (isMidStep(enemy)) {
             path.add(new PathNode(enemy.getCurrentTileX(), enemy.getCurrentTileY()));
         }
+    }
+
+    /** True for the tile the enemy stands on or is already stepping to, which it holds without asking again. */
+    private static boolean isStepReserved(Enemy enemy, PathNode node) {
+        return (node.x == enemy.getTargetTileX() && node.y == enemy.getTargetTileY())
+                || (node.x == enemy.getCurrentTileX() && node.y == enemy.getCurrentTileY());
     }
 
     private static boolean isWalkable(TileMap map, PathNode node) {

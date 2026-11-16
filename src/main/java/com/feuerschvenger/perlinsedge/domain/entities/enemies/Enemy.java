@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -27,6 +28,8 @@ public abstract class Enemy extends Entity {
     protected double attackTimer;
     protected final EnemyMovementStrategy movementStrategy;
     protected final EnemyAttackStrategy attackStrategy;
+    /** The occupancy of an enemy updated without the others, created on the first such update. */
+    private EnemyOccupancy soloOccupancy;
 
     // ==================================================================
     //  Constructor
@@ -69,8 +72,26 @@ public abstract class Enemy extends Entity {
      * @param player    Player instance
      */
     public void update(double deltaTime, TileMap map, Player player) {
+        if (soloOccupancy == null) {
+            soloOccupancy = new EnemyOccupancy();
+        }
+        update(deltaTime, map, player, soloOccupancy);
+    }
+
+    /**
+     * Updates the enemy among the others: it moves only to tiles no other enemy holds, and the occupancy is brought
+     * in line with its tiles before and after the move.
+     *
+     * @param deltaTime Time since last update (seconds)
+     * @param map       Current game map
+     * @param player    Player instance
+     * @param occupancy Which enemy holds which tile, shared by every enemy of the map
+     */
+    public void update(double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
         updateAttackCooldown(deltaTime);
-        movementStrategy.updateMovement(this, deltaTime, map, player);
+        occupancy.sync(this);
+        movementStrategy.updateMovement(this, deltaTime, map, player, occupancy);
+        occupancy.sync(this);
         attackStrategy.updateAttack(this, deltaTime, player);
     }
 

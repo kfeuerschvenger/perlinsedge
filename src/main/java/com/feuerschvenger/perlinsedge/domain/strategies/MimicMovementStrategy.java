@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -18,8 +19,8 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
             new WalkingChaser(MOVE_SPEED_AGGRO, AppConfig.getInstance().enemies().mimic());
 
     @Override
-    public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player) {
-        chaser.update(enemy, deltaTime, map, player);
+    public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
+        chaser.update(enemy, deltaTime, map, player, occupancy);
     }
 
     /**

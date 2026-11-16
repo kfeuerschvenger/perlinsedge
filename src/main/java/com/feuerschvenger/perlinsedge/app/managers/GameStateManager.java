@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
@@ -26,6 +27,8 @@ public class GameStateManager {
     // Entity State
     private Player player;
     private final List<Enemy> enemies = new ArrayList<>();
+    /** Which enemy holds which tile, so every enemy stands on a tile of its own. */
+    private final EnemyOccupancy enemyOccupancy = new EnemyOccupancy();
     private final List<DroppedItem> droppedItems = new ArrayList<>();
 
     // World State
@@ -63,6 +66,7 @@ public class GameStateManager {
         // Entity reset
         player = null;
         enemies.clear();
+        enemyOccupancy.clear();
         droppedItems.clear();
 
         // World reset
@@ -117,6 +121,7 @@ public class GameStateManager {
         if (enemies != null) {
             this.enemies.addAll(enemies);
         }
+        enemyOccupancy.rebuild(this.enemies);
     }
 
     /**
