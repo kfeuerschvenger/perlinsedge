@@ -65,7 +65,7 @@ public final class FxEnemyDrawingHelper {
             if (!jumping) {
                 // Standing still: breathing, or the squash before a strike. The feet stay on the ground point.
                 final double windup = slime.getWindupProgress();
-                final double breath = SlimeSquash.breath(gameTime, breathOffset(slime));
+                final double breath = SlimeSquash.breath(gameTime, slime.getBreathPhase());
                 widthFactor = SlimeSquash.width(windup, breath);
                 heightFactor = SlimeSquash.height(windup, breath);
             }
@@ -115,11 +115,6 @@ public final class FxEnemyDrawingHelper {
     public static void addGenericShadow(ShadowList shadows, double screenX, double screenY, double zoom) {
         final double size = GENERIC_ENEMY_SIZE * zoom;
         shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.artScale(zoom), 1.0);
-    }
-
-    /** Where in its breath a slime is at clock zero, in breaths: fixed per slime so neighbours breathe out of step. */
-    private static double breathOffset(Slime slime) {
-        return (System.identityHashCode(slime) & 0xFF) / 256.0;
     }
 
     /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */

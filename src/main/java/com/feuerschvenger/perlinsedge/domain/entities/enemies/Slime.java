@@ -29,6 +29,9 @@ public class Slime extends Enemy {
     // Shared random generator
     private static final Random RANDOM = new Random();
 
+    /** The breath phase of the slime, fixed at spawn, see {@link #getBreathPhase()}. */
+    private final double breathPhase;
+
     // ==================================================================
     //  Constructor
     // ==================================================================
@@ -50,6 +53,22 @@ public class Slime extends Enemy {
                 new SlimeAttackStrategy()
         );
         this.setColor(selectRandomColor());
+        this.breathPhase = breathPhaseAt(startX, startY);
+    }
+
+    /**
+     * Where in its breath the slime is at clock zero, in breaths. It follows from the tile the slime spawned on, so it
+     * is the same on every run and every frame, and slimes on neighbouring tiles breathe out of step.
+     *
+     * @return the phase, from 0 up to but not including 1
+     */
+    public double getBreathPhase() {
+        return breathPhase;
+    }
+
+    /** Spreads spawn tiles over 256 phases with a hash of the coordinates. */
+    private static double breathPhaseAt(int tileX, int tileY) {
+        return (((tileX * 73_856_093) ^ (tileY * 19_349_663)) & 0xFF) / 256.0;
     }
 
     // ==================================================================
