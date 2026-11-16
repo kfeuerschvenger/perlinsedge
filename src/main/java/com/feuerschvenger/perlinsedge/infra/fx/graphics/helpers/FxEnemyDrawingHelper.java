@@ -103,8 +103,9 @@ public final class FxEnemyDrawingHelper {
         if (frame != null) {
             // The shadow narrows with the height of the jump by the same share the oval would, and keeps the form of the slime
             final double size = frame.getWidth() * scale;
-            final double widthFactor = SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR)
-                    / SlimeShadow.width(size, 0.0, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
+            final double widthFactor = SlimeShadow.quantiseFactor(
+                    SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR)
+                            / SlimeShadow.width(size, 0.0, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
             final Silhouette silhouette = SilhouetteSprites.of(frame);
             shadows.addSilhouette(tileTopX, baseDrawY + jumpHeight, silhouette, silhouette.height(), widthFactor, fade);
             return;

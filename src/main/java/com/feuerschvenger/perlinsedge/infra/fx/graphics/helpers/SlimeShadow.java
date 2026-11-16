@@ -12,6 +12,8 @@ public final class SlimeShadow {
     static final double WIDTH_FACTOR = 1.2;
     /** Fraction of the size lost at the top of a jump. */
     static final double MAX_SHRINK = 0.3;
+    /** The shadow width factor is rounded to a multiple of one over this, so the shadow takes few distinct shapes. */
+    static final int WIDTH_STEPS = 16;
     /** Share of the baked shadow opacity under a slime resting on the ground. */
     static final double BASE_OPACITY = 1.0;
     /** Fraction of the opacity lost at the top of a jump. */
@@ -43,6 +45,18 @@ public final class SlimeShadow {
      */
     public static double opacity(double height, double maxHeight) {
         return BASE_OPACITY * (1.0 - MAX_FADE * lift(height, maxHeight));
+    }
+
+    /**
+     * Rounds the width factor of a shadow to a multiple of {@code 1 / WIDTH_STEPS}. The factor changes continuously
+     * through a jump, and every distinct value is a different shape for the shadow layer to rasterise and keep, so a
+     * jump only takes a handful of shapes instead of one per frame.
+     *
+     * @param factor the width of the shadow relative to its width at rest
+     * @return the rounded factor
+     */
+    public static double quantiseFactor(double factor) {
+        return Math.rint(factor * WIDTH_STEPS) / WIDTH_STEPS;
     }
 
     /** Returns how far into the jump the slime is, from zero on the ground to one at the top. */

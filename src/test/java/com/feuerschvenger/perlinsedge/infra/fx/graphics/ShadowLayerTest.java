@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import com.feuerschvenger.perlinsedge.domain.world.time.SunScreenMapping;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.SlimeShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ShadowLayerTest {
 
     private static final int SIZE = 120;
+    /** Screen pixels per cell, so anchors on a quarter of a cell are on the sub-cell grid. */
+    private static final int ART_SCALE = 4;
     private static final double AX = 60;
     private static final double AY = 40;
     private static final double NOON = Math.PI / 2;
@@ -27,7 +30,7 @@ class ShadowLayerTest {
 
     private static ShadowLayer layer(double angle, double length) {
         final ShadowLayer layer = new ShadowLayer();
-        layer.prepare(SIZE, SIZE, angle, length);
+        layer.prepare(SIZE, SIZE, angle, length, ART_SCALE);
         return layer;
     }
 
@@ -247,7 +250,7 @@ class ShadowLayerTest {
         layer.castSprite(block(10, 20), AX, AY, 20, 1.0, 255);
         assertTrue(count(layer) > 0);
 
-        layer.prepare(SIZE, SIZE, NOON, 1.0);
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
 
         assertEquals(0, count(layer));
         assertFalse(layer.hasShadows());
@@ -261,7 +264,7 @@ class ShadowLayerTest {
         assertTrue(first[2] > first[0] && first[3] > first[1]);
         layer.handedOn();
 
-        layer.prepare(SIZE, SIZE, NOON, 1.0);
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
         layer.castSprite(block(10, 20), 90, 60, 20, 1.0, 255);
         final int[] second = layer.changedBox();
 
@@ -275,12 +278,12 @@ class ShadowLayerTest {
         layer.castSprite(block(10, 20), AX, AY, 20, 1.0, 255);
         layer.handedOn();
 
-        layer.prepare(SIZE, SIZE, NOON, 1.0);
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
         final int[] cleared = layer.changedBox();
         assertTrue(cleared[2] > cleared[0], "the old shadow still has to be wiped from the mirror");
         layer.handedOn();
 
-        layer.prepare(SIZE, SIZE, NOON, 1.0);
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
         final int[] none = layer.changedBox();
         assertFalse(none[2] > none[0]);
     }
@@ -302,7 +305,7 @@ class ShadowLayerTest {
         final ShadowLayer layer = layer(NOON, 1.0);
         layer.castSprite(block(10, 20), AX, AY, 20, 1.0, 255);
 
-        layer.prepare(SIZE + 10, SIZE + 4, NOON, 1.0);
+        layer.prepare(SIZE + 10, SIZE + 4, NOON, 1.0, ART_SCALE);
 
         assertEquals(SIZE + 10, layer.width());
         assertEquals(SIZE + 4, layer.height());
@@ -413,7 +416,7 @@ class ShadowLayerTest {
                         for (double widthFactor : new double[]{1.0, 0.6}) {
                             // The first frame rasterises the shape, the second one stamps the mask kept from it
                             for (int frame = 0; frame < 2; frame++) {
-                                layer.prepare(SIZE, SIZE, angle, length);
+                                layer.prepare(SIZE, SIZE, angle, length, ART_SCALE);
                                 layer.castSprite(shape, anchor[0], anchor[1], shape.height(), widthFactor, 255);
                                 assertArrayEquals(
                                         referenceSprite(shape, anchor[0], anchor[1], shape.height(), widthFactor, angle,
@@ -437,7 +440,7 @@ class ShadowLayerTest {
                 final ShadowLayer layer = new ShadowLayer();
                 for (double[] anchor : anchors) {
                     for (int frame = 0; frame < 2; frame++) {
-                        layer.prepare(SIZE, SIZE, angle, length);
+                        layer.prepare(SIZE, SIZE, angle, length, ART_SCALE);
                         layer.castEllipse(anchor[0], anchor[1], 18, 255);
                         assertArrayEquals(referenceEllipse(anchor[0], anchor[1], 18, angle, length), alphas(layer),
                                 "sun " + sun + " length " + length + " anchor " + anchor[0] + "," + anchor[1]);
@@ -458,11 +461,11 @@ class ShadowLayerTest {
         layer.castSprite(tree, 80.5, 60, 14, 1.0, 255);
         assertEquals(2, layer.maskCount());
 
-        layer.prepare(SIZE, SIZE, NOON, 1.0);
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
         layer.castSprite(tree, 40, 30, 14, 1.0, 255);
         assertEquals(2, layer.maskCount(), "a new frame of the same sun keeps what it has learned");
 
-        layer.prepare(SIZE, SIZE, NOON + 0.2, 1.0);
+        layer.prepare(SIZE, SIZE, NOON + 0.2, 1.0, ART_SCALE);
         assertEquals(0, layer.maskCount(), "masks of another sun are no use and are dropped");
     }
 
@@ -499,5 +502,70 @@ class ShadowLayerTest {
         layer.castEllipse(AX, AY, 10, 0);
 
         assertEquals(0, count(layer));
+    }
+
+    @Test
+    void aFullJumpReusesABoundedNumberOfMasks() {
+        final ShadowLayer layer = new ShadowLayer();
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
+        final Silhouette slime = block(16, 12);
+        // A jump sweeps the height from the ground to the top and back, a frame at a time
+        for (int frame = 0; frame <= 600; frame++) {
+            final double height = Math.sin(Math.PI * frame / 600.0) * 50.0;
+            final double factor = SlimeShadow.quantiseFactor(
+                    SlimeShadow.width(32, height, 50.0) / SlimeShadow.width(32, 0.0, 50.0));
+            layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
+            layer.castSprite(slime, AX, AY, 12, factor, 255);
+        }
+
+        assertTrue(layer.maskCount() <= 8, "masks kept: " + layer.maskCount());
+        assertTrue(layer.rasterised() <= 8, "masks rasterised: " + layer.rasterised());
+    }
+
+    @Test
+    void aFullCacheDropsOnlyTheLeastRecentlyUsedMaskAndKeepsAFrequentlyUsedOne() {
+        final ShadowLayer layer = new ShadowLayer(4);
+        layer.prepare(SIZE, SIZE, NOON, 1.0, ART_SCALE);
+        final Silhouette tree = tree();
+        layer.castSprite(tree, 40, 30, 14, 1.0, 255);
+        final int treeMasks = layer.rasterised();
+
+        for (int width = 3; width < 15; width++) {
+            layer.castSprite(block(width, 6), 80, 60, 6, 1.0, 255);
+            layer.castSprite(tree, 40, 30, 14, 1.0, 255);
+        }
+
+        assertEquals(4, layer.maskCount(), "the cache never grows past its capacity");
+        assertEquals(treeMasks, layer.rasterised() - 12, "the tree was rasterised once, the others once each");
+        final int before = layer.rasterised();
+        layer.castSprite(tree, 40, 30, 14, 1.0, 255);
+        assertEquals(before, layer.rasterised(), "the tree mask survived every eviction");
+    }
+
+    @Test
+    void anAnchorWithTheSameLogicalFractionSharesOneMaskAtArtScaleSix() {
+        final ShadowLayer layer = new ShadowLayer();
+        layer.prepare(SIZE, SIZE, NOON, 1.0, 6);
+        final Silhouette tree = tree();
+        final double third = 10 + 1.0 / 6.0;
+        layer.castSprite(tree, third, 30, 14, 1.0, 255);
+        layer.castSprite(tree, Math.nextUp(third), 30, 14, 1.0, 255);
+        layer.castSprite(tree, Math.nextDown(third) + 40, 30, 14, 1.0, 255);
+
+        assertEquals(1, layer.maskCount());
+        assertEquals(1, layer.rasterised());
+    }
+
+    @Test
+    void anAnchorThatIsNotANumberCastsNothing() {
+        final ShadowLayer layer = layer(NOON, 1.0);
+        layer.castSprite(tree(), Double.NaN, AY, 14, 1.0, 255);
+        layer.castSprite(tree(), AX, Double.NaN, 14, 1.0, 255);
+        layer.castSprite(tree(), Double.POSITIVE_INFINITY, AY, 14, 1.0, 255);
+        layer.castEllipse(Double.NaN, AY, 10, 255);
+
+        assertEquals(0, count(layer));
+        assertEquals(0, layer.maskCount());
+        assertFalse(layer.hasShadows());
     }
 }

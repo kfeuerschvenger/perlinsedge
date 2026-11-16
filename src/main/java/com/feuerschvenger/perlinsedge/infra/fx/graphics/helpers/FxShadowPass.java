@@ -112,7 +112,7 @@ public final class FxShadowPass {
     /** Clears the layer, casts the shadows into it and uploads the cells that changed. */
     private void cast(ShadowList shadows, boolean visible, int cellsWide, int cellsHigh, double phaseX, double phaseY,
                       double artScale, double angle, double length) {
-        layer.prepare(cellsWide, cellsHigh, angle, length);
+        layer.prepare(cellsWide, cellsHigh, angle, length, (int) Math.round(artScale));
         if (visible) {
             for (int i = 0, count = shadows.size(); i < count; i++) {
                 castOne(shadows, i, phaseX, phaseY, artScale);

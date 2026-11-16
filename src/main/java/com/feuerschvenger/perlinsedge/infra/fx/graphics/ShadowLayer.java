@@ -3,7 +3,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -21,9 +21,11 @@ import java.util.Map;
  * along the shadow. The class holds plain arrays and no framework type, so it is tested without a window.
  * <p>
  * The cells a shadow covers depend only on the shape, the sun and where the anchor falls inside its cell, never on which
- * cell that is. The covered cells are worked out once per shape, sun and fraction of the anchor, kept as a mask and
- * stamped at the anchor of every later cast, so an object that stands still is not rasterised again until the sun moves
- * a step. Only the cells a mask covers are written, and the area a frame touched is exactly their box, which is
+ * cell that is. An anchor is snapped to the sub-cell grid of the art scale, since the art is drawn in whole screen
+ * pixels, so the fraction is a small whole number of sub-cells and equal positions always share one mask. The covered
+ * cells are worked out once per shape, sun and sub-cell of the anchor, kept as a mask and stamped at the anchor of every
+ * later cast, so an object that stands still is not rasterised again until the sun moves a step. The masks are kept in
+ * least recently used order, and the one unused for the longest is dropped when the cache is full. Only the cells a mask covers are written, and the area a frame touched is exactly their box, which is
  * what is cleared for the next frame and handed on for upload. The arrays are reused, so a frame whose shapes are all
  * known allocates nothing.
  */
@@ -32,7 +34,7 @@ public final class ShadowLayer {
     /** How far an ellipse is stretched along the shadow, as a share of its radius for every unit of length factor. */
     public static final double ELLIPSE_REACH = 0.5;
 
-    /** The most masks kept at once, after which the cache starts over, so shapes that never repeat cannot pile up. */
+    /** The most masks kept at once by default, after which the least recently used one is dropped. */
     private static final int MAX_MASKS = 2048;
 
     /** The number of cells across. */
@@ -73,10 +75,34 @@ public final class ShadowLayer {
     /** How long a shadow is as a multiple of the height of what casts it. */
     private double length = 1.0;
 
-    /** The masks of the sun of the moment, which are dropped when the sun moves. */
-    private final Map<MaskKey, Mask> masks = new HashMap<>();
+    /** The sub-cells per cell on each axis, which is the art scale of the layer. */
+    private int artScale = 1;
+
+    /** The masks of the sun of the moment, least recently used first, which are dropped when the sun moves. */
+    private final Map<MaskKey, Mask> masks;
     /** The key every lookup is made with, so a lookup that hits allocates nothing. */
     private final MaskKey probe = new MaskKey();
+    /** How many masks were rasterised so far. */
+    private int rasterised;
+
+    /** Creates a layer that keeps up to the default number of masks. */
+    public ShadowLayer() {
+        this(MAX_MASKS);
+    }
+
+    /**
+     * Creates a layer with a chosen mask capacity.
+     *
+     * @param maxMasks the most masks kept at once, above zero, past which the least recently used one is dropped
+     */
+    ShadowLayer(int maxMasks) {
+        masks = new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<MaskKey, Mask> eldest) {
+                return size() > maxMasks;
+            }
+        };
+    }
 
     /**
      * Gets the layer ready for a frame: sizes it, clears what the previous frame stamped and sets the sun.
@@ -85,8 +111,9 @@ public final class ShadowLayer {
      * @param cellsHigh number of cells down
      * @param angle     direction of the shadow on the screen in radians, zero to the right and pi / 2 down
      * @param length    how long a shadow is as a multiple of the height of what casts it
+     * @param artScale  screen pixels per cell, above zero, which sets the sub-cell grid an anchor is snapped to
      */
-    public void prepare(int cellsWide, int cellsHigh, double angle, double length) {
+    public void prepare(int cellsWide, int cellsHigh, double angle, double length, int artScale) {
         if (cellsWide != width || cellsHigh != height) {
             width = cellsWide;
             height = cellsHigh;
@@ -123,6 +150,7 @@ public final class ShadowLayer {
         this.cosine = newCosine;
         this.sine = newSine;
         this.length = length;
+        this.artScale = Math.max(1, artScale);
     }
 
     /** Zeroes the cells of the last frame's box. */
@@ -133,7 +161,8 @@ public final class ShadowLayer {
     }
 
     /**
-     * Casts the shadow of a sprite.
+     * Casts the shadow of a sprite. The anchor is snapped to the sub-cell grid, and a shadow with a NaN or infinite
+     * anchor is skipped.
      *
      * @param sprite      the silhouette of the sprite
      * @param anchorX     column of the point the sprite stands on, in cells, which may fall inside a cell
@@ -145,18 +174,21 @@ public final class ShadowLayer {
      */
     public void castSprite(Silhouette sprite, double anchorX, double anchorY, double groundRow, double widthFactor,
                            int alpha) {
-        if (alpha <= 0 || widthFactor <= 0 || groundRow <= 0) {
+        if (alpha <= 0 || widthFactor <= 0 || groundRow <= 0 || !isFinite(anchorX, anchorY)) {
             return;
         }
-        final int cellX = (int) Math.floor(anchorX);
-        final int cellY = (int) Math.floor(anchorY);
-        probe.set(sprite, widthFactor, groundRow, anchorX - cellX, anchorY - cellY);
-        stamp(maskFor(probe), cellX, cellY, alpha);
+        final long subX = Math.round(anchorX * artScale);
+        final long subY = Math.round(anchorY * artScale);
+        probe.set(sprite, widthFactor, groundRow, artScale, (int) Math.floorMod(subX, (long) artScale),
+                (int) Math.floorMod(subY, (long) artScale));
+        stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) artScale), (int) Math.floorDiv(subY, (long) artScale),
+                alpha);
     }
 
     /**
      * Casts the shadow of an object with no sprite: an ellipse on the ground under it, stretched along the shadow so it
-     * leans toward where the shadow falls and starts at the object's base.
+     * leans toward where the shadow falls and starts at the object's base. The anchor is snapped to the sub-cell grid,
+     * and a shadow with a NaN or infinite anchor is skipped.
      *
      * @param anchorX column of the point the object stands on, in cells, which may fall inside a cell
      * @param anchorY row of the point the object stands on, in cells, which may fall inside a cell
@@ -164,26 +196,36 @@ public final class ShadowLayer {
      * @param alpha   opacity of the shadow cells, 0 to 255
      */
     public void castEllipse(double anchorX, double anchorY, double width, int alpha) {
-        if (alpha <= 0 || width <= 0) {
+        if (alpha <= 0 || width <= 0 || !isFinite(anchorX, anchorY)) {
             return;
         }
-        final int cellX = (int) Math.floor(anchorX);
-        final int cellY = (int) Math.floor(anchorY);
-        probe.set(null, width, 0.0, anchorX - cellX, anchorY - cellY);
-        stamp(maskFor(probe), cellX, cellY, alpha);
+        final long subX = Math.round(anchorX * artScale);
+        final long subY = Math.round(anchorY * artScale);
+        probe.set(null, width, 0.0, artScale, (int) Math.floorMod(subX, (long) artScale),
+                (int) Math.floorMod(subY, (long) artScale));
+        stamp(maskFor(probe), (int) Math.floorDiv(subX, (long) artScale), (int) Math.floorDiv(subY, (long) artScale),
+                alpha);
     }
 
-    /** Returns the mask of a shape, rasterising it when this sun has not seen it yet. */
+    /** Tells whether both coordinates of an anchor are finite numbers, which rules out NaN and the infinities. */
+    private static boolean isFinite(double anchorX, double anchorY) {
+        return Double.isFinite(anchorX) && Double.isFinite(anchorY);
+    }
+
+    /**
+     * Returns the mask of a shape, rasterising it when this sun has not seen it yet. A lookup marks the mask as the most
+     * recently used, and storing a new one drops the least recently used when the cache is full.
+     */
     private Mask maskFor(MaskKey key) {
         Mask mask = masks.get(key);
         if (mask == null) {
-            if (masks.size() >= MAX_MASKS) {
-                masks.clear();
-            }
+            final double fractionX = (double) key.subX / key.artScale;
+            final double fractionY = (double) key.subY / key.artScale;
             mask = key.sprite != null
-                    ? rasteriseSprite(key.sprite, key.size, key.groundRow, key.fractionX, key.fractionY)
-                    : rasteriseEllipse(key.size, key.fractionX, key.fractionY);
+                    ? rasteriseSprite(key.sprite, key.size, key.groundRow, fractionX, fractionY)
+                    : rasteriseEllipse(key.size, fractionX, fractionY);
             masks.put(key.copy(), mask);
+            rasterised++;
         }
         return mask;
     }
@@ -390,6 +432,11 @@ public final class ShadowLayer {
         return masks.size();
     }
 
+    /** @return how many masks were rasterised so far, which a cast that found its mask in the cache does not count */
+    int rasterised() {
+        return rasterised;
+    }
+
     /** Tells the layer that the changed area has been handed on, so the cleared cells need not be reported again. */
     public void handedOn() {
         clearedLeft = 0;
@@ -493,8 +540,8 @@ public final class ShadowLayer {
 
     /**
      * What makes two shapes cover the same cells for one sun: the silhouette or none for an ellipse, the width factor or
-     * the ellipse width, the ground row, and how far into its cell the anchor lies on each axis. One instance is reused
-     * for every lookup and a copy is made when a mask is stored.
+     * the ellipse width, the ground row, and which sub-cell of its cell the anchor lies in on each axis, counted in
+     * whole sub-cells of the art scale. One instance is reused for every lookup and a copy is made when a mask is stored.
      */
     private static final class MaskKey {
         /** The silhouette of a sprite, compared by identity, or null for an ellipse. */
@@ -503,43 +550,49 @@ public final class ShadowLayer {
         private double size;
         /** The ground row of a sprite shadow, zero for an ellipse. */
         private double groundRow;
-        /** How far into its cell the anchor lies across, 0 up to but excluding 1. */
-        private double fractionX;
-        /** How far into its cell the anchor lies down, 0 up to but excluding 1. */
-        private double fractionY;
+        /** The number of sub-cells per cell, which gives the sub-cell indices their meaning. */
+        private int artScale;
+        /** The sub-cell the anchor lies in across, 0 up to but excluding the art scale. */
+        private int subX;
+        /** The sub-cell the anchor lies in down, 0 up to but excluding the art scale. */
+        private int subY;
 
         /** Sets every part of the key. */
-        private void set(Silhouette sprite, double size, double groundRow, double fractionX, double fractionY) {
+        private void set(Silhouette sprite, double size, double groundRow, int artScale, int subX, int subY) {
             this.sprite = sprite;
             this.size = size;
             this.groundRow = groundRow;
-            this.fractionX = fractionX;
-            this.fractionY = fractionY;
+            this.artScale = artScale;
+            this.subX = subX;
+            this.subY = subY;
         }
 
         /** Returns an independent key with the same parts, for storing. */
         private MaskKey copy() {
             final MaskKey key = new MaskKey();
-            key.set(sprite, size, groundRow, fractionX, fractionY);
+            key.set(sprite, size, groundRow, artScale, subX, subY);
             return key;
         }
 
+        /** Tells whether another key stands for the same shape: same silhouette by identity and equal numbers. */
         @Override
         public boolean equals(Object other) {
             if (!(other instanceof MaskKey key)) {
                 return false;
             }
             return sprite == key.sprite && size == key.size && groundRow == key.groundRow
-                    && fractionX == key.fractionX && fractionY == key.fractionY;
+                    && artScale == key.artScale && subX == key.subX && subY == key.subY;
         }
 
+        /** Hashes every part the equality looks at, the silhouette by identity. */
         @Override
         public int hashCode() {
             int hash = System.identityHashCode(sprite);
             hash = 31 * hash + Double.hashCode(size);
             hash = 31 * hash + Double.hashCode(groundRow);
-            hash = 31 * hash + Double.hashCode(fractionX);
-            hash = 31 * hash + Double.hashCode(fractionY);
+            hash = 31 * hash + artScale;
+            hash = 31 * hash + subX;
+            hash = 31 * hash + subY;
             return hash;
         }
     }
