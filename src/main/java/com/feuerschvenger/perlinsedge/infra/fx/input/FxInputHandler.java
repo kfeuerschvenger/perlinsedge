@@ -7,6 +7,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.stage.Window;
 
 import java.util.Arrays;
 
@@ -25,6 +26,7 @@ public class FxInputHandler {
     private IKeyListener keyListener;
     private ScrollInterceptor scrollInterceptor;
     private final WheelAccumulator zoomWheel = new WheelAccumulator();
+    private final KeyRepeatFilter keyRepeats = new KeyRepeatFilter();
 
     /**
      * Constructs a new FxInputHandler for handling input events in the game.
@@ -39,16 +41,30 @@ public class FxInputHandler {
         this.edgeActive = new boolean[4];
 
         scene.setOnKeyPressed(event -> {
-            if (keyListener != null) {
+            if (keyListener != null && keyRepeats.firstPress(event.getCode())) {
                 FxKeyMapper.toGameKey(event.getCode(), event.isControlDown(), event.isShiftDown(),
                         event.isAltDown(), event.isMetaDown()).ifPresent(keyListener::onKeyAction);
             }
         });
+        scene.setOnKeyReleased(event -> keyRepeats.release(event.getCode()));
+        scene.windowProperty().addListener((obs, oldWindow, newWindow) -> watchFocus(newWindow));
+        watchFocus(scene.getWindow());
 
         mainGameCanvas.setOnScroll(this::handleScroll);
 
         mainGameCanvas.setOnMouseMoved(this::handleMouseMoved);
         mainGameCanvas.setOnMouseExited(this::handleMouseExited);
+    }
+
+    /** Forgets the held keys whenever the window loses focus, since their release events go to another window. */
+    private void watchFocus(Window window) {
+        if (window != null) {
+            window.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (!isFocused) {
+                    keyRepeats.clear();
+                }
+            });
+        }
     }
 
     public void setGameKeyListener(IKeyListener listener) {
