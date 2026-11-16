@@ -44,8 +44,23 @@ public class InteractionManager {
         }
     }
 
-    /** Largest number of tiles the search for the walk to an enemy may expand, which is also its largest cost. */
-    static final int ENEMY_SEARCH_MAX_NODES = 6_000;
+    /** Fewest tiles the search for the walk to an enemy may expand, whatever the size of the map. */
+    static final int ENEMY_SEARCH_MIN_NODES = 6_000;
+    /** The search for the walk to an enemy may expand up to this fraction of the tiles of the map. */
+    private static final int ENEMY_SEARCH_MAP_DIVISOR = 4;
+
+    /**
+     * Gives the number of tiles the search for the walk to an enemy may expand, which is also its largest cost. It
+     * grows with the map, so an enemy that is reachable only by a long detour is still found, and an enemy across
+     * water still ends the search after a bounded part of the map.
+     *
+     * @param map the map the search runs on
+     * @return a quarter of the tiles of the map, and at least {@link #ENEMY_SEARCH_MIN_NODES}
+     */
+    static int enemySearchBudget(TileMap map) {
+        final long quarter = (long) map.getWidth() * map.getHeight() / ENEMY_SEARCH_MAP_DIVISOR;
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(ENEMY_SEARCH_MIN_NODES, quarter));
+    }
 
     /** What a click on a tile does. */
     private enum Kind { NONE, BUILDING, RESOURCE, ENEMY }
@@ -275,7 +290,7 @@ public class InteractionManager {
         final PathNode origin = player.getWalkOrigin();
         // Capped: an enemy that cannot be reached, such as one across water, must not make the click search the map
         final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, enemyX, enemyY,
-                OccupiedTiles.of(gameState.getEnemies()), ENEMY_SEARCH_MAX_NODES);
+                OccupiedTiles.of(gameState.getEnemies()), enemySearchBudget(map));
         if (walk == null) {
             hintSink.accept("You can't reach that");
             return false;

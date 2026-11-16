@@ -188,6 +188,30 @@ class AttackClickTest {
     }
 
     @Test
+    void theEnemySearchBudgetGrowsWithTheMapAndHasAFloor() {
+        assertEquals(InteractionManager.ENEMY_SEARCH_MIN_NODES, InteractionManager.enemySearchBudget(map));
+        assertEquals(250_000, InteractionManager.enemySearchBudget(new TileMap(1000, 1000)));
+    }
+
+    @Test
+    void anEnemyBehindALongDetourOnALargeMapIsStillReached() {
+        final int width = 400;
+        final int height = 400;
+        final TileMap large = new TileMap(width, height);
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                large.setTile(x, y, new Tile(x, y, x == 200 && y != 60 ? TileType.DEEP_WATER : TileType.GRASS));
+            }
+        }
+        state.setCurrentMap(large);
+        player.setPosition(10, 5);
+        slimeAt(390, 5);
+
+        assertEquals(InteractionManager.Outcome.ACCEPTED, interactions.interact(390, 5));
+        assertTrue(hints.isEmpty());
+    }
+
+    @Test
     void aNewOrderAndThePauseCancelThePendingAttack() {
         slimeAt(8, 5);
         interactions.interact(8, 5);
