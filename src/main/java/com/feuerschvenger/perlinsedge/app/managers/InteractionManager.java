@@ -48,18 +48,21 @@ public class InteractionManager {
     static final int ENEMY_SEARCH_MIN_NODES = 6_000;
     /** The search for the walk to an enemy may expand up to this fraction of the tiles of the map. */
     private static final int ENEMY_SEARCH_MAP_DIVISOR = 4;
+    /** Most tiles the search for the walk to an enemy may expand, whatever the size of the map: a click stays cheap. */
+    static final int ENEMY_SEARCH_MAX_NODES = 60_000;
 
     /**
      * Gives the number of tiles the search for the walk to an enemy may expand, which is also its largest cost. It
      * grows with the map, so an enemy that is reachable only by a long detour is still found, and an enemy across
-     * water still ends the search after a bounded part of the map.
+     * water still ends the search after a bounded part of the map, however large the map is.
      *
      * @param map the map the search runs on
-     * @return a quarter of the tiles of the map, and at least {@link #ENEMY_SEARCH_MIN_NODES}
+     * @return a quarter of the tiles of the map, at least {@link #ENEMY_SEARCH_MIN_NODES} and at most
+     *         {@link #ENEMY_SEARCH_MAX_NODES}
      */
     static int enemySearchBudget(TileMap map) {
         final long quarter = (long) map.getWidth() * map.getHeight() / ENEMY_SEARCH_MAP_DIVISOR;
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(ENEMY_SEARCH_MIN_NODES, quarter));
+        return (int) Math.min(ENEMY_SEARCH_MAX_NODES, Math.max(ENEMY_SEARCH_MIN_NODES, quarter));
     }
 
     /** What a click on a tile does. */

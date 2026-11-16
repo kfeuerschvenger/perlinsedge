@@ -22,8 +22,13 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private static final double JUMP_SPEED_AGGRO = 0.5; // Duration of jump
     private static final double JUMP_SPEED_IDLE = 0.8;  // Duration of jump
     public static final double JUMP_HEIGHT_FACTOR = 50.0; // Public for rendering
-    /** Wait before searching again after the next tile of the path turned out to be the player's. */
-    private static final double PLAYER_BLOCK_WAIT_SECONDS = 0.15;
+    /** Wait before searching again after the next step of the path turned out to be unusable. */
+    private static final double REPLAN_WAIT_SECONDS = 0.15;
+    /**
+     * Largest jump phase at which a hop is bent. The position moves a fraction of the way to the target on every
+     * update, equal to the phase, so a hop bent later would move the slime a large part of a tile in one frame.
+     */
+    private static final double REAIM_MAX_PHASE = 0.4;
 
     // Movement directions
     private static final int[] DX = {0, 1, 0, -1, 1, -1, 1, -1};
@@ -36,7 +41,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private double idleTimer;
     private boolean isJumping;
     private double jumpPhase; // 0.0 to 1.0 representing jump progress
-    private double secondsOfPlayerBlockWait;
+    /** Time left before the path may be searched again after a step of it could not be taken. */
+    private double secondsOfReplanWait;
 
     private final Random random;
     private final PathPlanner pathPlanner = new PathPlanner();
@@ -55,7 +61,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         // Slime-specific movement logic
         enemy.snapshot(); // Snapshot entity's position for interpolation
         pathPlanner.tick(deltaTime);
-        secondsOfPlayerBlockWait = Math.max(0, secondsOfPlayerBlockWait - deltaTime);
+        secondsOfReplanWait = Math.max(0, secondsOfReplanWait - deltaTime);
 
         // Next to the player the slime holds its ground and strikes instead of hopping: a hop in the air finishes
         // first, then no new one starts until the player is out of reach again
@@ -65,7 +71,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         if (inReach) {
             currentPath.clear();
         } else if (chasing) {
-            handleAggroBehavior(enemy, map, player);
+            // The path is searched from the tile the slime is on, which is the take-off tile while it is in the air:
+            // the search waits for the landing
+            if (!isJumping) {
+                handleAggroBehavior(enemy, map, player);
+            }
         } else {
             // Without a chase the hops along a path to the player stop once the one in the air has landed
             currentPath.clear();
@@ -107,7 +117,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private void handleAggroBehavior(Enemy enemy, TileMap map, Player player) {
         totalJumpTime = JUMP_SPEED_AGGRO;
 
-        if (secondsOfPlayerBlockWait <= 0 && needsNewPath(enemy)) {
+        if (secondsOfReplanWait <= 0 && needsNewPath(enemy)) {
             // Capped, and skipped for a while after a failed search (the player may be unreachable)
             List<PathNode> pathToPlayer = pathPlanner.findPath(
                     map,
@@ -198,11 +208,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         currentJumpTime += deltaTime;
         jumpPhase = Math.min(1.0, currentJumpTime / totalJumpTime);
 
-        // The player may choose the tile the hop is going to after it began: the hop bends away in the air instead of
-        // being undone on landing
-        if (isPlayerTile(enemy.getTargetTileX(), enemy.getTargetTileY(), player)
-                && (enemy.getTargetTileX() != enemy.getCurrentTileX()
-                || enemy.getTargetTileY() != enemy.getCurrentTileY())) {
+        // The player may choose the tile the hop is going to after it began: early in the hop it bends away in the air
+        // instead of being undone on landing
+        if (jumpPhase <= REAIM_MAX_PHASE
+                && isPlayerTile(enemy.getTargetTileX(), enemy.getTargetTileY(), player)
+                && !hopReturnsToTakeOff(enemy)) {
             reaimHop(enemy, map, player);
         }
 
@@ -211,14 +221,27 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         enemy.setPosY(enemy.getPrevY() + (enemy.getTargetTileY() - enemy.getPrevY()) * jumpPhase);
 
         if (jumpPhase >= 1.0) {
-            completeJump(enemy, player);
+            if (isPlayerTile(enemy.getTargetTileX(), enemy.getTargetTileY(), player)
+                    && !hopReturnsToTakeOff(enemy)
+                    && !isPlayerTile(enemy.getCurrentTileX(), enemy.getCurrentTileY(), player)) {
+                returnToTakeOff(enemy);
+            } else {
+                completeJump(enemy, player);
+            }
         }
     }
 
+    /** True when the hop in the air is aimed at the tile the slime took off from. */
+    private static boolean hopReturnsToTakeOff(Enemy enemy) {
+        return enemy.getTargetTileX() == enemy.getCurrentTileX() && enemy.getTargetTileY() == enemy.getCurrentTileY();
+    }
+
     /**
-     * Aims the hop in the air at the free tile nearest to the slime among those around the tile it is over, so the
-     * interpolation carries on from where the slime is. When no such tile exists the hop returns to the tile it took
-     * off from over the time it has left. The path to the player is searched again after the landing.
+     * Aims the hop in the air at the free tile nearest to the slime among the tile it is over and the ones around it,
+     * so the interpolation carries on from where the slime is. When no such tile exists and the take-off tile is not
+     * the player's, the hop returns to the take-off tile over the time it has left. When both the target and the
+     * take-off tile are the player's the hop is left as it is and the landing decides. The path to the player is
+     * searched again after the landing.
      */
     private void reaimHop(Enemy enemy, TileMap map, Player player) {
         final int fromX = (int) Math.round(enemy.getPosX());
@@ -226,9 +249,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         int bestX = enemy.getCurrentTileX();
         int bestY = enemy.getCurrentTileY();
         double bestDistance = Double.MAX_VALUE;
-        for (int i = 0; i < DX.length; i++) {
-            final int x = fromX + DX[i];
-            final int y = fromY + DY[i];
+        boolean found = !isPlayerTile(bestX, bestY, player);
+        // The tile under the slime comes first as the zero offset, the neighbours follow
+        for (int i = -1; i < DX.length; i++) {
+            final int x = fromX + (i < 0 ? 0 : DX[i]);
+            final int y = fromY + (i < 0 ? 0 : DY[i]);
             if (isPlayerTile(x, y, player) || !canHop(map, fromX, fromY, x, y)) {
                 continue;
             }
@@ -237,7 +262,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
                 bestDistance = distance;
                 bestX = x;
                 bestY = y;
+                found = true;
             }
+        }
+        if (!found) {
+            return;
         }
         enemy.setTargetTileX(bestX);
         enemy.setTargetTileY(bestY);
@@ -245,9 +274,22 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /**
-     * Lands the hop. The tile the hop was re-aimed to is never the player's, so the check here only covers the slime
-     * that took off from a tile the player has since stepped onto: it stays where it is and the path to the player is
-     * searched again.
+     * Sends a hop that reached a tile the player has since taken back to the tile it took off from, as a new hop of
+     * the same length: the position moves a fraction of the way to the target on every update, equal to the phase, so
+     * restarting the phase at zero eases the slime back instead of moving it up to a tile in one frame.
+     */
+    private void returnToTakeOff(Enemy enemy) {
+        enemy.setTargetTileX(enemy.getCurrentTileX());
+        enemy.setTargetTileY(enemy.getCurrentTileY());
+        currentPath.clear();
+        currentJumpTime = 0;
+        jumpPhase = 0;
+    }
+
+    /**
+     * Lands the hop. The target is the player's only when the hop could not be bent and could not return either,
+     * because the take-off tile is the player's too: the slime then stays on the take-off tile, which can move it by
+     * up to a tile in one frame. The path to the player is searched again.
      */
     private void completeJump(Enemy enemy, Player player) {
         isJumping = false;
@@ -276,12 +318,17 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     private void startNextJump(Enemy enemy, TileMap map, Player player) {
         PathNode nextStep = currentPath.removeFirst();
-        // Something may have been built on the tile since the path was searched, or the player may have stepped on it
-        if (!canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextStep.x, nextStep.y)
+        // Something may have been built on the tile since the path was searched, the player may have stepped on it, or
+        // the slime may have landed away from the tile the path was searched from, so the step is not a hop of one tile
+        final boolean adjacent = Math.abs(nextStep.x - enemy.getCurrentTileX()) <= 1
+                && Math.abs(nextStep.y - enemy.getCurrentTileY()) <= 1;
+        if (!adjacent
+                || !canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextStep.x, nextStep.y)
                 || isPlayerTile(nextStep.x, nextStep.y, player)) {
             currentPath.clear();
-            // Wait for the player's step to end instead of searching again on every update meanwhile
-            secondsOfPlayerBlockWait = PLAYER_BLOCK_WAIT_SECONDS;
+            // Wait before searching again instead of searching on every update meanwhile, which the player's step
+            // would otherwise cause
+            secondsOfReplanWait = REPLAN_WAIT_SECONDS;
             return;
         }
         enemy.setTargetTileX(nextStep.x);

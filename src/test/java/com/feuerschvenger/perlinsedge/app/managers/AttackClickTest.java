@@ -190,7 +190,8 @@ class AttackClickTest {
     @Test
     void theEnemySearchBudgetGrowsWithTheMapAndHasAFloor() {
         assertEquals(InteractionManager.ENEMY_SEARCH_MIN_NODES, InteractionManager.enemySearchBudget(map));
-        assertEquals(250_000, InteractionManager.enemySearchBudget(new TileMap(1000, 1000)));
+        assertEquals(InteractionManager.ENEMY_SEARCH_MAX_NODES, InteractionManager.enemySearchBudget(new TileMap(1000, 1000)));
+        assertEquals(40_000, InteractionManager.enemySearchBudget(new TileMap(400, 400)));
     }
 
     @Test
