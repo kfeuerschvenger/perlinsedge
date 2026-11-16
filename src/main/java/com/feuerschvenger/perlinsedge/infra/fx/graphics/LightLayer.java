@@ -55,6 +55,17 @@ public final class LightLayer {
     /** How many lights are in view. */
     private int count;
 
+    /** The square of the share of the radius at which each ring of the light being cast ends. */
+    private double[] ringEdge = new double[0];
+    /** The level of light of each ring of the light being cast, 0 to 255. */
+    private int[] ringLevel = new int[0];
+    /** The alpha of the glow of each ring of the light being cast, 0 for a ring with no glow. */
+    private int[] ringGlowAlpha = new int[0];
+    /** The glow of each ring of the light being cast as premultiplied ARGB over no glow at all. */
+    private int[] ringGlow = new int[0];
+    /** The part of the squared distance that depends on the column, for the light being cast. */
+    private double[] columnPart = new double[0];
+
     /** What the cells of the last call were worked out from. */
     private double[] signature = new double[0];
     /** What the cells of this call depend on, built here and then compared with the last. */
@@ -223,13 +234,18 @@ public final class LightLayer {
         }
         final double tintA = tintStrength;
         plain = pack(tintA * 255.0, tint.r() * tintA * 255.0, tint.g() * tintA * 255.0, tint.b() * tintA * 255.0);
+        // Neighbouring cells mostly share a ring, so the last cell worked out is reused while the inputs are the same
+        int lastLevel = 0;
+        int lastGlow = 0;
+        int lastPixel = plain;
         for (int y = top; y < bottom; y++) {
             for (int i = y * cellsWide + left, end = y * cellsWide + right; i < end; i++) {
-                if (levels[i] == 0 && glow[i] == 0) {
-                    pixels[i] = plain;
-                } else {
-                    pixels[i] = finish(levels[i], glow[i], tint, tintStrength);
+                if (levels[i] != lastLevel || glow[i] != lastGlow) {
+                    lastLevel = levels[i];
+                    lastGlow = glow[i];
+                    lastPixel = lastLevel == 0 && lastGlow == 0 ? plain : finish(lastLevel, lastGlow, tint, tintStrength);
                 }
+                pixels[i] = lastPixel;
             }
         }
     }
@@ -247,29 +263,64 @@ public final class LightLayer {
         final int boxTop = (int) lights[at + BOX_AT + 1];
         final int boxRight = (int) lights[at + BOX_AT + 2];
         final int boxBottom = (int) lights[at + BOX_AT + 3];
+        final int rings = style.rings();
+        prepareRings(rings, intensity, style.glowStrength() * darkness, red, green, blue);
         // A distance on the ground in tiles, from two distances in art pixels: tiles are 32 across and 16 down, and a
-        // step along a tile axis is half the sum of the squares of its two diagonal parts
+        // step along a tile axis is half the sum of the squares of its two diagonal parts. The square of the share of
+        // the radius is compared with the squares of the ring edges, so no square root is taken for a cell.
         final double scale = 0.5 / (radius * radius);
+        final int boxWide = boxRight - boxLeft;
+        if (columnPart.length < boxWide) {
+            columnPart = new double[boxWide];
+        }
+        for (int x = 0; x < boxWide; x++) {
+            final double dx = boxLeft + x + 0.5 - centreX;
+            columnPart[x] = dx * dx / (TILE_ART_HALF_WIDTH * TILE_ART_HALF_WIDTH);
+        }
         for (int y = boxTop; y < boxBottom; y++) {
             final double dy = y + 0.5 - centreY;
             final double downPart = dy * dy / (TILE_ART_HALF_HEIGHT * TILE_ART_HALF_HEIGHT);
-            for (int x = boxLeft; x < boxRight; x++) {
-                final double dx = x + 0.5 - centreX;
-                final double across = dx * dx / (TILE_ART_HALF_WIDTH * TILE_ART_HALF_WIDTH);
-                final double ring = LightFalloff.level(Math.sqrt((downPart + across) * scale), style.rings());
-                if (ring <= 0.0) {
+            final int row = y * cellsWide;
+            for (int x = 0; x < boxWide; x++) {
+                final double share = (downPart + columnPart[x]) * scale;
+                int ring = 0;
+                while (ring < rings && share >= ringEdge[ring]) {
+                    ring++;
+                }
+                if (ring == rings) {
                     continue;
                 }
-                final double lit = Math.min(1.0, ring * intensity);
-                final int level = (int) Math.round(lit * 255.0);
-                final int i = y * cellsWide + x;
-                levels[i] = 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
-                final double glowShare = Math.max(0.0, (lit - GLOW_FROM) / (1.0 - GLOW_FROM));
-                final int glowAlpha = (int) Math.round(style.glowStrength() * glowShare * darkness * 255.0);
-                if (glowAlpha > 0) {
-                    glow[i] = over(glowAlpha, red, green, blue, glow[i]);
+                final int level = ringLevel[ring];
+                final int i = row + boxLeft + x;
+                levels[i] = levels[i] == 0 ? level : 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
+                if (ringGlowAlpha[ring] > 0) {
+                    glow[i] = glow[i] == 0 ? ringGlow[ring]
+                            : over(ringGlowAlpha[ring], red, green, blue, glow[i]);
                 }
             }
+        }
+    }
+
+    /**
+     * Works out what every ring of a light gives a cell: the square of the share of the radius at which it ends, its
+     * level of light and its glow, so a cell only looks its ring up.
+     */
+    private void prepareRings(int rings, double intensity, double glowStrength, int red, int green, int blue) {
+        if (ringEdge.length != rings) {
+            ringEdge = new double[rings];
+            ringLevel = new int[rings];
+            ringGlowAlpha = new int[rings];
+            ringGlow = new int[rings];
+        }
+        for (int ring = 0; ring < rings; ring++) {
+            final double edge = (ring + 1.0) / rings;
+            ringEdge[ring] = edge * edge;
+            // The level of the ring is the one the domain gives for a distance in the middle of it
+            final double lit = Math.min(1.0, LightFalloff.level((ring + 0.5) / rings, rings) * intensity);
+            ringLevel[ring] = (int) Math.round(lit * 255.0);
+            final double glowShare = Math.max(0.0, (lit - GLOW_FROM) / (1.0 - GLOW_FROM));
+            ringGlowAlpha[ring] = (int) Math.round(glowStrength * glowShare * 255.0);
+            ringGlow[ring] = ringGlowAlpha[ring] > 0 ? over(ringGlowAlpha[ring], red, green, blue, 0) : 0;
         }
     }
 
