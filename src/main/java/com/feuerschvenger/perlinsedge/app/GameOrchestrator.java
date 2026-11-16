@@ -335,6 +335,8 @@ public class GameOrchestrator {
         try {
             leaveGame();
             gameState.getClickFeedback().clear();
+            // The lights belong to the map that is being replaced
+            gameState.getLights().clear();
             mapManager.generateNewMap(context);
             AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
             playerManager.initializePlayer();
@@ -406,6 +408,8 @@ public class GameOrchestrator {
         gameState.getDayCycle().advance(deltaTime * AppConfig.getInstance().dayCycle().timeScale());
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        // The light of the held torch follows the player and the selected item, after the player has moved
+        gameState.syncLights(1.0);
         interactionManager.update();
         if (gameState.isPlayerDead()) {
             // Building mode and the inventory cannot stay open under the death screen
