@@ -207,15 +207,21 @@ public class AppConfig {
         /** Whether the fast time of the debug key is on. */
         private boolean fastTime;
 
-        /** @return the settings a {@link DayCycle} runs on */
+        /** The settings a {@link DayCycle} runs on, built once because the time scale is read on every update tick. */
+        private final DayCycleSettings settings = new DayCycleSettings(DAWN_SECONDS, DAY_SECONDS, DUSK_SECONDS,
+                NIGHT_SECONDS, 0, SHADOW_STEPS, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH).startingAtClockHour(START_HOUR);
+
+        /** Game seconds that pass per real second while the fast time is on, worked out once from the settings. */
+        private final double fastTimeMultiplier = settings.cycleSeconds() / FAST_DAY_REAL_SECONDS;
+
+        /** @return the settings a {@link DayCycle} runs on, the same instance every time */
         public DayCycleSettings settings() {
-            return new DayCycleSettings(DAWN_SECONDS, DAY_SECONDS, DUSK_SECONDS, NIGHT_SECONDS, 0,
-                    SHADOW_STEPS, MIN_SHADOW_LENGTH, MAX_SHADOW_LENGTH).startingAtClockHour(START_HOUR);
+            return settings;
         }
 
         /** @return how many game seconds pass per real second while the fast time is on */
         public double getFastTimeMultiplier() {
-            return settings().cycleSeconds() / FAST_DAY_REAL_SECONDS;
+            return fastTimeMultiplier;
         }
 
         /** @return true while the fast time of the debug key is on */

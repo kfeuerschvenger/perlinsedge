@@ -154,6 +154,17 @@ class DayCycleTest {
     }
 
     @Test
+    void aStartHourJustBeforeTheBeginningOfTheCycleWrapsToZeroAndNeverToTheWholeCycle() {
+        final double[] hours = {Math.nextDown(3.0), 3.0, Math.nextUp(3.0), -21.0, Math.nextDown(-21.0), 27.0,
+                Math.nextDown(27.0), 0.0, 24.0, Math.nextDown(24.0), 6.0, 123.456};
+        for (double hour : hours) {
+            final double start = settings().startingAtClockHour(hour).startSeconds();
+            assertTrue(start >= 0.0 && start < CYCLE, "start " + start + " for hour " + hour);
+        }
+        assertEquals(0.0, settings().startingAtClockHour(Math.nextDown(3.0)).startSeconds(), 0.0);
+    }
+
+    @Test
     void theSettingsPlaceTheSunsetAtTheEndOfTheDuskAndTheSunriseMirroredAroundNoon() {
         assertEquals(19.8, settings().sunsetClockHours(), 1e-9);
         assertEquals(4.2, settings().sunriseClockHours(), 1e-9);

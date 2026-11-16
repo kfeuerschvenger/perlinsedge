@@ -57,12 +57,15 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
      *
      * @param clockHour the hour of the 24 hour clock a new world starts at, where the end of the dawn is
      *                  {@link #DAY_START_CLOCK_HOURS}
-     * @return settings whose start is the seconds into the cycle that hour falls at
+     * @return settings whose start is the seconds into the cycle that hour falls at, from zero up to but excluding the
+     *         length of the cycle
      */
     public DayCycleSettings startingAtClockHour(double clockHour) {
         final double cycle = cycleSeconds();
         final double seconds = dawnSeconds + (clockHour - DAY_START_CLOCK_HOURS) / HOURS_PER_DAY * cycle;
-        final double wrapped = Math.max(0.0, seconds - Math.floor(seconds / cycle) * cycle);
+        final double remainder = Math.max(0.0, seconds - Math.floor(seconds / cycle) * cycle);
+        // A moment a hair before the start of the cycle rounds to the whole cycle, which is the same moment as zero
+        final double wrapped = remainder >= cycle ? 0.0 : remainder;
         return new DayCycleSettings(dawnSeconds, daySeconds, duskSeconds, nightSeconds, wrapped, shadowSteps,
                 minShadowLength, maxShadowLength);
     }

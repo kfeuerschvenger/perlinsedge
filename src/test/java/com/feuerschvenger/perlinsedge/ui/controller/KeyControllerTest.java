@@ -12,6 +12,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeyControllerTest {
@@ -44,6 +45,16 @@ class KeyControllerTest {
 
         controller.onKeyAction(GameKey.F7);
         assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
+    }
+
+    @Test
+    void theDayCycleSettingsAreBuiltOnceSoTheTimeScaleAllocatesNothingEveryTick() {
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+
+        assertSame(config.settings(), config.settings());
+        config.setFastTime(true);
+        assertEquals(config.getFastTimeMultiplier(), config.timeScale(), 0.0);
+        assertEquals(config.settings().cycleSeconds() / 40.0, config.getFastTimeMultiplier(), 1e-9);
     }
 
     @Test
