@@ -238,7 +238,9 @@ public class Player extends Entity implements Container {
     }
 
     /**
-     * Gives the next tile of the walk in progress, for the checks that run every tick and must not allocate.
+     * Gives the next tile of the walk in progress, for the checks that run every tick and must not allocate. The node
+     * is the one the walk itself holds, so it is read only: a caller must not change its costs, and gets a copy from
+     * {@code new PathNode(x, y)} when it needs one.
      *
      * @return the tile the player is walking to, or null when there is no walk
      */
