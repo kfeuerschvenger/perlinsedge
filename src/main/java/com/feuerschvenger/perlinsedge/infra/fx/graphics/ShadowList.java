@@ -75,6 +75,53 @@ public final class ShadowList {
         size++;
     }
 
+    /**
+     * Copies the shadows of another list into this one, replacing what it held. The arrays only grow, so a copy of a
+     * list no larger than before allocates nothing.
+     *
+     * @param other the list to copy
+     */
+    public void copyFrom(ShadowList other) {
+        if (other.size > x.length) {
+            final int capacity = other.size;
+            x = new double[capacity];
+            y = new double[capacity];
+            width = new double[capacity];
+            fade = new double[capacity];
+            silhouette = new Silhouette[capacity];
+            groundRow = new double[capacity];
+        } else {
+            Arrays.fill(silhouette, other.size, Math.max(size, other.size), null);
+        }
+        System.arraycopy(other.x, 0, x, 0, other.size);
+        System.arraycopy(other.y, 0, y, 0, other.size);
+        System.arraycopy(other.width, 0, width, 0, other.size);
+        System.arraycopy(other.fade, 0, fade, 0, other.size);
+        System.arraycopy(other.silhouette, 0, silhouette, 0, other.size);
+        System.arraycopy(other.groundRow, 0, groundRow, 0, other.size);
+        size = other.size;
+    }
+
+    /**
+     * Tells whether another list holds exactly the same shadows in the same order, which means casting it gives the
+     * same layer.
+     *
+     * @param other the list to compare with
+     * @return true when every shadow matches in position, width, fade, silhouette and ground row
+     */
+    public boolean sameShadowsAs(ShadowList other) {
+        if (size != other.size) {
+            return false;
+        }
+        for (int i = 0; i < size; i++) {
+            if (x[i] != other.x[i] || y[i] != other.y[i] || width[i] != other.width[i] || fade[i] != other.fade[i]
+                    || silhouette[i] != other.silhouette[i] || groundRow[i] != other.groundRow[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** @return the number of shadows in the list */
     public int size() {
         return size;

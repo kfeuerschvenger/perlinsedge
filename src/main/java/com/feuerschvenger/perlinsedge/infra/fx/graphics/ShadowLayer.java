@@ -3,6 +3,8 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The offscreen layer every shadow of a frame is cast into, at the resolution of the art: one cell is one art pixel.
@@ -16,35 +18,65 @@ import java.util.Arrays;
  * screen, and across it by {@code (sin, -cos / 2)}. A sprite is stood up on the ground at its anchor with its height
  * mapped to the along coordinate, scaled by the shadow length factor, and its width to the across coordinate, which flips
  * it onto the ground and shears it toward the sun. An object with no sprite casts an ellipse on the ground, stretched
- * along the shadow. The class holds plain arrays and no framework type, so it is tested without a window. Only the area
- * a frame touched is cleared and handed on, and the arrays are reused, so a steady frame allocates nothing.
+ * along the shadow. The class holds plain arrays and no framework type, so it is tested without a window.
+ * <p>
+ * The cells a shadow covers depend only on the shape, the sun and where the anchor falls inside its cell, never on which
+ * cell that is. The covered cells are worked out once per shape, sun and fraction of the anchor, kept as a mask and
+ * stamped at the anchor of every later cast, so an object that stands still is not rasterised again until the sun moves
+ * a step. Only the cells a mask covers are written, and the area a frame touched is exactly their box, which is
+ * what is cleared for the next frame and handed on for upload. The arrays are reused, so a frame whose shapes are all
+ * known allocates nothing.
  */
 public final class ShadowLayer {
 
     /** How far an ellipse is stretched along the shadow, as a share of its radius for every unit of length factor. */
     public static final double ELLIPSE_REACH = 0.5;
 
+    /** The most masks kept at once, after which the cache starts over, so shapes that never repeat cannot pile up. */
+    private static final int MAX_MASKS = 2048;
+
+    /** The number of cells across. */
     private int width;
+    /** The number of cells down. */
     private int height;
+    /** The cells as ARGB, row by row. */
     private int[] pixels = new int[0];
 
-    /** The box of the cells a frame stamped, as left, top, right and bottom with the last two exclusive. */
+    /** Left column of the box of the cells a frame stamped. */
     private int stampedLeft;
+    /** Top row of the box of the cells a frame stamped. */
     private int stampedTop;
+    /** Column after the last of the box of the cells a frame stamped. */
     private int stampedRight;
+    /** Row after the last of the box of the cells a frame stamped. */
     private int stampedBottom;
 
-    /** The box of the cells the previous frame stamped, which were cleared and are not yet shown cleared. */
+    /** Left column of the box of the cells the previous frame stamped, which were cleared and are not yet shown cleared. */
     private int clearedLeft;
+    /** Top row of the box of the cells the previous frame stamped, which were cleared and are not yet shown cleared. */
     private int clearedTop;
+    /** Column after the last of the box of the cells the previous frame stamped, see {@link #clearedLeft}. */
     private int clearedRight;
+    /** Row after the last of the box of the cells the previous frame stamped, see {@link #clearedLeft}. */
     private int clearedBottom;
 
+    /** The area handed out by {@link #changedBox()}, reused by every call. */
     private final int[] changed = new int[4];
 
+    /** Scratch for the box of a projected shape: left, top, right and bottom as screen offsets, reused by every build. */
+    private final double[] box = new double[4];
+
+    /** Horizontal part of the direction of the shadow. */
     private double cosine = 0.0;
+    /** Vertical part of the direction of the shadow. */
     private double sine = 1.0;
+    /** How long a shadow is as a multiple of the height of what casts it. */
     private double length = 1.0;
+
+    /** The masks of the sun of the moment, which are dropped when the sun moves. */
+    private final Map<MaskKey, Mask> masks = new HashMap<>();
+    /** The key every lookup is made with, so a lookup that hits allocates nothing. */
+    private final MaskKey probe = new MaskKey();
 
     /**
      * Gets the layer ready for a frame: sizes it, clears what the previous frame stamped and sets the sun.
@@ -83,8 +115,13 @@ public final class ShadowLayer {
         stampedTop = 0;
         stampedRight = 0;
         stampedBottom = 0;
-        this.cosine = Math.cos(angle);
-        this.sine = Math.sin(angle);
+        final double newCosine = Math.cos(angle);
+        final double newSine = Math.sin(angle);
+        if (newCosine != cosine || newSine != sine || length != this.length) {
+            masks.clear();
+        }
+        this.cosine = newCosine;
+        this.sine = newSine;
         this.length = length;
     }
 
@@ -99,8 +136,8 @@ public final class ShadowLayer {
      * Casts the shadow of a sprite.
      *
      * @param sprite      the silhouette of the sprite
-     * @param anchorX     column of the point the sprite stands on, in cells
-     * @param anchorY     row of the point the sprite stands on, in cells
+     * @param anchorX     column of the point the sprite stands on, in cells, which may fall inside a cell
+     * @param anchorY     row of the point the sprite stands on, in cells, which may fall inside a cell
      * @param groundRow   the row of the sprite that touches the ground, counted from its top, so the rows above it are
      *                    its height
      * @param widthFactor how wide the shadow is relative to the sprite, 1 for the whole width
@@ -111,25 +148,71 @@ public final class ShadowLayer {
         if (alpha <= 0 || widthFactor <= 0 || groundRow <= 0) {
             return;
         }
+        final int cellX = (int) Math.floor(anchorX);
+        final int cellY = (int) Math.floor(anchorY);
+        probe.set(sprite, widthFactor, groundRow, anchorX - cellX, anchorY - cellY);
+        stamp(maskFor(probe), cellX, cellY, alpha);
+    }
+
+    /**
+     * Casts the shadow of an object with no sprite: an ellipse on the ground under it, stretched along the shadow so it
+     * leans toward where the shadow falls and starts at the object's base.
+     *
+     * @param anchorX column of the point the object stands on, in cells, which may fall inside a cell
+     * @param anchorY row of the point the object stands on, in cells, which may fall inside a cell
+     * @param width   width of the ellipse at noon in art pixels
+     * @param alpha   opacity of the shadow cells, 0 to 255
+     */
+    public void castEllipse(double anchorX, double anchorY, double width, int alpha) {
+        if (alpha <= 0 || width <= 0) {
+            return;
+        }
+        final int cellX = (int) Math.floor(anchorX);
+        final int cellY = (int) Math.floor(anchorY);
+        probe.set(null, width, 0.0, anchorX - cellX, anchorY - cellY);
+        stamp(maskFor(probe), cellX, cellY, alpha);
+    }
+
+    /** Returns the mask of a shape, rasterising it when this sun has not seen it yet. */
+    private Mask maskFor(MaskKey key) {
+        Mask mask = masks.get(key);
+        if (mask == null) {
+            if (masks.size() >= MAX_MASKS) {
+                masks.clear();
+            }
+            mask = key.sprite != null
+                    ? rasteriseSprite(key.sprite, key.size, key.groundRow, key.fractionX, key.fractionY)
+                    : rasteriseEllipse(key.size, key.fractionX, key.fractionY);
+            masks.put(key.copy(), mask);
+        }
+        return mask;
+    }
+
+    /**
+     * Works out the cells a sprite covers around an anchor that lies a fraction into its cell. Every cell is taken by
+     * its centre, so the cells keep the crisp art pixel grid.
+     */
+    private Mask rasteriseSprite(Silhouette sprite, double widthFactor, double groundRow, double fractionX,
+                                 double fractionY) {
         final double halfWidth = sprite.width() / 2.0 * widthFactor;
         final double reach = length * groundRow;
         // The box of the four corners of the sprite after the projection
-        final double[] box = {Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
-        include(box, 0, -halfWidth);
-        include(box, 0, halfWidth);
-        include(box, reach, -halfWidth);
-        include(box, reach, halfWidth);
-        final int left = Math.max(0, (int) Math.floor(anchorX + box[0]));
-        final int top = Math.max(0, (int) Math.floor(anchorY + box[1]));
-        final int right = Math.min(width, (int) Math.ceil(anchorX + box[2]));
-        final int bottom = Math.min(height, (int) Math.ceil(anchorY + box[3]));
+        resetBox();
+        include(0, -halfWidth);
+        include(0, halfWidth);
+        include(reach, -halfWidth);
+        include(reach, halfWidth);
+        final int left = (int) Math.floor(fractionX + box[0]);
+        final int top = (int) Math.floor(fractionY + box[1]);
+        final int right = (int) Math.ceil(fractionX + box[2]);
+        final int bottom = (int) Math.ceil(fractionY + box[3]);
         final int spriteWidth = sprite.width();
         final int spriteHeight = sprite.height();
-        boolean touched = false;
+        final boolean[] covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
         for (int y = top; y < bottom; y++) {
-            final double dy = y + 0.5 - anchorY;
+            final double dy = y + 0.5 - fractionY;
             for (int x = left; x < right; x++) {
-                final double dx = x + 0.5 - anchorX;
+                final double dx = x + 0.5 - fractionX;
                 final double along = cosine * dx + 2.0 * sine * dy;
                 if (along < 0.0) {
                     continue;
@@ -140,60 +223,87 @@ public final class ShadowLayer {
                         || !sprite.isSolid(column, row)) {
                     continue;
                 }
-                put(y * width + x, alpha);
-                touched = true;
+                covered[(y - top) * (right - left) + (x - left)] = true;
             }
         }
-        if (touched) {
-            extendStamped(left, top, right, bottom);
-        }
+        return Mask.of(covered, left, top, right - left, bottom - top);
     }
 
-    /**
-     * Casts the shadow of an object with no sprite: an ellipse on the ground under it, stretched along the shadow so it
-     * leans toward where the shadow falls and starts at the object's base.
-     *
-     * @param anchorX column of the point the object stands on, in cells
-     * @param anchorY row of the point the object stands on, in cells
-     * @param width   width of the ellipse at noon in art pixels
-     * @param alpha   opacity of the shadow cells, 0 to 255
-     */
-    public void castEllipse(double anchorX, double anchorY, double width, int alpha) {
-        if (alpha <= 0 || width <= 0) {
-            return;
-        }
-        final double radius = width / 2.0;
+    /** Works out the cells an ellipse covers around an anchor that lies a fraction into its cell. */
+    private Mask rasteriseEllipse(double ellipseWidth, double fractionX, double fractionY) {
+        final double radius = ellipseWidth / 2.0;
         final double alongRadius = radius * (1.0 + ELLIPSE_REACH * length);
         final double alongCentre = radius * ELLIPSE_REACH * length;
-        final double[] box = {Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
-        include(box, alongCentre - alongRadius, -radius);
-        include(box, alongCentre - alongRadius, radius);
-        include(box, alongCentre + alongRadius, -radius);
-        include(box, alongCentre + alongRadius, radius);
-        final int left = Math.max(0, (int) Math.floor(anchorX + box[0]));
-        final int top = Math.max(0, (int) Math.floor(anchorY + box[1]));
-        final int right = Math.min(this.width, (int) Math.ceil(anchorX + box[2]));
-        final int bottom = Math.min(height, (int) Math.ceil(anchorY + box[3]));
-        boolean touched = false;
+        resetBox();
+        include(alongCentre - alongRadius, -radius);
+        include(alongCentre - alongRadius, radius);
+        include(alongCentre + alongRadius, -radius);
+        include(alongCentre + alongRadius, radius);
+        final int left = (int) Math.floor(fractionX + box[0]);
+        final int top = (int) Math.floor(fractionY + box[1]);
+        final int right = (int) Math.ceil(fractionX + box[2]);
+        final int bottom = (int) Math.ceil(fractionY + box[3]);
+        final boolean[] covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
         for (int y = top; y < bottom; y++) {
-            final double dy = y + 0.5 - anchorY;
+            final double dy = y + 0.5 - fractionY;
             for (int x = left; x < right; x++) {
-                final double dx = x + 0.5 - anchorX;
+                final double dx = x + 0.5 - fractionX;
                 final double along = (cosine * dx + 2.0 * sine * dy - alongCentre) / alongRadius;
                 final double across = (sine * dx - 2.0 * cosine * dy) / radius;
                 if (along * along + across * across <= 1.0) {
-                    put(y * this.width + x, alpha);
-                    touched = true;
+                    covered[(y - top) * (right - left) + (x - left)] = true;
                 }
             }
         }
-        if (touched) {
-            extendStamped(left, top, right, bottom);
+        return Mask.of(covered, left, top, right - left, bottom - top);
+    }
+
+    /**
+     * Stamps a mask with its anchor on a cell: every covered cell takes the stronger of its alpha and the new one. The
+     * stamped box grows by the covered cells that fall inside the layer, and by nothing else.
+     */
+    private void stamp(Mask mask, int cellX, int cellY, int alpha) {
+        if (mask.width == 0) {
+            return;
+        }
+        final int originX = cellX + mask.left;
+        final int originY = cellY + mask.top;
+        final int fromX = Math.max(0, originX);
+        final int toX = Math.min(width, originX + mask.width);
+        final int fromY = Math.max(0, originY);
+        final int toY = Math.min(height, originY + mask.height);
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (int y = fromY; y < toY; y++) {
+            final int maskRow = (y - originY) * mask.width - originX;
+            final int layerRow = y * width;
+            for (int x = fromX; x < toX; x++) {
+                if (mask.covered[maskRow + x]) {
+                    put(layerRow + x, alpha);
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+        if (maxX >= minX) {
+            extendStamped(minX, minY, maxX + 1, maxY + 1);
         }
     }
 
-    /** Widens a box to take in the screen offset of a ground point. */
-    private void include(double[] box, double along, double across) {
+    /** Empties the scratch box, ready to take in points. */
+    private void resetBox() {
+        box[0] = Double.MAX_VALUE;
+        box[1] = Double.MAX_VALUE;
+        box[2] = -Double.MAX_VALUE;
+        box[3] = -Double.MAX_VALUE;
+    }
+
+    /** Widens the scratch box to take in the screen offset of a ground point. */
+    private void include(double along, double across) {
         final double x = along * cosine + across * sine;
         final double y = (along * sine - across * cosine) / 2.0;
         box[0] = Math.min(box[0], x);
@@ -275,6 +385,11 @@ public final class ShadowLayer {
         return stampedBottom;
     }
 
+    /** @return how many masks are kept for the sun of the moment */
+    int maskCount() {
+        return masks.size();
+    }
+
     /** Tells the layer that the changed area has been handed on, so the cleared cells need not be reported again. */
     public void handedOn() {
         clearedLeft = 0;
@@ -311,5 +426,121 @@ public final class ShadowLayer {
             changed[3] = stamped ? stampedBottom : stampedTop;
         }
         return changed;
+    }
+
+    /**
+     * The cells a shape covers around an anchor, cropped to the covered cells. The box is relative to the cell the
+     * anchor lies in, and a mask with no covered cell has no width.
+     */
+    private static final class Mask {
+        /** First column of the box, relative to the cell of the anchor. */
+        private final int left;
+        /** First row of the box, relative to the cell of the anchor. */
+        private final int top;
+        /** Number of columns of the box, zero when nothing is covered. */
+        private final int width;
+        /** Number of rows of the box. */
+        private final int height;
+        /** Whether each cell of the box is covered, row by row. */
+        private final boolean[] covered;
+
+        /** Stores the cropped cells of a box. */
+        private Mask(int left, int top, int width, int height, boolean[] covered) {
+            this.left = left;
+            this.top = top;
+            this.width = width;
+            this.height = height;
+            this.covered = covered;
+        }
+
+        /**
+         * Crops a box of cells to the smallest box that holds every covered cell.
+         *
+         * @param cells  the covered cells of the box, row by row
+         * @param left   first column of the box
+         * @param top    first row of the box
+         * @param wide   number of columns
+         * @param high   number of rows
+         * @return the cropped mask
+         */
+        private static Mask of(boolean[] cells, int left, int top, int wide, int high) {
+            int minX = Integer.MAX_VALUE;
+            int minY = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE;
+            int maxY = Integer.MIN_VALUE;
+            for (int y = 0; y < high; y++) {
+                for (int x = 0; x < wide; x++) {
+                    if (cells[y * wide + x]) {
+                        minX = Math.min(minX, x);
+                        maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+            }
+            if (maxX < minX) {
+                return new Mask(left, top, 0, 0, new boolean[0]);
+            }
+            final int croppedWide = maxX - minX + 1;
+            final int croppedHigh = maxY - minY + 1;
+            final boolean[] cropped = new boolean[croppedWide * croppedHigh];
+            for (int y = 0; y < croppedHigh; y++) {
+                System.arraycopy(cells, (y + minY) * wide + minX, cropped, y * croppedWide, croppedWide);
+            }
+            return new Mask(left + minX, top + minY, croppedWide, croppedHigh, cropped);
+        }
+    }
+
+    /**
+     * What makes two shapes cover the same cells for one sun: the silhouette or none for an ellipse, the width factor or
+     * the ellipse width, the ground row, and how far into its cell the anchor lies on each axis. One instance is reused
+     * for every lookup and a copy is made when a mask is stored.
+     */
+    private static final class MaskKey {
+        /** The silhouette of a sprite, compared by identity, or null for an ellipse. */
+        private Silhouette sprite;
+        /** The width factor of a sprite shadow, or the width in art pixels of an ellipse. */
+        private double size;
+        /** The ground row of a sprite shadow, zero for an ellipse. */
+        private double groundRow;
+        /** How far into its cell the anchor lies across, 0 up to but excluding 1. */
+        private double fractionX;
+        /** How far into its cell the anchor lies down, 0 up to but excluding 1. */
+        private double fractionY;
+
+        /** Sets every part of the key. */
+        private void set(Silhouette sprite, double size, double groundRow, double fractionX, double fractionY) {
+            this.sprite = sprite;
+            this.size = size;
+            this.groundRow = groundRow;
+            this.fractionX = fractionX;
+            this.fractionY = fractionY;
+        }
+
+        /** Returns an independent key with the same parts, for storing. */
+        private MaskKey copy() {
+            final MaskKey key = new MaskKey();
+            key.set(sprite, size, groundRow, fractionX, fractionY);
+            return key;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof MaskKey key)) {
+                return false;
+            }
+            return sprite == key.sprite && size == key.size && groundRow == key.groundRow
+                    && fractionX == key.fractionX && fractionY == key.fractionY;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = System.identityHashCode(sprite);
+            hash = 31 * hash + Double.hashCode(size);
+            hash = 31 * hash + Double.hashCode(groundRow);
+            hash = 31 * hash + Double.hashCode(fractionX);
+            hash = 31 * hash + Double.hashCode(fractionY);
+            return hash;
+        }
     }
 }

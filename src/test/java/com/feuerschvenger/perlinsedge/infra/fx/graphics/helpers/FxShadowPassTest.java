@@ -45,9 +45,12 @@ class FxShadowPassTest {
         return grey;
     }
 
+    /** The silhouette every test block shares, as the sprite cache hands out one silhouette per sprite. */
+    private static final Silhouette BLOCK = block(10, 12);
+
     private static ShadowList oneBlock(double x, double y) {
         final ShadowList list = new ShadowList();
-        list.addSilhouette(x, y, block(10, 12), 12, 1.0, 1.0);
+        list.addSilhouette(x, y, BLOCK, 12, 1.0, 1.0);
         return list;
     }
 
@@ -171,6 +174,79 @@ class FxShadowPassTest {
         assertEquals(255, second[63][120]);
         assertEquals(255, third[63][120], "the old place is clean once the shadow has moved");
         assertTrue(third[103][60] < 255);
+    }
+
+    /** Draws one frame with an explicit sun, which the render helper above keeps at noon. */
+    private static int[][] renderWithSun(FxShadowPass pass, Canvas canvas, ShadowList shadows, double originX,
+                                         double strength, double angle, double length) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        gc.setFill(Color.WHITE);
+        gc.fillRect(0, 0, WIDTH, HEIGHT);
+        pass.draw(gc, shadows, 2.0, originX, 0, WIDTH, HEIGHT, angle, length, strength);
+        final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
+        final int[][] grey = new int[HEIGHT][WIDTH];
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                grey[y][x] = reader.getArgb(x, y) & 0xFF;
+            }
+        }
+        return grey;
+    }
+
+    @Test
+    void aFrameWithTheSameInputsKeepsTheLayerAndDoesNotCastOrUploadAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final int[][] first = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        assertEquals(1, pass.recasts());
+        assertEquals(1, pass.uploads());
+
+        // A new list with the same content is the same frame as far as the shadows go
+        final int[][] second = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        final int[][] third = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+
+        assertEquals(1, pass.recasts(), "nothing changed, so nothing was cast again");
+        assertEquals(1, pass.uploads(), "and nothing was uploaded again");
+        assertTrue(Arrays.deepEquals(first, second), "the kept layer is drawn exactly as before");
+        assertTrue(Arrays.deepEquals(first, third));
+    }
+
+    @Test
+    void theStrengthOfTheDayChangesTheDarknessWithoutCastingAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+        final int[][] half = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 0.5));
+
+        assertEquals(1, pass.recasts());
+        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), half[63][120], 2);
+    }
+
+    @Test
+    void anythingTheLayerDependsOnCastsAgain() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 1.0));
+
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(122, 60), 2.0, 0, 0, 1.0));
+        assertEquals(2, pass.recasts(), "a shadow that moved");
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(122, 60), 2.0, 1, 0, 1.0));
+        assertEquals(3, pass.recasts(), "a camera that moved");
+        FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(122, 60), 4.0, 1, 0, 1.0));
+        assertEquals(4, pass.recasts(), "another art scale");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, oneBlock(122, 60), 1, 1.0, NOON + 0.1, 1.0));
+        assertEquals(5, pass.recasts(), "another sun step");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, oneBlock(122, 60), 1, 1.0, NOON + 0.1, 1.5));
+        assertEquals(6, pass.recasts(), "another shadow length");
+        final ShadowList fainter = new ShadowList();
+        fainter.addSilhouette(122, 60, block(10, 12), 12, 1.0, 0.5);
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, fainter, 1, 1.0, NOON + 0.1, 1.5));
+        assertEquals(7, pass.recasts(), "a shadow that faded");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, fainter, 1, 0.0, NOON + 0.1, 1.5));
+        assertEquals(8, pass.recasts(), "shadows that became too faint to see are wiped");
+        FxToolkitSupport.onFx(() -> renderWithSun(pass, canvas, new ShadowList(), 1, 0.0, NOON + 0.1, 1.5));
+        assertEquals(8, pass.recasts(), "while they stay invisible the list does not matter");
     }
 
     @Test

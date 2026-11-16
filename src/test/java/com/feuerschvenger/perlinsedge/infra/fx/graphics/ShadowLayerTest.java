@@ -311,6 +311,185 @@ class ShadowLayerTest {
         assertArrayEquals(new int[]{0, 0, 0, 0}, layer.changedBox());
     }
 
+    /** A silhouette with a canopy, a trunk and a root flare, so no mirror symmetry can hide a misplaced mask. */
+    private static Silhouette tree() {
+        final int[] pixels = new int[11 * 14];
+        for (int y = 0; y < 14; y++) {
+            for (int x = 0; x < 11; x++) {
+                final boolean canopy = y < 5 && x >= 1 && x <= 8 && !(y == 0 && x < 3);
+                final boolean trunk = x == 5 && y >= 5 && y < 13;
+                final boolean root = y == 12 && x >= 3 && x <= 6;
+                pixels[y * 11 + x] = canopy || trunk || root ? 0xFFFFFFFF : 0;
+            }
+        }
+        return new Silhouette(11, 14, pixels);
+    }
+
+    /** Rasterises a sprite shadow cell by cell over its whole candidate box, with no mask in between. */
+    private static int[] referenceSprite(Silhouette sprite, double anchorX, double anchorY, double groundRow,
+                                         double widthFactor, double angle, double length) {
+        final double cosine = Math.cos(angle);
+        final double sine = Math.sin(angle);
+        final int[] cells = new int[SIZE * SIZE];
+        final double halfWidth = sprite.width() / 2.0 * widthFactor;
+        final double reach = length * groundRow;
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+        for (double[] corner : new double[][]{{0, -halfWidth}, {0, halfWidth}, {reach, -halfWidth}, {reach, halfWidth}}) {
+            final double x = corner[0] * cosine + corner[1] * sine;
+            final double y = (corner[0] * sine - corner[1] * cosine) / 2.0;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        }
+        final int left = Math.max(0, (int) Math.floor(anchorX + minX));
+        final int top = Math.max(0, (int) Math.floor(anchorY + minY));
+        final int right = Math.min(SIZE, (int) Math.ceil(anchorX + maxX));
+        final int bottom = Math.min(SIZE, (int) Math.ceil(anchorY + maxY));
+        for (int y = top; y < bottom; y++) {
+            final double dy = y + 0.5 - anchorY;
+            for (int x = left; x < right; x++) {
+                final double dx = x + 0.5 - anchorX;
+                final double along = cosine * dx + 2.0 * sine * dy;
+                if (along < 0.0) {
+                    continue;
+                }
+                final int row = (int) Math.ceil(groundRow - along / length) - 1;
+                final int column = (int) Math.floor((sine * dx - 2.0 * cosine * dy) / widthFactor + sprite.width() / 2.0);
+                if (row >= 0 && row < sprite.height() && column >= 0 && column < sprite.width()
+                        && sprite.isSolid(column, row)) {
+                    cells[y * SIZE + x] = 255;
+                }
+            }
+        }
+        return cells;
+    }
+
+    /** Rasterises an ellipse shadow cell by cell over its whole candidate box, with no mask in between. */
+    private static int[] referenceEllipse(double anchorX, double anchorY, double width, double angle, double length) {
+        final double cosine = Math.cos(angle);
+        final double sine = Math.sin(angle);
+        final int[] cells = new int[SIZE * SIZE];
+        final double radius = width / 2.0;
+        final double alongRadius = radius * (1.0 + ShadowLayer.ELLIPSE_REACH * length);
+        final double alongCentre = radius * ShadowLayer.ELLIPSE_REACH * length;
+        for (int y = 0; y < SIZE; y++) {
+            final double dy = y + 0.5 - anchorY;
+            for (int x = 0; x < SIZE; x++) {
+                final double dx = x + 0.5 - anchorX;
+                final double along = (cosine * dx + 2.0 * sine * dy - alongCentre) / alongRadius;
+                final double across = (sine * dx - 2.0 * cosine * dy) / radius;
+                if (along * along + across * across <= 1.0) {
+                    cells[y * SIZE + x] = 255;
+                }
+            }
+        }
+        return cells;
+    }
+
+    private static int[] alphas(ShadowLayer layer) {
+        final int[] cells = new int[SIZE * SIZE];
+        for (int i = 0; i < cells.length; i++) {
+            cells[i] = layer.pixels()[i] >>> 24;
+        }
+        return cells;
+    }
+
+    @Test
+    void aCachedMaskGivesTheSameCellsAsRasterisingTheWholeBoxCellByCell() {
+        final Silhouette[] shapes = {tree(), block(10, 20), block(7, 3)};
+        final double[] sunSteps = {0.5 / 17, 3.5 / 17, 8.5 / 17, 12.5 / 17, 16.5 / 17};
+        final double[] lengths = {0.6, 1.0, 1.7, 2.0};
+        final double[][] anchors = {{60, 40}, {60.5, 40}, {61.25, 41.5}, {59.75, 40.25}, {20, 30.5}, {100.5, 90.75}};
+        for (Silhouette shape : shapes) {
+            for (double sun : sunSteps) {
+                for (double length : lengths) {
+                    final double angle = SunScreenMapping.shadowAngle(sun);
+                    final ShadowLayer layer = new ShadowLayer();
+                    for (double[] anchor : anchors) {
+                        for (double widthFactor : new double[]{1.0, 0.6}) {
+                            // The first frame rasterises the shape, the second one stamps the mask kept from it
+                            for (int frame = 0; frame < 2; frame++) {
+                                layer.prepare(SIZE, SIZE, angle, length);
+                                layer.castSprite(shape, anchor[0], anchor[1], shape.height(), widthFactor, 255);
+                                assertArrayEquals(
+                                        referenceSprite(shape, anchor[0], anchor[1], shape.height(), widthFactor, angle,
+                                                length),
+                                        alphas(layer), "sun " + sun + " length " + length + " anchor "
+                                                + anchor[0] + "," + anchor[1] + " frame " + frame);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aCachedEllipseGivesTheSameCellsAsRasterisingTheWholeBoxCellByCell() {
+        final double[][] anchors = {{60, 40}, {60.5, 40.5}, {61.25, 41.75}};
+        for (double sun : new double[]{0.5 / 17, 8.5 / 17, 16.5 / 17}) {
+            for (double length : new double[]{0.6, 2.0}) {
+                final double angle = SunScreenMapping.shadowAngle(sun);
+                final ShadowLayer layer = new ShadowLayer();
+                for (double[] anchor : anchors) {
+                    for (int frame = 0; frame < 2; frame++) {
+                        layer.prepare(SIZE, SIZE, angle, length);
+                        layer.castEllipse(anchor[0], anchor[1], 18, 255);
+                        assertArrayEquals(referenceEllipse(anchor[0], anchor[1], 18, angle, length), alphas(layer),
+                                "sun " + sun + " length " + length + " anchor " + anchor[0] + "," + anchor[1]);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aShapeKeepsItsMaskForTheSameSunAndLosesItWhenTheSunMoves() {
+        final ShadowLayer layer = layer(NOON, 1.0);
+        final Silhouette tree = tree();
+        layer.castSprite(tree, 40, 30, 14, 1.0, 255);
+        layer.castSprite(tree, 80, 60, 14, 1.0, 255);
+        assertEquals(1, layer.maskCount(), "the same shape at the same fraction of a cell shares one mask");
+
+        layer.castSprite(tree, 80.5, 60, 14, 1.0, 255);
+        assertEquals(2, layer.maskCount());
+
+        layer.prepare(SIZE, SIZE, NOON, 1.0);
+        layer.castSprite(tree, 40, 30, 14, 1.0, 255);
+        assertEquals(2, layer.maskCount(), "a new frame of the same sun keeps what it has learned");
+
+        layer.prepare(SIZE, SIZE, NOON + 0.2, 1.0);
+        assertEquals(0, layer.maskCount(), "masks of another sun are no use and are dropped");
+    }
+
+    @Test
+    void theStampedBoxIsExactlyTheBoxOfTheCellsThatWereWritten() {
+        final ShadowLayer layer = layer(MORNING * 0.8, 1.6);
+        layer.castSprite(tree(), AX, AY, 14, 1.0, 255);
+        layer.castEllipse(30.5, 90, 12, 200);
+
+        final int[] cells = extent(layer);
+        assertEquals(cells[0], layer.stampedLeft());
+        assertEquals(cells[1], layer.stampedTop());
+        assertEquals(cells[2] + 1, layer.stampedRight());
+        assertEquals(cells[3] + 1, layer.stampedBottom());
+    }
+
+    @Test
+    void aShadowThatCoversNoCellLeavesTheBoxEmpty() {
+        final ShadowLayer layer = layer(NOON, 1.0);
+        // A transparent sprite and a shadow wholly off the layer write nothing
+        layer.castSprite(new Silhouette(4, 4, new int[16]), AX, AY, 4, 1.0, 255);
+        layer.castSprite(block(10, 10), -200, -200, 10, 1.0, 255);
+
+        assertFalse(layer.hasShadows());
+        assertEquals(0, count(layer));
+    }
+
     @Test
     void aZeroAlphaOrZeroWidthCastsNothing() {
         final ShadowLayer layer = layer(NOON, 1.0);

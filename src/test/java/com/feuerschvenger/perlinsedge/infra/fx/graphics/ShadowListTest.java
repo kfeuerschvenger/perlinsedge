@@ -1,8 +1,10 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import org.junit.jupiter.api.Test;
@@ -73,6 +75,72 @@ class ShadowListTest {
         list.add(1, 1, 4, 1.0);
 
         assertNull(list.silhouette(0), "a reused slot must not keep the sprite of an earlier frame");
+    }
+
+    @Test
+    void aCopyHoldsTheSameShadowsAndIsRecognisedAsTheSame() {
+        final Silhouette silhouette = new Silhouette(1, 1, new int[]{0xFFFFFFFF});
+        final ShadowList list = new ShadowList();
+        list.add(1, 2, 3, 0.5);
+        list.addSilhouette(4, 5, silhouette, 1, 1.0, 1.0);
+        for (int i = 0; i < 200; i++) {
+            list.add(i, i, 5, 1.0);
+        }
+
+        final ShadowList copy = new ShadowList();
+        copy.copyFrom(list);
+
+        assertEquals(202, copy.size());
+        assertSame(silhouette, copy.silhouette(1));
+        assertEquals(4, copy.centreX(1));
+        assertTrue(copy.sameShadowsAs(list));
+        assertTrue(list.sameShadowsAs(copy));
+    }
+
+    @Test
+    void anyDifferenceInAShadowMakesTheListsDiffer() {
+        final Silhouette silhouette = new Silhouette(1, 1, new int[]{0xFFFFFFFF});
+        final Silhouette other = new Silhouette(1, 1, new int[]{0xFFFFFFFF});
+        final ShadowList base = new ShadowList();
+        base.addSilhouette(4, 5, silhouette, 1, 1.0, 1.0);
+
+        final ShadowList moved = new ShadowList();
+        moved.addSilhouette(4.5, 5, silhouette, 1, 1.0, 1.0);
+        final ShadowList fainter = new ShadowList();
+        fainter.addSilhouette(4, 5, silhouette, 1, 1.0, 0.5);
+        final ShadowList narrower = new ShadowList();
+        narrower.addSilhouette(4, 5, silhouette, 1, 0.5, 1.0);
+        final ShadowList otherShape = new ShadowList();
+        otherShape.addSilhouette(4, 5, other, 1, 1.0, 1.0);
+        final ShadowList longer = new ShadowList();
+        longer.addSilhouette(4, 5, silhouette, 1, 1.0, 1.0);
+        longer.add(1, 1, 1, 1);
+
+        assertFalse(base.sameShadowsAs(moved));
+        assertFalse(base.sameShadowsAs(fainter));
+        assertFalse(base.sameShadowsAs(narrower));
+        assertFalse(base.sameShadowsAs(otherShape));
+        assertFalse(base.sameShadowsAs(longer));
+        assertTrue(new ShadowList().sameShadowsAs(new ShadowList()));
+    }
+
+    @Test
+    void copyingAShorterListDropsTheSpritesOfTheLongerOne() {
+        final Silhouette silhouette = new Silhouette(1, 1, new int[]{0xFFFFFFFF});
+        final ShadowList copy = new ShadowList();
+        final ShadowList long3 = new ShadowList();
+        long3.addSilhouette(1, 1, silhouette, 1, 1.0, 1.0);
+        long3.addSilhouette(2, 2, silhouette, 1, 1.0, 1.0);
+        long3.addSilhouette(3, 3, silhouette, 1, 1.0, 1.0);
+        copy.copyFrom(long3);
+
+        final ShadowList short1 = new ShadowList();
+        short1.add(9, 9, 2, 1.0);
+        copy.copyFrom(short1);
+
+        assertEquals(1, copy.size());
+        assertNull(copy.silhouette(0));
+        assertTrue(copy.sameShadowsAs(short1));
     }
 
     @Test
