@@ -224,7 +224,9 @@ public class FxRenderer {
 
         // An object outside the view still casts a shadow into it when the shadow is long enough to reach, so the
         // walk covers a wider ring of tiles, and only the casting is done for the tiles outside the view
-        final double artScale = ZoomSteps.artScale(zoom);
+        // The art scale is snapped to a whole number once here, and the shadow and light passes take this value, so the
+        // grids they cast on and the integer scale they draw at can never disagree
+        final double artScale = Math.max(1, Math.rint(ZoomSteps.artScale(zoom)));
         shadowReach = castShadows ? FxShadowHelper.reachMargin(MAX_CASTER_ART_HEIGHT, MAX_CASTER_ART_HALF_WIDTH,
                 shadowLengthFactor, artScale) : 0.0;
         // Shadows fall down the screen, so a caster below the view reaches into it far less than one above or beside it,
