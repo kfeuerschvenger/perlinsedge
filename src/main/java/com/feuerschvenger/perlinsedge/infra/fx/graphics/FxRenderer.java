@@ -52,13 +52,10 @@ public class FxRenderer {
     private static final double MIN_SHIMMER_ALPHA = 0.02;
 
     /** Height in art pixels of the tallest sprite that casts a shadow, which bounds how far a shadow can reach. */
-    private static final double MAX_CASTER_ART_HEIGHT = 48.0;
+    static final double MAX_CASTER_ART_HEIGHT = 48.0;
 
     /** Half the width in art pixels of the widest sprite that casts a shadow. */
-    private static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
-
-    /** Width in art pixels the shadow is sized from for a resource drawn without art. */
-    private static final double FALLBACK_RESOURCE_ART_WIDTH = 12.0;
+    static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
 
     /** Width in art pixels the shadow is sized from for a player drawn without art. */
     private static final double FALLBACK_PLAYER_ART_WIDTH = 12.0;
@@ -186,6 +183,9 @@ public class FxRenderer {
         final DayCycle sky = gameState.getDayCycle();
         final double shadowStrength = sky.shadowStrength();
         final boolean castShadows = shadowStrength >= FxShadowHelper.MIN_VISIBLE_STRENGTH;
+        // The sun of the frame, read once and shared by the reach of the casters and the shadow pass
+        final double shadowSunProgress = sky.shadowSunProgress();
+        final double shadowLengthFactor = sky.shadowLengthFactor();
 
         TileMap map = gameState.getCurrentMap();
         final double zoom = camera.getZoom();
@@ -204,7 +204,6 @@ public class FxRenderer {
         final double tileHeight = config.graphics().getTileHeight() * zoom;
         final double halfTileWidth = config.graphics().getTileHalfWidth() * zoom;
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
-        final double waterDepthOffset = halfTileHeight * 0.5;
         final int mapWidth = map.getWidth();
         final int mapHeight = map.getHeight();
 
@@ -221,7 +220,7 @@ public class FxRenderer {
         // walk covers a wider ring of tiles, and only the casting is done for the tiles outside the view
         final double artScale = ZoomSteps.artScale(zoom);
         shadowReach = castShadows ? FxShadowHelper.reachMargin(MAX_CASTER_ART_HEIGHT, MAX_CASTER_ART_HALF_WIDTH,
-                sky.shadowLengthFactor(), artScale) : 0.0;
+                shadowLengthFactor, artScale) : 0.0;
         final int extraTiles = castShadows ? (int) Math.ceil(shadowReach / halfTileHeight) : 0;
         final int walkMinX = Math.max(0, minTileX - extraTiles);
         final int walkMaxX = Math.min(mapWidth, maxTileX + extraTiles);
@@ -254,9 +253,8 @@ public class FxRenderer {
 
                 // A water tile with art is drawn as its sunk bed and its sheet from the land top, the one without
                 // art is a flat stand-in lowered by hand
-                if (!isGrayscaleEnabled && tile.getType().isWater() && tileSprite == null) {
-                    screenY += waterDepthOffset;
-                }
+                screenY += FxObjectShadows.waterDrop(!isGrayscaleEnabled && tile.getType().isWater(),
+                        tileSprite != null, halfTileHeight);
                 tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
 
                 // Add resource if present
@@ -280,21 +278,21 @@ public class FxRenderer {
                     final double shakeX = HitShake.screenOffset(secondsSinceHit, artScale);
                     // A low sprite is drawn lower so its foot touches the ground, and its shadow follows that contact point
                     final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * artScale : 0.0;
-                    final double contact = spriteMetadata != null ? spriteMetadata.getContactArtPixels() * artScale : 0.0;
                     renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
                     if (castShadows) {
-                        addResourceShadow(resource.getType(), resourceImage, screenX,
-                                screenY + halfTileHeight + contact, contact > 0);
+                        FxObjectShadows.addForTile(shadows, resource.getType(), resourceImage,
+                                spriteMetadata != null ? spriteMetadata.getContactArtPixels() : 0, null, screenX,
+                                screenY, halfTileHeight, artScale);
                     }
                 }
                 // Add building if present
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
-                    final double buildingShadow = castShadows ? GroundShadow.widthFor(building.getType()) : 0.0;
-                    if (buildingShadow > 0) {
-                        shadows.add(screenX, screenY + halfTileHeight, buildingShadow, 1.0);
+                    if (castShadows) {
+                        FxObjectShadows.addForTile(shadows, null, null, 0, building.getType(), screenX, screenY,
+                                halfTileHeight, artScale);
                     }
                 }
             }
@@ -403,8 +401,8 @@ public class FxRenderer {
         for (int i = 0, count = tileQueue.size(); i < count; i++) {
             drawRenderable(tileQueue.get(i));
         }
-        shadowPass.draw(gc, shadows, ZoomSteps.artScale(zoom), offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
-                SunScreenMapping.shadowAngle(sky.shadowSunProgress()), sky.shadowLengthFactor(), shadowStrength);
+        shadowPass.draw(gc, shadows, artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
+                SunScreenMapping.shadowAngle(shadowSunProgress), shadowLengthFactor, shadowStrength);
         renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {
             drawRenderable(renderQueue.get(i));
@@ -434,52 +432,39 @@ public class FxRenderer {
     // Helper methods --------------------------------------------------------
 
     /**
-     * Adds the shadow of a resource: the silhouette of its sprite, or an ellipse when it is drawn without art.
-     *
-     * @param type    the resource type
-     * @param image   its sprite, or null when it has none
-     * @param screenX screen X of the ground contact point
-     * @param groundY screen Y of the ground contact point
-     * @param low     true for a low sprite, which touches the ground at its lowest painted row
-     */
-    private void addResourceShadow(ResourceType type, Image image, double screenX, double groundY, boolean low) {
-        if (image != null) {
-            // A low sprite touches the ground at its lowest painted row, a tall one at its bottom edge
-            final Silhouette silhouette = SilhouetteSprites.of(image);
-            final double groundRow = low ? silhouette.paintedBottom() : silhouette.height();
-            shadows.addSilhouette(screenX, groundY, silhouette, groundRow, 1.0, 1.0);
-        } else {
-            shadows.add(screenX, groundY, GroundShadow.widthFor(type, FALLBACK_RESOURCE_ART_WIDTH), 1.0);
-        }
-    }
-
-    /**
      * Casts the shadows of a tile that is not drawn, when they are long enough to reach into the view. Only the
-     * shadow is added, so nothing outside the view is queued for drawing.
+     * shadow is added, so nothing outside the view is queued for drawing. It goes through the same
+     * {@link FxObjectShadows} calls as a tile in the view, including the drop of a water tile with no art, so an
+     * object throws its shadow from the same point either way.
      */
     private void castOffscreenShadows(TileMap map, Tile tile, int x, int y, double screenX, double screenY,
                                       double halfTileHeight, double artScale, long worldSeed) {
-        final double groundY = screenY + halfTileHeight;
-        if (!FxShadowHelper.canReach(screenX, groundY, canvas.getWidth(), canvas.getHeight(), shadowReach)) {
+        if (!FxShadowHelper.canReach(screenX, screenY + halfTileHeight, canvas.getWidth(), canvas.getHeight(),
+                shadowReach)) {
             return;
         }
         final Resource resource = tile.getWorldResource();
-        if (tile.hasResource() && resource != null) {
+        final boolean hasResource = tile.hasResource() && resource != null;
+        final Building building = tile.getBuilding();
+        final boolean hasBuilding = tile.hasBuilding() && building != null;
+        if (!hasResource && !hasBuilding) {
+            return;
+        }
+        final boolean water = tile.getType().isWater();
+        final double drop = FxObjectShadows.waterDrop(water,
+                water && spriteManager.getTileSprite(activeMapType, tile.getType(), x, y) != null, halfTileHeight);
+        Image image = null;
+        int contactArt = 0;
+        if (hasResource) {
             final String preferredKind = resourceKinds.preferredKind(map, activeMapType, resource.getType(), x, y,
                     worldSeed);
             final SpriteManager.SpriteMetadata metadata = spriteManager.getResourceSprite(
                     activeMapType, resource.getType(), x, y, worldSeed, preferredKind);
-            final Image image = metadata != null ? metadata.getImage() : null;
-            final double contact = metadata != null ? metadata.getContactArtPixels() * artScale : 0.0;
-            addResourceShadow(resource.getType(), image, screenX, groundY + contact, contact > 0);
+            image = metadata != null ? metadata.getImage() : null;
+            contactArt = metadata != null ? metadata.getContactArtPixels() : 0;
         }
-        final Building building = tile.getBuilding();
-        if (tile.hasBuilding() && building != null) {
-            final double width = GroundShadow.widthFor(building.getType());
-            if (width > 0) {
-                shadows.add(screenX, groundY, width, 1.0);
-            }
-        }
+        FxObjectShadows.addForTile(shadows, hasResource ? resource.getType() : null, image, contactArt,
+                hasBuilding ? building.getType() : null, screenX, screenY + drop, halfTileHeight, artScale);
     }
 
     /** The preview of the building being placed, recreated only when the tile or the colour changes. */
