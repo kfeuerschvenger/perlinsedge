@@ -285,8 +285,89 @@ class EnemyChaseLeashTest {
 
         assertFalse(movement.isJumping());
         assertFalse(slime.getCurrentTileX() == targetX && slime.getCurrentTileY() == targetY,
-                "it came down on the tile it took off from");
+                "it came down on another tile");
         assertEquals(slime.getCurrentTileX(), slime.getPosX(), 1e-9);
+    }
+
+    @Test
+    void aHopBentAwayFromThePlayerKeepsThePositionContinuous() {
+        TileMap map = grass(60, 20);
+        Slime slime = new Slime(5, 10);
+        Player player = new Player(30, 10);
+        slime.takeDamage(1);
+        SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
+        for (int i = 0; i < 600 && !movement.isJumping(); i++) {
+            slime.update(STEP, map, player);
+        }
+        assertTrue(movement.isJumping(), "precondition: in the air");
+        player.setPosition(slime.getTargetTileX(), slime.getTargetTileY());
+
+        double maxStep = 0;
+        for (int i = 0; i < 120 && movement.isJumping(); i++) {
+            final double x = slime.getPosX();
+            final double y = slime.getPosY();
+            slime.update(STEP, map, player);
+            maxStep = Math.max(maxStep, Math.hypot(slime.getPosX() - x, slime.getPosY() - y));
+        }
+
+        assertFalse(movement.isJumping());
+        assertTrue(maxStep < 0.5, "no jump of a tile in one frame, the largest step was " + maxStep);
+    }
+
+    @Test
+    void aHopWithNoFreeTileToBendToReturnsToTheTakeOffTileWithoutASnap() {
+        TileMap map = grass(60, 20);
+        Slime slime = new Slime(5, 10);
+        Player player = new Player(30, 10);
+        slime.takeDamage(1);
+        SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
+        for (int i = 0; i < 600 && !movement.isJumping(); i++) {
+            slime.update(STEP, map, player);
+        }
+        assertTrue(movement.isJumping(), "precondition: in the air");
+        final int takeOffX = slime.getCurrentTileX();
+        final int takeOffY = slime.getCurrentTileY();
+        final int targetX = slime.getTargetTileX();
+        final int targetY = slime.getTargetTileY();
+        for (int x = takeOffX - 2; x <= takeOffX + 2; x++) {
+            for (int y = takeOffY - 2; y <= takeOffY + 2; y++) {
+                if (!(x == takeOffX && y == takeOffY) && !(x == targetX && y == targetY)) {
+                    map.setTile(x, y, new Tile(x, y, TileType.DEEP_WATER));
+                }
+            }
+        }
+        player.setPosition(targetX, targetY);
+
+        double maxStep = 0;
+        for (int i = 0; i < 120 && movement.isJumping(); i++) {
+            final double x = slime.getPosX();
+            final double y = slime.getPosY();
+            slime.update(STEP, map, player);
+            maxStep = Math.max(maxStep, Math.hypot(slime.getPosX() - x, slime.getPosY() - y));
+        }
+
+        assertFalse(movement.isJumping());
+        assertEquals(takeOffX, slime.getCurrentTileX());
+        assertEquals(takeOffY, slime.getCurrentTileY());
+        assertTrue(maxStep < 0.5, "no jump of a tile in one frame, the largest step was " + maxStep);
+    }
+
+    @Test
+    void aSlimeBlockedByThePlayersStepDoesNotSearchOnEveryUpdate() {
+        TileMap map = grass(60, 20);
+        Slime slime = new Slime(5, 10);
+        Player player = new Player(7, 10);
+        player.setTargetTileX(6);
+        player.setTargetTileY(10);
+        slime.takeDamage(1);
+        SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
+
+        for (int i = 0; i < 18; i++) {
+            slime.update(STEP, map, player);
+        }
+
+        assertFalse(movement.isJumping());
+        assertTrue(movement.pathSearchCount() <= 3, "searches: " + movement.pathSearchCount());
     }
 
     @Test

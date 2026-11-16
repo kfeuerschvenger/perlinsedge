@@ -23,6 +23,12 @@ final class PathPlanner {
 
     private double backoffSeconds;
     private double secondsUntilNextSearch;
+    private int searches;
+
+    /** @return how many searches have run, not counting the calls refused while backing off */
+    int searchCount() {
+        return searches;
+    }
 
     /**
      * Advances the retry timer.
@@ -53,6 +59,7 @@ final class PathPlanner {
             return null;
         }
 
+        searches++;
         List<PathNode> path = new Pathfinder(map).findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES);
         if (path == null) {
             backoffSeconds = backoffSeconds == 0
