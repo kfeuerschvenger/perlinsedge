@@ -10,7 +10,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.model.*;
+import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
+import com.feuerschvenger.perlinsedge.domain.world.time.SunScreenMapping;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.CursorStyle;
@@ -47,6 +51,9 @@ public class FxRenderer {
     /** Shimmer lines fainter than this are skipped, since they are not visible. */
     private static final double MIN_SHIMMER_ALPHA = 0.02;
 
+    /** Shadows weaker than this share of their full opacity are not cast. */
+    private static final double MIN_SHADOW_STRENGTH = 0.004;
+
     /** Width in art pixels the shadow is sized from for a resource drawn without art. */
     private static final double FALLBACK_RESOURCE_ART_WIDTH = 12.0;
 
@@ -75,6 +82,10 @@ public class FxRenderer {
     /** The depth sorted objects of a frame: resources, buildings, entities, items and the tile cursor. */
     private final RenderQueue renderQueue = new RenderQueue();
     private final ShadowList shadows = new ShadowList();
+    /** Casts the shadows of a frame into one layer and lays it over the canvas once. */
+    private final FxShadowPass shadowPass = new FxShadowPass();
+    /** Lays the tint of the time of day over the world. */
+    private final FxSkyTint skyTint = new FxSkyTint();
     private final ColumnPainter columns;
     /** The palm or cactus choice of the desert trees, worked out once per tree instead of once per frame. */
     private final ResourceKindCache resourceKinds = new ResourceKindCache();
@@ -166,6 +177,10 @@ public class FxRenderer {
         this.currentFrameGameTime = gameState.getGameTime();
         this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
         final boolean paused = gameState.isGamePaused();
+        // Nothing is cast, and nothing is read from the sprites, while the shadows are too faint to see
+        final DayCycle sky = gameState.getDayCycle();
+        final double shadowStrength = sky.shadowStrength();
+        final boolean castShadows = shadowStrength >= MIN_SHADOW_STRENGTH;
 
         TileMap map = gameState.getCurrentMap();
         final double zoom = camera.getZoom();
@@ -249,16 +264,24 @@ public class FxRenderer {
                     final double contact = spriteMetadata != null ? spriteMetadata.getContactArtPixels() * artScale : 0.0;
                     renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
-                    shadows.add(screenX, screenY + halfTileHeight + contact,
-                            GroundShadow.widthFor(resource.getType(),
-                                    resourceImage != null ? resourceImage.getWidth() : FALLBACK_RESOURCE_ART_WIDTH),
-                            1.0);
+                    if (castShadows) {
+                        if (resourceImage != null) {
+                            // A low sprite touches the ground at its lowest painted row, a tall one at its bottom edge
+                            final Silhouette silhouette = SilhouetteSprites.of(resourceImage);
+                            final double groundRow = contact > 0 ? silhouette.paintedBottom() : silhouette.height();
+                            shadows.addSilhouette(screenX, screenY + halfTileHeight + contact, silhouette, groundRow,
+                                    1.0, 1.0);
+                        } else {
+                            shadows.add(screenX, screenY + halfTileHeight + contact,
+                                    GroundShadow.widthFor(resource.getType(), FALLBACK_RESOURCE_ART_WIDTH), 1.0);
+                        }
+                    }
                 }
                 // Add building if present
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
-                    final double buildingShadow = GroundShadow.widthFor(building.getType());
+                    final double buildingShadow = castShadows ? GroundShadow.widthFor(building.getType()) : 0.0;
                     if (buildingShadow > 0) {
                         shadows.add(screenX, screenY + halfTileHeight, buildingShadow, 1.0);
                     }
@@ -309,9 +332,13 @@ public class FxRenderer {
             renderQueue.add(playerX, playerY, playerDepth, player, playerSprite, false, null);
             // The sprite stands on the tile centre
             final double playerFeetY = playerY + halfTileHeight;
-            if (FxShadowHelper.isOnScreen(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight())) {
-                final double playerWidth = playerSprite != null ? playerSprite.getWidth() : FALLBACK_PLAYER_ART_WIDTH;
-                shadows.add(playerX, playerFeetY, playerWidth * GroundShadow.PLAYER_FRACTION, 1.0);
+            if (castShadows && FxShadowHelper.isOnScreen(playerX, playerFeetY, canvas.getWidth(), canvas.getHeight())) {
+                if (playerSprite != null) {
+                    final Silhouette silhouette = SilhouetteSprites.of(playerSprite);
+                    shadows.addSilhouette(playerX, playerFeetY, silhouette, silhouette.height(), 1.0, 1.0);
+                } else {
+                    shadows.add(playerX, playerFeetY, FALLBACK_PLAYER_ART_WIDTH * GroundShadow.PLAYER_FRACTION, 1.0);
+                }
             }
         }
 
@@ -330,7 +357,8 @@ public class FxRenderer {
                 double enemyDrawDepth = enemyScreenY + (halfTileHeight * 1.5);
 
                 renderQueue.add(enemyScreenX, enemyScreenY, enemyDrawDepth, enemy, null, false, null);
-                if (FxShadowHelper.isOnScreen(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight())) {
+                if (castShadows
+                        && FxShadowHelper.isOnScreen(enemyScreenX, enemyScreenY, canvas.getWidth(), canvas.getHeight())) {
                     if (enemy instanceof Slime slime) {
                         FxEnemyDrawingHelper.addSlimeShadow(shadows, enemyScreenX, enemyScreenY, zoom, slime);
                     } else {
@@ -362,7 +390,8 @@ public class FxRenderer {
         for (int i = 0, count = tileQueue.size(); i < count; i++) {
             drawRenderable(tileQueue.get(i));
         }
-        FxShadowHelper.draw(gc, shadows, zoom);
+        shadowPass.draw(gc, shadows, ZoomSteps.artScale(zoom), offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
+                SunScreenMapping.shadowAngle(sky.shadowSunProgress()), sky.shadowLengthFactor(), shadowStrength);
         renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {
             drawRenderable(renderQueue.get(i));
@@ -370,6 +399,10 @@ public class FxRenderer {
         if (player != null) {
             renderPlayerAttack(gc, player, halfTileWidth, halfTileHeight, offsetX, offsetY);
         }
+        // The sky tint covers the whole world, tiles, shadows and objects alike. It is laid on before the damage
+        // numbers, which are readable text and stay untinted, and the hurt glow, the debug text and the interface
+        // panels come after it or are not part of the canvas at all.
+        skyTint.draw(gc, sky, canvas.getWidth(), canvas.getHeight());
         FxDamageNumbersPainter.draw(gc, gameState.getDamageNumbers(), currentFrameGameTime, halfTileWidth,
                 halfTileHeight, offsetX, offsetY, zoom, canvas.getWidth(), canvas.getHeight());
         gc.restore();

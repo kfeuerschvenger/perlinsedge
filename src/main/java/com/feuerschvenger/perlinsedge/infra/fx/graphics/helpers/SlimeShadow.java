@@ -3,8 +3,8 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 /**
  * Pure geometry of the slime ground shadow, returned as plain numbers so a frame allocates nothing. The shadow is centred on the ground point, so its position never depends
  * on how high the slime is. Height only shrinks and fades it, the way a shadow thins out under something in the air.
- * The ground shadow pass draws it from a pre-baked ellipse that already carries the shadow opacity, so the opacity
- * here is the share of it that is left.
+ * The shadow pass casts it from the silhouette of the slime, narrowed by the width here, and the opacity here is the
+ * share of the shadow opacity that is left.
  */
 public final class SlimeShadow {
 

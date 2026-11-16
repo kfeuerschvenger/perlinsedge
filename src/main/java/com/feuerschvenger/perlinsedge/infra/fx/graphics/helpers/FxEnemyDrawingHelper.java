@@ -7,7 +7,8 @@ import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import javafx.scene.canvas.GraphicsContext;
@@ -98,10 +99,19 @@ public final class FxEnemyDrawingHelper {
                 ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
         final double scale = ZoomSteps.artScale(zoom);
         final Image frame = SpriteManager.getInstance().getSlimeFrame(0);
-        final double size = frame != null ? frame.getWidth() * scale * GroundShadow.SPRITE_ENEMY_FRACTION : BASE_SLIME_SIZE * zoom;
+        final double fade = SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
+        if (frame != null) {
+            // The shadow narrows with the height of the jump by the same share the oval would, and keeps the form of the slime
+            final double size = frame.getWidth() * scale;
+            final double widthFactor = SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR)
+                    / SlimeShadow.width(size, 0.0, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
+            final Silhouette silhouette = SilhouetteSprites.of(frame);
+            shadows.addSilhouette(tileTopX, baseDrawY + jumpHeight, silhouette, silhouette.height(), widthFactor, fade);
+            return;
+        }
         shadows.add(tileTopX, baseDrawY + jumpHeight,
-                SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR) / scale,
-                SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
+                SlimeShadow.width(BASE_SLIME_SIZE * zoom, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR) / scale,
+                fade);
     }
 
     /**
