@@ -2,8 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
-import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -12,6 +11,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The motion of a slime hop: continuous in position and phase, bounded per tick, and never landing on the player. */
@@ -232,6 +233,83 @@ class SlimeHopTest {
         assertFalse(scene.movement.isHovering());
         assertTrue(scene.maxTick <= MAX_TICK_DISTANCE, "largest step " + scene.maxTick);
         scene.assertLandedCleanly(16, 10);
+    }
+
+    @Test
+    void aHoveringSlimeLetsGoOfTheTileItWasAimingAtAndLooksForALandingWithABackoff() {
+        Scene scene = new Scene();
+        scene.takeOff();
+        final int targetX = scene.slime.getTargetTileX();
+        final int targetY = scene.slime.getTargetTileY();
+        floodAroundTakeOff(scene.map, targetX, targetY);
+        scene.tick(10);
+        scene.player.setPosition(targetX, targetY);
+        scene.player.setTargetTileX(TAKE_OFF_X);
+        scene.player.setTargetTileY(TAKE_OFF_Y);
+        scene.tick(2);
+        assertTrue(scene.movement.isHovering(), "precondition: hanging with no tile to land on");
+
+        final Slime other = new Slime(targetX + 1, targetY + 1);
+        assertNull(scene.occupancy.ownerOf(targetX, targetY), "the tile it aimed at is let go");
+        assertTrue(scene.occupancy.tryReserve(other, targetX, targetY), "and another enemy may take it");
+        assertSame(scene.slime, scene.occupancy.ownerOf(TAKE_OFF_X, TAKE_OFF_Y), "the take-off tile stays held");
+
+        final int checks = scene.movement.hoverChecks();
+        scene.tick(180);
+
+        assertTrue(scene.movement.isHovering());
+        assertTrue(scene.movement.hoverChecks() - checks <= 8,
+                "looked " + (scene.movement.hoverChecks() - checks) + " times in three seconds");
+    }
+
+    @Test
+    void aTargetTakenByAnotherEnemyInTheAirIsLeftForAnotherTileAndNeverLandedOn() {
+        Scene scene = new Scene();
+        scene.takeOff();
+        final int targetX = scene.slime.getTargetTileX();
+        final int targetY = scene.slime.getTargetTileY();
+        scene.tick(8);
+
+        // Another enemy ends up holding the tile the slime is aiming at
+        scene.occupancy.release(scene.slime);
+        final Slime other = new Slime(targetX, targetY);
+        scene.occupancy.sync(other);
+        scene.land();
+
+        assertSame(other, scene.occupancy.ownerOf(targetX, targetY));
+        scene.assertLandedCleanly(targetX, targetY);
+        assertSame(scene.slime, scene.occupancy.ownerOf(scene.slime.getCurrentTileX(), scene.slime.getCurrentTileY()));
+        assertTrue(scene.maxTick <= MAX_TICK_DISTANCE, "largest step " + scene.maxTick);
+    }
+
+    @Test
+    void anIdleHopThatFallsDueDuringTheRestAfterAChaseHopIsTakenOnceTheRestEnds() {
+        Scene scene = new Scene();
+        scene.player.setPosition(59, 19);
+        for (int i = 0; i < 600 && scene.movement.secondsUntilIdleHop() > 1.5 * STEP; i++) {
+            scene.tick();
+        }
+        assertFalse(scene.movement.isJumping(), "precondition: the idle hop is about to fall due");
+        assertTrue(scene.movement.secondsUntilIdleHop() <= 1.5 * STEP);
+
+        // A chase hop starts and lands, with the idle timer standing still, and the chase ends right after the landing
+        scene.player.setPosition(16, 10);
+        scene.movement.alert();
+        scene.takeOff();
+        scene.land();
+        scene.player.takeDamage(1_000_000);
+        assertTrue(scene.player.isDead(), "precondition: the chase is over");
+        scene.tick();
+        assertFalse(scene.movement.isJumping(), "precondition: still resting");
+
+        boolean hopped = false;
+        for (int i = 0; i < 60 && !hopped; i++) {
+            scene.tick();
+            hopped = scene.movement.isJumping();
+        }
+
+        assertTrue(hopped, "the idle hop that fell due while the slime rested was dropped");
+        assertEquals(0.8, scene.movement.hopDuration(), "it is an idle hop");
     }
 
     @Test

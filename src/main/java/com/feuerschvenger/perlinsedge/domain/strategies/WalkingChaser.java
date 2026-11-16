@@ -36,9 +36,13 @@ final class WalkingChaser {
     private static final double AT_TILE_CENTRE_EPSILON = 1e-9;
     /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
     private static final double HELD_TILE_PENALTY = 6.0;
-    /** Shortest and longest wait before searching again after the next tile turned out to be held by another enemy. */
+    /** Shortest and longest first wait for a next tile that another enemy holds, so a crowd does not act in step. */
     private static final double HELD_WAIT_MIN_SECONDS = 0.15;
     private static final double HELD_WAIT_MAX_SECONDS = 0.45;
+    /** Longest wait for a held tile: the wait doubles while the same tile stays held, up to this. */
+    private static final double MAX_HELD_WAIT_SECONDS = 1.5;
+    /** Marks that no step of the path is blocked. */
+    private static final int NO_STEP = Integer.MIN_VALUE;
 
     private final double speedTilesPerSecond;
     private final ChaseLeash leash;
@@ -46,6 +50,11 @@ final class WalkingChaser {
     private final PathPlanner pathPlanner = new PathPlanner();
     private double secondsUntilRepath;
     private double secondsOfPlayerBlockWait;
+    /** The step of the path another enemy holds, the wait the chaser last gave it and the time left of it. */
+    private int blockedStepX = NO_STEP;
+    private int blockedStepY = NO_STEP;
+    private double blockedWaitSeconds;
+    private double secondsOfStepWait;
     private int plannedPlayerX = Integer.MIN_VALUE;
     private int plannedPlayerY = Integer.MIN_VALUE;
     private final Random random = new Random();
@@ -77,10 +86,17 @@ final class WalkingChaser {
         pathPlanner.tick(deltaTime);
         secondsUntilRepath -= deltaTime;
         secondsOfPlayerBlockWait = Math.max(0, secondsOfPlayerBlockWait - deltaTime);
+        secondsOfStepWait = Math.max(0, secondsOfStepWait - deltaTime);
 
         final boolean chasing = leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime);
         if (!chasing || isNextToPlayer(enemy, player)) {
             finishCurrentStepOnly(enemy);
+        } else if (isWaitingOnHeldStep()) {
+            // The path is kept and nothing is searched while the step waits to be let go, whatever the repath timer
+            // says: only a player who changed tile, once the wait is over, makes the path worth searching again
+            if (playerMovedSincePlan(player)) {
+                replan(enemy, map, player);
+            }
         } else if ((path.isEmpty() && secondsOfPlayerBlockWait <= 0)
                 || secondsUntilRepath <= 0 || playerMovedSincePlan(player)) {
             replan(enemy, map, player);
@@ -108,9 +124,46 @@ final class WalkingChaser {
         return leash.isChasing();
     }
 
+    /**
+     * Tells whether the player changed tile since the last search and a new one is allowed: the spacing between two
+     * searches has passed and, for an enemy that waits on a tile another enemy holds, so has the wait.
+     */
     private boolean playerMovedSincePlan(Player player) {
-        return secondsUntilRepath <= REPATH_INTERVAL_SECONDS - MIN_REPATH_SPACING_SECONDS
+        return secondsOfStepWait <= 0
+                && secondsUntilRepath <= REPATH_INTERVAL_SECONDS - MIN_REPATH_SPACING_SECONDS
                 && (player.getCurrentTileX() != plannedPlayerX || player.getCurrentTileY() != plannedPlayerY);
+    }
+
+    /** @return true while the path is kept because its next step is held by another enemy */
+    private boolean isWaitingOnHeldStep() {
+        return blockedStepX != NO_STEP && !path.isEmpty();
+    }
+
+    private void clearBlockedStep() {
+        blockedStepX = NO_STEP;
+        blockedStepY = NO_STEP;
+        blockedWaitSeconds = 0;
+        secondsOfStepWait = 0;
+    }
+
+    /**
+     * Waits for a tile another enemy holds. The first wait is random, so a crowd does not act in step, and it doubles,
+     * up to {@link #MAX_HELD_WAIT_SECONDS}, each time the same tile is still held when it is tried again.
+     *
+     * @return true when the tile was already held after an earlier wait, which means its holder is not passing through
+     */
+    private boolean waitForHeldStep(PathNode step) {
+        final boolean repeated = step.x == blockedStepX && step.y == blockedStepY;
+        if (repeated) {
+            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * 2);
+        } else {
+            blockedStepX = step.x;
+            blockedStepY = step.y;
+            blockedWaitSeconds = HELD_WAIT_MIN_SECONDS
+                    + (HELD_WAIT_MAX_SECONDS - HELD_WAIT_MIN_SECONDS) * random.nextDouble();
+        }
+        secondsOfStepWait = blockedWaitSeconds;
+        return repeated;
     }
 
     private void replan(Enemy enemy, TileMap map, Player player) {
@@ -131,6 +184,9 @@ final class WalkingChaser {
             path.add(new PathNode(originX, originY));
         }
         path.addAll(found);
+        if (path.isEmpty() || path.peek().x != blockedStepX || path.peek().y != blockedStepY) {
+            clearBlockedStep();
+        }
         // The path ends on the tile of the player, the enemy stops one tile short of it. A step in progress that
         // happens to be that tile stays, and follow() turns the enemy back.
         if (path.size() > (midStep ? 1 : 0) && isPlayerTile(path.getLast(), player)) {
@@ -157,14 +213,30 @@ final class WalkingChaser {
                 secondsUntilRepath = 0;
                 return;
             }
-            if (!isStepReserved(enemy, next) && !occupancy.tryReserve(enemy, next.x, next.y)) {
-                // Another enemy holds the tile: stand still and search again after a short random wait, which keeps a
-                // crowd from searching in step. The enemy is on a tile centre here, a step in progress is reserved.
-                path.clear();
-                secondsOfPlayerBlockWait = HELD_WAIT_MIN_SECONDS
-                        + (HELD_WAIT_MAX_SECONDS - HELD_WAIT_MIN_SECONDS) * random.nextDouble();
-                secondsUntilRepath = Math.max(secondsUntilRepath, secondsOfPlayerBlockWait);
-                return;
+            if (!isStepHeldBy(enemy, next)) {
+                if (secondsOfStepWait > 0) {
+                    // Another enemy held this tile a moment ago: stand still until the wait is over
+                    return;
+                }
+                if (!occupancy.tryReserve(enemy, next.x, next.y)) {
+                    if (isMidStep(enemy)) {
+                        // The tile being walked to was taken by another enemy: go back to the tile centre instead of
+                        // standing between two tiles, and search from there
+                        turnBackToTileCentre(enemy);
+                        return;
+                    }
+                    // Another enemy holds the tile: stand still with the path kept and try again after a wait that
+                    // grows while the tile stays held
+                    if (waitForHeldStep(next)) {
+                        // Still held after a wait: the holder stays, so the path is dropped and searched again once
+                        // the longer wait is over, priced to go around the held tiles when a detour is cheap
+                        path.clear();
+                        secondsOfPlayerBlockWait = secondsOfStepWait;
+                        secondsUntilRepath = Math.max(secondsUntilRepath, secondsOfStepWait);
+                    }
+                    return;
+                }
+                clearBlockedStep();
             }
 
             final double dx = next.x - enemy.getPosX();
@@ -192,6 +264,7 @@ final class WalkingChaser {
 
     /** Drops the rest of the path but keeps the step in progress, so the enemy never stops between two tiles. */
     private void finishCurrentStepOnly(Enemy enemy) {
+        clearBlockedStep();
         if (path.isEmpty()) {
             return;
         }
@@ -206,6 +279,7 @@ final class WalkingChaser {
 
     private void turnBackToTileCentre(Enemy enemy) {
         path.clear();
+        clearBlockedStep();
         enemy.setTargetTileX(enemy.getCurrentTileX());
         enemy.setTargetTileY(enemy.getCurrentTileY());
         if (isMidStep(enemy)) {
@@ -213,10 +287,14 @@ final class WalkingChaser {
         }
     }
 
-    /** True for the tile the enemy stands on or is already stepping to, which it holds without asking again. */
-    private static boolean isStepReserved(Enemy enemy, PathNode node) {
-        return (node.x == enemy.getTargetTileX() && node.y == enemy.getTargetTileY())
+    /**
+     * True for the tile the enemy stands on or is already stepping to, when the occupancy really has it as the holder:
+     * such a tile is walked without asking again. A tile the enemy only believes to hold is asked for like any other.
+     */
+    private boolean isStepHeldBy(Enemy enemy, PathNode node) {
+        final boolean ownTile = (node.x == enemy.getTargetTileX() && node.y == enemy.getTargetTileY())
                 || (node.x == enemy.getCurrentTileX() && node.y == enemy.getCurrentTileY());
+        return ownTile && occupancy.ownerOf(node.x, node.y) == enemy;
     }
 
     private static boolean isWalkable(TileMap map, PathNode node) {

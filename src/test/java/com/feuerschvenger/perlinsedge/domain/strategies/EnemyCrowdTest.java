@@ -5,6 +5,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -65,23 +67,47 @@ class EnemyCrowdTest {
         }
 
         /**
-         * Runs like {@link #run(double)} while the player jumps to the next of the given tiles every
-         * {@code ticksPerStop} ticks, skipping a tile an enemy holds, so the crowd has to follow a moving player.
+         * Runs like {@link #run(double)} while the player is ordered to walk to the next of the given tiles every
+         * {@code ticksPerStop} ticks, around the tiles the enemies hold and halting before a tile they step to, as
+         * the game does. The player has a walk in progress and a target tile of its own that moves, so the crowd has to
+         * follow a moving player.
+         *
+         * @return how many tiles the player walked on, which tells that the player really moved
          */
-        void runWithWanderingPlayer(double seconds, int ticksPerStop, int[][] stops) {
+        int runWithWanderingPlayer(double seconds, int ticksPerStop, int[][] stops) {
             int next = 0;
+            int stepsTaken = 0;
+            int lastX = player.getCurrentTileX();
+            int lastY = player.getCurrentTileY();
             for (int tick = 0; tick < Math.round(seconds / STEP); tick++) {
-                if (tick > 0 && tick % ticksPerStop == 0) {
+                if (tick % ticksPerStop == 0) {
                     final int[] stop = stops[next++ % stops.length];
-                    if (occupancy.ownerOf(stop[0], stop[1]) == null) {
-                        player.setPosition(stop[0], stop[1]);
-                    }
+                    player.moveTo(map, stop[0], stop[1], OccupiedTiles.of(enemies));
                 }
                 player.heal(1_000);
+                haltBeforeEnemies();
+                player.update(STEP);
+                // Arriving on a tile makes the next tile of the walk the target at once, so it is vetted again before
+                // the enemies move: a target on a tile an enemy holds would be a tile the enemy stands on
+                haltBeforeEnemies();
+                if (player.getCurrentTileX() != lastX || player.getCurrentTileY() != lastY) {
+                    stepsTaken++;
+                    lastX = player.getCurrentTileX();
+                    lastY = player.getCurrentTileY();
+                }
                 for (Enemy enemy : enemies) {
                     enemy.update(STEP, map, player, occupancy);
                 }
                 assertNoSharedTile(tick);
+            }
+            return stepsTaken;
+        }
+
+        /** Ends the walk of the player when its next tile is held by an enemy. */
+        private void haltBeforeEnemies() {
+            final PathNode ahead = player.getNextTile();
+            if (ahead != null && OccupiedTiles.contains(enemies, ahead.x, ahead.y)) {
+                player.haltBefore(OccupiedTiles.of(enemies));
             }
         }
 
@@ -250,8 +276,11 @@ class EnemyCrowdTest {
         final Scene walkers = openScene(false, 10, 8);
 
         final int[][] stops = {{23, 18}, {17, 22}, {22, 24}, {18, 17}, {20, 20}};
-        scene.runWithWanderingPlayer(40, 150, stops);
-        walkers.runWithWanderingPlayer(40, 150, stops);
+        final int slimeSteps = scene.runWithWanderingPlayer(40, 150, stops);
+        final int walkerSteps = walkers.runWithWanderingPlayer(40, 150, stops);
+
+        assertTrue(slimeSteps >= 20, "the player walked on only " + slimeSteps + " tiles");
+        assertTrue(walkerSteps >= 20, "the player walked on only " + walkerSteps + " tiles");
     }
 
     @Test
@@ -330,12 +359,13 @@ class EnemyCrowdTest {
         final Slime[] slimes = {new Slime(10, 10), new Slime(10, 30)};
         final Player[] players = {new Player(20, 10), new Player(20, 30)};
         for (int i = 0; i < 2; i++) {
+            final EnemyOccupancy occupancy = new EnemyOccupancy();
             ((SlimeMovementStrategy) slimes[i].getMovementStrategy()).alert();
             final SlimeMovementStrategy movement = (SlimeMovementStrategy) slimes[i].getMovementStrategy();
             int takeOffs = 0;
             boolean wasJumping = false;
             for (int tick = 0; tick < 600 && takeOffs < 2; tick++) {
-                slimes[i].update(STEP, map, players[i], new EnemyOccupancy());
+                slimes[i].update(STEP, map, players[i], occupancy);
                 if (movement.isJumping() && !wasJumping) {
                     takeOffs++;
                     takeOffTick[i] = tick;
@@ -348,29 +378,66 @@ class EnemyCrowdTest {
         assertNotEquals(takeOffTick[0], takeOffTick[1], "the second hops are out of step");
     }
 
-    @Test
-    void aBlockedHordeSearchesAtMostOncePerReplanWaitNotOnEveryTick() {
-        final Scene scene = corridorScene(true, 10);
-        final int ticks = 60 * 30;
-
-        scene.run(30);
-
-        for (Enemy enemy : scene.enemies) {
-            final int searches = ((SlimeMovementStrategy) enemy.getMovementStrategy()).pathSearchCount();
-            assertTrue(searches <= ticks / 9, "a slime searched " + searches + " times in " + ticks + " ticks");
+    /** The eight tiles around the player and then the tiles further out, 30 enemies in all, so the ring is full. */
+    private static Scene packedScene(boolean slimes) {
+        final Scene scene = new Scene(openGround(), OPEN_SIZE / 2, OPEN_SIZE / 2);
+        int count = 0;
+        for (int distance = 1; distance <= 3 && count < 30; distance++) {
+            for (int dx = -distance; dx <= distance && count < 30; dx++) {
+                for (int dy = -distance; dy <= distance && count < 30; dy++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) == distance) {
+                        final int x = OPEN_SIZE / 2 + dx;
+                        final int y = OPEN_SIZE / 2 + dy;
+                        scene.add(slimes ? new Slime(x, y) : new Skeleton(x, y));
+                        count++;
+                    }
+                }
+            }
         }
+        return scene;
+    }
+
+    private static int totalSearches(Scene scene) {
+        int total = 0;
+        for (Enemy enemy : scene.enemies) {
+            total += enemy.getMovementStrategy() instanceof SlimeMovementStrategy slime
+                    ? slime.pathSearchCount()
+                    : ((SkeletonMovementStrategy) enemy.getMovementStrategy()).pathSearchCount();
+        }
+        return total;
     }
 
     @Test
-    void aBlockedWalkingHordeSearchesAtMostOncePerReplanWaitNotOnEveryTick() {
-        final Scene scene = corridorScene(false, 10);
-        final int ticks = 60 * 30;
+    void slimesBlockedByAFullRingAroundThePlayerBackOffInsteadOfSearchingAtEveryReplanWait() {
+        final Scene scene = packedScene(true);
 
         scene.run(30);
 
-        for (Enemy enemy : scene.enemies) {
-            final int searches = ((SkeletonMovementStrategy) enemy.getMovementStrategy()).pathSearchCount();
-            assertTrue(searches <= ticks / 9, "a skeleton searched " + searches + " times in " + ticks + " ticks");
-        }
+        // The 22 slimes outside the ring are blocked all along. A search per 0.15 s to 0.45 s of wait would run into
+        // the thousands over the 30 s; waiting on the held step and backing off to 1.5 s stays far below
+        final int searches = totalSearches(scene);
+        assertTrue(searches <= 22 * 30 / 1.5 + 60, "30 slimes searched " + searches + " times in 30 s");
+    }
+
+    @Test
+    void skeletonsBlockedByAFullRingAroundThePlayerBackOffInsteadOfSearchingAtEveryReplanWait() {
+        final Scene scene = packedScene(false);
+
+        scene.run(30);
+
+        final int searches = totalSearches(scene);
+        assertTrue(searches <= 22 * 30 / 1.5 + 60, "30 skeletons searched " + searches + " times in 30 s");
+    }
+
+    @Test
+    void aBlockedCorridorHordeSearchesFarLessOftenThanOncePerShortestWait() {
+        final Scene slimes = corridorScene(true, 10);
+        final Scene walkers = corridorScene(false, 10);
+
+        slimes.run(30);
+        walkers.run(30);
+
+        assertTrue(totalSearches(slimes) <= 10 * 30 / 1.5 + 30, "slimes searched " + totalSearches(slimes));
+        assertTrue(totalSearches(walkers) <= 10 * 30 / 1.5 + 30, "skeletons searched " + totalSearches(walkers));
     }
 }

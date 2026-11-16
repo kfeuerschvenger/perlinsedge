@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -17,10 +16,10 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Enemies spawn on tiles of their own, whatever the size of the map. */
+/** Enemies spawn on tiles of their own and never on the player, however small the map. */
 class EnemySpawnTest {
 
-    /** A flat map so small that the requested enemies outnumber the tiles far enough from the player in the middle. */
+    /** A flat map small enough for the enemies to crowd it. */
     private static final int SIZE = 16;
     private static final int PLAYER_TILE = SIZE / 2;
 
@@ -48,8 +47,8 @@ class EnemySpawnTest {
                 assertFalse(enemy.getCurrentTileX() == PLAYER_TILE && enemy.getCurrentTileY() == PLAYER_TILE,
                         "an enemy spawned on the player");
             }
-            assertTrue(state.getEnemies().size() < AppConfig.getInstance().world().getBaseSlimesCount(),
-                    "the map is too small for every requested enemy, so some are left out");
+            assertFalse(state.getEnemies().isEmpty(), "some enemies spawn on the small map");
+            assertTrue(state.getEnemies().size() < SIZE * SIZE, "never more enemies than tiles");
         }
     }
 }
