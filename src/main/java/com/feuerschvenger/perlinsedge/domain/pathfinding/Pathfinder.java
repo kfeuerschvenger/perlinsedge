@@ -49,6 +49,8 @@ public final class Pathfinder {
     private final TileMap map;
     /** Tiles that are walkable ground but occupied, so no path crosses or ends on them. Never null. */
     private final Set<PathNode> occupied;
+    /** The extra cost of entering a tile, on top of the length of the step. Never null. */
+    private final TilePenalty penalty;
     /** Written once per search, so an instance must not run two searches at the same time. */
     private int lastExpandedNodes;
 
@@ -70,8 +72,21 @@ public final class Pathfinder {
      * @param occupied tiles no path may use, null for none
      */
     public Pathfinder(TileMap map, Set<PathNode> occupied) {
+        this(map, occupied, TilePenalty.NONE);
+    }
+
+    /**
+     * Constructs a Pathfinder that also prices the tiles it enters, so a path goes around a costly tile when a detour
+     * is cheaper than the penalty and through it otherwise.
+     *
+     * @param map      The TileMap to perform pathfinding on
+     * @param occupied tiles no path may use, null for none
+     * @param penalty  extra cost of entering a tile, null for none
+     */
+    public Pathfinder(TileMap map, Set<PathNode> occupied, TilePenalty penalty) {
         this.map = Objects.requireNonNull(map, "TileMap must not be null");
         this.occupied = occupied == null ? Set.of() : occupied;
+        this.penalty = penalty == null ? TilePenalty.NONE : penalty;
     }
 
     // ==================================================================
@@ -232,7 +247,7 @@ public final class Pathfinder {
                                  Map<PathNode, PathNode> cameFrom,
                                  Map<PathNode, Double> gScores) {
         PathNode neighbor = new PathNode(nx, ny);
-        double newGCost = current.gCost + DIRECTION_COSTS[directionIndex];
+        double newGCost = current.gCost + DIRECTION_COSTS[directionIndex] + penalty.extraCost(nx, ny);
 
         // Update neighbor if we found a better path
         if (newGCost < gScores.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
