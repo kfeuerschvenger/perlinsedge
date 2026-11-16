@@ -148,16 +148,53 @@ class DayCycleTest {
         assertEquals(1, cycle.dayNumber());
     }
 
+    /** A cycle at an hour of the 24 hour clock, where the end of the dawn is 06:00. */
+    private static DayCycle atHour(double hour) {
+        return at((DAWN + (hour - 6.0) / 24.0 * CYCLE + CYCLE) % CYCLE);
+    }
+
     @Test
-    void theSunClimbsToNoonInTheMiddleOfItsArcAndSetsAtTheEndOfTheDusk() {
-        assertEquals(0.0, at(0).sunProgress(), 1e-9);
-        assertEquals(0.5, at(settings().daylightSeconds() / 2).sunProgress(), 1e-9);
-        assertEquals(1.0, at(DAWN + DAY + DUSK).sunProgress(), 1e-9);
+    void theSettingsPlaceTheSunsetAtTheEndOfTheDuskAndTheSunriseMirroredAroundNoon() {
+        assertEquals(19.8, settings().sunsetClockHours(), 1e-9);
+        assertEquals(4.2, settings().sunriseClockHours(), 1e-9);
+        assertEquals(12.0, (settings().sunriseClockHours() + settings().sunsetClockHours()) / 2, 1e-9);
+    }
+
+    @Test
+    void theSunRisesAtFourTwelveIsHighestAtNoonAndSetsAtSevenFortyEight() {
+        assertEquals(0.0, atHour(4.2).sunProgress(), 1e-9);
+        assertEquals(0.5, atHour(12.0).sunProgress(), 1e-9);
+        assertEquals(1.0, atHour(19.8).sunProgress(), 1e-9);
+        assertEquals(0.0, atHour(3.5).sunProgress(), 1e-9, "before the sunrise the sun has not come up");
+        assertEquals(1.0, atHour(23.0).sunProgress(), 1e-9, "after the sunset the sun is gone");
         assertEquals(1.0, at(CYCLE - 1).sunProgress(), 1e-9);
 
-        assertEquals(0.0, at(0).sunElevation(), 1e-9);
-        assertEquals(1.0, at(settings().daylightSeconds() / 2).sunElevation(), 1e-9);
+        assertEquals(0.0, atHour(4.2).sunElevation(), 1e-9);
+        assertEquals(1.0, atHour(12.0).sunElevation(), 1e-9);
+        assertEquals(0.0, atHour(19.8).sunElevation(), 1e-9);
         assertEquals(0.0, at(CYCLE - 1).sunElevation(), 1e-9);
+        assertEquals(atHour(9.0).sunProgress() + atHour(15.0).sunProgress(), 1.0, 1e-9,
+                "the arc is symmetric around noon");
+    }
+
+    @Test
+    void atNoonTheShadowPointsStraightDownAtTheMinimumLength() {
+        final DayCycle noon = atHour(12.0);
+
+        assertEquals(0.5, noon.shadowSunProgress(), 1e-12);
+        assertEquals(Math.PI / 2, SunScreenMapping.shadowAngle(noon.shadowSunProgress()), 1e-12);
+        assertEquals(0.6, noon.shadowLengthFactor(), 1e-12);
+        assertEquals(1.0, noon.shadowStrength(), 1e-12);
+    }
+
+    @Test
+    void thereIsNoShadowWhileTheSunIsBelowTheHorizon() {
+        assertEquals(0.0, atHour(3.5).shadowStrength(), 0.0, "03:30 is before the sunrise");
+        assertEquals(0.0, atHour(4.1).shadowStrength(), 0.0);
+        assertEquals(0.0, atHour(19.8).shadowStrength(), 1e-9);
+        assertEquals(0.0, atHour(22.0).shadowStrength(), 0.0);
+        assertEquals(0.0, atHour(1.0).shadowStrength(), 0.0);
+        assertTrue(atHour(4.3).shadowStrength() > 0.0, "the shadows come back once the sun is up");
     }
 
     @Test
@@ -181,25 +218,29 @@ class DayCycleTest {
 
     @Test
     void theShadowSunPositionHoldsStillInsideAStep() {
-        final double stepSeconds = settings().daylightSeconds() / STEPS;
-        assertEquals(at(stepSeconds * 3 + 0.1).shadowSunProgress(), at(stepSeconds * 4 - 0.1).shadowSunProgress());
-        assertTrue(at(stepSeconds * 4 + 0.1).shadowSunProgress() > at(stepSeconds * 4 - 0.1).shadowSunProgress());
+        final double sunrise = DAWN + (settings().sunriseClockHours() - 6.0) / 24.0 * CYCLE;
+        final double stepSeconds = (settings().daylightSeconds() - sunrise) / STEPS;
+        assertEquals(at(sunrise + stepSeconds * 3 + 0.1).shadowSunProgress(),
+                at(sunrise + stepSeconds * 4 - 0.1).shadowSunProgress());
+        assertTrue(at(sunrise + stepSeconds * 4 + 0.1).shadowSunProgress()
+                > at(sunrise + stepSeconds * 4 - 0.1).shadowSunProgress());
     }
 
     @Test
     void shadowsAreShortestAtNoonAndLongerTowardBothHorizons() {
+        final double noonSeconds = DAWN + (12.0 - 6.0) / 24.0 * CYCLE;
         double previous = Double.MAX_VALUE;
-        for (double s = 0; s <= settings().daylightSeconds() / 2; s += 1) {
+        for (double s = 0; s <= noonSeconds; s += 1) {
             final double length = at(s).shadowLengthFactor();
             assertTrue(length <= previous + 1e-12, "the shadow only shortens until noon, at " + s);
             previous = length;
         }
-        for (double s = settings().daylightSeconds() / 2; s <= settings().daylightSeconds(); s += 1) {
+        for (double s = noonSeconds; s <= settings().daylightSeconds(); s += 1) {
             final double length = at(s).shadowLengthFactor();
             assertTrue(length >= previous - 1e-12, "the shadow only lengthens after noon, at " + s);
             previous = length;
         }
-        final double noon = at(settings().daylightSeconds() / 2).shadowLengthFactor();
+        final double noon = atHour(12.0).shadowLengthFactor();
         assertTrue(noon >= 0.6 && noon < 0.65, "noon is within a step of the minimum: " + noon);
         assertTrue(at(0).shadowLengthFactor() <= 2.0 && at(0).shadowLengthFactor() > 1.8);
     }
@@ -375,7 +416,7 @@ class DayCycleTest {
 
     @Test
     void noonIsTheMiddleOfAStepSoShadowsPointStraightDownAtTheMinimumLength() {
-        final DayCycle noon = at(settings().daylightSeconds() / 2);
+        final DayCycle noon = atHour(12.0);
 
         assertEquals(0.5, noon.shadowSunProgress(), 1e-12);
         assertEquals(Math.PI / 2, SunScreenMapping.shadowAngle(noon.shadowSunProgress()), 1e-12);
@@ -385,8 +426,8 @@ class DayCycleTest {
 
     @Test
     void theFirstAndTheLastShadowStepAreMirrorImagesOfEachOther() {
-        final DayCycle first = at(0);
-        final DayCycle last = at(settings().daylightSeconds());
+        final DayCycle first = atHour(4.2);
+        final DayCycle last = atHour(19.8);
 
         assertEquals(1.0, first.shadowSunProgress() + last.shadowSunProgress(), 1e-12);
         assertEquals(first.shadowLengthFactor(), last.shadowLengthFactor(), 1e-12);

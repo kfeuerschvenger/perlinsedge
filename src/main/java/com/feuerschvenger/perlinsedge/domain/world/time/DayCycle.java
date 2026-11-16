@@ -7,10 +7,11 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
  * current moment. Everything is a pure function of the seconds elapsed, so the cycle needs no framework and is advanced
  * by whoever owns it, which makes a paused game stand still.
  * <p>
- * A cycle starts at the beginning of the dawn. The sun is up from then until the end of the dusk and crosses the sky
- * from east to west across that stretch, highest in the middle. Shadows are strongest in the day, fade out through the
- * dusk, are absent at night and come back through the dawn. The sky tint is neutral at midday, warm at dawn and dusk and
- * a deep moonlit blue at night. Every change between phases is eased, so nothing jumps.
+ * A cycle starts at the beginning of the dawn. The sun rises part way through the dawn and sets at the end of the dusk,
+ * and it crosses the sky from east to west between the two, highest at 12:00 on the clock of the cycle, so its arc is
+ * symmetric around noon. Shadows are strongest in the day, fade out through the dusk, are absent at night and while the
+ * sun is below the horizon, and come back through the dawn once it is up. The sky tint is neutral at midday, warm at
+ * dawn and dusk and a deep moonlit blue at night. Every change between phases is eased, so nothing jumps.
  */
 public final class DayCycle {
 
@@ -101,12 +102,20 @@ public final class DayCycle {
      * @return the hour of the day from 0 up to but excluding 24, with the minutes as the fraction
      */
     public double clockHours() {
-        final double hours = DayCycleSettings.DAY_START_CLOCK_HOURS
-                + (secondsIntoCycle() - settings.dawnSeconds()) / settings.cycleSeconds()
-                * DayCycleSettings.HOURS_PER_DAY;
+        final double hours = unwrappedClockHours();
         final double wrapped = hours - Math.floor(hours / DayCycleSettings.HOURS_PER_DAY)
                 * DayCycleSettings.HOURS_PER_DAY;
         return Math.max(0.0, Math.min(Math.nextDown(DayCycleSettings.HOURS_PER_DAY), wrapped));
+    }
+
+    /**
+     * Returns the clock hour of the cycle without wrapping it at midnight, so the sunrise, the noon and the sunset
+     * keep their order whatever the proportions of the cycle.
+     */
+    private double unwrappedClockHours() {
+        return DayCycleSettings.DAY_START_CLOCK_HOURS
+                + (secondsIntoCycle() - settings.dawnSeconds()) / settings.cycleSeconds()
+                * DayCycleSettings.HOURS_PER_DAY;
     }
 
     /** @return the minutes since midnight on the 24 hour clock, 0 up to 1439, so 06:00 is 360 */
@@ -142,12 +151,25 @@ public final class DayCycle {
     }
 
     /**
-     * Returns where the sun is on its arc.
+     * Returns where the sun is on its arc. The arc runs from the sunrise to the sunset of the settings, which are
+     * mirror images around 12:00, so the sun is at its highest exactly at noon on the clock.
      *
-     * @return 0 at sunrise, 0.5 at noon and 1 at sunset, and 1 for the whole night, when the sun cannot be seen
+     * @return 0 at sunrise, 0.5 at 12:00 and 1 at sunset, 0 before the sunrise and 1 after the sunset, when the sun
+     *         cannot be seen
      */
     public double sunProgress() {
-        return Math.max(0.0, Math.min(1.0, secondsIntoCycle() / settings.daylightSeconds()));
+        final double sunrise = settings.sunriseClockHours();
+        final double arc = settings.sunsetClockHours() - sunrise;
+        if (arc <= 0.0) {
+            return 1.0;
+        }
+        return Math.max(0.0, Math.min(1.0, (unwrappedClockHours() - sunrise) / arc));
+    }
+
+    /** @return true while the sun is above the horizon, from the sunrise up to but excluding the sunset */
+    private boolean sunIsUp() {
+        final double hours = unwrappedClockHours();
+        return hours >= settings.sunriseClockHours() && hours < settings.sunsetClockHours();
     }
 
     /** @return how high the sun stands, 0 on the horizon and 1 at noon, and 0 at night */
@@ -159,7 +181,7 @@ public final class DayCycle {
      * Returns the sun position the shadows are drawn from. The arc is cut into
      * {@link DayCycleSettings#shadowSteps()} equal steps and every position inside a step maps to the middle of it, so
      * the shadows move in crisp jumps instead of shimmering with every frame. The number of steps is odd, so the middle
-     * step is centred on noon: its shadow points straight down and has the minimum length.
+     * step is centred on 12:00: its shadow points straight down and has the minimum length.
      *
      * @return the quantised position on the arc, strictly between 0 and 1
      */
@@ -183,9 +205,13 @@ public final class DayCycle {
     /**
      * Returns how dark the shadows are as a share of their full strength.
      *
-     * @return 1 through the day, easing to 0 through the dusk, 0 at night and easing back to 1 through the dawn
+     * @return 1 through the day, easing to 0 through the dusk, 0 at night and easing back to 1 through the dawn from the
+     *         sunrise on, and 0 for as long as the sun is below the horizon
      */
     public double shadowStrength() {
+        if (!sunIsUp()) {
+            return 0.0;
+        }
         final double s = secondsIntoCycle();
         final double dawn = settings.dawnSeconds();
         final double dayEnd = dawn + settings.daySeconds();

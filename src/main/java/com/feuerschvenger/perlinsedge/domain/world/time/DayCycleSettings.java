@@ -67,6 +67,27 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
                 minShadowLength, maxShadowLength);
     }
 
+    /**
+     * Returns the clock hour of the sunset, which is the end of the dusk. It is counted on the clock of a cycle, where
+     * the end of the dawn is {@link #DAY_START_CLOCK_HOURS}, and it can pass {@link #HOURS_PER_DAY} for a cycle whose
+     * daylight is longer than the clock allows after the end of the dawn.
+     *
+     * @return the hour of the sunset
+     */
+    public double sunsetClockHours() {
+        return DAY_START_CLOCK_HOURS + (daySeconds + duskSeconds) / cycleSeconds() * HOURS_PER_DAY;
+    }
+
+    /**
+     * Returns the clock hour of the sunrise. The sun's arc is symmetric around 12:00, so the sunrise is as many hours
+     * before noon as the sunset is after it.
+     *
+     * @return the hour of the sunrise, a mirror image of {@link #sunsetClockHours()} around 12:00
+     */
+    public double sunriseClockHours() {
+        return HOURS_PER_DAY - sunsetClockHours();
+    }
+
     /** @return the length of a whole cycle in seconds */
     public double cycleSeconds() {
         return dawnSeconds + daySeconds + duskSeconds + nightSeconds;
