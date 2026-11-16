@@ -54,7 +54,7 @@ public final class ShadowLayer {
     /** Row after the last of the box of the cells a frame stamped. */
     private int stampedBottom;
 
-    /** Left column of the box of the cells the previous frame stamped, which were cleared and are not yet shown cleared. */
+    /** Left column of the box of the cells the previous frame stamped, cleared but not yet shown cleared. */
     private int clearedLeft;
     /** Top row of the box of the cells the previous frame stamped, which were cleared and are not yet shown cleared. */
     private int clearedTop;
@@ -66,7 +66,7 @@ public final class ShadowLayer {
     /** The area handed out by {@link #changedBox()}, reused by every call. */
     private final int[] changed = new int[4];
 
-    /** Scratch for the box of a projected shape: left, top, right and bottom as screen offsets, reused by every build. */
+    /** Scratch for the box of a projected shape: left, top, right and bottom as screen offsets, reused each build. */
     private final double[] box = new double[4];
 
     /** Horizontal part of the direction of the shadow. */
@@ -104,6 +104,12 @@ public final class ShadowLayer {
      */
     ShadowLayer(int maxMasks) {
         masks = new LinkedHashMap<>(64, 0.75f, true) {
+            /**
+             * Tells the map to drop its least recently used mask once it holds more than the capacity.
+             *
+             * @param eldest the least recently used entry
+             * @return true when the entry is to be removed
+             */
             @Override
             protected boolean removeEldestEntry(Map.Entry<MaskKey, Mask> eldest) {
                 return size() > maxMasks;
@@ -186,9 +192,9 @@ public final class ShadowLayer {
     }
 
     /**
-     * Casts the shadow of a sprite that is drawn squashed or stretched: the shadow is as tall as the sprite is drawn, so
-     * a squashed sprite casts a shorter shadow of the same form. The anchor is snapped to the sub-cell grid, and a shadow
-     * with a NaN or infinite anchor is skipped.
+     * Casts the shadow of a sprite that is drawn squashed or stretched: the shadow is as tall as the sprite is drawn,
+     * so a squashed sprite casts a shorter shadow of the same form. The anchor is snapped to the sub-cell grid, and a
+     * shadow with a NaN or infinite anchor is skipped.
      *
      * @param sprite       the silhouette of the sprite
      * @param anchorX      column of the point the sprite stands on, in cells, which may fall inside a cell
@@ -240,8 +246,8 @@ public final class ShadowLayer {
     }
 
     /**
-     * Returns the mask of a shape, rasterising it when this sun has not seen it yet. A lookup marks the mask as the most
-     * recently used, and storing a new one drops the least recently used when the cache is full.
+     * Returns the mask of a shape, rasterising it when this sun has not seen it yet. A lookup marks the mask as the
+     * most recently used, and storing a new one drops the least recently used when the cache is full.
      */
     private Mask maskFor(MaskKey key) {
         Mask mask = masks.get(key);
@@ -568,9 +574,9 @@ public final class ShadowLayer {
     }
 
     /**
-     * What makes two shapes cover the same cells for one sun: the silhouette or none for an ellipse, the width factor or
-     * the ellipse width, the ground row, and which sub-cell of its cell the anchor lies in on each axis, counted in
-     * whole sub-cells of the art scale. One instance is reused for every lookup and a copy is made when a mask is stored.
+     * What makes two shapes cover the same cells for one sun: the silhouette or none for an ellipse, the width factor
+     * or the ellipse width, the ground row, and which sub-cell of its cell the anchor lies in on each axis, counted in
+     * whole half screen pixels. One instance is reused for every lookup and a copy is made when a mask is stored.
      */
     private static final class MaskKey {
         /** The silhouette of a sprite, compared by identity, or null for an ellipse. */

@@ -158,7 +158,13 @@ public final class DayCycle {
         return DayPhase.NIGHT;
     }
 
-    /** @return the number of the current day, one for the first, which goes up at every dawn */
+    /**
+     * Returns the number of the current day, one for the first. It goes up when a cycle begins, which is the beginning
+     * of the dawn and not the sunrise or midnight: with the usual proportions that is 03:00 on the clock, three hours
+     * before the daylight is full.
+     *
+     * @return the day number
+     */
     public int dayNumber() {
         return 1 + (int) Math.floor(elapsed / settings.cycleSeconds());
     }

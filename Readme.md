@@ -19,7 +19,7 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 
 Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys:
 
-- **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner.
+- **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner. The sky line shows the day number, the phase and the clock, and the day number turns when the dawn begins at 03:00, not at midnight.
 - **F2**: Grayscale Mode: See the Perlin noise tile values in all their gray glory.
 - **F3**: Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
 - **F4**: Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
