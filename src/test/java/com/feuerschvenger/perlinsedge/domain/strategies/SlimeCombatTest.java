@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -28,7 +29,7 @@ class SlimeCombatTest {
 
     private static void run(Slime slime, TileMap map, Player player, double seconds) {
         for (int i = 0; i < Math.round(seconds / STEP); i++) {
-            slime.update(STEP, map, player);
+            slime.update(STEP, map, player, new EnemyOccupancy());
         }
     }
 
@@ -39,7 +40,7 @@ class SlimeCombatTest {
         Player player = new Player(6, 5);
 
         for (int i = 0; i < 60 * 8; i++) {
-            slime.update(STEP, map, player);
+            slime.update(STEP, map, player, new EnemyOccupancy());
             assertEquals(5.0, slime.getPosX(), 1e-9, "moved at step " + i);
             assertEquals(5.0, slime.getPosY(), 1e-9, "moved at step " + i);
         }
@@ -123,7 +124,7 @@ class SlimeCombatTest {
         assertTrue(slime.getWindupProgress() > 0);
 
         player.setPosition(12, 5);
-        slime.update(STEP, map, player);
+        slime.update(STEP, map, player, new EnemyOccupancy());
 
         assertEquals(0.0, slime.getWindupProgress());
         assertFalse(player.getHealth() < player.getMaxHealth());
@@ -135,7 +136,7 @@ class SlimeCombatTest {
         Slime slime = new Slime(5, 5);
         Player player = new Player(12, 5);
         for (int i = 0; i < 60 * 10 && !((SlimeMovementStrategy) slime.getMovementStrategy()).isJumping(); i++) {
-            slime.update(STEP, map, player);
+            slime.update(STEP, map, player, new EnemyOccupancy());
         }
         assertTrue(((SlimeMovementStrategy) slime.getMovementStrategy()).isJumping(), "precondition: in the air");
 
@@ -144,7 +145,7 @@ class SlimeCombatTest {
         double secondsFromLanding = 0;
         boolean landed = false;
         for (int i = 0; i < 60 * 5 && player.getHealth() == player.getMaxHealth(); i++) {
-            slime.update(STEP, map, player);
+            slime.update(STEP, map, player, new EnemyOccupancy());
             boolean jumping = ((SlimeMovementStrategy) slime.getMovementStrategy()).isJumping();
             if (jumping) {
                 assertEquals(0.0, slime.getWindupProgress(), "squashing while in the air");

@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.entities;
 
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -75,7 +76,7 @@ class PlayerHurtTest {
         Player player = new Player(6, 5);
         double before = player.getHealth();
 
-        skeleton.update(STEP, map, player);
+        skeleton.update(STEP, map, player, new EnemyOccupancy());
 
         assertTrue(player.getHealth() < before);
         assertEquals(0.0, player.getSecondsSinceHurt());

@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
@@ -34,7 +35,7 @@ class WalkingChaserTest {
 
     private static void run(Skeleton enemy, TileMap map, Player player, double seconds) {
         for (int i = 0; i < Math.round(seconds / STEP); i++) {
-            enemy.update(STEP, map, player);
+            enemy.update(STEP, map, player, new EnemyOccupancy());
         }
     }
 
@@ -53,14 +54,14 @@ class WalkingChaserTest {
         assertEquals(6, skeleton.getTargetTileX(), "precondition: walking to the tile that gets blocked");
 
         map.getTile(6, 5).setWorldResource(new Resource(ResourceType.STONE, 1));
-        skeleton.update(STEP, map, player);
+        skeleton.update(STEP, map, player, new EnemyOccupancy());
 
         assertFalse(OccupiedTiles.of(List.of(skeleton)).contains(new PathNode(6, 5)),
                 "the blocked tile is no longer reported as the one it steps to");
 
         boolean wasOnATileCentre = false;
         for (int i = 0; i < 60 * 5; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
             assertFalse(Math.round(skeleton.getPosX()) == 6 && Math.round(skeleton.getPosY()) == 5,
                     "drawn over the blocked tile");
             wasOnATileCentre |= skeleton.getPosX() == skeleton.getCurrentTileX()
@@ -90,7 +91,7 @@ class WalkingChaserTest {
         assertTrue(player.walkAlong(List.of(new PathNode(9, 10))), "precondition: the player steps toward the enemy");
 
         for (int i = 0; i < 60; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
             assertEquals(8.0, skeleton.getPosX(), 1e-9, "stepped toward the player's tile at update " + i);
             assertEquals(8, skeleton.getTargetTileX());
         }

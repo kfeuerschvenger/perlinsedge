@@ -290,7 +290,7 @@ class EnemyCrowdTest {
             int takeOffs = 0;
             boolean wasJumping = false;
             for (int tick = 0; tick < 600 && takeOffs < 2; tick++) {
-                slimes[i].update(STEP, map, players[i]);
+                slimes[i].update(STEP, map, players[i], new EnemyOccupancy());
                 if (movement.isJumping() && !wasJumping) {
                     takeOffs++;
                     takeOffTick[i] = tick;

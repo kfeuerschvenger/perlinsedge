@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -119,7 +120,7 @@ class EnemyBehaviourTest {
         Player player = new Player(25, 25);
 
         for (int i = 0; i < 120; i++) {
-            mimic.update(STEP, map, player);
+            mimic.update(STEP, map, player, new EnemyOccupancy());
         }
 
         assertEquals(10, mimic.getCurrentTileX());
@@ -133,12 +134,12 @@ class EnemyBehaviourTest {
         Mimic mimic = new Mimic(10, 10);
         Player player = new Player(10, 12);
 
-        mimic.update(STEP, map, player);
+        mimic.update(STEP, map, player, new EnemyOccupancy());
 
         assertTrue(((MimicMovementStrategy) mimic.getMovementStrategy()).isAggroed());
         double before = Math.hypot(player.getCurrentTileX() - mimic.getPosX(), player.getCurrentTileY() - mimic.getPosY());
         for (int i = 0; i < 30; i++) {
-            mimic.update(STEP, map, player);
+            mimic.update(STEP, map, player, new EnemyOccupancy());
         }
         double after = Math.hypot(player.getCurrentTileX() - mimic.getPosX(), player.getCurrentTileY() - mimic.getPosY());
         assertTrue(after < before, "the active mimic closes the distance");
@@ -160,8 +161,8 @@ class EnemyBehaviourTest {
         Player player = new Player(10, 11);
         double before = player.getHealth();
 
-        mimic.update(STEP, map, player);
-        mimic.update(STEP, map, player);
+        mimic.update(STEP, map, player, new EnemyOccupancy());
+        mimic.update(STEP, map, player, new EnemyOccupancy());
 
         assertTrue(player.getHealth() < before);
     }
@@ -175,7 +176,7 @@ class EnemyBehaviourTest {
         Player player = new Player(30, 30);
 
         for (int i = 0; i < 120; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
         }
 
         assertEquals(5, skeleton.getCurrentTileX());
@@ -189,7 +190,7 @@ class EnemyBehaviourTest {
         Player player = new Player(12, 5);
 
         for (int i = 0; i < 60 * 10; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
         }
 
         double distance = Math.hypot(player.getCurrentTileX() - skeleton.getCurrentTileX(),
@@ -204,7 +205,7 @@ class EnemyBehaviourTest {
         Player player = new Player(9, 9);
 
         for (int i = 0; i < 60 * 10; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
             assertFalse(skeleton.getCurrentTileX() == 9 && skeleton.getCurrentTileY() == 9, "on the player's tile");
             assertTrue(Math.hypot(skeleton.getPosX() - 9, skeleton.getPosY() - 9) >= 1.0,
                     "closer than a tile to the player at step " + i);
@@ -232,7 +233,7 @@ class EnemyBehaviourTest {
                     player.setPosition(targetX, targetY);
                 }
             }
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
             assertFalse(skeleton.getCurrentTileX() == player.getCurrentTileX()
                     && skeleton.getCurrentTileY() == player.getCurrentTileY(), "on the player's tile at step " + i);
             assertTrue(Math.hypot(skeleton.getPosX() - player.getCurrentTileX(),
@@ -248,12 +249,12 @@ class EnemyBehaviourTest {
         Player player = new Player(12, 5);
 
         for (int i = 0; i < 10; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
         }
         assertTrue(skeleton.getPosX() > 5 && skeleton.getPosX() < 6, "precondition: mid-step");
         player.setPosition(39, 39);
         for (int i = 0; i < 60; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
         }
 
         assertEquals(Math.rint(skeleton.getPosX()), skeleton.getPosX(), 1e-9);
@@ -267,9 +268,9 @@ class EnemyBehaviourTest {
         Player player = new Player(6, 5);
         double start = player.getHealth();
 
-        skeleton.update(STEP, map, player);
+        skeleton.update(STEP, map, player, new EnemyOccupancy());
         double afterFirst = player.getHealth();
-        skeleton.update(STEP, map, player);
+        skeleton.update(STEP, map, player, new EnemyOccupancy());
 
         assertEquals(start - skeleton.getAttackDamage(), afterFirst, 1e-9);
         assertEquals(afterFirst, player.getHealth(), 1e-9, "the cooldown blocks the second strike");
@@ -282,7 +283,7 @@ class EnemyBehaviourTest {
         Player player = new Player(9, 5);
         double start = player.getHealth();
 
-        skeleton.update(STEP, map, player);
+        skeleton.update(STEP, map, player, new EnemyOccupancy());
 
         assertEquals(start, player.getHealth(), 1e-9);
     }
@@ -295,7 +296,7 @@ class EnemyBehaviourTest {
         Player player = new Player(12, 5);
 
         for (int i = 0; i < 300; i++) {
-            skeleton.update(STEP, map, player);
+            skeleton.update(STEP, map, player, new EnemyOccupancy());
         }
 
         assertTrue(skeleton.getCurrentTileX() <= 11);

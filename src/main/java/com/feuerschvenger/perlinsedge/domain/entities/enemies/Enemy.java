@@ -28,8 +28,6 @@ public abstract class Enemy extends Entity {
     protected double attackTimer;
     protected final EnemyMovementStrategy movementStrategy;
     protected final EnemyAttackStrategy attackStrategy;
-    /** The occupancy of an enemy updated without the others, created on the first such update. */
-    private EnemyOccupancy soloOccupancy;
 
     // ==================================================================
     //  Constructor
@@ -64,35 +62,31 @@ public abstract class Enemy extends Entity {
     // ==================================================================
 
     /**
-     * Updates enemy state including movement, attack, and cooldowns.
-     * Delegates behavior to configured strategies.
-     *
-     * @param deltaTime Time since last update (seconds)
-     * @param map       Current game map
-     * @param player    Player instance
-     */
-    public void update(double deltaTime, TileMap map, Player player) {
-        if (soloOccupancy == null) {
-            soloOccupancy = new EnemyOccupancy();
-        }
-        update(deltaTime, map, player, soloOccupancy);
-    }
-
-    /**
      * Updates the enemy among the others: it moves only to tiles no other enemy holds, and the occupancy is brought
-     * in line with its tiles before and after the move.
+     * in line with its tiles before and after the move. This is the single update of every enemy, so subclasses add
+     * behaviour through {@link #afterUpdate(Player)} and cannot be skipped by a caller choosing another overload.
      *
      * @param deltaTime Time since last update (seconds)
      * @param map       Current game map
      * @param player    Player instance
      * @param occupancy Which enemy holds which tile, shared by every enemy of the map
      */
-    public void update(double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
+    public final void update(double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
         updateAttackCooldown(deltaTime);
         occupancy.sync(this);
         movementStrategy.updateMovement(this, deltaTime, map, player, occupancy);
         occupancy.sync(this);
         attackStrategy.updateAttack(this, deltaTime, player);
+        afterUpdate(player);
+    }
+
+    /**
+     * Hook that runs at the end of every update, after the movement and the attack. It does nothing by default.
+     *
+     * @param player Player instance
+     */
+    protected void afterUpdate(Player player) {
+        // No behaviour beyond the strategies by default
     }
 
     // ==================================================================

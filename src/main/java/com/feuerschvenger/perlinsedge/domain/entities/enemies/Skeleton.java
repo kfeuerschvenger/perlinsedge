@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
-import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
  * Represents a Skeleton enemy with ranged attack capabilities.
@@ -72,16 +71,13 @@ public class Skeleton extends Enemy {
     // ==================================================================
 
     /**
-     * Updates skeleton state including ranged attack behavior.
+     * Runs the ranged behaviour at the end of every update.
      * Skeletons attempt to maintain distance while attacking with arrows.
      *
-     * @param deltaTime Time since last update (seconds)
-     * @param map       Current game map
-     * @param player    Player instance
+     * @param player Player instance
      */
     @Override
-    public void update(double deltaTime, TileMap map, Player player) {
-        super.update(deltaTime, map, player);
+    protected void afterUpdate(Player player) {
         rangedBehavior(player);
     }
 
