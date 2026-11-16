@@ -205,8 +205,8 @@ public final class DayCycle {
     /**
      * Returns how dark the shadows are as a share of their full strength.
      *
-     * @return 1 through the day, easing to 0 through the dusk, 0 at night and easing back to 1 through the dawn from the
-     *         sunrise on, and 0 for as long as the sun is below the horizon
+     * @return 1 through the day, easing to 0 through the dusk, 0 at night, easing from 0 at the sunrise back to 1 at the
+     *         end of the dawn, and 0 for as long as the sun is below the horizon, so the shadows never jump
      */
     public double shadowStrength() {
         if (!sunIsUp()) {
@@ -216,7 +216,11 @@ public final class DayCycle {
         final double dawn = settings.dawnSeconds();
         final double dayEnd = dawn + settings.daySeconds();
         return switch (phase()) {
-            case DAWN -> ease(s / dawn);
+            case DAWN -> {
+                final double sunrise = settings.sunriseClockHours();
+                final double rise = DayCycleSettings.DAY_START_CLOCK_HOURS - sunrise;
+                yield rise <= 0 ? 1.0 : ease((unwrappedClockHours() - sunrise) / rise);
+            }
             case DAY -> 1.0;
             case DUSK -> 1.0 - ease((s - dayEnd) / settings.duskSeconds());
             case NIGHT -> 0.0;

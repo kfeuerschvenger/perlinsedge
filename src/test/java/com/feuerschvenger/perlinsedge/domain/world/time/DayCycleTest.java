@@ -154,6 +154,23 @@ class DayCycleTest {
     }
 
     @Test
+    void theShadowsFadeInFromTheSunriseWithoutAJump() {
+        final double sunrise = 24.0 - (6.0 + (DAY + DUSK) / CYCLE * 24.0);
+
+        assertEquals(0.0, atHour(sunrise - 0.01).shadowStrength(), 1e-9, "no shadow just before the sunrise");
+        assertTrue(atHour(sunrise + 0.01).shadowStrength() < 0.01, "barely any shadow just after the sunrise");
+        assertTrue(atHour(5.0).shadowStrength() > 0.0 && atHour(5.0).shadowStrength() < 1.0, "fading in at 05:00");
+        assertEquals(1.0, atHour(6.0).shadowStrength(), 1e-9, "full at the end of the dawn");
+        double previous = 0.0;
+        for (double hour = sunrise; hour <= 6.0; hour += 0.05) {
+            final double strength = atHour(hour).shadowStrength();
+            assertTrue(strength >= previous - 1e-9, "never darker then lighter on the way up");
+            assertTrue(strength - previous < 0.1, "no jump between steps");
+            previous = strength;
+        }
+    }
+
+    @Test
     void aStartHourJustBeforeTheBeginningOfTheCycleWrapsToZeroAndNeverToTheWholeCycle() {
         final double[] hours = {Math.nextDown(3.0), 3.0, Math.nextUp(3.0), -21.0, Math.nextDown(-21.0), 27.0,
                 Math.nextDown(27.0), 0.0, 24.0, Math.nextDown(24.0), 6.0, 123.456};
