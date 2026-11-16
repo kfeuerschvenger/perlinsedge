@@ -44,6 +44,14 @@ class KeyRepeatFilterTest {
     }
 
     @Test
+    void thePagingKeysRepeatWhileHeld() {
+        assertTrue(filter.firstPress(KeyCode.PAGE_UP));
+        assertTrue(filter.firstPress(KeyCode.PAGE_UP));
+        assertTrue(filter.firstPress(KeyCode.PAGE_DOWN));
+        assertTrue(filter.firstPress(KeyCode.PAGE_DOWN));
+    }
+
+    @Test
     void ignoresAMissingKeyCode() {
         assertFalse(filter.firstPress(null));
         filter.release(null);
