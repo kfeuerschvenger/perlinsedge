@@ -278,6 +278,51 @@ class EnemyCrowdTest {
         assertEquals(first, again, "the rest follows from the spawn tile");
     }
 
+    private static double restAt(int x, int y) {
+        return ((SlimeMovementStrategy) new Slime(x, y).getMovementStrategy()).restBetweenHops();
+    }
+
+    @Test
+    void theRestsOfSlimesSpawnedOnARowAndOnABlockAreSpreadApart() {
+        final List<double[]> rests = new ArrayList<>();
+        for (int x = 0; x < 20; x++) {
+            rests.add(new double[]{x, 0, restAt(x, 0)});
+        }
+        for (int x = 0; x < 10; x++) {
+            for (int y = 0; y < 10; y++) {
+                rests.add(new double[]{100 + x, 50 + y, restAt(100 + x, 50 + y)});
+            }
+        }
+
+        int pairs = 0;
+        int apart = 0;
+        for (int i = 0; i < rests.size(); i++) {
+            for (int j = i + 1; j < rests.size(); j++) {
+                pairs++;
+                if (Math.abs(rests.get(i)[2] - rests.get(j)[2]) >= 0.005) {
+                    apart++;
+                }
+            }
+        }
+        assertTrue(apart >= 0.9 * pairs, apart + " of " + pairs + " pairs of tiles differ by 5 ms or more");
+    }
+
+    @Test
+    void slimesOnNeighbouringTilesNeverRestWithinATickOfEachOther() {
+        for (int x = -30; x <= 30; x++) {
+            for (int y = -30; y <= 30; y++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dy = -1; dy <= 1; dy++) {
+                        if (dx != 0 || dy != 0) {
+                            assertTrue(Math.abs(restAt(x, y) - restAt(x + dx, y + dy)) > STEP,
+                                    "tiles (" + x + ", " + y + ") and (" + (x + dx) + ", " + (y + dy) + ") rest alike");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     void twoSlimesStartingTogetherTakeOffForTheirSecondHopAtDifferentTimes() {
         final TileMap map = openGround();

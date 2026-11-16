@@ -26,6 +26,10 @@ public class Slime extends Enemy {
             Rgba.LIGHT_PINK.scaleBrightness(0.8)
     };
 
+    /** Weights of the tile coordinates in the rest of a slime: the reciprocals of the golden and the plastic ratio. */
+    private static final double REST_WEIGHT_X = 0.6180339887498949;
+    private static final double REST_WEIGHT_Y = 0.7548776662466927;
+
     // Shared random generator
     private static final Random RANDOM = new Random();
 
@@ -49,7 +53,7 @@ public class Slime extends Enemy {
                 MAX_HEALTH,
                 ATTACK_DAMAGE,
                 ATTACK_COOLDOWN,
-                new SlimeMovementStrategy(spawnSeed(startX, startY)),
+                new SlimeMovementStrategy(spawnSeed(startX, startY), restFractionAt(startX, startY)),
                 new SlimeAttackStrategy()
         );
         this.setColor(selectRandomColor());
@@ -66,9 +70,26 @@ public class Slime extends Enemy {
         return breathPhase;
     }
 
-    /** The seed of the timing of a slime, a hash of the tile it spawned on, so the same tile always gives the same timing. */
+    /**
+     * The seed of the idle hops of a slime: the tile it spawned on, packed and run through the splitmix64 finalizer,
+     * so the same tile always gives the same seed and tiles that differ by one coordinate give unrelated seeds.
+     */
     private static long spawnSeed(int tileX, int tileY) {
-        return ((long) tileX << 32) ^ (tileY * 0x9E3779B97F4A7C15L);
+        long z = (((long) tileX << 32) | (tileY & 0xFFFFFFFFL)) + 0x9E3779B97F4A7C15L;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
+    }
+
+    /**
+     * Where the rest between hops of a slime falls in its range. It is the fractional part of a weighted sum of the
+     * coordinates with two irrational weights, so the rest of any tile differs from that of each of the eight
+     * tiles around it by at least 0.137 of the range, about 25 ms, which is more than a tick at 60 updates per second.
+     * Slimes on neighbouring tiles therefore never hop in lockstep.
+     */
+    private static double restFractionAt(int tileX, int tileY) {
+        final double sum = tileX * REST_WEIGHT_X + tileY * REST_WEIGHT_Y;
+        return sum - Math.floor(sum);
     }
 
     /** Spreads spawn tiles over 256 phases with a hash of the coordinates. */

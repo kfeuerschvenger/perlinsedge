@@ -77,20 +77,18 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private final PathPlanner pathPlanner = new PathPlanner();
     private final ChaseLeash leash = new ChaseLeash(AppConfig.getInstance().enemies().slime());
 
-    /** Creates a strategy with an empty path, on the ground, with its first idle hop scheduled. */
-    public SlimeMovementStrategy() {
-        this(new Random().nextLong());
-    }
-
     /**
-     * Creates a strategy whose timing follows from a seed, so the same seed always gives the same rest and idle hops.
+     * Creates a strategy with an empty path, on the ground, with its first idle hop scheduled. Its timing follows from
+     * its arguments, so the same arguments always give the same rest and idle hops.
      *
-     * @param seed the seed of the slime, such as one derived from the tile it spawned on
+     * @param seed         seed of the idle hops of the slime, such as a hash of the tile it spawned on
+     * @param restFraction where the rest between hops falls between the shortest and the longest rest, from 0 up to
+     *                     but not including 1
      */
-    public SlimeMovementStrategy(long seed) {
+    public SlimeMovementStrategy(long seed, double restFraction) {
         this.currentPath = new LinkedList<>();
         this.random = new Random(seed);
-        this.restBetweenHops = MIN_REST_SECONDS + (MAX_REST_SECONDS - MIN_REST_SECONDS) * random.nextDouble();
+        this.restBetweenHops = MIN_REST_SECONDS + (MAX_REST_SECONDS - MIN_REST_SECONDS) * restFraction;
         resetIdleTimer();
         this.isJumping = false;
         this.jumpPhase = 0.0;
