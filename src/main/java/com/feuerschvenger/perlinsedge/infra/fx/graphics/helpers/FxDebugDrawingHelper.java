@@ -23,27 +23,6 @@ public final class FxDebugDrawingHelper {
     private FxDebugDrawingHelper() {} // Prevent instantiation
 
     /**
-     * Draws the compact FPS overlay in the top-left corner. It is toggled with F6 and works without debug mode.
-     *
-     * @param gc          graphics context
-     * @param stats       smoothed frame statistics
-     * @param queuedItems number of drawables in the frame
-     */
-    public static void drawFpsOverlay(GraphicsContext gc, FrameStats stats, int queuedItems) {
-        gc.save();
-        gc.setTransform(1, 0, 0, 1, 0, 0);
-        gc.setFill(Color.rgb(0, 0, 0, 0.55));
-        gc.fillRect(8, 8, 150, 58);
-        gc.setFill(Color.LIME);
-        gc.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
-        gc.setTextAlign(TextAlignment.LEFT);
-        gc.fillText(String.format(Locale.ROOT, "FPS: %.1f", stats.getFps()), 16, 28);
-        gc.fillText(String.format(Locale.ROOT, "Frame: %.2f ms", stats.getLastFrameMillis()), 16, 44);
-        gc.fillText(String.format(Locale.ROOT, "Drawn: %d", queuedItems), 16, 60);
-        gc.restore();
-    }
-
-    /**
      * Describes the sky for the debug overlay: the day, the phase and the time of day on the 24 hour clock.
      *
      * @param dayCycle the clock of the sky
@@ -56,7 +35,19 @@ public final class FxDebugDrawingHelper {
                 minutes / 60, minutes % 60, fastTime ? " (fast)" : "");
     }
 
-    public static void drawDebugInfo(GraphicsContext gc, GameStateManager gameState, Canvas canvas, double deltaTime) {
+    /**
+     * Draws the debug overlay in the top-right corner when the debug mode is on: the smoothed frame rate and frame
+     * time, the number of drawables in the frame, the game clock, the sky, the player, the tile under the mouse and
+     * the entity counts.
+     *
+     * @param gc          graphics context
+     * @param gameState   the game state to describe
+     * @param canvas      the canvas, used to anchor the text to its right edge
+     * @param stats       smoothed frame statistics
+     * @param queuedItems number of drawables in the frame
+     */
+    public static void drawDebugInfo(GraphicsContext gc, GameStateManager gameState, Canvas canvas, FrameStats stats,
+            int queuedItems) {
         if (!AppConfig.getInstance().debug().isEnabled()) return;
 
         gc.save();
@@ -65,13 +56,14 @@ public final class FxDebugDrawingHelper {
         gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         gc.setTextAlign(TextAlignment.RIGHT); // Alinear a la derecha
 
-        double fps = (deltaTime > 0) ? 1.0 / deltaTime : 0;
         double xPos = canvas.getWidth() - 12; // Margen derecho
         double yPos = 30;
 
-        gc.fillText(String.format(Locale.ROOT, "FPS: %.1f", fps), xPos, yPos);
+        gc.fillText(String.format(Locale.ROOT, "FPS: %.1f", stats.getFps()), xPos, yPos);
         yPos += 20;
-        gc.fillText(String.format(Locale.ROOT, "Frame: %.3fms", deltaTime * 1000), xPos, yPos);
+        gc.fillText(String.format(Locale.ROOT, "Frame: %.2f ms", stats.getLastFrameMillis()), xPos, yPos);
+        yPos += 20;
+        gc.fillText(String.format(Locale.ROOT, "Drawn: %d", queuedItems), xPos, yPos);
         yPos += 20;
         gc.fillText(String.format(Locale.ROOT, "Game Time: %.1fs", gameState.getGameTime()), xPos, yPos);
         yPos += 20;

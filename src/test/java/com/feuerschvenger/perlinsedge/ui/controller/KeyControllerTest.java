@@ -23,14 +23,12 @@ class KeyControllerTest {
 
     @BeforeEach
     void setUp() {
-        AppConfig.getInstance().debug().setFpsOverlayEnabled(false);
         controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
                 numbers::add, pageChanges::add);
     }
 
     @AfterEach
     void tearDown() {
-        AppConfig.getInstance().debug().setFpsOverlayEnabled(false);
         AppConfig.getInstance().dayCycle().setFastTime(false);
     }
 
@@ -143,27 +141,6 @@ class KeyControllerTest {
 
         assertEquals(List.of(3), numbers);
         assertTrue(pageChanges.isEmpty());
-    }
-
-    @Test
-    void fpsOverlayIsOffByDefaultAndF6TogglesIt() {
-        assertFalse(AppConfig.getInstance().debug().isFpsOverlayEnabled());
-
-        controller.onKeyAction(GameKey.F6);
-        assertTrue(AppConfig.getInstance().debug().isFpsOverlayEnabled());
-
-        controller.onKeyAction(GameKey.F6);
-        assertFalse(AppConfig.getInstance().debug().isFpsOverlayEnabled());
-    }
-
-    @Test
-    void fpsOverlayDoesNotNeedDebugMode() {
-        boolean debugBefore = AppConfig.getInstance().debug().isEnabled();
-
-        controller.onKeyAction(GameKey.F6);
-
-        assertEquals(debugBefore, AppConfig.getInstance().debug().isEnabled());
-        assertTrue(AppConfig.getInstance().debug().isFpsOverlayEnabled());
     }
 
     @Test

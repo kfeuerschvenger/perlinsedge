@@ -24,7 +24,6 @@ Geek out with our built-in debug modes. Toggle these cheats: I mean, features: w
 - **F3**: Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
 - **F4**: Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
 - **F5**: Regenerate Map: Smash this to get a fresh world with a random seed.
-- **F6**: FPS Overlay: A small frame counter in the top-left corner, off by default and independent of Debug Mode.
 - **F7**: Fast Time: Makes a whole day pass in about 40 seconds, so you can watch the sun cross the sky and the shadows turn.
 
 ## How to Play

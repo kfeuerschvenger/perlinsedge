@@ -437,10 +437,7 @@ public class FxRenderer {
         }
 
         // Draw debug info
-        FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, deltaTime);
-        if (config.debug().isFpsOverlayEnabled()) {
-            FxDebugDrawingHelper.drawFpsOverlay(gc, frameStats, tileQueue.size() + renderQueue.size());
-        }
+        FxDebugDrawingHelper.drawDebugInfo(gc, gameState, canvas, frameStats, tileQueue.size() + renderQueue.size());
     }
 
     // Helper methods --------------------------------------------------------

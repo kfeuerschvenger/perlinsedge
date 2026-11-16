@@ -160,9 +160,6 @@ public class KeyController implements IKeyListener {
             case F5:
                 generateNewRandomMap();
                 break;
-            case F6:
-                toggleFpsOverlay();
-                break;
             case F7:
                 toggleFastTime();
                 break;
@@ -186,15 +183,6 @@ public class KeyController implements IKeyListener {
         boolean newDebugState = !debug.isEnabled();
         debug.setEnabled(newDebugState);
         log.info("Debug Mode: {}", newDebugState ? "ON" : "OFF");
-    }
-
-    /**
-     * Toggles the FPS overlay. It is off by default and works without the debug mode.
-     */
-    private void toggleFpsOverlay() {
-        boolean newState = !debug.isFpsOverlayEnabled();
-        debug.setFpsOverlayEnabled(newState);
-        log.info("FPS Overlay: {}", newState ? "ON" : "OFF");
     }
 
     /**

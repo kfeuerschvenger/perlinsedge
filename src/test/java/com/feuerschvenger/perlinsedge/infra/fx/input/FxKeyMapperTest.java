@@ -38,7 +38,7 @@ class FxKeyMapperTest {
     void mapsDebugKeys() {
         assertEquals(Optional.of(GameKey.F1), key(KeyCode.F1));
         assertEquals(Optional.of(GameKey.F5), key(KeyCode.F5));
-        assertEquals(Optional.of(GameKey.F6), key(KeyCode.F6));
+        assertEquals(Optional.empty(), key(KeyCode.F6));
         assertEquals(Optional.of(GameKey.F7), key(KeyCode.F7));
     }
 
