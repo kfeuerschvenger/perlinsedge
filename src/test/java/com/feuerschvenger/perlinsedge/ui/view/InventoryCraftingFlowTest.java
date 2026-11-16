@@ -5,6 +5,8 @@ import com.feuerschvenger.perlinsedge.app.managers.InventoryManager;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.event.Event;
@@ -242,6 +244,58 @@ class InventoryCraftingFlowTest {
                 .toList());
         assertTrue(after.stream().allMatch("good"::equals),
                 "held ingredients turn green once the inventory refreshes: " + after);
+    }
+
+    private void refresh() {
+        FxToolkitSupport.onFx(() -> {
+            panel.updateInventoryDisplay();
+            return null;
+        });
+    }
+
+    private List<String> shownLines() {
+        return FxToolkitSupport.onFx(() -> panel.ingredientLinesShown().stream()
+                .map(javafx.scene.text.Text::getText)
+                .toList());
+    }
+
+    @Test
+    void theInfoPanelIsRedrawnOnlyWhenTheInventoryVersionOrTheSelectionChanged() {
+        player.addItem(new Item(ItemType.STICK, 1));
+        selectRecipe(ItemType.AXE);
+        refresh();
+        List<String> before = shownLines();
+        assertTrue(before.contains(ItemType.STICK.getDisplayName() + " 1/2"), "the held sticks are shown: " + before);
+
+        // An edit that bypasses the player leaves its version alone, so a refresh has nothing to redraw
+        player.getItemAt(0).addQuantity(1);
+        refresh();
+        assertEquals(before, shownLines());
+
+        player.noteStackChanged();
+        refresh();
+        assertTrue(shownLines().contains(ItemType.STICK.getDisplayName() + " 2/2"));
+    }
+
+    @Test
+    void theCraftingListCatchesUpOnTheInventoryWhenTheChestIsClosedAndThePlayerInventoryReopens() {
+        Container chest = new Chest(0, 0, 8);
+        FxToolkitSupport.onFx(() -> {
+            panel.openDualInventory(chest);
+            return null;
+        });
+
+        // The list is out of the layout while the chest is open, so refreshing marks nothing there
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        refresh();
+        assertTrue(recipeNamesInListOrder().isEmpty(), "the list is not part of the scene while a chest is open");
+
+        FxToolkitSupport.onFx(() -> {
+            panel.closeInventory();
+            panel.openPlayerInventory();
+            return null;
+        });
+        assertEquals(UiTheme.caps(ItemType.WOOD_PLANK.getDisplayName()), recipeNamesInListOrder().getFirst());
     }
 
     @Test

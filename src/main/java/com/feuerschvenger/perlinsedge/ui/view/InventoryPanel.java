@@ -66,6 +66,18 @@ public class InventoryPanel extends BorderPane {
     private final InventoryController controller;
     @Getter(lombok.AccessLevel.PACKAGE)
     private Container secondaryContainer;
+    // What the last refresh drew, so an unchanged inventory and selection cost nothing
+    /** The player and inventory version the crafting list was last marked for, valid only while the flag is set. */
+    private Player craftabilityPlayer;
+    private long craftabilityVersion;
+    private boolean craftabilityValid;
+    /** The player, inventory version and selection the information panel last showed, valid only while flagged. */
+    private boolean infoValid;
+    private Player infoPlayer;
+    private long infoVersion;
+    private int infoSlotIndex;
+    private boolean infoSlotInPlayer;
+    private Recipe infoRecipe;
 
     /**
      * Initializes the inventory panel with game state reference.
@@ -391,9 +403,44 @@ public class InventoryPanel extends BorderPane {
             updateGridContents(secondaryInventoryGrid, secondaryContainer);
         }
 
-        refreshCraftability();
-        updateInformationDisplay();
+        final Player player = gameState.getPlayer();
+        final long version = player == null ? -1 : player.getInventoryVersion();
+        // The crafting list is out of the layout while a chest is open, so nothing there needs the answers
+        if (secondaryContainer == null
+                && (!craftabilityValid || player != craftabilityPlayer || version != craftabilityVersion)) {
+            refreshCraftability();
+        }
+        if (secondaryContainer != null || !infoUpToDate(player, version)) {
+            updateInformationDisplay();
+            rememberInfoSubject(player, version);
+        }
         controller.refreshDrag();
+    }
+
+    /**
+     * Tells whether the information panel already shows what the selection and the inventory call for. A chest has no
+     * change count, so while one is open the panel is always redrawn.
+     */
+    private boolean infoUpToDate(Player player, long version) {
+        return infoValid && player == infoPlayer && version == infoVersion
+                && controller.getSelectedSlotIndex() == infoSlotIndex
+                && controller.isSelectedSlotInPlayerInventory() == infoSlotInPlayer
+                && Objects.equals(controller.getSelectedRecipe(), infoRecipe);
+    }
+
+    private void rememberInfoSubject(Player player, long version) {
+        infoValid = true;
+        infoPlayer = player;
+        infoVersion = version;
+        infoSlotIndex = controller.getSelectedSlotIndex();
+        infoSlotInPlayer = controller.isSelectedSlotInPlayerInventory();
+        infoRecipe = controller.getSelectedRecipe();
+    }
+
+    /** Makes the next refresh redraw the crafting list and the information panel. */
+    private void forgetShownState() {
+        craftabilityValid = false;
+        infoValid = false;
     }
 
     /**
@@ -474,6 +521,9 @@ public class InventoryPanel extends BorderPane {
     /** Lists the recipes that can be crafted with what the player holds first, and greys the others. */
     private void refreshCraftability() {
         Player player = gameState.getPlayer();
+        craftabilityValid = true;
+        craftabilityPlayer = player;
+        craftabilityVersion = player == null ? -1 : player.getInventoryVersion();
         craftingListPanel.setCraftability(recipe -> player != null && player.canCraft(recipe));
     }
 
@@ -531,6 +581,7 @@ public class InventoryPanel extends BorderPane {
     /** Opens the player inventory display. */
     public void openPlayerInventory() {
         this.secondaryContainer = null;
+        forgetShownState();
         cleanRightContainer();
         setVisible(true);
         setManaged(true);
@@ -544,6 +595,7 @@ public class InventoryPanel extends BorderPane {
      */
     public void openDualInventory(Container otherContainer) {
         this.secondaryContainer = Objects.requireNonNull(otherContainer, "Secondary container cannot be null");
+        forgetShownState();
         initializeSecondaryInventory();
         configureDualInventoryLayout();
         setVisible(true);
@@ -583,6 +635,7 @@ public class InventoryPanel extends BorderPane {
     public void closeInventory() {
         controller.cancelDrag();
         this.secondaryContainer = null;
+        forgetShownState();
         resetLayout();
         clearState();
         setVisible(false);

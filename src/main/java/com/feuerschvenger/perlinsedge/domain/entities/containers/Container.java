@@ -48,6 +48,14 @@ public interface Container {
      */
     void setItems(List<Item> items);
 
+    /**
+     * Tells the container that the stack of one of its slots was changed in place, through the item that
+     * {@link #getItemAt(int)} returned, so a container that counts its changes can count this one. The default does
+     * nothing.
+     */
+    default void noteStackChanged() {
+    }
+
     // ==================================================================
     //  Inventory Modification Methods
     // ==================================================================

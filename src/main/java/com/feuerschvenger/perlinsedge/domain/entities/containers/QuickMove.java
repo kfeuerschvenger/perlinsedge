@@ -73,6 +73,7 @@ public final class QuickMove {
             final int moved = Math.min(maxStack - existing.getQuantity(), remaining);
             if (moved > 0) {
                 existing.addQuantity(moved);
+                target.noteStackChanged();
                 remaining -= moved;
             }
         }
@@ -91,6 +92,7 @@ public final class QuickMove {
             source.setItemAt(sourceSlot, null);
         } else {
             stack.setQuantity(remaining);
+            source.noteStackChanged();
         }
         return true;
     }

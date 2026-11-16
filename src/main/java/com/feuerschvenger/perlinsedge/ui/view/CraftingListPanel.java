@@ -172,10 +172,15 @@ public class CraftingListPanel extends VBox {
     private void arrange() {
         // Each recipe is asked once per refresh, and the order is worked out only when an answer changed
         boolean changed = recipesContainer.getChildren().size() != cells.size();
+        boolean selectedIsCraftable = false;
         for (CraftableItemCell cell : cells) {
             final boolean craftable = canCraft.test(cell.getRecipe());
             changed |= craftable != cell.isCraftable();
             cell.setCraftable(craftable);
+            // The answer for the selected recipe is taken here, so the button needs no second pass over the cells
+            if (craftable && cell.getRecipe().equals(selectedRecipe)) {
+                selectedIsCraftable = true;
+            }
         }
         // With no cells the container holds the empty list notice, which must stay
         if (changed && !cells.isEmpty()) {
@@ -187,7 +192,7 @@ public class CraftingListPanel extends VBox {
                 recipesContainer.getChildren().setAll(ordered);
             }
         }
-        updateCraftButton(selectedCellIsCraftable());
+        updateCraftButton(selectedIsCraftable);
     }
 
     /** Keeps the button in line with a newly selected recipe, which is asked about once, at the moment of selection. */
@@ -199,12 +204,6 @@ public class CraftingListPanel extends VBox {
         if (craftButton.isDisabled() == selectedIsCraftable) {
             craftButton.setDisable(!selectedIsCraftable);
         }
-    }
-
-    /** The answer {@link #arrange()} just got for the selected recipe, so the refresh asks nothing twice. */
-    private boolean selectedCellIsCraftable() {
-        return selectedRecipe != null && cells.stream()
-                .anyMatch(cell -> cell.isCraftable() && cell.getRecipe().equals(selectedRecipe));
     }
 
     /**

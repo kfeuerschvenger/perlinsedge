@@ -65,6 +65,8 @@ public class Player extends Entity implements Container {
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
     /** The hotbar slot held in hand. It is a position, so it stays put while the items in the slots change. */
     private int selectedHotbarIndex = 0;
+    /** Grows on every change to the content of a slot, see {@link #getInventoryVersion()}. */
+    private long inventoryVersion = 0;
 
     // Movement and pathfinding
     private final LinkedList<PathNode> currentPath = new LinkedList<>();
@@ -236,6 +238,15 @@ public class Player extends Entity implements Container {
     }
 
     /**
+     * Gives the next tile of the walk in progress, for the checks that run every tick and must not allocate.
+     *
+     * @return the tile the player is walking to, or null when there is no walk
+     */
+    public PathNode getNextTile() {
+        return currentPath.peek();
+    }
+
+    /**
      * Ends the walk when the next tile of it has become taken since the walk was planned, so the player never steps
      * onto it. A player standing on a tile stops there, a player between two tiles walks back to the tile it left.
      *
@@ -320,6 +331,7 @@ public class Player extends Entity implements Container {
     // ==================================================================
 
     public void clearInventory() {
+        inventoryVersion++;
         for (int i = 0; i < INVENTORY_CAPACITY; i++) {
             inventory.set(i, null);
         }
@@ -327,8 +339,26 @@ public class Player extends Entity implements Container {
 
     public void removeItemFromSlot(int slotIndex) {
         if (slotIndex >= 0 && slotIndex < INVENTORY_CAPACITY) {
+            inventoryVersion++;
             inventory.set(slotIndex, null);
         }
+    }
+
+    /**
+     * Gives a number that grows whenever the content of a slot changes: an item stored, removed, moved or crafted, a
+     * stack that grows or shrinks, or the whole inventory replaced. The views compare it with the value they last drew
+     * to skip work while nothing changed.
+     *
+     * @return the change count, which only ever increases
+     */
+    public long getInventoryVersion() {
+        return inventoryVersion;
+    }
+
+    /** Counts a change to a stack that code outside the player edited in place. */
+    @Override
+    public void noteStackChanged() {
+        inventoryVersion++;
     }
 
     /**
@@ -368,6 +398,7 @@ public class Player extends Entity implements Container {
             log.warn("Item not found in inventory");
             return;
         }
+        inventoryVersion++;
 
         Item targetItem = inventory.get(targetSlotIndex);
 
@@ -465,6 +496,7 @@ public class Player extends Entity implements Container {
         if (active == null) {
             return false;
         }
+        inventoryVersion++;
         if (active.getQuantity() <= 1) {
             inventory.set(selectedHotbarIndex, null);
         } else {
@@ -573,6 +605,7 @@ public class Player extends Entity implements Container {
     @Override
     public void setItemAt(int slotIndex, Item item) {
         if (!isValidSlot(slotIndex)) return;
+        inventoryVersion++;
         inventory.set(slotIndex, item);
     }
 
@@ -591,6 +624,7 @@ public class Player extends Entity implements Container {
             return false;
         }
 
+        inventoryVersion++;
         int originalQuantity = item.getQuantity();
         int remaining = originalQuantity;
         // Try stacking with existing items
@@ -631,6 +665,7 @@ public class Player extends Entity implements Container {
             return false;
         }
 
+        inventoryVersion++;
         int remaining = quantity;
         for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             Item current = inventory.get(i);
@@ -686,6 +721,7 @@ public class Player extends Entity implements Container {
 
     @Override
     public void setItems(List<Item> items) {
+        // clearInventory counts the change
         clearInventory();
         for (int i = 0; i < items.size() && i < INVENTORY_CAPACITY; i++) {
             Item source = items.get(i);

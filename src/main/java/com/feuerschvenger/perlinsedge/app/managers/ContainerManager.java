@@ -81,7 +81,7 @@ public class ContainerManager {
         if (destItem == null) {
             moveToEmptySlot(source, sourceSlot, destination, destinationSlot, sourceItem);
         } else if (canStack(sourceItem, destItem)) {
-            stackItems(source, sourceSlot, sourceItem, destItem);
+            stackItems(source, sourceSlot, destination, sourceItem, destItem);
         } else {
             swapItems(source, sourceSlot, destination, destinationSlot, sourceItem, destItem);
         }
@@ -101,13 +101,15 @@ public class ContainerManager {
     /**
      * Stacks items between slots when possible.
      */
-    private void stackItems(Container source, int sourceSlot, Item sourceItem, Item destItem) {
+    private void stackItems(Container source, int sourceSlot, Container destination, Item sourceItem, Item destItem) {
         int maxStack = destItem.getMaxStackSize();
         int availableSpace = maxStack - destItem.getQuantity();
         int transferAmount = Math.min(availableSpace, sourceItem.getQuantity());
 
         destItem.addQuantity(transferAmount);
         sourceItem.removeQuantity(transferAmount);
+        destination.noteStackChanged();
+        source.noteStackChanged();
 
         if (sourceItem.getQuantity() <= 0) {
             source.setItemAt(sourceSlot, null);
