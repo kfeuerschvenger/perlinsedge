@@ -36,7 +36,8 @@ public interface LightSource {
     double radius();
 
     /**
-     * Returns the colour the light gives to what it falls on.
+     * Returns the colour the light gives to what it falls on. A light whose flicker drifts its colour uses the colours of
+     * the flicker instead, and this one is what a steady light keeps.
      *
      * @return the colour, whose opacity is not used
      */

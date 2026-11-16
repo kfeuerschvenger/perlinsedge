@@ -7,8 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.light.PointLight;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,8 +18,11 @@ class LightLayerTest {
 
     private static final Rgba NIGHT = new Rgba(0.03, 0.05, 0.16, 1.0);
     private static final double NIGHT_STRENGTH = 0.72;
+    private static final Rgba DUSK = new Rgba(1.0, 0.48, 0.14, 1.0);
+    private static final double DUSK_STRENGTH = 0.25;
     private static final Rgba WARM = new Rgba(1.0, 0.72, 0.38, 1.0);
-    private static final LightStyle STYLE = new LightStyle(5, 0.20, 0.72);
+    private static final double WARM_STRENGTH = 0.16;
+    private static final LightStyle STYLE = new LightStyle(WARM_STRENGTH, 0.72);
     private static final int CANVAS_W = 480;
     private static final int CANVAS_H = 320;
     private static final double SCALE = 2.0;
@@ -40,18 +42,44 @@ class LightLayerTest {
         return new PointLight(x, y, 4.5, WARM, 1.0, flicker);
     }
 
+    private static boolean compose(LightLayer layer, LightRegistry lights, double time, Rgba tint, double strength) {
+        return layer.compose(lights, STYLE, time, tint, strength, SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh());
+    }
+
     private static boolean compose(LightLayer layer, LightRegistry lights, double time, double strength) {
-        return layer.compose(lights, STYLE, time, NIGHT, strength, SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh());
+        return compose(layer, lights, time, NIGHT, strength);
+    }
+
+    private static LightRegistry oneTorch(Flicker flicker) {
+        final LightRegistry registry = new LightRegistry();
+        registry.add(torch(5, 5, flicker));
+        return registry;
     }
 
     private static LightRegistry oneTorch() {
-        final LightRegistry registry = new LightRegistry();
-        registry.add(torch(5, 5, Flicker.STEADY));
-        return registry;
+        return oneTorch(Flicker.STEADY);
     }
 
     private static int alpha(int pixel) {
         return pixel >>> 24;
+    }
+
+    private static int red(int pixel) {
+        return (pixel >> 16) & 0xFF;
+    }
+
+    private static int green(int pixel) {
+        return (pixel >> 8) & 0xFF;
+    }
+
+    private static int blue(int pixel) {
+        return pixel & 0xFF;
+    }
+
+    /** The column and the row of the cell the torch at tile (5, 5) stands on. */
+    private static int[] centreCell(LightLayer layer) {
+        return new int[]{(int) Math.round((ORIGIN_X - layer.phaseX()) / SCALE + 1),
+                (int) Math.round((((5 + 5) * 8 + 8) * SCALE + ORIGIN_Y - layer.phaseY()) / SCALE + 1)};
     }
 
     @Test
@@ -74,20 +102,41 @@ class LightLayerTest {
     }
 
     @Test
-    void theDarkIsUntouchedFarFromTheLightAndLightenedUnderIt() {
+    void theDarkIsUntouchedFarFromTheLightAndTurnsWarmUnderIt() {
         final LightLayer layer = new LightLayer();
 
         assertTrue(compose(layer, oneTorch(), 0.0, NIGHT_STRENGTH));
 
-        // The corner of the box lies outside the circle of the light: the plain tint
+        // The corner of the box lies outside the circle of the light: the plain tint, which is blue
         final int corner = layer.pixelAt(layer.boxLeft(), layer.boxTop());
         assertEquals(Math.round(NIGHT_STRENGTH * 255), alpha(corner), 1);
-        // The cell on the light is nearly clear of the dark, and what is left of it is the warm glow
-        final int centreColumn = (int) Math.round((ORIGIN_X - layer.phaseX()) / SCALE + 1);
-        final int centreRow = (int) Math.round((((5 + 5) * 8 + 8) * SCALE + ORIGIN_Y - layer.phaseY()) / SCALE + 1);
-        final int centre = layer.pixelAt(centreColumn, centreRow);
-        assertTrue(alpha(centre) < alpha(corner) / 2, "alpha " + alpha(centre) + " against " + alpha(corner));
-        assertTrue(((centre >> 16) & 0xFF) > (centre & 0xFF), "the light is warm: red over blue");
+        assertTrue(blue(corner) > red(corner));
+        final int[] at = centreCell(layer);
+        final int centre = layer.pixelAt(at[0], at[1]);
+        assertTrue(red(centre) > blue(centre), "the light is warm: red over blue");
+        assertEquals(Math.round(WARM_STRENGTH * 255), alpha(centre), 2, "a modest warm wash at the centre");
+    }
+
+    @Test
+    void aLightAtDuskIsAWarmWashAndNotAHoleInTheOrangeTint() {
+        final LightLayer layer = new LightLayer();
+        compose(layer, oneTorch(), 0.0, DUSK, DUSK_STRENGTH);
+        final double warm = WARM_STRENGTH * DUSK_STRENGTH / 0.72;
+        final int floor = (int) Math.round(Math.min(warm, DUSK_STRENGTH) * 255) - 1;
+        final int ceiling = (int) Math.round(Math.max(warm, DUSK_STRENGTH) * 255) + 1;
+
+        final int[] at = centreCell(layer);
+        final int centre = layer.pixelAt(at[0], at[1]);
+        assertTrue(red(centre) > blue(centre), "warm, red over blue");
+        assertTrue(alpha(centre) >= Math.round(warm * 255) - 1, "never closer to the raw ground than the warm strength");
+        // The colour of the wash is the colour of the light, not the orange of the tint: more green and blue in it
+        assertTrue((double) green(centre) / alpha(centre) > DUSK.g() + 0.05, "a lit cell takes the colour of the light");
+        for (int y = layer.boxTop(); y < layer.boxBottom(); y++) {
+            for (int x = layer.boxLeft(); x < layer.boxRight(); x++) {
+                final int a = alpha(layer.pixelAt(x, y));
+                assertTrue(a >= floor && a <= ceiling, "alpha " + a + " outside " + floor + " to " + ceiling);
+            }
+        }
     }
 
     @Test
@@ -101,95 +150,202 @@ class LightLayerTest {
     }
 
     @Test
-    void theLightIsCutIntoTheConfiguredNumberOfFlatRings() {
-        for (int rings : new int[]{3, 5}) {
-            final LightLayer layer = new LightLayer();
-            final LightStyle style = new LightStyle(rings, 0.20, 0.72);
-            layer.compose(oneTorch(), style, 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(),
-                    cellsHigh());
-
-            final Set<Integer> levels = new HashSet<>();
-            for (int y = layer.boxTop(); y < layer.boxBottom(); y++) {
-                for (int x = layer.boxLeft(); x < layer.boxRight(); x++) {
-                    levels.add(layer.pixelAt(x, y));
-                }
-            }
-            assertTrue(levels.size() <= rings + 1, rings + " rings gave " + levels.size() + " distinct cells");
-            assertTrue(levels.size() >= rings, "the rings are all there: " + levels.size());
-        }
-    }
-
-    @Test
-    void theLightNeverBrightensBeyondFullAndNeverDarkensTheTint() {
+    void theLightFadesOutwardWithoutAStepAndNeverRises() {
         final LightLayer layer = new LightLayer();
         compose(layer, oneTorch(), 0.0, NIGHT_STRENGTH);
+        final int[] at = centreCell(layer);
 
-        for (int y = layer.boxTop(); y < layer.boxBottom(); y++) {
-            for (int x = layer.boxLeft(); x < layer.boxRight(); x++) {
-                final int pixel = layer.pixelAt(x, y);
-                assertTrue(alpha(pixel) <= Math.round(NIGHT_STRENGTH * 255) + 1, "alpha " + alpha(pixel));
-                assertTrue(((pixel >> 16) & 0xFF) <= alpha(pixel) && ((pixel >> 8) & 0xFF) <= alpha(pixel)
-                        && (pixel & 0xFF) <= alpha(pixel), "premultiplied colour never above the alpha");
-            }
+        // Along the row of the light, from its centre to the edge of the box, the overlay only thickens, and by a
+        // few levels at a time
+        int previous = alpha(layer.pixelAt(at[0], at[1]));
+        int biggest = 0;
+        for (int x = at[0] + 1; x < layer.boxRight(); x++) {
+            final int now = alpha(layer.pixelAt(x, at[1]));
+            assertTrue(now >= previous, "the overlay thinned again at " + x);
+            biggest = Math.max(biggest, now - previous);
+            previous = now;
         }
+        assertEquals(Math.round(NIGHT_STRENGTH * 255), previous, 1, "it reaches the plain tint at the edge");
+        assertTrue(biggest <= 4, "the biggest step between neighbouring cells is " + biggest);
+        // Down the column the same, and many distinct levels, not a few flat rings
+        previous = alpha(layer.pixelAt(at[0], at[1]));
+        for (int y = at[1] + 1; y < layer.boxBottom(); y++) {
+            final int now = alpha(layer.pixelAt(at[0], y));
+            // A tile is half as tall as it is wide on the screen, so the gradient is twice as steep down as across
+            assertTrue(now >= previous && now - previous <= 8, "step at " + y);
+            previous = now;
+        }
+        final java.util.Set<Integer> levels = new java.util.HashSet<>();
+        for (int x = at[0]; x < layer.boxRight(); x++) {
+            levels.add(alpha(layer.pixelAt(x, at[1])));
+        }
+        assertTrue(levels.size() > 40, "a gradient of " + levels.size() + " levels");
     }
 
     @Test
-    void theEffectOfALightScalesWithTheStrengthOfTheTint() {
+    void aShapedAndFlickeringFlameStaysContinuousBetweenNeighbouringCells() {
+        final LightLayer layer = new LightLayer();
+        final Flicker flame = Flicker.crackling(0.10, 0.05, 3.2, 5)
+                .withColourDrift(new Rgba(1, 0.58, 0.25, 1), new Rgba(1, 0.82, 0.45, 1), 0.7).withShape(0.10, 0.25);
+        compose(layer, oneTorch(flame), 3.7, NIGHT_STRENGTH);
+
+        int biggest = 0;
+        for (int y = layer.boxTop(); y < layer.boxBottom(); y++) {
+            for (int x = layer.boxLeft(); x + 1 < layer.boxRight(); x++) {
+                final int a = layer.pixelAt(x, y);
+                final int b = layer.pixelAt(x + 1, y);
+                biggest = Math.max(biggest, Math.max(Math.abs(alpha(a) - alpha(b)), Math.abs(red(a) - red(b))));
+            }
+        }
+        assertTrue(biggest <= 7, "the biggest step between neighbouring cells is " + biggest);
+    }
+
+    /** How far from the centre, in art pixels along a direction, the overlay is still clearly pushed back. */
+    private static double reach(LightLayer layer, double turns) {
+        final int[] at = centreCell(layer);
+        final double dx = Math.cos(turns * 2 * Math.PI);
+        final double dy = Math.sin(turns * 2 * Math.PI) / 2;
+        final int plain = (int) Math.round(NIGHT_STRENGTH * 255) - 10;
+        double last = 0.0;
+        for (double step = 1.0; step < 160.0; step += 0.5) {
+            final int x = at[0] + (int) Math.round(dx * step);
+            final int y = at[1] + (int) Math.round(dy * step);
+            if (x < layer.boxLeft() || x >= layer.boxRight() || y < layer.boxTop() || y >= layer.boxBottom()) {
+                break;
+            }
+            if (alpha(layer.pixelAt(x, y)) < plain) {
+                last = step;
+            }
+        }
+        return last;
+    }
+
+    @Test
+    void theRadiusVariesWithTheAngleWithinTheAmplitudeAndChangesSmoothlyOverTime() {
+        final Flicker round = Flicker.crackling(0.0 + 1e-9, 0.0 + 1e-9, 1.0, 9);
+        final Flicker shaped = round.withShape(0.10, 0.25);
+        final LightLayer reference = new LightLayer();
+        compose(reference, oneTorch(round), 0.0, NIGHT_STRENGTH);
+        double lowest = Double.MAX_VALUE;
+        double highest = 0.0;
+
+        for (double time = 0.0; time < 30.0; time += 3.0) {
+            final LightLayer layer = new LightLayer();
+            compose(layer, oneTorch(shaped), time, NIGHT_STRENGTH);
+            for (double turns = 0.0; turns < 1.0; turns += 0.0625) {
+                final double ratio = reach(layer, turns) / reach(reference, turns);
+                assertTrue(ratio > 0.86 && ratio < 1.14, "ratio " + ratio + " at " + turns + " turns, time " + time);
+                lowest = Math.min(lowest, ratio);
+                highest = Math.max(highest, ratio);
+            }
+        }
+        assertTrue(highest - lowest > 0.10, "the edge is not a perfect ellipse: " + (highest - lowest));
+
+        // Frame to frame the edge moves by a cell or two at most, and over seconds it changes
+        final LightLayer now = new LightLayer();
+        final LightLayer next = new LightLayer();
+        final LightLayer later = new LightLayer();
+        compose(now, oneTorch(shaped), 4.0, NIGHT_STRENGTH);
+        compose(next, oneTorch(shaped), 4.0 + 1.0 / 60.0, NIGHT_STRENGTH);
+        compose(later, oneTorch(shaped), 9.0, NIGHT_STRENGTH);
+        double frameStep = 0.0;
+        double overSeconds = 0.0;
+        for (double turns = 0.0; turns < 1.0; turns += 0.0625) {
+            frameStep = Math.max(frameStep, Math.abs(reach(now, turns) - reach(next, turns)));
+            overSeconds = Math.max(overSeconds, Math.abs(reach(now, turns) - reach(later, turns)));
+        }
+        assertTrue(frameStep <= 2.0, "a frame moved the edge by " + frameStep);
+        assertTrue(overSeconds > 3.0, "seconds later the edge is elsewhere: " + overSeconds);
+    }
+
+    @Test
+    void theColourOfALightStaysInTheOrangeToYellowRangeAndDriftsSmoothly() {
+        final Flicker flame = Flicker.crackling(0.10, 0.05, 3.2, 6)
+                .withColourDrift(new Rgba(1, 0.58, 0.25, 1), new Rgba(1, 0.82, 0.45, 1), 0.7);
+        double lowest = 1.0;
+        double highest = 0.0;
+        double previous = Double.NaN;
+        double biggest = 0.0;
+        for (double time = 0.0; time < 20.0; time += 1.0 / 60.0) {
+            final LightLayer layer = new LightLayer();
+            compose(layer, oneTorch(flame), time, NIGHT_STRENGTH);
+            final int[] at = centreCell(layer);
+            final int centre = layer.pixelAt(at[0], at[1]);
+            final double a = alpha(centre);
+            final double g = green(centre) / a;
+            // The light at its dimmest moment is nine tenths of the way from the tint to its colour
+            assertTrue(red(centre) / a > 0.88, "red stays nearly full");
+            assertTrue(g > 0.50 && g < 0.88, "green " + g + " is in the orange to yellow range");
+            assertTrue(blue(centre) / a > 0.17 && blue(centre) / a < 0.51, "blue " + blue(centre) / a);
+            lowest = Math.min(lowest, g);
+            highest = Math.max(highest, g);
+            if (!Double.isNaN(previous)) {
+                biggest = Math.max(biggest, Math.abs(g - previous));
+            }
+            previous = g;
+        }
+        assertTrue(highest - lowest > 0.12, "the colour drifts: " + (highest - lowest));
+        assertTrue(biggest < 0.08, "smooth from frame to frame: " + biggest);
+    }
+
+    @Test
+    void theEffectOfALightScalesWithTheDarknessAndIsNothingAtNoon() {
         final LightLayer deep = new LightLayer();
         final LightLayer dusk = new LightLayer();
         final LightLayer noon = new LightLayer();
-        compose(deep, oneTorch(), 0.0, NIGHT_STRENGTH);
-        compose(dusk, oneTorch(), 0.0, 0.25);
-        compose(noon, oneTorch(), 0.0, 0.0);
-        final int column = (int) Math.round((ORIGIN_X - deep.phaseX()) / SCALE + 1);
-        final int row = (int) Math.round((((5 + 5) * 8 + 8) * SCALE + ORIGIN_Y - deep.phaseY()) / SCALE + 1);
-        final int ring = column + 40;
+        compose(deep, oneTorch(), 0.0, NIGHT, NIGHT_STRENGTH);
+        compose(dusk, oneTorch(), 0.0, NIGHT, 0.25);
+        compose(noon, oneTorch(), 0.0, NIGHT, 0.0);
+        final int[] at = centreCell(deep);
 
-        final int deepLift = alpha(deep.pixelAt(deep.boxLeft(), deep.boxTop())) - alpha(deep.pixelAt(ring, row));
-        final int duskLift = alpha(dusk.pixelAt(dusk.boxLeft(), dusk.boxTop())) - alpha(dusk.pixelAt(ring, row));
-
-        assertTrue(deepLift > 0 && duskLift > 0, "both are lit: " + deepLift + " and " + duskLift);
-        assertTrue(duskLift < deepLift / 2.0, "a weak tint has little to push back: " + duskLift + " against " + deepLift);
+        // The wash at the centre is the warm strength scaled by how dark it is
+        assertEquals(WARM_STRENGTH * 255, alpha(deep.pixelAt(at[0], at[1])), 2.0);
+        assertEquals(WARM_STRENGTH * 255 * 0.25 / 0.72, alpha(dusk.pixelAt(at[0], at[1])), 2.0);
         for (int y = noon.boxTop(); y < noon.boxBottom(); y++) {
             for (int x = noon.boxLeft(); x < noon.boxRight(); x++) {
-                assertEquals(0, noon.pixelAt(x, y), "no tint, no darkness, no glow at " + x + "," + y);
+                assertEquals(0, noon.pixelAt(x, y), "no tint, no darkness, no wash at " + x + "," + y);
             }
         }
     }
 
     @Test
-    void twoLightsCombineWithoutGoingPastFullAndLightMoreThanOne() {
+    void twoLightsCombineTheirLightAndWeighTheirColoursByContribution() {
         final LightLayer alone = new LightLayer();
         final LightLayer both = new LightLayer();
         final LightRegistry pair = new LightRegistry();
-        pair.add(torch(5, 5, Flicker.STEADY));
-        pair.add(torch(6, 5, Flicker.STEADY));
-        compose(alone, oneTorch(), 0.0, NIGHT_STRENGTH);
+        pair.add(new PointLight(5, 5, 4.5, new Rgba(1, 0.1, 0.1, 1), 1.0, Flicker.STEADY));
+        pair.add(new PointLight(8, 5, 4.5, new Rgba(0.1, 0.1, 1, 1), 1.0, Flicker.STEADY));
+        final LightRegistry first = new LightRegistry();
+        first.add(pair.get(0));
+        compose(alone, first, 0.0, NIGHT_STRENGTH);
         compose(both, pair, 0.0, NIGHT_STRENGTH);
 
-        int lighter = 0;
+        int thicker = 0;
         for (int y = alone.boxTop(); y < alone.boxBottom(); y++) {
             for (int x = alone.boxLeft(); x < alone.boxRight(); x++) {
                 final int one = alpha(alone.pixelAt(x, y));
                 final int two = alpha(both.pixelAt(x, y));
-                // The warm glow of a bright ring adds alpha of its own, so only the dim outer rings, which have none,
-                // are compared
-                if (one >= 100) {
-                    assertTrue(two <= one + 1, "a second light never darkens at " + x + "," + y);
-                }
-                lighter += two < one ? 1 : 0;
+                assertTrue(two <= one + 1, "a second light never darkens at " + x + "," + y);
+                thicker += two > one + 1 ? 1 : 0;
             }
         }
-        assertTrue(lighter > 100, "the second light lit " + lighter + " more cells");
+        assertEquals(0, thicker);
         assertEquals(2, both.lightCount());
+        final int[] at = centreCell(alone);
+        final int nearFirst = both.pixelAt(at[0], at[1]);
+        assertTrue(red(nearFirst) > blue(nearFirst), "the first light colours the cells it lights most");
+        // The second light is three tiles along the ground, which is 48 cells across and 24 down on the screen
+        final int nearSecond = both.pixelAt(at[0] + 48, at[1] + 24);
+        assertTrue(blue(nearSecond) > red(nearSecond), "the second light colours its own cells");
+        final int between = both.pixelAt(at[0] + 24, at[1] + 12);
+        assertTrue(red(between) > 0 && blue(between) > 0 && Math.abs(red(between) - blue(between)) < alpha(between),
+                "in between the two colours mix");
     }
 
     @Test
-    void aCracklingLightMovesItsRingsAndASteadyOneDoesNot() {
+    void aCracklingLightMovesItsEdgeAndASteadyOneDoesNot() {
         final LightRegistry steady = oneTorch();
-        final LightRegistry crackling = new LightRegistry();
-        crackling.add(torch(5, 5, Flicker.crackling(0.10, 0.05, 3.2, 3)));
+        final LightRegistry crackling = oneTorch(Flicker.crackling(0.10, 0.05, 3.2, 3));
         final LightLayer steadyLayer = new LightLayer();
         final LightLayer cracklingLayer = new LightLayer();
 
@@ -204,8 +360,8 @@ class LightLayerTest {
         }
 
         assertEquals(steadyFirst, steadyLayer.composes(), "a steady light is not worked out again");
-        assertTrue(cracklingLayer.composes() > cracklingFirst + 3, "the bands moved: " + cracklingLayer.composes());
-        assertNotEquals(java.util.Arrays.hashCode(first), java.util.Arrays.hashCode(cracklingLayer.pixels()));
+        assertTrue(cracklingLayer.composes() > cracklingFirst + 3, "the light moved: " + cracklingLayer.composes());
+        assertNotEquals(Arrays.hashCode(first), Arrays.hashCode(cracklingLayer.pixels()));
     }
 
     @Test
@@ -229,7 +385,7 @@ class LightLayerTest {
     }
 
     @Test
-    void theRingsFollowTheLightByWholeCellsWhenTheCameraMovesByWholeArtPixels() {
+    void theGradientFollowsTheLightByWholeCellsWhenTheCameraMovesByWholeArtPixels() {
         final LightLayer layer = new LightLayer();
         final LightLayer moved = new LightLayer();
         layer.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh());

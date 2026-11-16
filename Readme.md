@@ -15,7 +15,7 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 - **Exploration**: Roam biomes, find hidden secrets, or just get lost (we won’t judge).
 - **Pathfinding**: Smart navigation for friends: and foes.
 - **Day and Night**: The sun crosses the sky, shadows follow its height, and the world turns warm at dawn and dusk and a dark moonlit blue at night.
-- **Torchlight**: Hold a torch and it lights the night around you with crisp rings of warm, crackling light. The light appears the moment the torch is the item in your hand and disappears when you pick anything else or die.
+- **Torchlight**: Hold a torch and it lights the night around you with a warm wash of crackling light that fades smoothly outward, drifts between orange and yellow, and breathes at its edge. The light appears the moment the torch is the item in your hand and disappears when you pick anything else or die.
 
 ## Debug Modes & Hotkeys
 

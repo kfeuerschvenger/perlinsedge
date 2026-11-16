@@ -258,15 +258,23 @@ public class AppConfig {
         private static final double TORCH_FLICKER_HZ = 3.2;
         /** What the phases of the flame of the held torch are worked out from. */
         private static final long TORCH_FLICKER_SEED = 0x70C4L;
-        /** The number of flat rings the fade of a light is cut into. */
-        private static final int RINGS = 5;
-        /** The opacity of the warm glow at the centre of a light in the deepest dark. */
-        private static final double GLOW_STRENGTH = 0.20;
-        /** The tint strength of the deepest dark, which the glow is scaled against. */
+        /** The deeper orange the colour of the flame drifts to. */
+        private static final Rgba FLAME_ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
+        /** The yellow the colour of the flame drifts to. */
+        private static final Rgba FLAME_YELLOW = new Rgba(1.0, 0.82, 0.45, 1.0);
+        /** The frequency of the slow drift of the colour of the flame in cycles per second. */
+        private static final double FLAME_COLOUR_HZ = 0.7;
+        /** The most the radius of the flame varies with the angle, as a share of it. */
+        private static final double FLAME_SHAPE_AMPLITUDE = 0.10;
+        /** How fast the lobes of the light of the flame turn, in turns per second. */
+        private static final double FLAME_SHAPE_DRIFT_HZ = 0.25;
+        /** The opacity of the warm overlay at the centre of a light in the deepest dark. */
+        private static final double WARM_STRENGTH = 0.16;
+        /** The tint strength of the deepest dark, which the warm overlay is scaled against. */
         private static final double REFERENCE_DARKNESS = 0.72;
 
         /** How every light is drawn, built once because the renderer reads it on every frame. */
-        private final LightStyle style = new LightStyle(RINGS, GLOW_STRENGTH, REFERENCE_DARKNESS);
+        private final LightStyle style = new LightStyle(WARM_STRENGTH, REFERENCE_DARKNESS);
 
         /**
          * Creates the light of a torch held in hand, which the game state registers while a torch is selected.
@@ -274,8 +282,20 @@ public class AppConfig {
          * @return a new held torch light with the values of this configuration
          */
         public HeldTorch newHeldTorch() {
-            return new HeldTorch(TORCH_RADIUS, TORCH_COLOUR, TORCH_INTENSITY, Flicker.crackling(
-                    TORCH_INTENSITY_FLICKER, TORCH_RADIUS_FLICKER, TORCH_FLICKER_HZ, TORCH_FLICKER_SEED));
+            return new HeldTorch(TORCH_RADIUS, TORCH_COLOUR, TORCH_INTENSITY, newFlameFlicker(TORCH_FLICKER_SEED));
+        }
+
+        /**
+         * Creates the flicker of a flame: the intensity and the radius crackle, the colour drifts between a deeper
+         * orange and a yellow and the edge of the light breathes. Other fire sources reuse it with a seed of their own.
+         *
+         * @param seed what the phases of the flame are worked out from
+         * @return the flicker
+         */
+        public Flicker newFlameFlicker(long seed) {
+            return Flicker.crackling(TORCH_INTENSITY_FLICKER, TORCH_RADIUS_FLICKER, TORCH_FLICKER_HZ, seed)
+                    .withColourDrift(FLAME_ORANGE, FLAME_YELLOW, FLAME_COLOUR_HZ)
+                    .withShape(FLAME_SHAPE_AMPLITUDE, FLAME_SHAPE_DRIFT_HZ);
         }
 
         /** @return how every light is drawn, the same instance every time */

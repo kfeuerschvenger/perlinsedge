@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightFalloff;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightRegistry;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightSource;
@@ -9,17 +10,23 @@ import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import java.util.Arrays;
 
 /**
- * The darkness of the world with the lights cut out of it, at the resolution of the art: one cell is one art pixel and
- * the grid is aligned to the camera like the one of the shadows, so every ring of a light is a crisp stepped band of
- * whole art pixels at every zoom. The cells are the ones of the sky tint laid over the world, with the tint pushed back
- * where a light shines and a warm glow of the colour of the light added near its centre.
+ * The overlay of the sky with the lights worked into it, at the resolution of the art: one cell is one art pixel and the
+ * grid is aligned to the camera like the one of the shadows, so the gradient of a light is made of crisp blocks of whole
+ * art pixels at every zoom.
+ * <p>
+ * Every cell follows one rule. A cell has an amount of light, from 0 to 1, and its overlay is the sky tint turned toward
+ * the colour of the light by that amount: the colour moves from the tint to the colour of the light, and the opacity
+ * moves from the strength of the sky to a modest warm strength. A lit patch is therefore a warm wash and never a hole in
+ * the tint that shows the plain ground. The warm strength is scaled by how dark it is, so it is full in the deepest night,
+ * a faint wash at dusk and nothing at midday, when the tint has no strength and there is nothing to turn.
  * <p>
  * A light covers the cells of the ground around it, and the ground is the isometric plane, so a circle of tiles around a
- * light is an ellipse twice as wide as it is tall on the screen. The distance of a cell from a light is worked out on
- * the ground, in tiles, and the share of the radius it makes picks a ring, see {@link LightFalloff}. The light of a ring
- * is scaled by the intensity of the light at that moment and several lights combine as {@code 1 - (1 - a)(1 - b)}, so
- * two lights never light a cell beyond full. The tint alpha of a cell is the strength of the tint times what is left
- * unlit, so a light has no effect where the tint has no strength: at midday there is nothing to push back.
+ * light is an ellipse twice as wide as it is tall on the screen. The distance of a cell from a light is worked out on the
+ * ground, in tiles, and its square as a share of the radius gives the light of the cell through
+ * {@link LightFalloff}, a continuous gradient that is exactly zero at the radius. The radius is not the same in every
+ * direction: it varies with the angle around the light by the shape of its {@link Flicker}, read from a small table that
+ * is worked out for each light once per call and interpolated, indexed by a pseudo angle that needs no trigonometry. Several
+ * lights combine their light as {@code 1 - (1 - a)(1 - b)} and their colours weighted by how much each lights the cell.
  * <p>
  * Only the box around the lights is worked out and kept, and the world outside it is laid with the plain tint by the
  * caller. The box is worked out again only when something it depends on changed since the last call, and no array is
@@ -32,39 +39,47 @@ public final class LightLayer {
     private static final double TILE_ART_HALF_WIDTH = 16.0;
     /** Art pixels from the top vertex of a tile to its centre along the height, where an entity stands. */
     private static final double TILE_ART_HALF_HEIGHT = 8.0;
-    /** Share of the light above which the warm glow begins, so only the centre rings glow. */
-    private static final double GLOW_FROM = 0.4;
-    /** The numbers kept for each light: its centre cell, its radius, its intensity, its colour and its box. */
-    private static final int STRIDE = 11;
+    /** The numbers kept for each light: its centre cell, radius, intensity, colour, shape time and box. */
+    private static final int STRIDE = 12;
     /** The part of the stride that holds the box as left, top, right and bottom. */
-    private static final int BOX_AT = 7;
+    private static final int BOX_AT = 8;
+    /** The part of the stride that holds the time the shape was read at, 0 for a round light. */
+    private static final int SHAPE_TIME_AT = 7;
+    /** The number of sectors of the table of the radius by angle, each interpolated across. */
+    private static final int SECTORS = 64;
 
     /** The number of cells across the grid. */
     private int cellsWide;
     /** The number of cells down the grid. */
     private int cellsHigh;
-    /** How much of each cell is lit, 0 to 255, in the box. */
+    /** How much of each cell is lit by all the lights, 0 to 255, in the box, kept only for several lights. */
     private int[] levels = new int[0];
-    /** The warm glow of each cell as premultiplied ARGB, in the box. */
-    private int[] glow = new int[0];
-    /** The finished cells as premultiplied ARGB: the tint pushed back by the lights with the glow over it. */
+    /** The sum of the light of each light in each cell, 0 up, in the box, kept only for several lights. */
+    private int[] weights = new int[0];
+    /** The sum of the light times the red of each light in each cell, kept only for several lights. */
+    private int[] reds = new int[0];
+    /** The sum of the light times the green of each light in each cell, kept only for several lights. */
+    private int[] greens = new int[0];
+    /** The sum of the light times the blue of each light in each cell, kept only for several lights. */
+    private int[] blues = new int[0];
+    /** The finished cells as premultiplied ARGB: the sky tint turned toward the light. */
     private int[] pixels = new int[0];
 
     /** The numbers of the lights in view, {@link #STRIDE} for each. */
     private double[] lights = new double[STRIDE * 4];
+    /** The flicker of each light in view, which gives its shape. */
+    private Flicker[] flickers = new Flicker[4];
     /** How many lights are in view. */
     private int count;
 
-    /** The square of the share of the radius at which each ring of the light being cast ends. */
-    private double[] ringEdge = new double[0];
-    /** The level of light of each ring of the light being cast, 0 to 255. */
-    private int[] ringLevel = new int[0];
-    /** The alpha of the glow of each ring of the light being cast, 0 for a ring with no glow. */
-    private int[] ringGlowAlpha = new int[0];
-    /** The glow of each ring of the light being cast as premultiplied ARGB over no glow at all. */
-    private int[] ringGlow = new int[0];
+    /** The radius of the light being cast by angle: one over the square of the factor, with a closing entry. */
+    private final double[] sectorInverse = new double[SECTORS + 1];
+    /** The finished cell for each of the 256 steps of light, for the single light being cast. */
+    private final int[] litCells = new int[256];
     /** The part of the squared distance that depends on the column, for the light being cast. */
     private double[] columnPart = new double[0];
+    /** The ground distance along the width of each column from the light being cast, for its angle. */
+    private double[] columnAcross = new double[0];
 
     /** What the cells of the last call were worked out from. */
     private double[] signature = new double[0];
@@ -90,9 +105,6 @@ public final class LightLayer {
     /** How many times the cells were worked out so far. */
     private int composes;
 
-    /** The cell value of the plain tint, which every cell of the box takes where no light reaches. */
-    private int plain;
-
     /**
      * Works out the cells for the lights in view, unless nothing they depend on changed since the last call.
      *
@@ -114,9 +126,12 @@ public final class LightLayer {
         if (wide != cellsWide || high != cellsHigh) {
             cellsWide = wide;
             cellsHigh = high;
-            levels = new int[wide * high];
-            glow = new int[wide * high];
             pixels = new int[wide * high];
+            levels = new int[0];
+            weights = new int[0];
+            reds = new int[0];
+            greens = new int[0];
+            blues = new int[0];
             signatureLength = 0;
         }
         final double snappedX = Math.rint(originX);
@@ -130,13 +145,16 @@ public final class LightLayer {
         if (!differsFromLast(style, tint, tintStrength, artScale)) {
             return true;
         }
-        work(style, tint, tintStrength);
+        work(style, tint, tintStrength, gameTime);
         changed = true;
         composes++;
         return true;
     }
 
-    /** Works out the centre cell, the effective radius and intensity and the box of every light that reaches the canvas. */
+    /**
+     * Works out the centre cell, the effective radius, intensity and colour and the box of every light that reaches the
+     * canvas.
+     */
     private void collect(LightRegistry registry, double gameTime, double artScale, double snappedX, double snappedY) {
         count = 0;
         left = Integer.MAX_VALUE;
@@ -145,9 +163,9 @@ public final class LightLayer {
         bottom = Integer.MIN_VALUE;
         for (int i = 0, total = registry.size(); i < total; i++) {
             final LightSource source = registry.get(i);
-            final double radius = source.radius() * source.flicker().radiusFactor(gameTime);
-            final double intensity = Math.max(0.0, Math.min(1.0,
-                    source.intensity() * source.flicker().intensityFactor(gameTime)));
+            final Flicker flicker = source.flicker();
+            final double radius = source.radius() * flicker.radiusFactor(gameTime);
+            final double intensity = Math.max(0.0, Math.min(1.0, source.intensity() * flicker.intensityFactor(gameTime)));
             if (!(radius > 0.0) || intensity <= 0.0) {
                 continue;
             }
@@ -157,9 +175,11 @@ public final class LightLayer {
                     * artScale + snappedY);
             final double centreX = (screenX - phaseX) / artScale + 1.0;
             final double centreY = (screenY - phaseY) / artScale + 1.0;
-            // A circle of the ground is an ellipse of the screen: sqrt(2) tiles along each diagonal of a tile
-            final double reachX = radius * Math.sqrt(2.0) * TILE_ART_HALF_WIDTH;
-            final double reachY = radius * Math.sqrt(2.0) * TILE_ART_HALF_HEIGHT;
+            // A circle of the ground is an ellipse of the screen: sqrt(2) tiles along each diagonal of a tile, and the
+            // shape of the light can reach out by its amplitude
+            final double reach = radius * Math.sqrt(2.0) * (1.0 + flicker.shapeAmplitude());
+            final double reachX = reach * TILE_ART_HALF_WIDTH;
+            final double reachY = reach * TILE_ART_HALF_HEIGHT;
             final int boxLeft = Math.max(0, (int) Math.floor(centreX - reachX));
             final int boxTop = Math.max(0, (int) Math.floor(centreY - reachY));
             final int boxRight = Math.min(cellsWide, (int) Math.ceil(centreX + reachX));
@@ -169,20 +189,32 @@ public final class LightLayer {
             }
             if ((count + 1) * STRIDE > lights.length) {
                 lights = Arrays.copyOf(lights, lights.length * 2);
+                flickers = Arrays.copyOf(flickers, flickers.length * 2);
             }
             final int at = count * STRIDE;
             final Rgba colour = source.colour();
+            double red = colour.r();
+            double green = colour.g();
+            double blue = colour.b();
+            if (flicker.hasColourDrift()) {
+                final double share = flicker.colourShare(gameTime);
+                red = mix(flicker.colourLow().r(), flicker.colourHigh().r(), share);
+                green = mix(flicker.colourLow().g(), flicker.colourHigh().g(), share);
+                blue = mix(flicker.colourLow().b(), flicker.colourHigh().b(), share);
+            }
             lights[at] = centreX;
             lights[at + 1] = centreY;
             lights[at + 2] = radius;
             lights[at + 3] = intensity;
-            lights[at + 4] = colour.r();
-            lights[at + 5] = colour.g();
-            lights[at + 6] = colour.b();
+            lights[at + 4] = red;
+            lights[at + 5] = green;
+            lights[at + 6] = blue;
+            lights[at + SHAPE_TIME_AT] = flicker.shapeAmplitude() > 0.0 ? gameTime : 0.0;
             lights[at + BOX_AT] = boxLeft;
             lights[at + BOX_AT + 1] = boxTop;
             lights[at + BOX_AT + 2] = boxRight;
             lights[at + BOX_AT + 3] = boxBottom;
+            flickers[count] = flicker;
             count++;
             left = Math.min(left, boxLeft);
             top = Math.min(top, boxTop);
@@ -191,9 +223,14 @@ public final class LightLayer {
         }
     }
 
+    /** Returns the point a share of the way from one value to another. */
+    private static double mix(double from, double to, double share) {
+        return from + (to - from) * share;
+    }
+
     /** Tells whether what the cells depend on differs from the last call, and remembers it. */
     private boolean differsFromLast(LightStyle style, Rgba tint, double tintStrength, double artScale) {
-        final int length = count * STRIDE + 9;
+        final int length = count * STRIDE + 8;
         if (scratch.length < length) {
             scratch = new double[length];
         }
@@ -206,8 +243,7 @@ public final class LightLayer {
         scratch[at++] = artScale;
         scratch[at++] = phaseX;
         scratch[at++] = phaseY;
-        scratch[at++] = style.rings() * 1000.0 + style.referenceDarkness();
-        scratch[at] = style.glowStrength();
+        scratch[at] = style.warmStrength() * 1000.0 + style.referenceDarkness();
         boolean same = signatureLength == length;
         for (int i = 0; same && i < length; i++) {
             same = scratch[i] == signature[i];
@@ -223,127 +259,158 @@ public final class LightLayer {
     }
 
     /** Works out every cell of the box. */
-    private void work(LightStyle style, Rgba tint, double tintStrength) {
-        for (int y = top; y < bottom; y++) {
-            Arrays.fill(levels, y * cellsWide + left, y * cellsWide + right, 0);
-            Arrays.fill(glow, y * cellsWide + left, y * cellsWide + right, 0);
-        }
+    private void work(LightStyle style, Rgba tint, double tintStrength, double gameTime) {
         final double darkness = Math.min(1.0, tintStrength / style.referenceDarkness());
-        for (int light = 0; light < count; light++) {
-            castLight(light * STRIDE, style, darkness);
+        final double warm = style.warmStrength() * darkness;
+        final int plain = pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
+                tint.b() * tintStrength * 255.0);
+        for (int y = top; y < bottom; y++) {
+            Arrays.fill(pixels, y * cellsWide + left, y * cellsWide + right, plain);
         }
-        final double tintA = tintStrength;
-        plain = pack(tintA * 255.0, tint.r() * tintA * 255.0, tint.g() * tintA * 255.0, tint.b() * tintA * 255.0);
-        // Neighbouring cells mostly share a ring, so the last cell worked out is reused while the inputs are the same
-        int lastLevel = 0;
-        int lastGlow = 0;
-        int lastPixel = plain;
+        if (count == 1) {
+            // One light needs nothing remembered between cells: every cell is worked out straight to its colour
+            castLight(0, gameTime, tint, tintStrength, warm, false);
+            return;
+        }
+        if (levels.length != cellsWide * cellsHigh) {
+            levels = new int[cellsWide * cellsHigh];
+            weights = new int[cellsWide * cellsHigh];
+            reds = new int[cellsWide * cellsHigh];
+            greens = new int[cellsWide * cellsHigh];
+            blues = new int[cellsWide * cellsHigh];
+        }
+        for (int y = top; y < bottom; y++) {
+            final int from = y * cellsWide + left;
+            final int to = y * cellsWide + right;
+            Arrays.fill(levels, from, to, 0);
+            Arrays.fill(weights, from, to, 0);
+            Arrays.fill(reds, from, to, 0);
+            Arrays.fill(greens, from, to, 0);
+            Arrays.fill(blues, from, to, 0);
+        }
+        for (int light = 0; light < count; light++) {
+            castLight(light, gameTime, tint, tintStrength, warm, true);
+        }
         for (int y = top; y < bottom; y++) {
             for (int i = y * cellsWide + left, end = y * cellsWide + right; i < end; i++) {
-                if (levels[i] != lastLevel || glow[i] != lastGlow) {
-                    lastLevel = levels[i];
-                    lastGlow = glow[i];
-                    lastPixel = lastLevel == 0 && lastGlow == 0 ? plain : finish(lastLevel, lastGlow, tint, tintStrength);
-                }
-                pixels[i] = lastPixel;
-            }
-        }
-    }
-
-    /** Adds the light of one source to the levels and the glow of the cells of its box. */
-    private void castLight(int at, LightStyle style, double darkness) {
-        final double centreX = lights[at];
-        final double centreY = lights[at + 1];
-        final double radius = lights[at + 2];
-        final double intensity = lights[at + 3];
-        final int red = (int) Math.round(lights[at + 4] * 255.0);
-        final int green = (int) Math.round(lights[at + 5] * 255.0);
-        final int blue = (int) Math.round(lights[at + 6] * 255.0);
-        final int boxLeft = (int) lights[at + BOX_AT];
-        final int boxTop = (int) lights[at + BOX_AT + 1];
-        final int boxRight = (int) lights[at + BOX_AT + 2];
-        final int boxBottom = (int) lights[at + BOX_AT + 3];
-        final int rings = style.rings();
-        prepareRings(rings, intensity, style.glowStrength() * darkness, red, green, blue);
-        // A distance on the ground in tiles, from two distances in art pixels: tiles are 32 across and 16 down, and a
-        // step along a tile axis is half the sum of the squares of its two diagonal parts. The square of the share of
-        // the radius is compared with the squares of the ring edges, so no square root is taken for a cell.
-        final double scale = 0.5 / (radius * radius);
-        final int boxWide = boxRight - boxLeft;
-        if (columnPart.length < boxWide) {
-            columnPart = new double[boxWide];
-        }
-        for (int x = 0; x < boxWide; x++) {
-            final double dx = boxLeft + x + 0.5 - centreX;
-            columnPart[x] = dx * dx / (TILE_ART_HALF_WIDTH * TILE_ART_HALF_WIDTH);
-        }
-        for (int y = boxTop; y < boxBottom; y++) {
-            final double dy = y + 0.5 - centreY;
-            final double downPart = dy * dy / (TILE_ART_HALF_HEIGHT * TILE_ART_HALF_HEIGHT);
-            final int row = y * cellsWide;
-            for (int x = 0; x < boxWide; x++) {
-                final double share = (downPart + columnPart[x]) * scale;
-                int ring = 0;
-                while (ring < rings && share >= ringEdge[ring]) {
-                    ring++;
-                }
-                if (ring == rings) {
-                    continue;
-                }
-                final int level = ringLevel[ring];
-                final int i = row + boxLeft + x;
-                levels[i] = levels[i] == 0 ? level : 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
-                if (ringGlowAlpha[ring] > 0) {
-                    glow[i] = glow[i] == 0 ? ringGlow[ring]
-                            : over(ringGlowAlpha[ring], red, green, blue, glow[i]);
+                if (weights[i] > 0) {
+                    final double w = weights[i] * 255.0;
+                    pixels[i] = cell(levels[i] / 255.0, reds[i] / w, greens[i] / w, blues[i] / w, tint, tintStrength,
+                            warm);
                 }
             }
         }
     }
 
     /**
-     * Works out what every ring of a light gives a cell: the square of the share of the radius at which it ends, its
-     * level of light and its glow, so a cell only looks its ring up.
+     * Casts one light over the cells of its box, either straight to the pixels or into the sums that several lights
+     * share.
      */
-    private void prepareRings(int rings, double intensity, double glowStrength, int red, int green, int blue) {
-        if (ringEdge.length != rings) {
-            ringEdge = new double[rings];
-            ringLevel = new int[rings];
-            ringGlowAlpha = new int[rings];
-            ringGlow = new int[rings];
+    private void castLight(int light, double gameTime, Rgba tint, double tintStrength, double warm, boolean sums) {
+        final int at = light * STRIDE;
+        final double centreX = lights[at];
+        final double centreY = lights[at + 1];
+        final double radius = lights[at + 2];
+        final double intensity = lights[at + 3];
+        final double red = lights[at + 4];
+        final double green = lights[at + 5];
+        final double blue = lights[at + 6];
+        final int boxLeft = (int) lights[at + BOX_AT];
+        final int boxTop = (int) lights[at + BOX_AT + 1];
+        final int boxRight = (int) lights[at + BOX_AT + 2];
+        final int boxBottom = (int) lights[at + BOX_AT + 3];
+        final boolean shaped = flickers[light].shapeAmplitude() > 0.0;
+        prepareShape(flickers[light], lights[at + SHAPE_TIME_AT]);
+        if (!sums) {
+            // One light has one colour, so a cell is looked up by its light in 256 steps instead of being mixed
+            for (int level = 0; level <= 255; level++) {
+                litCells[level] = cell(level / 255.0, red, green, blue, tint, tintStrength, warm);
+            }
         }
-        for (int ring = 0; ring < rings; ring++) {
-            final double edge = (ring + 1.0) / rings;
-            ringEdge[ring] = edge * edge;
-            // The level of the ring is the one the domain gives for a distance in the middle of it
-            final double lit = Math.min(1.0, LightFalloff.level((ring + 0.5) / rings, rings) * intensity);
-            ringLevel[ring] = (int) Math.round(lit * 255.0);
-            final double glowShare = Math.max(0.0, (lit - GLOW_FROM) / (1.0 - GLOW_FROM));
-            ringGlowAlpha[ring] = (int) Math.round(glowStrength * glowShare * 255.0);
-            ringGlow[ring] = ringGlowAlpha[ring] > 0 ? over(ringGlowAlpha[ring], red, green, blue, 0) : 0;
+        final int red255 = (int) Math.round(red * 255.0);
+        final int green255 = (int) Math.round(green * 255.0);
+        final int blue255 = (int) Math.round(blue * 255.0);
+        // A distance on the ground in tiles, from two distances in art pixels: tiles are 32 across and 16 down, and the
+        // square of a step along a tile axis is half the sum of the squares of its two diagonal parts
+        final double scale = 0.5 / (radius * radius);
+        final int boxWide = boxRight - boxLeft;
+        if (columnPart.length < boxWide) {
+            columnPart = new double[boxWide];
+            columnAcross = new double[boxWide];
+        }
+        for (int x = 0; x < boxWide; x++) {
+            final double across = (boxLeft + x + 0.5 - centreX) / TILE_ART_HALF_WIDTH;
+            columnAcross[x] = across;
+            columnPart[x] = across * across;
+        }
+        for (int y = boxTop; y < boxBottom; y++) {
+            final double down = (y + 0.5 - centreY) / TILE_ART_HALF_HEIGHT;
+            final double downSquare = down * down;
+            final int row = y * cellsWide + boxLeft;
+            for (int x = 0; x < boxWide; x++) {
+                double share = (downSquare + columnPart[x]) * scale;
+                if (shaped) {
+                    share *= inverseAt(columnAcross[x], down);
+                } else {
+                    share *= sectorInverse[0];
+                }
+                if (!(share < 1.0)) {
+                    continue;
+                }
+                final double lit = Math.min(1.0, LightFalloff.level(share) * intensity);
+                final int i = row + x;
+                final int level = (int) (lit * 255.0 + 0.5);
+                if (!sums) {
+                    pixels[i] = litCells[level];
+                    continue;
+                }
+                levels[i] = levels[i] == 0 ? level : 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
+                weights[i] += level;
+                reds[i] += level * red255;
+                greens[i] += level * green255;
+                blues[i] += level * blue255;
+            }
         }
     }
 
-    /** Lays a glow of a colour and an alpha over a premultiplied glow, as source over. */
-    private static int over(int alpha, int red, int green, int blue, int below) {
-        final int keep = 255 - alpha;
-        final int a = alpha + ((below >>> 24) * keep + 127) / 255;
-        final int r = (red * alpha + 127) / 255 + (((below >> 16) & 0xFF) * keep + 127) / 255;
-        final int g = (green * alpha + 127) / 255 + (((below >> 8) & 0xFF) * keep + 127) / 255;
-        final int b = (blue * alpha + 127) / 255 + ((below & 0xFF) * keep + 127) / 255;
-        return pack(a, r, g, b);
+    /**
+     * Fills the table of the radius by angle of a light: for each sector the inverse of the square of the factor that
+     * the shape of its flicker gives the radius in that direction at the moment.
+     */
+    private void prepareShape(Flicker flicker, double time) {
+        for (int k = 0; k <= SECTORS; k++) {
+            final double factor = flicker.shapeFactor((double) k / SECTORS, time);
+            sectorInverse[k] = 1.0 / (factor * factor);
+        }
     }
 
-    /** Lays the glow of a cell over the tint that is left unlit, and returns the premultiplied cell. */
-    private static int finish(int level, int glowCell, Rgba tint, double tintStrength) {
-        final double tintAlpha = tintStrength * (1.0 - level / 255.0);
-        final double glowAlpha = (glowCell >>> 24) / 255.0;
-        final double keep = 1.0 - glowAlpha;
-        final double a = (glowCell >>> 24) + tintAlpha * 255.0 * keep;
-        final double r = ((glowCell >> 16) & 0xFF) + tint.r() * tintAlpha * 255.0 * keep;
-        final double g = ((glowCell >> 8) & 0xFF) + tint.g() * tintAlpha * 255.0 * keep;
-        final double b = (glowCell & 0xFF) + tint.b() * tintAlpha * 255.0 * keep;
-        return pack(a, r, g, b);
+    /**
+     * Returns the inverse square of the radius factor in the direction of a ground offset, interpolated between the
+     * sectors of the table. The direction is a pseudo angle, from 0 to 4 around the source, which is a continuous and
+     * monotone stand-in for the angle that is found with one division.
+     */
+    private double inverseAt(double x, double y) {
+        final double turn;
+        if (y >= 0.0) {
+            turn = x >= 0.0 ? y / (x + y + 1e-300) : 1.0 - x / (y - x);
+        } else {
+            turn = x < 0.0 ? 2.0 - y / (-x - y) : 3.0 + x / (x - y);
+        }
+        final double position = turn * (SECTORS / 4.0);
+        final int sector = Math.min(SECTORS - 1, (int) position);
+        final double fraction = position - sector;
+        return sectorInverse[sector] + (sectorInverse[sector + 1] - sectorInverse[sector]) * fraction;
+    }
+
+    /**
+     * Returns a finished cell: the sky tint turned toward the light. The colour moves from the tint to the colour of the
+     * light and the opacity from the strength of the sky to the warm strength, both by the amount of light.
+     */
+    private static int cell(double lit, double red, double green, double blue, Rgba tint, double tintStrength,
+                            double warm) {
+        final double alpha = mix(tintStrength, warm, lit);
+        return pack(alpha * 255.0, mix(tint.r(), red, lit) * alpha * 255.0, mix(tint.g(), green, lit) * alpha * 255.0,
+                mix(tint.b(), blue, lit) * alpha * 255.0);
     }
 
     /** Packs four channels, each rounded and held to 0 to 255, with the colour not above the alpha. */

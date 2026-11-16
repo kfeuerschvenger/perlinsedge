@@ -1,9 +1,9 @@
 package com.feuerschvenger.perlinsedge.domain.world.light;
 
 /**
- * How the light of a source fades with the distance from it. The fade is cut into a few rings, each with one flat
- * level, so the light has the crisp bands of classic pixel art instead of a smooth gradient: full strength in the
- * innermost ring and one step less in each ring beyond it, down to nothing outside the radius.
+ * How the light of a source fades with the distance from it: a smooth, continuous gradient that is brightest at the
+ * source, falls ever more slowly toward the middle and reaches exactly nothing at the radius, with no step anywhere. It
+ * takes the square of the distance, so no square root is needed for a cell.
  */
 public final class LightFalloff {
 
@@ -11,18 +11,18 @@ public final class LightFalloff {
     private LightFalloff() {}
 
     /**
-     * Returns the level of the ring a distance falls in.
+     * Returns the share of the light that reaches a distance.
      *
-     * @param distanceShare how far from the source as a share of its radius, 0 at the source and 1 at the radius
-     * @param rings         the number of rings the light is cut into, above zero
-     * @return {@code 1} in the innermost ring and {@code 1 / rings} in the outermost, and 0 at or beyond the radius, so
-     *         at most {@code rings + 1} distinct values come out
+     * @param shareSquared the square of how far from the source as a share of its radius, 0 at the source and 1 at the
+     *                     radius
+     * @return 1 at the source, falling without a jump to 0 at the radius and 0 beyond it; the value is
+     *         {@code (1 - shareSquared)^2}
      */
-    public static double level(double distanceShare, int rings) {
-        if (!(distanceShare < 1.0)) {
+    public static double level(double shareSquared) {
+        if (!(shareSquared < 1.0)) {
             return 0.0;
         }
-        final int ring = (int) Math.floor(Math.max(0.0, distanceShare) * rings);
-        return (rings - ring) / (double) rings;
+        final double left = 1.0 - Math.max(0.0, shareSquared);
+        return left * left;
     }
 }

@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.light;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -121,5 +122,95 @@ class FlickerTest {
         assertThrows(IllegalArgumentException.class, () -> Flicker.crackling(0.0, 1.0, 3.0, 1));
         assertThrows(IllegalArgumentException.class, () -> Flicker.crackling(0.1, 0.1, 0.0, 1));
         assertThrows(IllegalArgumentException.class, () -> Flicker.crackling(Double.NaN, 0.1, 3.0, 1));
+        assertThrows(IllegalArgumentException.class, () -> crackling(1).withShape(0.5, 0.2));
+        assertThrows(IllegalArgumentException.class, () -> crackling(1).withShape(0.1, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> crackling(1).withColourDrift(null, ORANGE, 0.7));
+        assertThrows(IllegalArgumentException.class, () -> crackling(1).withColourDrift(ORANGE, YELLOW, 0.0));
+    }
+
+    private static final Rgba ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
+    private static final Rgba YELLOW = new Rgba(1.0, 0.82, 0.45, 1.0);
+
+    private static Flicker flame(long seed) {
+        return crackling(seed).withColourDrift(ORANGE, YELLOW, 0.7).withShape(0.10, 0.25);
+    }
+
+    @Test
+    void aLightWithNoColourDriftAndNoShapeKeepsBoth() {
+        final Flicker plain = crackling(3);
+
+        assertFalse(plain.hasColourDrift());
+        assertEquals(0.5, plain.colourShare(12.3));
+        assertEquals(1.0, plain.shapeFactor(0.3, 12.3));
+        assertTrue(Flicker.STEADY.isSteady());
+        assertFalse(flame(3).isSteady());
+    }
+
+    @Test
+    void theColourShareStaysBetweenTheTwoColoursAndDriftsSlowlyWithASmallJitter() {
+        final Flicker flicker = flame(11);
+        final double dt = 1.0 / 60.0;
+        double lowest = 1.0;
+        double highest = 0.0;
+        double slowestStep = 0.0;
+        double biggestStep = 0.0;
+        for (double time = 0.0; time < 600.0; time += dt) {
+            final double share = flicker.colourShare(time);
+            assertTrue(share >= 0.0 && share <= 1.0, "" + share);
+            lowest = Math.min(lowest, share);
+            highest = Math.max(highest, share);
+            biggestStep = Math.max(biggestStep, Math.abs(flicker.colourShare(time + dt) - share));
+        }
+        // Slower than the crackle: the share needs a good part of a second to cross most of its range
+        assertTrue(highest - lowest > 0.6, "the colour uses most of the range: " + (highest - lowest));
+        assertTrue(biggestStep < 0.1, "smooth from frame to frame: " + biggestStep);
+        // The slow drift alone, a tenth of a second apart, moves it by less than the whole range
+        for (double time = 0.0; time < 60.0; time += 0.5) {
+            assertTrue(Math.abs(flicker.colourShare(time + 0.02) - flicker.colourShare(time)) < 0.3);
+        }
+        assertEquals(flicker.colourShare(5.5), flame(11).colourShare(5.5), "deterministic from the seed and the time");
+    }
+
+    @Test
+    void theShapeStaysWithinItsAmplitudeAndTheEdgeIsNotARoundOne() {
+        final Flicker flicker = flame(21);
+        double lowest = Double.MAX_VALUE;
+        double highest = -Double.MAX_VALUE;
+        for (double time = 0.0; time < 200.0; time += 0.37) {
+            for (double turn = 0.0; turn < 1.0; turn += 0.01) {
+                final double factor = flicker.shapeFactor(turn, time);
+                assertTrue(factor >= 0.9 - 1e-12 && factor <= 1.1 + 1e-12, "" + factor);
+                lowest = Math.min(lowest, factor);
+                highest = Math.max(highest, factor);
+            }
+        }
+        assertTrue(highest - lowest > 0.12, "the lobes use most of the amplitude: " + (highest - lowest));
+    }
+
+    @Test
+    void theShapeWrapsAroundTheSourceAndChangesSmoothlyBothAcrossAnglesAndOverTime() {
+        final Flicker flicker = flame(33);
+
+        for (double time = 0.0; time < 60.0; time += 1.3) {
+            assertEquals(flicker.shapeFactor(0.0, time), flicker.shapeFactor(1.0, time), 1e-9, "a full turn wraps");
+            for (double turn = 0.0; turn < 1.0; turn += 0.002) {
+                assertTrue(Math.abs(flicker.shapeFactor(turn + 0.002, time) - flicker.shapeFactor(turn, time)) < 0.01,
+                        "no jump between neighbouring angles");
+            }
+        }
+        final double dt = 1.0 / 60.0;
+        double biggest = 0.0;
+        for (double time = 0.0; time < 120.0; time += 0.173) {
+            for (double turn = 0.0; turn < 1.0; turn += 0.05) {
+                biggest = Math.max(biggest,
+                        Math.abs(flicker.shapeFactor(turn, time + dt) - flicker.shapeFactor(turn, time)));
+            }
+        }
+        assertTrue(biggest < 0.003, "a frame moves the edge by a fraction of a percent: " + biggest);
+        boolean changes = false;
+        for (double turn = 0.0; turn < 1.0; turn += 0.1) {
+            changes |= Math.abs(flicker.shapeFactor(turn, 0.0) - flicker.shapeFactor(turn, 10.0)) > 0.02;
+        }
+        assertTrue(changes, "the lobes change over time");
     }
 }
