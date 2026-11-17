@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.world.light.LightRegistry;
 import com.feuerschvenger.perlinsedge.domain.world.light.PointLight;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycleSettings;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.LightLayer;
 import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -41,7 +42,7 @@ class FxSkyTintTest {
             final GraphicsContext gc = canvas.getGraphicsContext2D();
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, 8, 8);
-            tint.draw(gc, sky, 8, 8);
+            tint.draw(gc, sky, new LightRegistry(), 0.0, 2.0, 0, 0, 8, 8);
             final int argb = canvas.snapshot(null, null).getPixelReader().getArgb(4, 4);
             return new int[]{(argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF};
         });
@@ -229,6 +230,102 @@ class FxSkyTintTest {
 
         assertEquals(1, tint.layer().composes());
         assertTrue(java.util.Arrays.deepEquals(first, second), "the kept cells draw exactly as before");
+    }
+
+    /** Lays the tint and its lights on a mid grey canvas and reads every pixel back as ARGB. */
+    private static int[][] argbWithLights(FxSkyTint tint, LightRegistry lights, double scale, double originX,
+                                          double originY) {
+        return FxToolkitSupport.onFx(() -> {
+            final Canvas canvas = new Canvas(W, H);
+            final GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.setImageSmoothing(false);
+            gc.setFill(Color.rgb(128, 128, 128));
+            gc.fillRect(0, 0, W, H);
+            tint.draw(gc, night(), lights, 0.0, scale, originX, originY, W, H);
+            final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
+            final int[][] argb = new int[H][W];
+            for (int y = 0; y < H; y++) {
+                for (int x = 0; x < W; x++) {
+                    argb[y][x] = reader.getArgb(x, y);
+                }
+            }
+            return argb;
+        });
+    }
+
+    /** The biggest difference of any channel between two pixels. */
+    private static int apart(int a, int b) {
+        int biggest = 0;
+        for (int shift = 0; shift < 32; shift += 8) {
+            biggest = Math.max(biggest, Math.abs(((a >> shift) & 0xFF) - ((b >> shift) & 0xFF)));
+        }
+        return biggest;
+    }
+
+    @Test
+    void thePlainTintAroundTheLitBoxMeetsItsCellsWithoutASeamAtEveryScaleAndOddCamera() {
+        for (double scale : new double[]{2.0, 3.0, 4.0}) {
+            for (double originX : new double[]{119.0, 121.0, 123.0}) {
+                // The torch is at the middle of the canvas, with an odd offset along Y as well
+                final double originY = 80 - 56 * scale + 1;
+                final FxSkyTint tint = new FxSkyTint();
+                final int[][] argb = argbWithLights(tint, torchAt(3, 3, 1.2), scale, originX, originY);
+                final LightLayer layer = tint.layer();
+                final String at = "scale " + scale + " origin " + originX + "," + originY;
+
+                final double left = layer.phaseX() + (layer.boxLeft() - 1) * scale;
+                final double top = layer.phaseY() + (layer.boxTop() - 1) * scale;
+                final double right = layer.phaseX() + (layer.boxRight() - 1) * scale;
+                final double bottom = layer.phaseY() + (layer.boxBottom() - 1) * scale;
+                assertTrue(left > 0 && top > 0 && right < W && bottom < H, "the box is inside the canvas: " + at);
+                // The corners of the box are no part of the light, so the cells there are the plain tint
+                for (int row : new int[]{(int) top, (int) bottom - 1}) {
+                    assertTrue(apart(argb[row][(int) left - 1], argb[row][(int) left]) <= 1, "left edge, row " + row + " " + at);
+                    assertTrue(apart(argb[row][(int) right - 1], argb[row][(int) right]) <= 1, "right edge, row " + row + " " + at);
+                }
+                for (int column : new int[]{(int) left, (int) right - 1}) {
+                    assertTrue(apart(argb[(int) top - 1][column], argb[(int) top][column]) <= 1, "top edge, column " + column + " " + at);
+                    assertTrue(apart(argb[(int) bottom - 1][column], argb[(int) bottom][column]) <= 1, "bottom edge, column " + column + " " + at);
+                }
+            }
+        }
+    }
+
+    @Test
+    void aBoxThatTouchesTheRightAndBottomEdgeOfTheCanvasDrawsItsLastColumnAndRow() {
+        final double scale = 2.0;
+        // A light near the bottom right corner: its box is held to the grid, which reaches past the canvas
+        final LightRegistry corner = torchAt(6.9, 3.3, 2.5);
+        final FxSkyTint tint = new FxSkyTint();
+        final int[][] lit = argbWithLights(tint, corner, scale, 120, -24);
+        final int[][] unlit = argbWithLights(new FxSkyTint(), new LightRegistry(), scale, 120, -24);
+        final LightLayer layer = tint.layer();
+
+        assertEquals(layer.width(), layer.boxRight(), "the box touches the right edge of the cells");
+        assertEquals(layer.height(), layer.boxBottom(), "and the bottom edge");
+        // The top right and the bottom left corners of the box lie outside the light, whatever the edge does
+        final int topRow = (int) (layer.phaseY() + (layer.boxTop() - 1) * scale);
+        final int leftColumn = (int) (layer.phaseX() + (layer.boxLeft() - 1) * scale);
+        assertTrue(apart(lit[topRow][W - 1], unlit[topRow][W - 1]) <= 1, "last column " + Integer.toHexString(lit[topRow][W - 1]));
+        assertTrue(apart(lit[H - 1][leftColumn], unlit[H - 1][leftColumn]) <= 1, "last row " + Integer.toHexString(lit[H - 1][leftColumn]));
+    }
+
+    @Test
+    void lightsFarApartAreTwoRegionsWithThePlainTintBetweenThem() {
+        final LightRegistry pair = new LightRegistry();
+        pair.add(new PointLight(3, 6, 2.0, WARM, 1.0, Flicker.STEADY));
+        pair.add(new PointLight(6, 3, 2.0, WARM, 1.0, Flicker.STEADY));
+        final FxSkyTint tint = new FxSkyTint();
+        final int[][] lit = argbWithLights(tint, pair, 2.0, 120, -24);
+        final int[][] unlit = argbWithLights(new FxSkyTint(), new LightRegistry(), 2.0, 120, -24);
+
+        assertEquals(2, tint.layer().regionCount());
+        // Tile (3, 6) is at x 24, y 136 on this camera and tile (6, 3) at x 216, y 136
+        assertTrue(apart(lit[136][24], unlit[136][24]) > 20, "the first light");
+        assertTrue(apart(lit[136][216], unlit[136][216]) > 20, "the second light");
+        assertTrue(apart(unlit[136][120], lit[136][120]) <= 1, "between the two it is the plain tint");
+        assertTrue(apart(unlit[2][120], lit[2][120]) <= 1);
+        assertTrue(apart(unlit[157][120], lit[157][120]) <= 1);
     }
 
     @Test

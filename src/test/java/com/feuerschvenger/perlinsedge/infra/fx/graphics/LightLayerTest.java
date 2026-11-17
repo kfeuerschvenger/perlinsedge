@@ -400,6 +400,128 @@ class LightLayerTest {
         }
     }
 
+    private static PointLight small(double x, double y, Flicker flicker) {
+        return new PointLight(x, y, 2.0, WARM, 1.0, flicker);
+    }
+
+    @Test
+    void lightsThatOverlapAreOneRegionAndAChainOfThemIsOneToo() {
+        final LightLayer pair = new LightLayer();
+        final LightRegistry close = new LightRegistry();
+        close.add(torch(5, 5, Flicker.STEADY));
+        close.add(torch(8, 5, Flicker.STEADY));
+        compose(pair, close, 0.0, NIGHT_STRENGTH);
+        assertEquals(1, pair.regionCount());
+
+        // The ends of the chain are far apart, and the one in the middle overlaps both
+        final LightLayer chain = new LightLayer();
+        final LightRegistry three = new LightRegistry();
+        three.add(small(3, 8, Flicker.STEADY));
+        three.add(small(8, 3, Flicker.STEADY));
+        three.add(small(5.5, 5.5, Flicker.STEADY));
+        compose(chain, three, 0.0, NIGHT_STRENGTH);
+        assertEquals(1, chain.regionCount());
+        assertEquals(chain.boxLeft(), chain.regionLeft(0));
+        assertEquals(chain.boxBottom(), chain.regionBottom(0));
+    }
+
+    @Test
+    void lightsFarApartAreWorkedOutInTheirOwnBoxesAndNotInTheStretchBetweenThem() {
+        final Flicker shaped = Flicker.crackling(0.0 + 1e-9, 0.0 + 1e-9, 1.0, 9).withShape(0.2, 0.25);
+        final LightRegistry pair = new LightRegistry();
+        pair.add(small(1.5, 5.5, shaped));
+        pair.add(small(9.5, 5.5, Flicker.STEADY));
+        final LightLayer both = new LightLayer();
+        compose(both, pair, 1.5, NIGHT_STRENGTH);
+
+        assertEquals(2, both.regionCount());
+        assertEquals(2, both.lightCount());
+        final int[] widths = {both.regionRight(0) - both.regionLeft(0), both.regionRight(1) - both.regionLeft(1)};
+        final int union = (both.boxRight() - both.boxLeft()) * (both.boxBottom() - both.boxTop());
+        final int sum = widths[0] * (both.regionBottom(0) - both.regionTop(0))
+                + widths[1] * (both.regionBottom(1) - both.regionTop(1));
+        assertTrue(union > 2 * sum, "the union " + union + " is much more than the regions " + sum);
+        assertEquals(0, both.pixelAt(121, 97), "nothing is worked out between the regions");
+
+        // Every region is what its light alone gives, whatever the shape of the other light was
+        final LightLayer round = new LightLayer();
+        final LightRegistry second = new LightRegistry();
+        second.add(small(9.5, 5.5, Flicker.STEADY));
+        compose(round, second, 1.5, NIGHT_STRENGTH);
+        for (int y = round.boxTop(); y < round.boxBottom(); y++) {
+            for (int x = round.boxLeft(); x < round.boxRight(); x++) {
+                assertEquals(round.pixelAt(x, y), both.pixelAt(x, y), "the round light at " + x + "," + y);
+            }
+        }
+    }
+
+    @Test
+    void moreLightsThanTheArraysStartWithAreWorkedOutOnceAndKeptWhileNothingChanges() {
+        final LightRegistry many = new LightRegistry();
+        final Flicker flame = Flicker.crackling(0.1, 0.05, 3.0, 5).withShape(0.1, 0.25);
+        for (int i = 0; i < 7; i++) {
+            many.add(small(2 + i * 1.5, 2 + (i % 2) * 6, i % 2 == 0 ? flame : Flicker.STEADY));
+        }
+        final LightLayer layer = new LightLayer();
+
+        assertTrue(compose(layer, many, 2.0, NIGHT_STRENGTH));
+        assertEquals(7, layer.lightCount());
+        assertTrue(layer.changed());
+        final int[] first = layer.pixels().clone();
+        assertTrue(compose(layer, many, 2.0, NIGHT_STRENGTH));
+
+        assertFalse(layer.changed(), "the same lights at the same moment are kept");
+        assertEquals(1, layer.composes());
+        assertTrue(Arrays.equals(first, layer.pixels()));
+        // The cells do not depend on the order the regions were found in: a layer of its own gives the same cells
+        final LightLayer fresh = new LightLayer();
+        compose(fresh, many, 2.0, NIGHT_STRENGTH);
+        assertTrue(Arrays.equals(first, fresh.pixels()));
+    }
+
+    @Test
+    void aLightWhoseShapeChangedIsWorkedOutAgainAtTheSameMoment() {
+        final Flicker round = Flicker.crackling(0.0 + 1e-9, 0.0 + 1e-9, 1.0, 9);
+        final LightLayer layer = new LightLayer();
+        compose(layer, oneTorch(round.withShape(0.2, 0.25)), 4.0, NIGHT_STRENGTH);
+        assertEquals(1, layer.composes());
+
+        // The same amplitude and the same moment, with another seed and another drift: the numbers per light are equal
+        compose(layer, oneTorch(Flicker.crackling(0.0 + 1e-9, 0.0 + 1e-9, 1.0, 10).withShape(0.2, 0.25)), 4.0,
+                NIGHT_STRENGTH);
+        assertTrue(layer.changed(), "another seed");
+        compose(layer, oneTorch(Flicker.crackling(0.0 + 1e-9, 0.0 + 1e-9, 1.0, 10).withShape(0.2, 0.5)), 4.0,
+                NIGHT_STRENGTH);
+        assertTrue(layer.changed(), "another drift");
+        assertEquals(3, layer.composes());
+    }
+
+    @Test
+    void twoStylesThatAddUpToTheSameNumberAreNotTheSameStyle() {
+        final LightLayer layer = new LightLayer();
+        final LightRegistry registry = oneTorch();
+        // All the numbers are exact in binary: 0.125 * 1000 + 1.0 equals 0.1259765625 * 1000 + 0.0234375
+        layer.compose(registry, new LightStyle(0.125, 1.0), 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X, ORIGIN_Y,
+                cellsWide(), cellsHigh());
+        layer.compose(registry, new LightStyle(0.1259765625, 0.0234375), 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X,
+                ORIGIN_Y, cellsWide(), cellsHigh());
+
+        assertTrue(layer.changed());
+        assertEquals(2, layer.composes());
+    }
+
+    @Test
+    void theLightGridIsTheGridOfTheTilesAtEveryZoomStep() {
+        final var graphics = com.feuerschvenger.perlinsedge.config.AppConfig.getInstance().graphics();
+        for (double zoom = 0.5; zoom <= 5.0; zoom += 0.5) {
+            final double artScale = ZoomSteps.artScale(zoom);
+            assertEquals(graphics.getTileHalfWidth() * zoom, LightLayer.TILE_ART_HALF_WIDTH * artScale, 1e-9, "" + zoom);
+            assertEquals(graphics.getTileHalfHeight() * zoom, LightLayer.TILE_ART_HALF_HEIGHT * artScale, 1e-9, "" + zoom);
+        }
+        assertEquals(16.0, LightLayer.TILE_ART_HALF_WIDTH);
+        assertEquals(8.0, LightLayer.TILE_ART_HALF_HEIGHT);
+    }
+
     @Test
     void aCanvasOfAnotherSizeIsWorkedOutAgainFromScratch() {
         final LightLayer layer = new LightLayer();

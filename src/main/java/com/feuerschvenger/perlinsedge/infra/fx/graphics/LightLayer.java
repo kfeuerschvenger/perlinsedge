@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightFalloff;
@@ -25,52 +26,79 @@ import java.util.Arrays;
  * ground, in tiles, and its square as a share of the radius gives the light of the cell through
  * {@link LightFalloff}, a continuous gradient that is exactly zero at the radius. The radius is not the same in every
  * direction: it varies with the angle around the light by the shape of its {@link Flicker}, read from a small table that
- * is worked out for each light once per call and interpolated, indexed by a pseudo angle that needs no trigonometry. Several
- * lights combine their light as {@code 1 - (1 - a)(1 - b)} and their colours weighted by how much each lights the cell.
+ * is worked out for each shaped light once per call and interpolated, indexed by a pseudo angle that needs no
+ * trigonometry. Several lights combine their light as {@code 1 - (1 - a)(1 - b)} and their colours weighted by how much
+ * each lights the cell.
  * <p>
- * Only the box around the lights is worked out and kept, and the world outside it is laid with the plain tint by the
- * caller. The box is worked out again only when something it depends on changed since the last call, and no array is
- * allocated while the canvas keeps its size and the number of lights does not grow. The class holds plain arrays and no
- * framework type, so it is tested without a window.
+ * Only the boxes around the lights are worked out and kept, and the world outside them is laid with the plain tint by the
+ * caller. The boxes of lights that overlap are merged into one region, so a region is the smallest box that holds the
+ * lights that can touch each other, and the regions never overlap: lights far apart cost the cells around each of them
+ * and not the stretch of the world between them. The cells are worked out again only when something they depend on
+ * changed since the last call, and no array is allocated while the canvas keeps its size and the lights and the regions
+ * do not outgrow the arrays. The class holds plain arrays and no framework type, so it is tested without a window.
  */
 public final class LightLayer {
 
-    /** Art pixels per tile along the width, which is twice the art pixels along the height. */
-    private static final double TILE_ART_HALF_WIDTH = 16.0;
+    /**
+     * Art pixels from the centre of a tile to its right vertex along the width, which is twice the art pixels along the
+     * height. It follows from the tile geometry of the configuration and the art scale at unit zoom, so the grid of the
+     * lights is the grid of the tiles at every zoom.
+     */
+    static final double TILE_ART_HALF_WIDTH = AppConfig.getInstance().graphics().getTileHalfWidth()
+            / ZoomSteps.ART_SCALE_AT_UNIT_ZOOM;
     /** Art pixels from the top vertex of a tile to its centre along the height, where an entity stands. */
-    private static final double TILE_ART_HALF_HEIGHT = 8.0;
+    static final double TILE_ART_HALF_HEIGHT = AppConfig.getInstance().graphics().getTileHalfHeight()
+            / ZoomSteps.ART_SCALE_AT_UNIT_ZOOM;
     /** The numbers kept for each light: its centre cell, radius, intensity, colour, shape time and box. */
     private static final int STRIDE = 12;
     /** The part of the stride that holds the box as left, top, right and bottom. */
     private static final int BOX_AT = 8;
     /** The part of the stride that holds the time the shape was read at, 0 for a round light. */
     private static final int SHAPE_TIME_AT = 7;
+    /** The numbers of the signature that are not about a light: the tint, the scale, the phase and the style. */
+    private static final int SIGNATURE_EXTRA = 9;
     /** The number of sectors of the table of the radius by angle, each interpolated across. */
     private static final int SECTORS = 64;
+    /** The lights, and so the regions, the arrays are sized for before they have to grow. */
+    private static final int INITIAL_LIGHTS = 4;
 
     /** The number of cells across the grid. */
     private int cellsWide;
     /** The number of cells down the grid. */
     private int cellsHigh;
-    /** How much of each cell is lit by all the lights, 0 to 255, in the box, kept only for several lights. */
+    /** How much of each cell is lit by all the lights, 0 to 255, for the box of a region of several lights. */
     private int[] levels = new int[0];
-    /** The sum of the light of each light in each cell, 0 up, in the box, kept only for several lights. */
+    /** The sum of the light of each light in each cell, 0 up, for the box of a region of several lights. */
     private int[] weights = new int[0];
-    /** The sum of the light times the red of each light in each cell, kept only for several lights. */
+    /** The sum of the light times the red of each light in each cell, for the box of a region of several lights. */
     private int[] reds = new int[0];
-    /** The sum of the light times the green of each light in each cell, kept only for several lights. */
+    /** The sum of the light times the green of each light in each cell, for the box of a region of several lights. */
     private int[] greens = new int[0];
-    /** The sum of the light times the blue of each light in each cell, kept only for several lights. */
+    /** The sum of the light times the blue of each light in each cell, for the box of a region of several lights. */
     private int[] blues = new int[0];
+    /** The left column of the region the sums are kept for, which the sums are indexed from. */
+    private int sumLeft;
+    /** The top row of the region the sums are kept for. */
+    private int sumTop;
+    /** The number of columns of the region the sums are kept for, which is the row length of the sums. */
+    private int sumWide;
     /** The finished cells as premultiplied ARGB: the sky tint turned toward the light. */
     private int[] pixels = new int[0];
+    /** The cell of the plain sky tint, which every cell no light reaches has. */
+    private int plain;
 
     /** The numbers of the lights in view, {@link #STRIDE} for each. */
-    private double[] lights = new double[STRIDE * 4];
+    private double[] lights = new double[STRIDE * INITIAL_LIGHTS];
     /** The flicker of each light in view, which gives its shape. */
-    private Flicker[] flickers = new Flicker[4];
+    private Flicker[] flickers = new Flicker[INITIAL_LIGHTS];
+    /** The region each light in view belongs to. */
+    private int[] lightRegion = new int[INITIAL_LIGHTS];
+    /** The box of each region as left, top, right and bottom, four numbers for each. */
+    private int[] regionBoxes = new int[INITIAL_LIGHTS * 4];
     /** How many lights are in view. */
     private int count;
+    /** How many regions the lights in view are merged into. */
+    private int regionCount;
 
     /** The radius of the light being cast by angle: one over the square of the factor, with a closing entry. */
     private final double[] sectorInverse = new double[SECTORS + 1];
@@ -82,13 +110,15 @@ public final class LightLayer {
     private double[] columnAcross = new double[0];
 
     /** What the cells of the last call were worked out from. */
-    private double[] signature = new double[0];
+    private double[] signature = new double[STRIDE * INITIAL_LIGHTS + SIGNATURE_EXTRA];
+    /** The flicker of each light the cells of the last call were worked out from, which gives their shape. */
+    private Flicker[] signatureFlickers = new Flicker[INITIAL_LIGHTS];
     /** What the cells of this call depend on, built here and then compared with the last. */
-    private double[] scratch = new double[0];
+    private double[] scratch = new double[STRIDE * INITIAL_LIGHTS + SIGNATURE_EXTRA];
     /** How many numbers of {@link #signature} are valid. */
     private int signatureLength;
 
-    /** Left column of the box of cells that holds the lights. */
+    /** Left column of the box that holds all the lights. */
     private int left;
     /** Top row of the box. */
     private int top;
@@ -127,21 +157,19 @@ public final class LightLayer {
             cellsWide = wide;
             cellsHigh = high;
             pixels = new int[wide * high];
-            levels = new int[0];
-            weights = new int[0];
-            reds = new int[0];
-            greens = new int[0];
-            blues = new int[0];
             signatureLength = 0;
         }
         final double snappedX = Math.rint(originX);
         final double snappedY = Math.rint(originY);
         phaseX = snappedX - Math.floor(snappedX / artScale) * artScale;
         phaseY = snappedY - Math.floor(snappedY / artScale) * artScale;
+        plain = pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
+                tint.b() * tintStrength * 255.0);
         collect(registry, gameTime, artScale, snappedX, snappedY);
         if (count == 0) {
             return false;
         }
+        group();
         if (!differsFromLast(style, tint, tintStrength, artScale)) {
             return true;
         }
@@ -223,6 +251,82 @@ public final class LightLayer {
         }
     }
 
+    /**
+     * Merges the boxes of the lights that overlap into regions, until no two regions overlap. A light only changes the
+     * cells of its own box, so the cells of a region depend on the lights of that region alone, and the regions can be
+     * worked out and uploaded one by one.
+     */
+    private void group() {
+        if (lightRegion.length < flickers.length) {
+            lightRegion = new int[flickers.length];
+            regionBoxes = new int[flickers.length * 4];
+        }
+        for (int i = 0; i < count; i++) {
+            lightRegion[i] = i;
+            for (int side = 0; side < 4; side++) {
+                regionBoxes[i * 4 + side] = (int) lights[i * STRIDE + BOX_AT + side];
+            }
+        }
+        boolean merged = count > 1;
+        while (merged) {
+            merged = false;
+            for (int a = 0; a < count; a++) {
+                if (isEmptyRegion(a)) {
+                    continue;
+                }
+                for (int b = a + 1; b < count; b++) {
+                    if (!isEmptyRegion(b) && regionsOverlap(a, b)) {
+                        mergeRegion(a, b);
+                        merged = true;
+                    }
+                }
+            }
+        }
+        // The regions that are left take the first numbers
+        int next = 0;
+        for (int a = 0; a < count; a++) {
+            if (isEmptyRegion(a)) {
+                continue;
+            }
+            if (next != a) {
+                System.arraycopy(regionBoxes, a * 4, regionBoxes, next * 4, 4);
+                for (int i = 0; i < count; i++) {
+                    if (lightRegion[i] == a) {
+                        lightRegion[i] = next;
+                    }
+                }
+            }
+            next++;
+        }
+        regionCount = next;
+    }
+
+    /** Tells whether a region was merged into another, which leaves it with no box. */
+    private boolean isEmptyRegion(int region) {
+        return regionBoxes[region * 4 + 2] <= regionBoxes[region * 4];
+    }
+
+    /** Tells whether the boxes of two regions share at least one cell. */
+    private boolean regionsOverlap(int a, int b) {
+        final int[] boxes = regionBoxes;
+        return boxes[a * 4] < boxes[b * 4 + 2] && boxes[b * 4] < boxes[a * 4 + 2]
+                && boxes[a * 4 + 1] < boxes[b * 4 + 3] && boxes[b * 4 + 1] < boxes[a * 4 + 3];
+    }
+
+    /** Merges a region into another: the box that holds both, and the lights of the one are the lights of the other. */
+    private void mergeRegion(int into, int from) {
+        regionBoxes[into * 4] = Math.min(regionBoxes[into * 4], regionBoxes[from * 4]);
+        regionBoxes[into * 4 + 1] = Math.min(regionBoxes[into * 4 + 1], regionBoxes[from * 4 + 1]);
+        regionBoxes[into * 4 + 2] = Math.max(regionBoxes[into * 4 + 2], regionBoxes[from * 4 + 2]);
+        regionBoxes[into * 4 + 3] = Math.max(regionBoxes[into * 4 + 3], regionBoxes[from * 4 + 3]);
+        regionBoxes[from * 4 + 2] = regionBoxes[from * 4];
+        for (int i = 0; i < count; i++) {
+            if (lightRegion[i] == from) {
+                lightRegion[i] = into;
+            }
+        }
+    }
+
     /** Returns the point a share of the way from one value to another. */
     private static double mix(double from, double to, double share) {
         return from + (to - from) * share;
@@ -230,9 +334,17 @@ public final class LightLayer {
 
     /** Tells whether what the cells depend on differs from the last call, and remembers it. */
     private boolean differsFromLast(LightStyle style, Rgba tint, double tintStrength, double artScale) {
-        final int length = count * STRIDE + 8;
+        final int length = count * STRIDE + SIGNATURE_EXTRA;
+        // Both arrays are as large as the lights are, so a call that has more lights grows each of them once
+        final int capacity = lights.length + SIGNATURE_EXTRA;
         if (scratch.length < length) {
-            scratch = new double[length];
+            scratch = new double[capacity];
+        }
+        if (signature.length < length) {
+            signature = Arrays.copyOf(signature, capacity);
+        }
+        if (signatureFlickers.length < flickers.length) {
+            signatureFlickers = Arrays.copyOf(signatureFlickers, flickers.length);
         }
         System.arraycopy(lights, 0, scratch, 0, count * STRIDE);
         int at = count * STRIDE;
@@ -243,10 +355,16 @@ public final class LightLayer {
         scratch[at++] = artScale;
         scratch[at++] = phaseX;
         scratch[at++] = phaseY;
-        scratch[at] = style.warmStrength() * 1000.0 + style.referenceDarkness();
+        scratch[at++] = style.warmStrength();
+        scratch[at] = style.referenceDarkness();
         boolean same = signatureLength == length;
         for (int i = 0; same && i < length; i++) {
             same = scratch[i] == signature[i];
+        }
+        // The shape of a light is read from its flicker and the numbers above only say when it was read, so the flicker
+        // itself is part of what the cells depend on
+        for (int i = 0; same && i < count; i++) {
+            same = flickers[i] == signatureFlickers[i];
         }
         if (same) {
             return false;
@@ -254,49 +372,71 @@ public final class LightLayer {
         final double[] swap = signature;
         signature = scratch;
         scratch = swap;
+        System.arraycopy(flickers, 0, signatureFlickers, 0, count);
         signatureLength = length;
         return true;
     }
 
-    /** Works out every cell of the box. */
+    /** Works out every cell of the box of every region. */
     private void work(LightStyle style, Rgba tint, double tintStrength, double gameTime) {
         final double darkness = Math.min(1.0, tintStrength / style.referenceDarkness());
         final double warm = style.warmStrength() * darkness;
-        final int plain = pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
-                tint.b() * tintStrength * 255.0);
-        for (int y = top; y < bottom; y++) {
-            Arrays.fill(pixels, y * cellsWide + left, y * cellsWide + right, plain);
+        for (int region = 0; region < regionCount; region++) {
+            workRegion(region, gameTime, tint, tintStrength, warm);
         }
-        if (count == 1) {
+    }
+
+    /** Works out every cell of the box of one region. */
+    private void workRegion(int region, double gameTime, Rgba tint, double tintStrength, double warm) {
+        final int regionLeft = regionBoxes[region * 4];
+        final int regionTop = regionBoxes[region * 4 + 1];
+        final int regionRight = regionBoxes[region * 4 + 2];
+        final int regionBottom = regionBoxes[region * 4 + 3];
+        for (int y = regionTop; y < regionBottom; y++) {
+            Arrays.fill(pixels, y * cellsWide + regionLeft, y * cellsWide + regionRight, plain);
+        }
+        int first = -1;
+        int members = 0;
+        for (int light = 0; light < count; light++) {
+            if (lightRegion[light] == region) {
+                first = first < 0 ? light : first;
+                members++;
+            }
+        }
+        if (members == 1) {
             // One light needs nothing remembered between cells: every cell is worked out straight to its colour
-            castLight(0, gameTime, tint, tintStrength, warm, false);
+            castLight(first, gameTime, tint, tintStrength, warm, false);
             return;
         }
-        if (levels.length != cellsWide * cellsHigh) {
-            levels = new int[cellsWide * cellsHigh];
-            weights = new int[cellsWide * cellsHigh];
-            reds = new int[cellsWide * cellsHigh];
-            greens = new int[cellsWide * cellsHigh];
-            blues = new int[cellsWide * cellsHigh];
-        }
-        for (int y = top; y < bottom; y++) {
-            final int from = y * cellsWide + left;
-            final int to = y * cellsWide + right;
-            Arrays.fill(levels, from, to, 0);
-            Arrays.fill(weights, from, to, 0);
-            Arrays.fill(reds, from, to, 0);
-            Arrays.fill(greens, from, to, 0);
-            Arrays.fill(blues, from, to, 0);
+        sumLeft = regionLeft;
+        sumTop = regionTop;
+        sumWide = regionRight - regionLeft;
+        final int cells = sumWide * (regionBottom - regionTop);
+        if (levels.length < cells) {
+            levels = new int[cells];
+            weights = new int[cells];
+            reds = new int[cells];
+            greens = new int[cells];
+            blues = new int[cells];
+        } else {
+            Arrays.fill(levels, 0, cells, 0);
+            Arrays.fill(weights, 0, cells, 0);
+            Arrays.fill(reds, 0, cells, 0);
+            Arrays.fill(greens, 0, cells, 0);
+            Arrays.fill(blues, 0, cells, 0);
         }
         for (int light = 0; light < count; light++) {
-            castLight(light, gameTime, tint, tintStrength, warm, true);
+            if (lightRegion[light] == region) {
+                castLight(light, gameTime, tint, tintStrength, warm, true);
+            }
         }
-        for (int y = top; y < bottom; y++) {
-            for (int i = y * cellsWide + left, end = y * cellsWide + right; i < end; i++) {
-                if (weights[i] > 0) {
-                    final double w = weights[i] * 255.0;
-                    pixels[i] = cell(levels[i] / 255.0, reds[i] / w, greens[i] / w, blues[i] / w, tint, tintStrength,
-                            warm);
+        for (int y = regionTop; y < regionBottom; y++) {
+            for (int x = regionLeft; x < regionRight; x++) {
+                final int sum = (y - sumTop) * sumWide + (x - sumLeft);
+                if (weights[sum] > 0) {
+                    final double w = weights[sum] * 255.0;
+                    pixels[y * cellsWide + x] = cell(levels[sum] / 255.0, reds[sum] / w, greens[sum] / w,
+                            blues[sum] / w, tint, tintStrength, warm);
                 }
             }
         }
@@ -320,7 +460,10 @@ public final class LightLayer {
         final int boxRight = (int) lights[at + BOX_AT + 2];
         final int boxBottom = (int) lights[at + BOX_AT + 3];
         final boolean shaped = flickers[light].shapeAmplitude() > 0.0;
-        prepareShape(flickers[light], lights[at + SHAPE_TIME_AT]);
+        if (shaped) {
+            // A round light has a factor of one in every direction and needs no table
+            prepareShape(flickers[light], lights[at + SHAPE_TIME_AT]);
+        }
         if (!sums) {
             // One light has one colour, so a cell is looked up by its light in 256 steps instead of being mixed
             for (int level = 0; level <= 255; level++) {
@@ -347,23 +490,22 @@ public final class LightLayer {
             final double down = (y + 0.5 - centreY) / TILE_ART_HALF_HEIGHT;
             final double downSquare = down * down;
             final int row = y * cellsWide + boxLeft;
+            final int sumRow = (y - sumTop) * sumWide + (boxLeft - sumLeft);
             for (int x = 0; x < boxWide; x++) {
                 double share = (downSquare + columnPart[x]) * scale;
                 if (shaped) {
                     share *= inverseAt(columnAcross[x], down);
-                } else {
-                    share *= sectorInverse[0];
                 }
                 if (!(share < 1.0)) {
                     continue;
                 }
                 final double lit = Math.min(1.0, LightFalloff.level(share) * intensity);
-                final int i = row + x;
                 final int level = (int) (lit * 255.0 + 0.5);
                 if (!sums) {
-                    pixels[i] = litCells[level];
+                    pixels[row + x] = litCells[level];
                     continue;
                 }
+                final int i = sumRow + x;
                 levels[i] = levels[i] == 0 ? level : 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
                 weights[i] += level;
                 reds[i] += level * red255;
@@ -429,7 +571,7 @@ public final class LightLayer {
         return count > 0;
     }
 
-    /** @return true when the last call worked the cells out again, so the caller uploads the box */
+    /** @return true when the last call worked the cells out again, so the caller uploads the regions */
     public boolean changed() {
         return changed;
     }
@@ -444,24 +586,69 @@ public final class LightLayer {
         return cellsHigh;
     }
 
-    /** @return the left column of the box of the lights */
+    /** @return the left column of the box that holds all the lights, of which only the regions are worked out */
     public int boxLeft() {
         return left;
     }
 
-    /** @return the top row of the box of the lights */
+    /** @return the top row of the box that holds all the lights */
     public int boxTop() {
         return top;
     }
 
-    /** @return the column after the last of the box of the lights */
+    /** @return the column after the last of the box that holds all the lights */
     public int boxRight() {
         return right;
     }
 
-    /** @return the row after the last of the box of the lights */
+    /** @return the row after the last of the box that holds all the lights */
     public int boxBottom() {
         return bottom;
+    }
+
+    /** @return how many regions the lights are merged into: the boxes the cells are worked out and kept in */
+    public int regionCount() {
+        return regionCount;
+    }
+
+    /**
+     * Returns the left column of a region.
+     *
+     * @param region the number of the region, from 0 up to but excluding {@link #regionCount()}
+     * @return the left column
+     */
+    public int regionLeft(int region) {
+        return regionBoxes[region * 4];
+    }
+
+    /**
+     * Returns the top row of a region.
+     *
+     * @param region the number of the region
+     * @return the top row
+     */
+    public int regionTop(int region) {
+        return regionBoxes[region * 4 + 1];
+    }
+
+    /**
+     * Returns the column after the last of a region.
+     *
+     * @param region the number of the region
+     * @return the column after the last
+     */
+    public int regionRight(int region) {
+        return regionBoxes[region * 4 + 2];
+    }
+
+    /**
+     * Returns the row after the last of a region.
+     *
+     * @param region the number of the region
+     * @return the row after the last
+     */
+    public int regionBottom(int region) {
+        return regionBoxes[region * 4 + 3];
     }
 
     /** @return the horizontal phase of the camera grid of the last call */
@@ -474,16 +661,26 @@ public final class LightLayer {
         return phaseY;
     }
 
-    /** @return the cells as premultiplied ARGB, row by row, valid inside the box, which the caller must not change */
+    /**
+     * Returns the cell of the plain sky tint as premultiplied ARGB: what every cell of the layer that no light reaches
+     * holds, and so what the world outside the regions must be laid with for the two to meet without a seam.
+     *
+     * @return the plain cell of the last call
+     */
+    public int plainCell() {
+        return plain;
+    }
+
+    /** @return the cells as premultiplied ARGB, row by row, valid inside the regions, which the caller must not change */
     public int[] pixels() {
         return pixels;
     }
 
     /**
-     * Returns one cell of the box.
+     * Returns one cell of a region.
      *
-     * @param x column, inside the box
-     * @param y row, inside the box
+     * @param x column, inside a region
+     * @param y row, inside a region
      * @return the cell as premultiplied ARGB
      */
     public int pixelAt(int x, int y) {
