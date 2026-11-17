@@ -16,6 +16,9 @@ public class TileMap {
     // Tile Storage
     private final Tile[][] tiles;
 
+    /** The number of changes the map has seen, see {@link #getRevision()}. */
+    private long revision;
+
     /**
      * Constructs a TileMap with specified dimensions.
      * @param width  Width of the tile map (number of tiles in the X direction)
@@ -53,9 +56,30 @@ public class TileMap {
     public boolean setTile(int x, int y, Tile tile) {
         if (isValidCoordinate(x, y)) {
             tiles[x][y] = tile;
+            if (tile != null) {
+                tile.attachTo(this);
+            }
+            markChanged();
             return true;
         }
         return false;
+    }
+
+    /**
+     * Returns a counter that goes up whenever a tile is put into the map or what stands on a tile changes: its
+     * resource or building is set, removed or replaced, or its terrain type changes. Reading never changes it. A
+     * consumer that keeps something worked out from the tiles compares it with the value it saw last to know whether
+     * the map still is what it was worked out from.
+     *
+     * @return the number of changes the map has seen
+     */
+    public long getRevision() {
+        return revision;
+    }
+
+    /** Counts one change of the map, which a tile calls when its contents change. */
+    void markChanged() {
+        revision++;
     }
 
     // ==================================================================

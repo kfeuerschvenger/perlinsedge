@@ -21,7 +21,6 @@ public class Tile {
     @Setter
     private float height;
     @Getter
-    @Setter
     private TileType type;
 
     // Resource Association
@@ -29,8 +28,10 @@ public class Tile {
 
     // Building Association
     @Getter
-    @Setter
     private Building building;
+
+    /** The map this tile is stored in, told about every change that alters what stands on the tile, or null. */
+    private TileMap owner;
 
     /**
      * Constructs a Tile at the specified coordinates with the given type.
@@ -62,8 +63,51 @@ public class Tile {
         return resource;
     }
 
+    /**
+     * Sets, replaces or removes the resource of this tile, which counts as a change of the map it is stored in.
+     *
+     * @param resource the resource now standing on the tile, or null for none
+     */
     public void setWorldResource(Resource resource) {
         this.resource = resource;
+        markOwnerChanged();
+    }
+
+    /**
+     * Sets the terrain type of this tile, which counts as a change of the map it is stored in, since what is drawn
+     * on a tile and the shadow it casts depend on the ground under it.
+     *
+     * @param type the new terrain type
+     */
+    public void setType(TileType type) {
+        this.type = type;
+        markOwnerChanged();
+    }
+
+    /**
+     * Sets, replaces or removes the building of this tile, which counts as a change of the map it is stored in.
+     *
+     * @param building the building now standing on the tile, or null for none
+     */
+    public void setBuilding(Building building) {
+        this.building = building;
+        markOwnerChanged();
+    }
+
+    /**
+     * Records the map this tile is stored in, which is called by the map when the tile is put into it.
+     *
+     * @param map the map that now holds the tile
+     */
+    void attachTo(TileMap map) {
+        this.owner = map;
+    }
+
+    /** Tells the map this tile is stored in that something on it changed, when it is stored in one. */
+    private void markOwnerChanged() {
+        if (owner != null) {
+            owner.markChanged();
+        }
     }
 
     public boolean hasResource() {
