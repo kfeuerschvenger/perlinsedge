@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.utils.ColourChannels;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightFalloff;
@@ -147,7 +148,7 @@ public final class LightLayer {
      * @param high         the number of cells down the canvas grid, with its border cells
      * @return true when at least one light reaches into the canvas, false when the plain tint is all there is to draw
      */
-    public boolean compose(LightRegistry registry, LightStyle style, double gameTime, Rgba tint, double tintStrength,
+    public boolean compose(LightRegistry registry, LightStyle style, double gameTime, ColourChannels tint, double tintStrength,
                            double artScale, double originX, double originY, int wide, int high) {
         changed = false;
         if (wide != cellsWide || high != cellsHigh) {
@@ -346,7 +347,7 @@ public final class LightLayer {
     }
 
     /** Tells whether what the cells depend on differs from the last call, and remembers it. */
-    private boolean differsFromLast(LightStyle style, Rgba tint, double tintStrength, double artScale) {
+    private boolean differsFromLast(LightStyle style, ColourChannels tint, double tintStrength, double artScale) {
         final int length = count * STRIDE + SIGNATURE_EXTRA;
         // Both arrays are as large as the lights are, so a call that has more lights grows each of them once
         final int capacity = lights.length + SIGNATURE_EXTRA;
@@ -391,7 +392,7 @@ public final class LightLayer {
     }
 
     /** Works out every cell of the box of every region. */
-    private void work(LightStyle style, Rgba tint, double tintStrength, double gameTime) {
+    private void work(LightStyle style, ColourChannels tint, double tintStrength, double gameTime) {
         final double darkness = Math.min(1.0, tintStrength / style.referenceDarkness());
         final double warm = style.warmStrength() * darkness;
         for (int region = 0; region < regionCount; region++) {
@@ -400,7 +401,7 @@ public final class LightLayer {
     }
 
     /** Works out every cell of the box of one region. */
-    private void workRegion(int region, double gameTime, Rgba tint, double tintStrength, double warm) {
+    private void workRegion(int region, double gameTime, ColourChannels tint, double tintStrength, double warm) {
         final int regionLeft = regionBoxes[region * 4];
         final int regionTop = regionBoxes[region * 4 + 1];
         final int regionRight = regionBoxes[region * 4 + 2];
@@ -459,7 +460,7 @@ public final class LightLayer {
      * Casts one light over the cells of its box, either straight to the pixels or into the sums that several lights
      * share.
      */
-    private void castLight(int light, double gameTime, Rgba tint, double tintStrength, double warm, boolean sums) {
+    private void castLight(int light, double gameTime, ColourChannels tint, double tintStrength, double warm, boolean sums) {
         final int at = light * STRIDE;
         final double centreX = lights[at];
         final double centreY = lights[at + 1];
@@ -561,7 +562,7 @@ public final class LightLayer {
      * Returns a finished cell: the sky tint turned toward the light. The colour moves from the tint to the colour of
      * the light and the opacity from the strength of the sky to the warm strength, both by the amount of light.
      */
-    private static int cell(double lit, double red, double green, double blue, Rgba tint, double tintStrength,
+    private static int cell(double lit, double red, double green, double blue, ColourChannels tint, double tintStrength,
                             double warm) {
         final double alpha = mix(tintStrength, warm, lit);
         return pack(alpha * 255.0, mix(tint.r(), red, lit) * alpha * 255.0, mix(tint.g(), green, lit) * alpha * 255.0,
@@ -577,7 +578,7 @@ public final class LightLayer {
      * @param tintStrength how strongly the sky tint is laid over the world, 0 to 1
      * @return the plain cell
      */
-    public static int plainCellFor(Rgba tint, double tintStrength) {
+    public static int plainCellFor(ColourChannels tint, double tintStrength) {
         return pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
                 tint.b() * tintStrength * 255.0);
     }

@@ -9,7 +9,7 @@ package com.feuerschvenger.perlinsedge.domain.utils;
  * @param b blue component
  * @param a opacity, where 1.0 is fully opaque
  */
-public record Rgba(double r, double g, double b, double a) {
+public record Rgba(double r, double g, double b, double a) implements ColourChannels {
 
     private static final double DARKER_BRIGHTER_FACTOR = 0.7;
 

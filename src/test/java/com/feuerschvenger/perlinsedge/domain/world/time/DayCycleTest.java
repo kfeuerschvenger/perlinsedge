@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -464,24 +464,39 @@ class DayCycleTest {
     }
 
     @Test
-    void theColourAndTheStrengthOfOneMomentComeFromOneCalculation() {
+    void theTintOfAMomentIsOneObjectThatIsWorkedOutInPlace() {
         final DayCycle cycle = at(10);
 
-        assertSame(cycle.skyTint(), cycle.skyTint());
-        final Rgba before = cycle.skyTint();
-        cycle.advance(1.0);
-        assertNotSame(before, cycle.skyTint(), "a new moment gets a new tint");
+        final SkyTint first = cycle.tint();
+        assertSame(first, cycle.tint());
+        final double strengthBefore = first.strength();
+        cycle.advance(DAWN / 2.0);
+        assertSame(first, cycle.tint(), "the same object holds the next moment");
+        assertEquals(cycle.skyTintStrength(), cycle.tint().strength(), 0.0);
+        assertEquals(cycle.skyTint().g(), cycle.tint().g(), 0.0);
+        assertNotEquals(strengthBefore, cycle.tint().strength(), "and its values moved with the clock");
     }
 
     @Test
-    void aHoldPhaseSharesOneColourInsteadOfBuildingOnePerMoment() {
+    void theColourAndTheStrengthOfOneMomentComeFromOneCalculationThatIsRepeatedForTheSameClock() {
+        final DayCycle cycle = at(DAWN / 2.0);
+
+        final double strength = cycle.tint().strength();
+        final double red = cycle.tint().r();
+
+        assertEquals(strength, cycle.skyTintStrength(), 0.0);
+        assertEquals(red, cycle.skyTint().r(), 0.0);
+    }
+
+    @Test
+    void aHoldPhaseHasTheSameColourEveryMoment() {
         final Rgba night = at(DAWN + DAY + DUSK + 100).skyTint();
         final Rgba laterNight = at(DAWN + DAY + DUSK + 200).skyTint();
         final Rgba noon = at(DAWN + 10).skyTint();
         final Rgba laterNoon = at(DAWN + 20).skyTint();
 
-        assertSame(night, laterNight);
-        assertSame(noon, laterNoon);
+        assertEquals(night, laterNight);
+        assertEquals(noon, laterNoon);
     }
 
     @Test

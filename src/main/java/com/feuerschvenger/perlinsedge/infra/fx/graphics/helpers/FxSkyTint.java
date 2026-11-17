@@ -1,10 +1,11 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.utils.ColourChannels;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightRegistry;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
+import com.feuerschvenger.perlinsedge.domain.world.time.SkyTint;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.LightLayer;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.WritableImage;
@@ -82,11 +83,11 @@ public final class FxSkyTint {
     public void draw(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, double artScale,
                      double originX, double originY, double width, double height) {
         // The tint of the frame is read once and passed on to everything that needs it
-        final double strength = Math.min(1.0, sky.skyTintStrength());
+        final SkyTint tint = sky.tint();
+        final double strength = Math.min(1.0, tint.strength());
         if (strength < DayCycle.MIN_VISIBLE_TINT_STRENGTH) {
             return;
         }
-        final Rgba tint = sky.skyTint();
         useTint(tint, strength);
         gc.setFill(plainColour);
         final int wide = (int) Math.ceil(width / artScale) + 2;
@@ -210,7 +211,7 @@ public final class FxSkyTint {
      * @param tint     the colour of the tint
      * @param strength the clamped strength of the tint, which is visible
      */
-    private void useTint(Rgba tint, double strength) {
+    private void useTint(ColourChannels tint, double strength) {
         final int cell = LightLayer.plainCellFor(tint, strength);
         if (cell != plainCell) {
             plainCell = cell;
