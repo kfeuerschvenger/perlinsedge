@@ -454,7 +454,8 @@ class FxShadowPassTest {
         final double before = pass.windowLeft();
         pass.beginFrame(2.0, 10, 20, WIDTH, HEIGHT);
         assertEquals(before, pass.windowLeft(), "asking twice in a frame changes nothing");
-        assertTrue(pass.windowOverhangPixels() >= 2 * margin);
+        assertTrue(pass.windowOverhangXPixels() >= 2 * margin);
+        assertTrue(pass.windowOverhangYPixels() >= 2 * margin);
     }
 
     /** Draws one frame of empty shadow lists at the given scale and camera, which casts the static layer when it moved. */
@@ -511,7 +512,9 @@ class FxShadowPassTest {
         assertEquals(-42.0, pass.windowTop(), 1e-9, "41 cells and the border cell");
         assertEquals(242 + 2 * 61, pass.windowWidth(), 1e-9);
         assertEquals(162 + 2 * 41, pass.windowHeight(), 1e-9);
-        assertTrue(pass.windowOverhangPixels() >= 2 * 61, "the walk ring covers the window after a pan of the margin");
+        assertTrue(pass.windowOverhangXPixels() >= 2 * 61, "the walk ring covers the window after a pan of the margin");
+        assertTrue(pass.windowOverhangYPixels() >= 2 * 41, "the vertical ring follows the vertical margin");
+        assertTrue(pass.windowOverhangYPixels() < pass.windowOverhangXPixels(), "each axis has its own overhang");
     }
 
     @Test

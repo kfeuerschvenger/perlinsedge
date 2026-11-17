@@ -209,15 +209,24 @@ public final class FxShadowPass {
     }
 
     /**
-     * Returns how far the static window can reach past the canvas on one side at most, in screen pixels: the margin it
-     * is placed with plus the distance the camera may pan before the window moves, and a cell of rounding on each. It
-     * is the larger of the two axes, so a walk that covers it covers the window on every side. It describes the window
-     * of the frame, so it is asked after {@link #beginFrame}.
+     * Returns how far the static window can reach past the canvas to the left or to the right at most, in screen
+     * pixels: the margin it is placed with plus the distance the camera may pan before the window moves, and a cell of
+     * rounding on each. It describes the window of the frame, so it is asked after {@link #beginFrame}.
      *
-     * @return the overhang in screen pixels
+     * @return the horizontal overhang in screen pixels
      */
-    public double windowOverhangPixels() {
-        return (2.0 * Math.max(windowMarginX, windowMarginY) + 2.0) * windowScale;
+    public double windowOverhangXPixels() {
+        return (2.0 * windowMarginX + 2.0) * windowScale;
+    }
+
+    /**
+     * Returns how far the static window can reach past the canvas above or below at most, in screen pixels, see
+     * {@link #windowOverhangXPixels()}.
+     *
+     * @return the vertical overhang in screen pixels
+     */
+    public double windowOverhangYPixels() {
+        return (2.0 * windowMarginY + 2.0) * windowScale;
     }
 
     /** @return the camera offset of the frame along X in whole screen pixels, which the static shadows are given relative to */

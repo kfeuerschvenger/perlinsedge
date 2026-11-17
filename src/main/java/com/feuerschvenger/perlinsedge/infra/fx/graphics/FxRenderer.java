@@ -84,10 +84,33 @@ public class FxRenderer {
     /**
      * The shadows of the resources and buildings of the frame, collected while the tiles are walked. They stand still,
      * so they are kept in world coordinates, the screen position with the camera offset taken off, and a list stays the
-     * same while the camera pans. The walk rebuilds it every frame: nothing in the tile model says when a resource or a
-     * building changed, so there is no way to know a kept list is still the right one without walking the tiles.
+     * same while the camera pans. The list is rebuilt, with a walk of the wide ring of tiles that reaches the whole
+     * static window, only when something it was built from changed, see {@link #staticCastersStale}; every other frame
+     * keeps it and walks the visible tiles alone.
      */
     private final ShadowList staticShadows = new ShadowList();
+    /** Whether {@link #staticShadows} holds a list that was built from the state remembered in the fields below. */
+    private boolean staticCastersValid;
+    /** The map the static list was built from. */
+    private TileMap staticCastersMap;
+    /** The revision of that map when the list was built. */
+    private long staticCastersRevision;
+    /** The zoom the static list was built at, which scales the world coordinates of its shadows. */
+    private double staticCastersZoom;
+    /** The integer art scale the static list was built at. */
+    private double staticCastersArtScale;
+    /** The reach above and beside the window the static list was built with. */
+    private double staticCastersReach;
+    /** The reach below the window the static list was built with. */
+    private double staticCastersBottomReach;
+    /** The window of the world the static list covers as left, top, width and height, in world coordinates. */
+    private final double[] staticCastersWindow = new double[4];
+    /** Whether the grey height view was on when the static list was built, which casts nothing. */
+    private boolean staticCastersGrayscale;
+    /** The map type the static list was built for, which picks the art the shadows follow. */
+    private MapType staticCastersType;
+    /** How many times the static list was rebuilt, which a frame that kept it does not count. */
+    private int staticListRebuilds;
     /** The shadows of the player and the enemies of the frame, which move and are kept apart from the static ones. */
     private final ShadowList dynamicShadows = new ShadowList();
     /** Casts the shadows of a frame into two layers, only what changed, and lays them over the canvas once. */
@@ -166,6 +189,8 @@ public class FxRenderer {
     /** Drops what the renderer remembers about the current world, so a discarded map is not kept alive by it. */
     public void invalidateWorldCaches() {
         resourceKinds.invalidate();
+        staticCastersValid = false;
+        staticCastersMap = null;
     }
 
     /** Forgets the building preview, so the normal tile highlight is drawn again. */
@@ -196,7 +221,6 @@ public class FxRenderer {
         gc.setImageSmoothing(false);
         renderQueue.clear();
         tileQueue.clear();
-        staticShadows.clear();
         dynamicShadows.clear();
         frameStats.record(deltaTime);
         this.currentFrameGameTime = gameState.getGameTime();
@@ -261,14 +285,26 @@ public class FxRenderer {
             shadowWindowTop = shadowPass.windowTop();
             shadowWindowWidth = shadowPass.windowWidth();
             shadowWindowHeight = shadowPass.windowHeight();
-            overhang = shadowPass.windowOverhangPixels();
+            // A ring of tiles n wide reaches n half tile widths to the sides and n half tile heights up, so the
+            // sideways overhang counts for the tiles it takes to span it on the screen
+            overhang = Math.max(shadowPass.windowOverhangYPixels(),
+                    shadowPass.windowOverhangXPixels() * halfTileHeight / halfTileWidth);
         }
         // The static shadows are given relative to the whole pixel camera offset the pass snaps to, which the camera
         // already is, and the pass adds it back to round them on the screen the way the sprites are
         shadowCameraX = castShadows ? shadowPass.snappedOffsetX() : offsetX;
         shadowCameraY = castShadows ? shadowPass.snappedOffsetY() : offsetY;
-        final int nearTiles = castShadows ? FxShadowHelper.nearRingTiles(shadowReach + overhang, halfTileHeight) : 0;
-        final int farTiles = castShadows
+        // The static list is rebuilt, with the wide walk, only when it no longer matches what it was built from
+        final boolean rebuildStatic = castShadows && staticCastersStale(map, zoom, artScale, isGrayscaleEnabled,
+                currentMapType);
+        if (rebuildStatic || !castShadows) {
+            staticShadows.clear();
+        }
+        if (!castShadows) {
+            staticCastersValid = false;
+        }
+        final int nearTiles = rebuildStatic ? FxShadowHelper.nearRingTiles(shadowReach + overhang, halfTileHeight) : 0;
+        final int farTiles = rebuildStatic
                 ? FxShadowHelper.farRingTiles(shadowReach + overhang, shadowBottomReach + overhang, halfTileHeight) : 0;
         final int walkMinX = Math.max(0, minTileX - nearTiles);
         final int walkMaxX = Math.min(mapWidth, maxTileX + farTiles);
@@ -283,7 +319,7 @@ public class FxRenderer {
                 if (tile == null) continue;
                 // A tile outside the view only matters for the shadow of what stands on it, so one with nothing on it
                 // is skipped before any screen maths is done for it
-                if (!insideView && !(castShadows && !isGrayscaleEnabled && castsShadow(tile))) continue;
+                if (!insideView && !(rebuildStatic && !isGrayscaleEnabled && castsShadow(tile))) continue;
 
                 // Calculate screen coordinates
                 double screenX = (x - y) * halfTileWidth + offsetX;
@@ -291,7 +327,7 @@ public class FxRenderer {
 
                 // Frustum culling: a tile that is not drawn can still cast a shadow into the view
                 if (!insideView || !isTileVisible(screenX, screenY, tileWidth, tileHeight)) {
-                    if (castShadows && !isGrayscaleEnabled) {
+                    if (rebuildStatic && !isGrayscaleEnabled) {
                         castOffscreenShadows(map, tile, x, y, screenX, screenY, halfTileHeight, artScale, worldSeed);
                     }
                     continue;
@@ -331,7 +367,7 @@ public class FxRenderer {
                     final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * artScale : 0.0;
                     renderQueue.add(screenX + shakeX, screenY + drop, screenY + tileHeight * 0.5,
                             resource.getType(), resourceImage, isFlashing, tile);
-                    if (castShadows) {
+                    if (rebuildStatic) {
                         FxObjectShadows.addForTile(staticShadows, resource.getType(), resourceImage,
                                 spriteMetadata != null ? spriteMetadata.getContactArtPixels() : 0, null,
                                 screenX - shadowCameraX, screenY - shadowCameraY, halfTileHeight, artScale);
@@ -341,12 +377,15 @@ public class FxRenderer {
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
-                    if (castShadows) {
+                    if (rebuildStatic) {
                         FxObjectShadows.addForTile(staticShadows, null, null, 0, building.getType(),
                                 screenX - shadowCameraX, screenY - shadowCameraY, halfTileHeight, artScale);
                     }
                 }
             }
+        }
+        if (rebuildStatic) {
+            rememberStaticCasters(map, zoom, artScale, isGrayscaleEnabled, currentMapType);
         }
 
         int mouseOverTileX = gameState.getMouseOverTileX();
@@ -481,6 +520,56 @@ public class FxRenderer {
     }
 
     // Helper methods --------------------------------------------------------
+
+    /**
+     * Returns how many times the static shadow list was rebuilt with the wide walk so far. A frame that kept the list
+     * does not count.
+     *
+     * @return the number of rebuilds
+     */
+    public int staticListRebuilds() {
+        return staticListRebuilds;
+    }
+
+    /** @return how many static shadows the list of the last frame holds */
+    int staticShadowCount() {
+        return staticShadows.size();
+    }
+
+    /**
+     * Tells whether the static shadow list has to be built again. It holds the shadows of the casters that reach into
+     * the static window, in world coordinates, so it stays right while the camera pans inside the window and changes
+     * with the window itself, with the reach of the shadows, which follows the sun and the art scale, with the zoom
+     * that scales the world coordinates, with the map type and the grey view, which decide what is cast, and with the
+     * map: another map, or one whose tiles changed since the list was built.
+     */
+    private boolean staticCastersStale(TileMap map, double zoom, double artScale, boolean grayscale, MapType type) {
+        return !staticCastersValid || staticCastersMap != map || staticCastersRevision != map.getRevision()
+                || staticCastersZoom != zoom || staticCastersArtScale != artScale
+                || staticCastersReach != shadowReach || staticCastersBottomReach != shadowBottomReach
+                || staticCastersWindow[0] != shadowWindowLeft - shadowCameraX
+                || staticCastersWindow[1] != shadowWindowTop - shadowCameraY
+                || staticCastersWindow[2] != shadowWindowWidth || staticCastersWindow[3] != shadowWindowHeight
+                || staticCastersGrayscale != grayscale || staticCastersType != type;
+    }
+
+    /** Remembers what the static shadow list was just built from, see {@link #staticCastersStale}. */
+    private void rememberStaticCasters(TileMap map, double zoom, double artScale, boolean grayscale, MapType type) {
+        staticCastersValid = true;
+        staticCastersMap = map;
+        staticCastersRevision = map.getRevision();
+        staticCastersZoom = zoom;
+        staticCastersArtScale = artScale;
+        staticCastersReach = shadowReach;
+        staticCastersBottomReach = shadowBottomReach;
+        staticCastersWindow[0] = shadowWindowLeft - shadowCameraX;
+        staticCastersWindow[1] = shadowWindowTop - shadowCameraY;
+        staticCastersWindow[2] = shadowWindowWidth;
+        staticCastersWindow[3] = shadowWindowHeight;
+        staticCastersGrayscale = grayscale;
+        staticCastersType = type;
+        staticListRebuilds++;
+    }
 
     /**
      * Casts the shadows of a tile that is not drawn, when they are long enough to reach into the view. Only the
