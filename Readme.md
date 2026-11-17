@@ -50,17 +50,16 @@ Each map not only looks different but also features unique resources and special
 - **Attack**: Left-click an enemy to hit it with the item in your hand. Next to it you swing at once, subject to the swing cooldown, and otherwise you walk after it, following it as it moves, and swing when you are next to it. A right-click, pausing or the enemy dying ends the chase.
 - **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore and crystals need a pickaxe in your hand, see Tools below.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, an enemy on the tile of a move order, or a missing tool.
-- **Hotbar**: Nine slots of their own are always on the bar at the bottom of the screen, in addition to the 18 slots of the inventory, so you carry 27 stacks. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand. In building mode the item hotbar is hidden, the number keys and the wheel belong to the building hotbar, and `Q` and `Ctrl+Q` do nothing.
+- **Hotbar**: Nine slots of their own are always on the bar at the bottom of the screen, in addition to the 18 slots of the inventory, so you carry 27 stacks. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand. In building mode the hotbar stays on screen and the number keys and the wheel still pick the slot in hand, while `Q` and `Ctrl+Q` do nothing.
 - **Torch**: Select a torch in the hotbar and it lights a circle of about four and a half tiles around you at night, at dusk and at dawn. It does nothing at midday, when there is no darkness to push back, and the flame crackles a little. Outside its light the night stays dark, but not black.
 - **Where items go**: Everything you pick up, craft or take from a chest goes first into the stacks of the same item you already carry, hotbar before inventory, then into the first free hotbar slot, then into the first free inventory slot.
 - **Use**: `E` uses the item in hand, and pressing the number of the slot you already hold does nothing. A health potion heals 50, cooked meat 20 and raw meat 5, one item at a time and never above your maximum health. At full health nothing is used up and a hint says so. Using is off while an inventory is open, while paused and while dead.
-- **Zoom**: `Ctrl` with the mouse wheel zooms the camera in every mode, while the plain wheel moves along the hotbar. In building mode the wheel flips the building pages and `Ctrl` with the wheel still zooms.
-- **Inventory**: `I` toggles your bag of holding, an 18 slot grid six wide and three tall, with the crafting list and an item information panel beside it. The hotbar stays on screen and works like the grid: drag stacks between the hotbar and the inventory or a chest, drop onto a slot to merge or swap, press `Q` or `Ctrl+Q` over a slot to throw from it, right-click while dragging to throw one item, and release outside the panels to throw the whole stack. Everything you carry drops where you die, hotbar included.
+- **Zoom**: `Ctrl` with the mouse wheel zooms the camera in every mode, while the plain wheel moves along the hotbar.- **Inventory**: `I` toggles your bag of holding, an 18 slot grid six wide and three tall, with the crafting list and an item information panel beside it. The hotbar stays on screen and works like the grid: drag stacks between the hotbar and the inventory or a chest, drop onto a slot to merge or swap, press `Q` or `Ctrl+Q` over a slot to throw from it, right-click while dragging to throw one item, and release outside the panels to throw the whole stack. Everything you carry drops where you die, hotbar included.
 - **Quick move**: `Ctrl`+click a stack to send all of it to the other side. With no chest open, a hotbar stack goes to the inventory and an inventory stack to the hotbar. With a chest open, a stack of yours goes to the chest and a chest stack comes to you in the order above. It merges into matching stacks first and then takes the first free slot, and what does not fit stays where it was.
 - **Crafting**: The recipes you can craft are listed first, the others follow in greyscale but can still be selected to read what they need. The ingredients and the description share a panel of fixed size, the ingredients first, and scroll with the wheel or the scrollbar when they do not fit. Each ingredient shows how many you hold against how many it needs, such as `Stone 2/3`, in green when you have enough and red when you do not, counting the hotbar and the inventory together. The Craft button works only for a recipe you can craft.
 - **Combat numbers**: A number rises from every hit and heal and fades out: white for damage to resources, yellow for damage to enemies, red for damage you take and green with a plus for health you restore.
 - **Slimes**: A slime hops after you and stops next to you. It squashes for about 0.6 seconds, which tells you the strike is coming, strikes, and waits about 1.5 seconds before it squashes again. Step away and it hops after you again. Both times are set in `AppConfig`.
-- **Pause**: `ESC` for a breather or snack.
+- **Pause**: `ESC` for a breather or snack. While you hold the hammer with a building piece selected, `ESC` drops the piece first and a second press pauses.
 - **Center Camera**: `SPACE` to bring the camera home.
 - **Minimap**: Click to warp the view.
 
@@ -75,18 +74,21 @@ What you hold in hand decides how you gather and fight. Only the slot you hold c
 | Iron ore | 36 | Cannot be mined | Pickaxe: 3 hits, one every 0.3 s |
 | Crystals | 25 | Cannot be mined | Pickaxe: 3 hits, one every 0.3 s |
 
-Against enemies a bare hand and a pickaxe deal 10 damage per hit, the axe 12 and the sword 20. Without the pickaxe in hand, iron ore and crystals show a hint and flash red.
+Against enemies a bare hand, a pickaxe and the hammer deal 10 damage per hit, the axe 12 and the sword 20. The hammer suits no resource and works like a bare hand on them, see Building Mode below. Without the pickaxe in hand, iron ore and crystals show a hint and flash red.
 
 ### Building Mode
 
-- `B` toggles Building mode.
-- Use number keys (1: 9) to select a structure. There are more structures than number keys, so `Page Up` and `Page Down`, the mouse wheel, or the arrow buttons on the bar flip between pages.
-- Left-click to place, Right-click to demolish.
-- Color hints:
+Build mode is the hammer in your hand. Craft a hammer from 2 sticks and 2 stones in the inventory, no station needed, and put it in a hotbar slot. Selecting that slot, with a number key, the wheel or a click, enters build mode, and selecting any other slot leaves it. You cannot build while you are dead or the game is paused, and opening the inventory or a chest closes the palette until you close it again.
+
+- **Palette**: A row of every building piece appears above the hotbar, each with its icon, its name and its cost. Each ingredient reads `held/needed`, in green when you have enough and red when you do not, the way the crafting list does. Click a piece to choose it, which does not place anything in the world. The piece stays chosen until you choose another, `ESC` drops it with the hammer still in hand, and the hammer remembers your last piece when you pick it up again.
+- **Place**: Left-click a tile to place the chosen piece, which uses up the cost. The tile flashes green when the piece was placed and red when it was refused.
+- **Demolish**: Right-click a building to take it down. You get back, for each ingredient of the piece, its quantity times the share of health the building has left, rounded down, and what does not fit in your bags is dropped at your feet. A building at full health returns everything.
+- **Health**: Every building has health that depends on its kind. While you hold the hammer over a damaged building, a small health bar floats above it. Nothing damages buildings yet.
+- **Guides**: A faint grid of outlines fades out around the tile under the mouse, and a see-through ghost of the chosen piece stands on that tile:
     - **Green**: Good to go.
-    - **Orange**: You need more resources.
+    - **Amber**: You need more resources.
     - **Red**: Nope, not here.
-    - **Yellow**: Nothing selected!
+    - No ghost means no piece is chosen.
 
 ### Inventory
 
@@ -173,7 +175,7 @@ perlins-edge/
 
 ## Things to Improve / Add
 
-The bigger ideas, such as digging and farming, a player bow, fishing, placed light sources, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
+The bigger ideas, such as digging and farming, a player bow, fishing, placed light sources, damage to structures, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 - **Better sprites!!!**
 - **Save/Load** game progress
