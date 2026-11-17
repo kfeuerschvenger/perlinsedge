@@ -15,16 +15,18 @@ import java.util.Arrays;
 
 /**
  * Lays the ambient tint of the time of day over the whole canvas, so the palette of the world shifts toward warm at dawn
- * and dusk and toward a cool blue at night. Nothing is drawn at midday, when the tint has no strength. The colour is
- * kept with the values it was built from, so a sky that holds the same tint from one frame to the next reuses the colour
- * and allocates nothing.
+ * and dusk and toward a cool blue at night. Nothing is drawn at midday, when the tint has no strength. The colour is the
+ * plain cell of the {@link LightLayer}, rounded to 8 bits per channel, and it is kept until that cell changes, so a sky
+ * that holds the same tint from one frame to the next reuses the colour and allocates nothing. The fill with no lights
+ * and the fill around the lit regions are the same colour, so switching a light on or off never steps the tint.
  * <p>
  * Where there are lights, the tint is turned toward the colour of each light and eased around it. The regions of the
  * canvas that hold the lights are drawn from the cells of a {@link LightLayer}, at the integer art scale with smoothing
  * off so every cell of the gradient is a crisp block, and the rest of the canvas is filled with the plain tint, in the
  * colour the layer gives a cell no light reaches, so the fill and the cells meet without a seam. A light costs only the
- * area it lights. With no light in view the whole canvas is one fill, as it is without lights at all, and a tint with
- * no strength draws nothing whatever the lights are.
+ * area it lights, and a chain of lights that overlap one another merges into one region that costs the box around all
+ * of them. With no light in view the whole canvas is one fill, as it is without lights at all, and a tint with no
+ * strength draws nothing whatever the lights are.
  */
 public final class FxSkyTint {
 
@@ -34,26 +36,15 @@ public final class FxSkyTint {
      */
     private static final double SAMPLE_NUDGE = 0.25;
 
-    /** The colour laid over the canvas, rebuilt only when the tint it was built from changes. */
-    private Color colour = Color.TRANSPARENT;
-    /** The red of the tint the colour was built from. */
-    private double red = Double.NaN;
-    /** The green of the tint the colour was built from. */
-    private double green = Double.NaN;
-    /** The blue of the tint the colour was built from. */
-    private double blue = Double.NaN;
-    /** The clamped strength the colour was built from, which is its opacity. */
-    private double opacity = Double.NaN;
-
     /** How every light is drawn. */
     private final LightStyle style;
     /** The cells of the lit regions: the sky tint with a warm wash toward the light, the plain tint where none reaches. */
     private final LightLayer layer = new LightLayer();
     /** The image that mirrors the cells of the light layer for drawing. */
     private WritableImage image;
-    /** The plain tint as the layer holds it, as premultiplied ARGB, which the colour around the regions comes from. */
+    /** The plain tint as the layer rounds it, as premultiplied ARGB, which every fill of the plain tint comes from. */
     private int plainCell;
-    /** The colour of the plain tint around the regions, the same tint the unlit cells of the layer hold. */
+    /** The colour of the plain tint, the same tint the unlit cells of the layer hold, rebuilt only when it changes. */
     private Color plainColour = Color.TRANSPARENT;
     /** The regions held to the canvas as left, top, right and bottom in screen pixels, four numbers for each. */
     private double[] clipped = new double[16];
@@ -91,25 +82,24 @@ public final class FxSkyTint {
      */
     public void draw(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, double artScale,
                      double originX, double originY, double width, double height) {
-        final double strength = prepare(sky);
-        if (strength < 0.0) {
+        // The tint of the frame is read once and passed on to everything that needs it
+        final double strength = Math.min(1.0, sky.skyTintStrength());
+        if (strength < DayCycle.MIN_VISIBLE_TINT_STRENGTH) {
             return;
         }
-        gc.setFill(colour);
+        final Rgba tint = sky.skyTint();
+        useTint(tint, strength);
+        gc.setFill(plainColour);
         final int wide = (int) Math.ceil(width / artScale) + 2;
         final int high = (int) Math.ceil(height / artScale) + 2;
-        if (lights.isEmpty() || !layer.compose(lights, style, gameTime, sky.skyTint(), strength, artScale, originX,
-                originY, wide, high)) {
+        if (lights.isEmpty() || !layer.compose(lights, style, gameTime, tint, strength, artScale, originX, originY, wide,
+                high)) {
             gc.fillRect(0, 0, width, height);
             return;
         }
         upload();
-        // The plain tint around the regions is the cell the layer holds where no light reaches
-        if (layer.plainCell() != plainCell) {
-            plainCell = layer.plainCell();
-            plainColour = colourOf(plainCell);
-        }
-        gc.setFill(plainColour);
+        // The plain tint around the regions is the cell the layer holds where no light reaches, which is the fill
+        // colour already set
         final int regions = layer.regionCount();
         final int boxes = clipRegions(regions, artScale, width, height);
         fillAround(gc, boxes, width, height);
@@ -216,24 +206,18 @@ public final class FxSkyTint {
     }
 
     /**
-     * Works out the colour of the tint of the moment.
+     * Works out the colour of the plain tint of the moment from the cell the layer rounds it to, and keeps the colour
+     * until the cell changes.
      *
-     * @return the clamped strength, or -1 when the tint is too weak to be seen and nothing is to be drawn
+     * @param tint     the colour of the tint
+     * @param strength the clamped strength of the tint, which is visible
      */
-    private double prepare(DayCycle sky) {
-        final double strength = Math.min(1.0, sky.skyTintStrength());
-        if (strength < DayCycle.MIN_VISIBLE_TINT_STRENGTH) {
-            return -1.0;
+    private void useTint(Rgba tint, double strength) {
+        final int cell = LightLayer.plainCellFor(tint, strength);
+        if (cell != plainCell) {
+            plainCell = cell;
+            plainColour = colourOf(cell);
         }
-        final Rgba tint = sky.skyTint();
-        if (tint.r() != red || tint.g() != green || tint.b() != blue || strength != opacity) {
-            red = tint.r();
-            green = tint.g();
-            blue = tint.b();
-            opacity = strength;
-            colour = Color.color(red, green, blue, opacity);
-        }
-        return strength;
     }
 
     /** Copies the regions of the light layer into the image when the layer worked its cells out again. */
@@ -257,7 +241,7 @@ public final class FxSkyTint {
 
     /** @return the colour the last frame laid over the canvas, the same instance while the tint does not change */
     Color colour() {
-        return colour;
+        return plainColour;
     }
 
     /** @return the layer that holds the lit cells, for tests */

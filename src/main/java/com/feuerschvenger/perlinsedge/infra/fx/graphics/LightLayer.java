@@ -164,8 +164,7 @@ public final class LightLayer {
         final double snappedY = PixelSnap.round(originY);
         phaseX = snappedX - Math.floor(snappedX / artScale) * artScale;
         phaseY = snappedY - Math.floor(snappedY / artScale) * artScale;
-        plain = pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
-                tint.b() * tintStrength * 255.0);
+        plain = plainCellFor(tint, tintStrength);
         collect(registry, gameTime, artScale, snappedX, snappedY);
         if (count == 0) {
             return false;
@@ -554,6 +553,20 @@ public final class LightLayer {
         final double alpha = mix(tintStrength, warm, lit);
         return pack(alpha * 255.0, mix(tint.r(), red, lit) * alpha * 255.0, mix(tint.g(), green, lit) * alpha * 255.0,
                 mix(tint.b(), blue, lit) * alpha * 255.0);
+    }
+
+    /**
+     * Returns the cell of the plain sky tint as premultiplied ARGB, rounded to 8 bits per channel. It is the one place
+     * the plain tint is quantised, so the cells no light reaches and a fill laid where there are no lights are the same
+     * colour to the level.
+     *
+     * @param tint         the colour of the sky tint
+     * @param tintStrength how strongly the sky tint is laid over the world, 0 to 1
+     * @return the plain cell
+     */
+    public static int plainCellFor(Rgba tint, double tintStrength) {
+        return pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
+                tint.b() * tintStrength * 255.0);
     }
 
     /** Packs four channels, each rounded and held to 0 to 255, with the colour not above the alpha. */

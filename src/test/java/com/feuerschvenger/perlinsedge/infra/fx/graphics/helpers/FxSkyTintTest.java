@@ -328,6 +328,32 @@ class FxSkyTintTest {
         assertTrue(apart(unlit[157][120], lit[157][120]) <= 1);
     }
 
+    /** Lays the tint of a moment and its lights on a mid grey canvas and returns the pixel of a corner as ARGB. */
+    private static int cornerOver(DayCycle sky, LightRegistry lights) {
+        return FxToolkitSupport.onFx(() -> {
+            final Canvas canvas = new Canvas(W, H);
+            final GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.setImageSmoothing(false);
+            gc.setFill(Color.rgb(128, 128, 128));
+            gc.fillRect(0, 0, W, H);
+            new FxSkyTint().draw(gc, sky, lights, 0.0, 2.0, 120, -24, W, H);
+            return canvas.snapshot(null, null).getPixelReader().getArgb(2, 2);
+        });
+    }
+
+    @Test
+    void theFillWithLightsAndTheFillWithoutThemAreTheSameColourAtEveryMomentOfTheDay() {
+        for (double seconds = 3; seconds < DAWN + DAY + DUSK + NIGHT; seconds += 13.7) {
+            final DayCycle sky = at(seconds);
+            if (sky.skyTintStrength() < DayCycle.MIN_VISIBLE_TINT_STRENGTH) {
+                continue;
+            }
+            assertEquals(Integer.toHexString(cornerOver(sky, new LightRegistry())),
+                    Integer.toHexString(cornerOver(sky, torchAt(3, 3, 2.5))),
+                    "the plain tint stepped when a light came into view at " + seconds + " s");
+        }
+    }
+
     @Test
     void aSkyThatMovedGetsANewColour() {
         final FxSkyTint tint = new FxSkyTint();
