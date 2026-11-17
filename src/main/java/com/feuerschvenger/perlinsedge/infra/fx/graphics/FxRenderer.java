@@ -293,16 +293,21 @@ public class FxRenderer {
         // The static shadows are cast into a window of the world that reaches past the canvas, and the walk covers the
         // casters that reach into the whole window, so panning the camera inside the window changes none of them
         double overhang = 0.0;
+        double overhangX = 0.0;
+        double overhangY = 0.0;
         if (castShadows) {
             shadowPass.beginFrame(artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight());
             shadowWindowLeft = shadowPass.windowLeft();
             shadowWindowTop = shadowPass.windowTop();
             shadowWindowWidth = shadowPass.windowWidth();
             shadowWindowHeight = shadowPass.windowHeight();
-            // A ring of tiles n wide reaches n half tile widths to the sides and n half tile heights up, so the
+            // The near ring is as wide as the larger overhang takes tiles, the far ring adds the two overhangs up. A ring
+            // of tiles n wide reaches n half tile widths to the sides and n half tile heights up, so the
             // sideways overhang counts for the tiles it takes to span it on the screen
-            overhang = Math.max(shadowPass.windowOverhangYPixels(),
-                    shadowPass.windowOverhangXPixels() * halfTileHeight / halfTileWidth);
+            overhangX = shadowPass.windowOverhangXPixels();
+            overhangY = shadowPass.windowOverhangYPixels();
+            overhang = Math.max(overhangY,
+                    overhangX * halfTileHeight / halfTileWidth);
         }
         // The static shadows are given relative to the whole pixel camera offset the pass snaps to, which the camera
         // already is, and the pass adds it back to round them on the screen the way the sprites are
@@ -319,7 +324,8 @@ public class FxRenderer {
         }
         final int nearTiles = rebuildStatic ? FxShadowHelper.nearRingTiles(shadowReach + overhang, halfTileHeight) : 0;
         final int farTiles = rebuildStatic
-                ? FxShadowHelper.farRingTiles(shadowReach + overhang, shadowBottomReach + overhang, halfTileHeight) : 0;
+                ? FxShadowHelper.farRingTiles(shadowReach, shadowBottomReach, overhangX, overhangY, halfTileWidth,
+                halfTileHeight) : 0;
         final int walkMinX = Math.max(0, minTileX - nearTiles);
         final int walkMaxX = Math.min(mapWidth, maxTileX + farTiles);
         final int walkMinY = Math.max(0, minTileY - nearTiles);
@@ -562,6 +568,15 @@ public class FxRenderer {
      */
     public int staticListRebuilds() {
         return staticListRebuilds;
+    }
+
+    /**
+     * Gives the window of the world the static shadows of the last frame were cast into.
+     *
+     * @return left, top, width and height in screen pixels of that frame
+     */
+    double[] staticWindow() {
+        return new double[]{shadowWindowLeft, shadowWindowTop, shadowWindowWidth, shadowWindowHeight};
     }
 
     /** @return how many static shadows the list of the last frame holds */

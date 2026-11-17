@@ -83,6 +83,27 @@ public final class FxShadowHelper {
      * @return the number of tiles to add on the high sides of the bounds
      */
     public static int farRingTiles(double reach, double bottomReach, double halfTileHeight) {
-        return (int) Math.ceil((reach / 4.0 + bottomReach / 2.0) / halfTileHeight) + 1;
+        return farRingTiles(reach, bottomReach, 0.0, 0.0, halfTileHeight * 2.0, halfTileHeight);
+    }
+
+    /**
+     * Returns how many tiles to walk beyond the visible tile bounds on the sides toward the bottom and the right of the
+     * screen when the static window reaches past the canvas by a different distance sideways and down. A tile
+     * coordinate grows by half the displacement to the right in tile widths plus half the displacement down in tile
+     * heights, so the two overhangs add up in tiles instead of being the larger of the two: on a wide canvas the
+     * window reaches much farther sideways than down, and a single overhang for both undercounts the far strip.
+     *
+     * @param reach          see {@link #reachMargin}
+     * @param bottomReach    see {@link #bottomMargin}
+     * @param overhangX      how far the window reaches past the canvas to the right, in screen pixels
+     * @param overhangY      how far the window reaches past the canvas below, in screen pixels
+     * @param halfTileWidth  half the width of a tile in screen pixels
+     * @param halfTileHeight half the height of a tile in screen pixels
+     * @return the number of tiles to add on the high sides of the bounds
+     */
+    public static int farRingTiles(double reach, double bottomReach, double overhangX, double overhangY,
+                                   double halfTileWidth, double halfTileHeight) {
+        return (int) Math.ceil(((reach + overhangX) / halfTileWidth + (bottomReach + overhangY) / halfTileHeight) / 2.0)
+                + 1;
     }
 }
