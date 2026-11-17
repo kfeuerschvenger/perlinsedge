@@ -243,6 +243,17 @@
     -fx-opacity: 0.7;
 }
 
+/* The requirement lines of an unavailable card keep their green and red, so what is missing stays readable */
+.pe-cell-unavailable .label.pe-good {
+    -fx-text-fill: -pe-good;
+    -fx-opacity: 1;
+}
+
+.pe-cell-unavailable .label.pe-bad {
+    -fx-text-fill: -pe-danger;
+    -fx-opacity: 1;
+}
+
 .pe-good {
     -fx-fill: -pe-good;
     -fx-text-fill: -pe-good;

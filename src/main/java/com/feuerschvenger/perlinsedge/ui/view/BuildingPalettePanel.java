@@ -5,7 +5,6 @@ import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -13,6 +12,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.TextAlignment;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -35,11 +35,14 @@ public class BuildingPalettePanel extends HBox {
     static final int ICON_SIZE = 40;
     private static final double CARD_PADDING = 4;
     private static final double CARD_GAP = 4;
+    /** Height of the name of a card: two lines of the small font, which is 12 px. */
+    static final double NAME_HEIGHT = 32;
     /** What the selected card of a piece that can turn tells about the rotation key. */
     static final String ROTATE_HINT = "R rotate";
 
     private final Map<BuildingType, Card> cards = new EnumMap<>(BuildingType.class);
     private Consumer<BuildingType> onBuildingSelected;
+    private BuildingCostPanel costPanel;
     private Player shownPlayer;
     private long shownInventoryVersion = -1;
     private BuildingType shownSelected;
@@ -50,6 +53,10 @@ public class BuildingPalettePanel extends HBox {
         final VBox node = new VBox(2);
         final List<IngredientLine> lines = new ArrayList<>();
         ImageView icon;
+        /** The name of the piece, wrapped to at most two lines. */
+        Label name;
+        /** True when the player holds everything the piece costs, null until the first inventory read. */
+        Boolean affordable;
         /** The line that tells the rotation key, shown only on the selected card of a piece that can turn. */
         Label rotateHint;
         int shownRotation = -1;
@@ -86,9 +93,19 @@ public class BuildingPalettePanel extends HBox {
         card.node.setMinWidth(CARD_WIDTH);
         card.node.setMaxWidth(CARD_WIDTH);
 
+        // The name wraps to a second line instead of cutting off, and takes the height of two lines whether it needs
+        // them or not, so the icons and the costs of every card line up
         final Label name = new Label(UiTheme.caps(type.getDisplayName()));
         name.getStyleClass().add(UiTheme.SMALL);
         name.setMouseTransparent(true);
+        name.setWrapText(true);
+        name.setTextAlignment(TextAlignment.CENTER);
+        name.setAlignment(Pos.TOP_CENTER);
+        name.setPrefWidth(CARD_WIDTH - 2 * CARD_PADDING);
+        name.setMinHeight(NAME_HEIGHT);
+        name.setPrefHeight(NAME_HEIGHT);
+        name.setMaxHeight(NAME_HEIGHT);
+        card.name = name;
         card.icon = BuildingIcons.view(type, 0, ICON_SIZE);
         card.node.getChildren().addAll(card.icon, name);
         if (type.isRotatable()) {
@@ -134,18 +151,37 @@ public class BuildingPalettePanel extends HBox {
         this.onBuildingSelected = listener;
     }
 
+    /**
+     * Sets the panel that tells what the selected piece will consume. The palette drives it: it is shown and hidden with
+     * the palette and redrawn on every {@code update}.
+     *
+     * @param costPanel the panel, or null for none
+     */
+    public void setCostPanel(BuildingCostPanel costPanel) {
+        this.costPanel = costPanel;
+        if (costPanel != null) {
+            costPanel.setEnabled(isVisible());
+        }
+    }
+
     /** Shows the palette. */
     public void showPalette() {
         // The next update redraws the costs against the inventory of the moment
         shownInventoryVersion = -1;
         setVisible(true);
         setManaged(true);
+        if (costPanel != null) {
+            costPanel.setEnabled(true);
+        }
     }
 
     /** Hides the palette. */
     public void hidePalette() {
         setVisible(false);
         setManaged(false);
+        if (costPanel != null) {
+            costPanel.setEnabled(false);
+        }
     }
 
     /**
@@ -182,21 +218,38 @@ public class BuildingPalettePanel extends HBox {
             shownPlayer = player;
             shownInventoryVersion = version;
             for (Card card : cards.values()) {
+                boolean affordable = true;
                 for (IngredientLine line : card.lines) {
-                    showIngredient(line, player);
+                    affordable &= showIngredient(line, player);
                 }
+                showAffordable(card, affordable);
             }
         }
         showSelection(selected);
+        if (costPanel != null) {
+            costPanel.update(player, selected);
+        }
     }
 
-    private static void showIngredient(IngredientLine line, Player player) {
+    /** Greys the card of a piece the player cannot afford, the way the crafting list greys a recipe it cannot craft. */
+    private static void showAffordable(Card card, boolean affordable) {
+        if (card.affordable != null && card.affordable == affordable) {
+            return;
+        }
+        card.affordable = affordable;
+        UiTheme.setClass(card.node, UiTheme.CELL_UNAVAILABLE, !affordable);
+        UiTheme.setIconUnavailable(card.icon, !affordable);
+    }
+
+    /** Shows one ingredient line and tells whether the player holds enough of it. */
+    private static boolean showIngredient(IngredientLine line, Player player) {
         final CraftingIngredient ingredient = line.ingredient();
-        final int held = player != null ? player.getItemCount(new Item(ingredient.itemType(), 1)) : 0;
+        final int held = BuildingCostPanel.held(player, ingredient);
         line.label().setText(UiTheme.caps(ingredient.itemType().getDisplayName()) + " " + held + "/" + ingredient.quantity());
         final boolean enough = held >= ingredient.quantity();
         UiTheme.setClass(line.label(), UiTheme.TEXT_GOOD, enough);
         UiTheme.setClass(line.label(), UiTheme.TEXT_BAD, !enough);
+        return enough;
     }
 
     private void showSelection(BuildingType selected) {
@@ -253,6 +306,27 @@ public class BuildingPalettePanel extends HBox {
     boolean isRotateHintShown(BuildingType type) {
         final Label hint = cards.get(type).rotateHint;
         return hint != null && hint.isVisible();
+    }
+
+    /**
+     * Tells whether the card of a piece is shown as affordable, for the tests.
+     *
+     * @param type the piece
+     * @return false when the card is greyed, true otherwise
+     */
+    boolean isAffordable(BuildingType type) {
+        final Boolean affordable = cards.get(type).affordable;
+        return affordable == null || affordable;
+    }
+
+    /**
+     * Gives the name label of the card of a piece, for the tests.
+     *
+     * @param type the piece
+     * @return the label that holds the wrapped name
+     */
+    Label nameOf(BuildingType type) {
+        return cards.get(type).name;
     }
 
     /**

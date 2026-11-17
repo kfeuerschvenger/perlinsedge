@@ -2,6 +2,8 @@ package com.feuerschvenger.perlinsedge.ui.view;
 
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.effect.ColorAdjust;
+import javafx.scene.image.ImageView;
 import javafx.scene.text.Font;
 import lombok.extern.slf4j.Slf4j;
 
@@ -76,6 +78,11 @@ public final class UiTheme {
     /** Text that states a requirement that is not met. */
     public static final String TEXT_BAD = "pe-bad";
 
+    /** Opacity of the icon of something the player cannot afford. */
+    private static final double UNAVAILABLE_ICON_OPACITY = 0.6;
+    /** Removes all the colour of an icon and darkens it a little. One instance is shared, it has no state. */
+    private static final ColorAdjust GREYSCALE = new ColorAdjust(0, -1, -0.2, 0);
+
     private static boolean fontLoaded;
 
     /** Not instantiable: the class only holds the theme entry points. */
@@ -133,6 +140,18 @@ public final class UiTheme {
         } else {
             node.getStyleClass().remove(style);
         }
+    }
+
+    /**
+     * Shows an icon as unavailable or restores it. The look is a real greyscale and a fade, not a fade alone: a faded
+     * icon keeps its hue and still reads as available. Every list that greys out what the player cannot afford uses this.
+     *
+     * @param icon        the icon to change
+     * @param unavailable true to grey the icon, false to show it in full colour
+     */
+    public static void setIconUnavailable(ImageView icon, boolean unavailable) {
+        icon.setEffect(unavailable ? GREYSCALE : null);
+        icon.setOpacity(unavailable ? UNAVAILABLE_ICON_OPACITY : 1.0);
     }
 
     /**

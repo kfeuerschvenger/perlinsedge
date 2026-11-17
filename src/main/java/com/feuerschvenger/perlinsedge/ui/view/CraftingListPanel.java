@@ -3,7 +3,6 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
-import javafx.scene.effect.ColorAdjust;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.ImageView;
@@ -294,10 +293,6 @@ public class CraftingListPanel extends VBox {
      * Represents a single craftable recipe item in the list.
      */
     private class CraftableItemCell extends HBox {
-        private static final double UNAVAILABLE_ICON_OPACITY = 0.6;
-        /** Removes all the colour of an icon and darkens it a little. One instance is shared, it has no state. */
-        private static final ColorAdjust GREYSCALE = new ColorAdjust(0, -1, -0.2, 0);
-
         private final Recipe recipe;
         private ImageView icon;
         private boolean craftable = true;
@@ -370,9 +365,7 @@ public class CraftingListPanel extends VBox {
             styled = true;
             this.craftable = craftable;
             UiTheme.setClass(this, UiTheme.CELL_UNAVAILABLE, !craftable);
-            // Real greyscale, not only a fade: a faded icon keeps its hue and still reads as craftable
-            icon.setEffect(craftable ? null : GREYSCALE);
-            icon.setOpacity(craftable ? 1.0 : UNAVAILABLE_ICON_OPACITY);
+            UiTheme.setIconUnavailable(icon, !craftable);
         }
 
         /**

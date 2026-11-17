@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -142,6 +143,71 @@ class BuildingPalettePanelTest {
         List<Label> bed = FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.BED));
         assertTrue(FxToolkitSupport.onFx(() -> bed.get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)), "planks 5/3");
         assertTrue(FxToolkitSupport.onFx(() -> bed.get(1).getStyleClass().contains(UiTheme.TEXT_BAD)), "fiber 0/5");
+    }
+
+    @Test
+    void aCardThePlayerCannotAffordIsGreyedAndGoesBackToNormalWhenItCan() {
+        update(null);
+
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.FENCE)));
+        assertTrue(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.FENCE).getStyleClass().contains(UiTheme.CELL_UNAVAILABLE)));
+        assertNotNull(FxToolkitSupport.onFx(() -> panel.iconOf(BuildingType.FENCE).getEffect()), "the icon is greyscale");
+
+        player.addItem(new Item(ItemType.WOOD_LOG, 2));
+        update(null);
+
+        assertTrue(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.FENCE)));
+        assertFalse(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.FENCE).getStyleClass().contains(UiTheme.CELL_UNAVAILABLE)));
+        assertNull(FxToolkitSupport.onFx(() -> panel.iconOf(BuildingType.FENCE).getEffect()));
+        assertEquals(1.0, FxToolkitSupport.onFx(() -> panel.iconOf(BuildingType.FENCE).getOpacity()));
+    }
+
+    @Test
+    void aPieceIsAffordableOnlyWhenEveryIngredientIsHeld() {
+        player.addItem(new Item(ItemType.WOOD_PLANK, 5));
+        update(null);
+
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.BED)), "fiber is missing");
+
+        player.addItem(new Item(ItemType.FIBER, 5));
+        update(null);
+
+        assertTrue(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.BED)));
+    }
+
+    @Test
+    void theNameWrapsToATwoLineCellInsteadOfCuttingOff() {
+        for (BuildingRecipe recipe : recipes.getAllBuildingRecipes()) {
+            final BuildingType type = recipe.buildingType();
+            final Label name = FxToolkitSupport.onFx(() -> panel.nameOf(type));
+            assertTrue(FxToolkitSupport.onFx(name::isWrapText), type.name());
+            assertEquals(javafx.scene.text.TextAlignment.CENTER, FxToolkitSupport.onFx(name::getTextAlignment), type.name());
+            assertEquals(BuildingPalettePanel.NAME_HEIGHT, FxToolkitSupport.onFx(name::getMinHeight), type.name());
+            assertEquals(BuildingPalettePanel.NAME_HEIGHT, FxToolkitSupport.onFx(name::getMaxHeight), type.name());
+        }
+    }
+
+    @Test
+    void thePaletteDrivesTheCostPanelItWasGiven() {
+        BuildingCostPanel cost = FxToolkitSupport.onFx(() -> {
+            BuildingCostPanel created = new BuildingCostPanel(recipes);
+            panel.setCostPanel(created);
+            return created;
+        });
+        assertFalse(FxToolkitSupport.onFx(cost::isVisible));
+
+        FxToolkitSupport.onFx(() -> {
+            panel.showPalette();
+            return null;
+        });
+        update(BuildingType.FENCE);
+        assertTrue(FxToolkitSupport.onFx(cost::isVisible));
+
+        FxToolkitSupport.onFx(() -> {
+            panel.hidePalette();
+            return null;
+        });
+        assertFalse(FxToolkitSupport.onFx(cost::isVisible));
     }
 
     @Test

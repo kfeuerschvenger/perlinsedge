@@ -56,6 +56,7 @@ public class GameApplication extends Application {
     private InventoryPanel inventoryPanel;
     private MapConfigPanel mapConfigPanel;
     private BuildingPalettePanel palettePanel;
+    private BuildingCostPanel buildingCostPanel;
     private ItemHotbarPanel itemHotbarPanel;
     private HintLabel hintLabel;
     private DeathOverlay deathOverlay;
@@ -281,8 +282,8 @@ public class GameApplication extends Application {
 
         // Add components to layer
         // The inventory comes after the hotbars so the stack dragged out of it is drawn over their slots
-        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, palettePanel, inventoryPanel, hintLabel,
-                deathOverlay);
+        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, palettePanel,
+                buildingCostPanel, inventoryPanel, hintLabel, deathOverlay);
         return layer;
     }
 
@@ -326,6 +327,15 @@ public class GameApplication extends Application {
         palettePanel.layoutYProperty().bind(
                 healthBar.layoutYProperty().subtract(palettePanel.heightProperty()).subtract(HUD_GAP)
         );
+
+        // What the selected piece will consume: the bottom left corner, clear of the centred hotbar and of the minimap
+        // in the bottom right corner. The palette shows, hides and refreshes it.
+        buildingCostPanel = new BuildingCostPanel(recipeManager);
+        buildingCostPanel.setLayoutX(HUD_MARGIN);
+        buildingCostPanel.layoutYProperty().bind(
+                rootPane.heightProperty().subtract(buildingCostPanel.heightProperty()).subtract(HUD_MARGIN)
+        );
+        palettePanel.setCostPanel(buildingCostPanel);
 
         // Inventory panel (centered)
         inventoryPanel = new InventoryPanel(gameStateManager);
