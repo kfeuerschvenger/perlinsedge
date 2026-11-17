@@ -17,7 +17,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
  */
 public final class Flicker {
 
-    /** Frequencies of the waves of a channel as multiples of its base frequency: not harmonics, so a mix never repeats. */
+    /** Frequencies of the waves of a channel as multiples of its base frequency: not harmonics, so no mix repeats. */
     private static final double[] RATIOS = {1.0, 1.73, 2.91};
 
     /** How much each wave counts in the mix. The weights add up to one, so the mix stays between minus one and one. */
@@ -247,8 +247,8 @@ public final class Flicker {
         }
         double mix = 0.0;
         for (int i = 0; i < SHAPE_LOBES.length; i++) {
-            mix += SHAPE_WEIGHTS[i] * Math.sin(2.0 * Math.PI * (SHAPE_LOBES[i] * turn + shapeDriftHz * SHAPE_DRIFT[i] * time)
-                    + phases[SHAPE][i]);
+            mix += SHAPE_WEIGHTS[i] * Math.sin(2.0 * Math.PI
+                    * (SHAPE_LOBES[i] * turn + shapeDriftHz * SHAPE_DRIFT[i] * time) + phases[SHAPE][i]);
         }
         return 1.0 + shapeAmplitude * mix;
     }

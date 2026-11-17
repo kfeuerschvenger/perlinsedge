@@ -632,7 +632,8 @@ public class FxRenderer {
      */
     private double cursorCenterY(Tile tile, int tileX, int tileY, double zoom, double offsetY) {
         final double halfTileHeight = AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
-        final double sheetDrop = tile.getType().isWater() ? TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom) : 0;
+        final double sheetDrop = tile.getType().isWater()
+                ? TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom) : 0;
         return (tileX + tileY) * halfTileHeight + offsetY + halfTileHeight + sheetDrop;
     }
 

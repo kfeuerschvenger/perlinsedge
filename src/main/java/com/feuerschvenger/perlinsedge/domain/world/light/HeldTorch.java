@@ -7,8 +7,8 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 /**
  * The light of the torch the player holds. It follows the player and exists only while the player is alive and the
  * selected hotbar slot holds a torch: it is added to the registry the moment the torch is selected and taken out the
- * moment anything else is, or the player dies. Asking it to {@linkplain #sync follow the player} is all a frame has to do,
- * and it allocates nothing.
+ * moment anything else is, or the player dies. Asking it to {@linkplain #sync follow the player} is all a frame has to
+ * do, and it allocates nothing.
  */
 public final class HeldTorch implements LightSource {
 

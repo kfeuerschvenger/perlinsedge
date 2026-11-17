@@ -3,9 +3,9 @@ package com.feuerschvenger.perlinsedge.domain.world.time;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
- * The clock of the sky: it moves the world through dawn, day, dusk and night and answers what the light looks like at the
- * current moment. Everything is a pure function of the seconds elapsed, so the cycle needs no framework and is advanced
- * by whoever owns it, which makes a paused game stand still.
+ * The clock of the sky: it moves the world through dawn, day, dusk and night and answers what the light looks like at
+ * the current moment. Everything is a pure function of the seconds elapsed, so the cycle needs no framework and is
+ * advanced by whoever owns it, which makes a paused game stand still.
  * <p>
  * A cycle starts at the beginning of the dawn. The sun rises part way through the dawn and sets at the end of the dusk,
  * and it crosses the sky from east to west between the two, highest at 12:00 on the clock of the cycle, so its arc is
@@ -43,8 +43,8 @@ public final class DayCycle {
     private static final double NEUTRAL_STRENGTH = 0.0;
 
     /**
-     * The tint strength below which the sky cannot be told from no tint at all, so nothing is laid over the world for it.
-     * It is the sky's own threshold, independent of the one the shadows use.
+     * The tint strength below which the sky cannot be told from no tint at all, so nothing is laid over the world for
+     * it. It is the sky's own threshold, independent of the one the shadows use.
      */
     public static final double MIN_VISIBLE_TINT_STRENGTH = 0.004;
 
@@ -99,7 +99,8 @@ public final class DayCycle {
      * Returns where the clock is inside the current cycle. Floating point rounding can leave the remainder a hair
      * outside the cycle, so it is clamped to keep every phase lookup in range.
      *
-     * @return seconds into the current cycle, from zero at the beginning of the dawn up to but excluding the cycle length
+     * @return seconds into the current cycle, from zero at the beginning of the dawn up to but excluding the cycle
+     *         length
      */
     public double secondsIntoCycle() {
         final double cycle = settings.cycleSeconds();
@@ -224,8 +225,8 @@ public final class DayCycle {
     /**
      * Returns how dark the shadows are as a share of their full strength.
      *
-     * @return 1 through the day, easing to 0 through the dusk, 0 at night, easing from 0 at the sunrise back to 1 at the
-     *         end of the dawn, and 0 for as long as the sun is below the horizon, so the shadows never jump
+     * @return 1 through the day, easing to 0 through the dusk, 0 at night, easing from 0 at the sunrise back to 1 at
+     *         the end of the dawn, and 0 for as long as the sun is below the horizon, so the shadows never jump
      */
     public double shadowStrength() {
         if (!sunIsUp()) {

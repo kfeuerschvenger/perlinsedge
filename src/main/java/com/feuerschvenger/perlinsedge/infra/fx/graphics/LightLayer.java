@@ -12,31 +12,33 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.PixelSnap;
 import java.util.Arrays;
 
 /**
- * The overlay of the sky with the lights worked into it, at the resolution of the art: one cell is one art pixel and the
- * grid is aligned to the camera like the one of the shadows, so the gradient of a light is made of crisp blocks of whole
- * art pixels at every zoom.
+ * The overlay of the sky with the lights worked into it, at the resolution of the art: one cell is one art pixel and
+ * the grid is aligned to the camera like the one of the shadows, so the gradient of a light is made of crisp blocks of
+ * whole art pixels at every zoom.
  * <p>
- * Every cell follows one rule. A cell has an amount of light, from 0 to 1, and its overlay is the sky tint turned toward
- * the colour of the light by that amount: the colour moves from the tint to the colour of the light, and the opacity
- * moves from the strength of the sky to a modest warm strength. A lit patch is therefore a warm wash and never a hole in
- * the tint that shows the plain ground. The warm strength is scaled by how dark it is, so it is full in the deepest night,
- * a faint wash at dusk and nothing at midday, when the tint has no strength and there is nothing to turn.
+ * Every cell follows one rule. A cell has an amount of light, from 0 to 1, and its overlay is the sky tint turned
+ * toward the colour of the light by that amount: the colour moves from the tint to the colour of the light, and the
+ * opacity moves from the strength of the sky to a modest warm strength. A lit patch is therefore a warm wash and never
+ * a hole in the tint that shows the plain ground. The warm strength is scaled by how dark it is, so it is full in the
+ * deepest night, a faint wash at dusk and nothing at midday, when the tint has no strength and there is nothing to
+ * turn.
  * <p>
- * A light covers the cells of the ground around it, and the ground is the isometric plane, so a circle of tiles around a
- * light is an ellipse twice as wide as it is tall on the screen. The distance of a cell from a light is worked out on the
- * ground, in tiles, and its square as a share of the radius gives the light of the cell through
+ * A light covers the cells of the ground around it, and the ground is the isometric plane, so a circle of tiles around
+ * a light is an ellipse twice as wide as it is tall on the screen. The distance of a cell from a light is worked out
+ * on the ground, in tiles, and its square as a share of the radius gives the light of the cell through
  * {@link LightFalloff}, a continuous gradient that is exactly zero at the radius. The radius is not the same in every
- * direction: it varies with the angle around the light by the shape of its {@link Flicker}, read from a small table that
- * is worked out for each shaped light once per call and interpolated, indexed by a pseudo angle that needs no
- * trigonometry. Several lights combine their light as {@code 1 - (1 - a)(1 - b)} and their colours weighted by how much
- * each lights the cell.
+ * direction: it varies with the angle around the light by the shape of its {@link Flicker}, read from a small table
+ * that is worked out for each shaped light once per call and interpolated, indexed by a pseudo angle that needs no
+ * trigonometry. Several lights combine their light as {@code 1 - (1 - a)(1 - b)} and their colours weighted by how
+ * much each lights the cell.
  * <p>
- * Only the boxes around the lights are worked out and kept, and the world outside them is laid with the plain tint by the
- * caller. The boxes of lights that overlap are merged into one region, so a region is the smallest box that holds the
- * lights that can touch each other, and the regions never overlap: lights far apart cost the cells around each of them
- * and not the stretch of the world between them. The cells are worked out again only when something they depend on
- * changed since the last call, and no array is allocated while the canvas keeps its size and the lights and the regions
- * do not outgrow the arrays. The class holds plain arrays and no framework type, so it is tested without a window.
+ * Only the boxes around the lights are worked out and kept, and the world outside them is laid with the plain tint by
+ * the caller. The boxes of lights that overlap are merged into one region, so a region is the smallest box that holds
+ * the lights that can touch each other, and the regions never overlap: lights far apart cost the cells around each of
+ * them and not the stretch of the world between them. The cells are worked out again only when something they depend
+ * on changed since the last call, and no array is allocated while the canvas keeps its size and the lights and the
+ * regions do not outgrow the arrays. The class holds plain arrays and no framework type, so it is tested without a
+ * window.
  */
 public final class LightLayer {
 
@@ -181,7 +183,8 @@ public final class LightLayer {
             final LightSource source = registry.get(i);
             final Flicker flicker = source.flicker();
             // The light shines from where an entity at its position would stand, and is placed on a whole screen pixel
-            final double screenX = PixelSnap.round((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale + snappedX);
+            final double screenX = PixelSnap.round((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale
+                    + snappedX);
             final double screenY = PixelSnap.round(((source.x() + source.y()) * TILE_ART_HALF_HEIGHT
                     + TILE_ART_HALF_HEIGHT) * artScale + snappedY);
             final double centreX = (screenX - phaseX) / artScale + 1.0;
@@ -550,8 +553,8 @@ public final class LightLayer {
     }
 
     /**
-     * Returns a finished cell: the sky tint turned toward the light. The colour moves from the tint to the colour of the
-     * light and the opacity from the strength of the sky to the warm strength, both by the amount of light.
+     * Returns a finished cell: the sky tint turned toward the light. The colour moves from the tint to the colour of
+     * the light and the opacity from the strength of the sky to the warm strength, both by the amount of light.
      */
     private static int cell(double lit, double red, double green, double blue, Rgba tint, double tintStrength,
                             double warm) {
@@ -577,7 +580,8 @@ public final class LightLayer {
     /** Packs four channels, each rounded and held to 0 to 255, with the colour not above the alpha. */
     private static int pack(double alpha, double red, double green, double blue) {
         final int a = clamp(alpha);
-        return (a << 24) | (Math.min(a, clamp(red)) << 16) | (Math.min(a, clamp(green)) << 8) | Math.min(a, clamp(blue));
+        return (a << 24) | (Math.min(a, clamp(red)) << 16) | (Math.min(a, clamp(green)) << 8)
+                | Math.min(a, clamp(blue));
     }
 
     /** Rounds a channel and holds it to 0 to 255. */
@@ -670,7 +674,7 @@ public final class LightLayer {
         return plain;
     }
 
-    /** @return the cells as premultiplied ARGB, row by row, valid inside the regions, which the caller must not change */
+    /** @return the cells as premultiplied ARGB, row by row, valid inside the regions, which the caller must not edit */
     public int[] pixels() {
         return pixels;
     }
@@ -691,7 +695,7 @@ public final class LightLayer {
         return count;
     }
 
-    /** @return how many times the cells were worked out so far, which a call that found nothing changed does not count */
+    /** @return how many times the cells were worked out so far, which a call that found no change does not count */
     public int composes() {
         return composes;
     }
