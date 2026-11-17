@@ -383,7 +383,7 @@ public class FxRenderer {
                 screenY += FxObjectShadows.waterDrop(!isGrayscaleEnabled && tile.getType().isWater(),
                         tileSprite != null, halfTileHeight);
                 tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
-                // The floor, a bridge or a dock, lies on the ground right after its tile, under the shadows and the objects
+                // The floor, a bridge, lies on the ground right after its tile, under the shadows and the objects
                 final Building floor = tile.getFloor();
                 if (floor != null && !isGrayscaleEnabled) {
                     tileQueue.add(screenX, screenY, screenY + halfTileHeight, floor,

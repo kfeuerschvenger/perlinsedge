@@ -13,7 +13,6 @@ public final class BuildingStats {
 
     static {
         MAX_HEALTH.put(BuildingType.BRIDGE, 80);
-        MAX_HEALTH.put(BuildingType.DOCK, 80);
         MAX_HEALTH.put(BuildingType.FENCE, 40);
         MAX_HEALTH.put(BuildingType.FENCE_GATE, 50);
         MAX_HEALTH.put(BuildingType.CHEST, 70);

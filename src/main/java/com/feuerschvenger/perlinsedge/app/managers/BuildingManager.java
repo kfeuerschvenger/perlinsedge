@@ -191,7 +191,7 @@ public class BuildingManager {
         Building newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY,
                 getRotation(selectedBuildingType));
         consumeResources(player, existingRecipe);
-        // A bridge or a dock is the floor of the tile and every other piece stands on top of it
+        // A bridge is the floor of the tile and every other piece stands on top of it
         if (selectedBuildingType.isFloor()) {
             targetTile.setFloor(newBuilding);
         } else {
@@ -240,7 +240,7 @@ public class BuildingManager {
     }
 
     /**
-     * Demolishes the floor of a tile, a bridge or a dock. A floor with a piece standing on it cannot be demolished
+     * Demolishes the bridge that is the floor of a tile. A floor with a piece standing on it cannot be demolished
      * until that piece is removed, so the player is never left with a piece hanging over the water.
      *
      * @param worldX tile X
@@ -411,12 +411,12 @@ public class BuildingManager {
         if (tile == null || tile.hasResource() || tile.hasBuilding()) return false;
 
         switch (type) {
-            // A bridge or a dock is a floor over water that is next to land or to another floor, so it grows out from
+            // A bridge is a floor over water that is next to land or to another bridge, so it grows out from
             // the shore one tile at a time. Diagonal neighbours do not count: they share no edge to walk across
-            case BRIDGE, DOCK -> {
+            case BRIDGE -> {
                 boolean valid = !tile.hasFloor() && tile.getType().isWater() && touchesLandOrFloor(tile);
                 if (!valid) {
-                    log.debug("Invalid tile for {}: needs free water that shares an edge with land or a floor",
+                    log.debug("Invalid tile for {}: needs free water that shares an edge with land or a bridge",
                             type.getDisplayName());
                 }
                 return valid;
@@ -448,7 +448,7 @@ public class BuildingManager {
     }
 
     /**
-     * Tells whether a tile shares an edge with land, a bridge or a dock. The four neighbours across an edge count, the
+     * Tells whether a tile shares an edge with land or a bridge. The four neighbours across an edge count, the
      * four diagonal ones do not.
      */
     private boolean touchesLandOrFloor(Tile tile) {

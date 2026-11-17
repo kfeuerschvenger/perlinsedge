@@ -29,7 +29,7 @@ public class Tile {
     /** The piece that stands on the tile, on top of the floor when there is one. */
     @Getter
     private Building building;
-    /** The floor layer of the tile, a bridge or a dock, which pieces can stand on. */
+    /** The floor layer of the tile, a bridge, which pieces can stand on. */
     @Getter
     private Building floor;
 
@@ -100,7 +100,7 @@ public class Tile {
     /**
      * Sets, replaces or removes the floor of this tile, which counts as a change of the map it is stored in.
      *
-     * @param floor the bridge or dock now laid on the tile, or null for none
+     * @param floor the bridge now laid on the tile, or null for none
      */
     public void setFloor(Building floor) {
         this.floor = floor;
@@ -163,7 +163,7 @@ public class Tile {
         return building != null;
     }
 
-    /** @return true when a bridge or a dock is laid on the tile */
+    /** @return true when a bridge is laid on the tile */
     public boolean hasFloor() {
         return floor != null;
     }
@@ -183,7 +183,7 @@ public class Tile {
             return false; // Tiles with resources are not walkable
         }
 
-        // A floor, a bridge or a dock, makes the tile walkable even when its terrain is not, such as water
+        // A floor, a bridge, makes the tile walkable even when its terrain is not, such as water
         if (hasFloor()) {
             return true;
         }
@@ -199,7 +199,7 @@ public class Tile {
      */
     public boolean isBuildable() {
         // A tile is generally buildable if it doesn't have a resource and no existing building.
-        // Specific building types (like Bridges/Docks) will have additional rules in BuildingManager.
+        // Specific building types (like Bridges) will have additional rules in BuildingManager.
         return !hasResource() && !hasBuilding();
     }
 

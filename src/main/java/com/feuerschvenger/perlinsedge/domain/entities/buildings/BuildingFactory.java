@@ -42,7 +42,6 @@ public final class BuildingFactory {
     private static Building createUnrotated(BuildingType type, int x, int y) {
         return switch (type) {
             case BRIDGE -> new Bridge(x, y);
-            case DOCK -> new Dock(x, y);
             case FENCE -> new Fence(x, y);
             case FENCE_GATE -> new FenceGate(x, y);
             case CHEST -> new Chest(x, y, CHEST_CAPACITY);

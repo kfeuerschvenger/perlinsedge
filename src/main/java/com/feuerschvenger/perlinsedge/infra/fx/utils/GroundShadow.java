@@ -43,7 +43,7 @@ public final class GroundShadow {
      */
     public static double widthFor(BuildingType type) {
         return switch (type) {
-            case BRIDGE, DOCK -> 0.0;
+            case BRIDGE -> 0.0;
             case STANDING_TORCH -> 8.0;
             case FENCE, FENCE_GATE, ANVIL -> 16.0;
             case CHEST, CAMPFIRE -> 18.0;

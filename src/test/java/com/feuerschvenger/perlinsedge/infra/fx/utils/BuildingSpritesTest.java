@@ -132,7 +132,6 @@ class BuildingSpritesTest {
             assertEquals("anvil_" + rotation, BuildingSprites.restingName(BuildingType.ANVIL, rotation));
             assertEquals("workbench_" + rotation, BuildingSprites.restingName(BuildingType.WORKBENCH, rotation));
             assertEquals("bed_" + rotation, BuildingSprites.restingName(BuildingType.BED, rotation));
-            assertEquals("dock_" + rotation, BuildingSprites.restingName(BuildingType.DOCK, rotation));
             assertEquals("furnace_off_" + rotation, BuildingSprites.spriteName(
                     BuildingFactory.create(BuildingType.FURNACE, 1, 1, rotation), 0));
         }

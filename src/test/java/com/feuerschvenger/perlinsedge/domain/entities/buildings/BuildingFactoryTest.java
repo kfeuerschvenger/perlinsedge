@@ -30,7 +30,7 @@ class BuildingFactoryTest {
     @Test
     void fourWayPiecesTwoWayPiecesAndPiecesThatDoNotTurn() {
         for (BuildingType type : new BuildingType[]{BuildingType.CHEST, BuildingType.FURNACE, BuildingType.ANVIL,
-                BuildingType.WORKBENCH, BuildingType.BED, BuildingType.DOCK}) {
+                BuildingType.WORKBENCH, BuildingType.BED}) {
             assertEquals(4, type.rotationCount(), type.name());
             assertEquals(true, type.isRotatable());
         }

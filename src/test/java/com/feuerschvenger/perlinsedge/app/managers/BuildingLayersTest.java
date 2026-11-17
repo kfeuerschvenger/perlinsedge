@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The placement rules of the pieces and the two layers of a tile: the floor, a bridge or a dock, and the piece on top.
+ * The placement rules of the pieces and the two layers of a tile: the floor, a bridge, and the piece on top.
  * The map is land in columns 0 to 4 and water in columns 5 to 9.
  */
 class BuildingLayersTest {
@@ -70,26 +70,23 @@ class BuildingLayersTest {
     }
 
     @Test
-    void aBridgeOrDockIsPlacedOnWaterThatSharesAnEdgeWithLand() {
+    void aBridgeIsPlacedOnWaterThatSharesAnEdgeWithLand() {
         assertTrue(canPlace(BuildingType.BRIDGE, 5, 2));
-        assertTrue(canPlace(BuildingType.DOCK, 5, 2));
     }
 
     @Test
-    void aBridgeOrDockCannotFloatOnWaterThatTouchesNothing() {
+    void aBridgeCannotFloatOnWaterThatTouchesNothing() {
         assertFalse(canPlace(BuildingType.BRIDGE, 8, 3));
-        assertFalse(canPlace(BuildingType.DOCK, 8, 3));
         assertFalse(canPlace(BuildingType.BRIDGE, 6, 3), "one tile from the shore is still floating");
     }
 
     @Test
-    void aFloorGrowsOutAsAChainOfEdgeNeighbours() {
+    void aBridgeGrowsOutAsAChainOfEdgeNeighbours() {
         build(BuildingType.BRIDGE, 5, 2);
 
         assertTrue(canPlace(BuildingType.BRIDGE, 6, 2), "it touches the bridge");
-        assertTrue(canPlace(BuildingType.DOCK, 6, 2), "a dock continues a bridge too");
-        build(BuildingType.DOCK, 6, 2);
-        assertTrue(canPlace(BuildingType.BRIDGE, 7, 2), "and a bridge continues a dock");
+        build(BuildingType.BRIDGE, 6, 2);
+        assertTrue(canPlace(BuildingType.BRIDGE, 7, 2), "and the chain goes on from the second bridge");
     }
 
     @Test
@@ -106,21 +103,17 @@ class BuildingLayersTest {
     @Test
     void aBridgeCannotBeBuiltOnLandOrOnTopOfAFloor() {
         assertFalse(canPlace(BuildingType.BRIDGE, 2, 2));
-        assertFalse(canPlace(BuildingType.DOCK, 2, 2));
         build(BuildingType.BRIDGE, 5, 2);
 
         assertFalse(canPlace(BuildingType.BRIDGE, 5, 2));
-        assertFalse(canPlace(BuildingType.DOCK, 5, 2));
     }
 
     @Test
-    void theStandingTorchStandsOnLandOnABridgeAndOnADockButNotOnBareWater() {
+    void theStandingTorchStandsOnLandOnABridgeButNotOnBareWater() {
         assertTrue(canPlace(BuildingType.STANDING_TORCH, 2, 2));
         assertFalse(canPlace(BuildingType.STANDING_TORCH, 5, 2), "bare water");
         build(BuildingType.BRIDGE, 5, 2);
         assertTrue(canPlace(BuildingType.STANDING_TORCH, 5, 2), "on a bridge");
-        build(BuildingType.DOCK, 5, 3);
-        assertTrue(canPlace(BuildingType.STANDING_TORCH, 5, 3), "on a dock");
     }
 
     @Test

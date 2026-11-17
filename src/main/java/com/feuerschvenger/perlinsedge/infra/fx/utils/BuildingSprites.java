@@ -18,7 +18,7 @@ import java.util.function.Function;
 /**
  * Loads the building art once and hands it out by building. The files live in {@code assets/buildings} and are named
  * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off},
- * {@code anvil}, {@code workbench}, {@code bed} and {@code dock}, and {@code bridge_0} and {@code bridge_1}. The
+ * {@code anvil}, {@code workbench}, and {@code bed}, and {@code bridge_0} and {@code bridge_1}. The
  * campfire and the standing torch do not turn and have four flame frames, {@code campfire_0} to {@code campfire_3} and
  * {@code standing_torch_0} to {@code standing_torch_3}. A piece with no file answers null, and the caller draws the
  * procedural shape instead.

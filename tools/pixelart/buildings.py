@@ -247,7 +247,7 @@ def bed_paint(face, x, y, z, shade):
 
 
 def deck_paint(face, x, y, z, shade):
-    """The deck of a bridge or dock: planks across the run (the x axis), a dark gap between neighbours."""
+    """The deck of a bridge: planks across the run (the x axis), a dark gap between neighbours."""
     if face == "top":
         n = (x + 8.0) / 2.0
         if n % 1.0 < 0.2:
@@ -320,17 +320,6 @@ def bed_boxes():
         box(-7, 7, -6, 6, 3, 5.5, RED, bed_paint),
         box(-6.8, -3.6, -5, 5, 5.5, 7, CREAM),
     ]
-
-
-def dock_boxes():
-    # the deck is raised over the water, and short piles under it show on the two front faces (+x and +y)
-    piles = []
-    for a in (-6.5, 0, 6.5):
-        piles.append(box(5.8, 7.8, a - 1.0, a + 1.0, 0, DOCK_LIFT, WOOD))
-        piles.append(box(a - 1.0, a + 1.0, 5.8, 7.8, 0, DOCK_LIFT, WOOD))
-    # the land end rests on a solid abutment, so that side is closed down to the ground
-    piles.append(box(-8, -5.8, -8, 8, 0, DOCK_LIFT, WOOD))
-    return piles + [box(-8, 8, -8, 8, DOCK_LIFT, DOCK_LIFT + 3, PLANK, deck_paint)]
 
 
 def bridge_boxes():
@@ -509,7 +498,6 @@ FOUR_WAY = {
     "anvil": anvil_boxes,
     "workbench": workbench_boxes,
     "bed": bed_boxes,
-    "dock": dock_boxes,
 }
 TWO_WAY = {
     "bridge": bridge_boxes,
@@ -517,7 +505,6 @@ TWO_WAY = {
     "fence_gate_open": gate_open_boxes,
 }
 FENCE_H = 34
-DOCK_LIFT = 5.0
 
 
 def draw_all():
@@ -643,7 +630,7 @@ def compose_fence(scene, cells, gates):
 
 
 def placed(path):
-    """A fence ring with a corner, a T and two gates, a bridge of 3 tiles from the shore, and a dock."""
+    """A fence ring with a corner, a T and two gates, and a bridge of 3 tiles from the shore."""
     water = {(i, j) for i in range(8, 11) for j in range(4, 8)}
     scene = Scene(13, 10, water)
     ring = {(i, 1) for i in range(1, 6)} | {(i, 5) for i in range(1, 6)} | {(1, j) for j in range(1, 6)} | {(5, j) for j in range(1, 6)}
@@ -655,8 +642,6 @@ def placed(path):
     # bridge: three tiles from the shore across the water, the run along the lower right axis
     for i in range(8, 11):
         scene.put(i, 6, "bridge_0")
-    # dock: on the water, the land side flush towards the shore, the open end on the water
-    scene.put(9, 4, "dock_1")
     for pos, name in (((7, 7), "campfire_1"), ((6, 8), "standing_torch_2")):
         scene.put(pos[0], pos[1], name)
     scene.render(path)
@@ -668,8 +653,6 @@ def orient(path):
     scene = Scene(2 * len(names), 8, set())
     for i, name in enumerate(names):
         for k in range(4):
-            if name == "dock":
-                scene.water.add((2 * i, 2 * k))
             scene.put(2 * i, 2 * k, f"{name}_{k}")
     scene.render(path)
 

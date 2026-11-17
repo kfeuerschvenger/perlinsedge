@@ -17,10 +17,6 @@ public enum BuildingType {
             "A bridge block, connecting distant lands and making travel a breeze.",
             Rgba.DARK_GOLDENROD
     ),
-    DOCK(
-            "A dock for fishing, docking boats, or just hanging out by the water.",
-            Rgba.DARK_BLUE
-    ),
     FENCE_GATE(
             "A gate in your fence: click it to swing it open for yourself or shut against the critters.",
             Rgba.BROWN
@@ -112,7 +108,7 @@ public enum BuildingType {
      */
     public int rotationCount() {
         return switch (this) {
-            case CHEST, FURNACE, ANVIL, WORKBENCH, BED, DOCK -> 4;
+            case CHEST, FURNACE, ANVIL, WORKBENCH, BED -> 4;
             case BRIDGE, FENCE_GATE -> 2;
             default -> 1;
         };
@@ -120,13 +116,12 @@ public enum BuildingType {
 
     /**
      * Tells whether a piece of this type is a floor, which lies in its own layer of the tile under the other pieces. A
-     * bridge and a dock are floors, they make water walkable, and of the other pieces only the standing torch can be
-     * put on one.
+     * bridge is a floor, it makes water walkable, and of the other pieces only the standing torch can be put on one.
      *
-     * @return true for the bridge and the dock
+     * @return true for the bridge
      */
     public boolean isFloor() {
-        return this == BRIDGE || this == DOCK;
+        return this == BRIDGE;
     }
 
     /** @return true when the rotation key changes how a piece of this type faces */

@@ -39,7 +39,6 @@ public final class FxBuildingPainter {
     public static void draw(GraphicsContext gc, Building building, double screenX, double screenY, double zoom) {
         switch (building.getType()) {
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
-            case DOCK -> drawDock(gc, screenX, screenY, zoom);
             case FENCE -> drawFence(gc, building instanceof Fence fence ? fence.getConnections() : 0, screenX, screenY, zoom);
             case FENCE_GATE -> drawFenceGate(gc, (FenceGate) building, screenX, screenY, zoom);
             case CHEST -> drawChest(gc, screenX, screenY, zoom);
@@ -97,31 +96,6 @@ public final class FxBuildingPainter {
         for (double i = 0; i < length; i += plankSpacing) {
             gc.strokeLine(screenX - length / 2 + i, drawY - width / 2, screenX - length / 2 + i, drawY + width / 2);
         }
-    }
-
-    private static void drawDock(GraphicsContext gc, double screenX, double screenY, double zoom) {
-        double width = 60 * zoom;
-        double height = 40 * zoom;
-        double plankThickness = 8 * zoom;
-
-        double drawY = screenY - height / 2;
-
-        gc.setFill(Color.PERU);
-        gc.setStroke(Color.BROWN);
-        gc.setLineWidth(1 * zoom);
-
-        gc.fillRect(screenX - width / 2, drawY, width, height);
-        gc.strokeRect(screenX - width / 2, drawY, width, height);
-
-        for (double i = 0; i < height; i += plankThickness + (2 * zoom)) {
-            gc.strokeLine(screenX - width / 2, drawY + i, screenX + width / 2, drawY + i);
-        }
-
-        double postSize = 10 * zoom;
-        double postHeight = 15 * zoom;
-        gc.setFill(Color.DARKGOLDENROD);
-        gc.fillRect(screenX - width / 2 + postSize / 2, drawY + height - postHeight, postSize, postHeight);
-        gc.fillRect(screenX + width / 2 - postSize * 1.5, drawY + height - postHeight, postSize, postHeight);
     }
 
     /** The four sides of a fence in drawing order: the back rails, then the front rails, with the screen direction of each. */

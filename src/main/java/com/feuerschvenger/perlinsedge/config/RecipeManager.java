@@ -150,9 +150,6 @@ public class RecipeManager {
         buildingRecipes.add(createBuildingRecipe(BuildingType.BRIDGE,
                 new CraftingIngredient(ItemType.WOOD_PLANK, 10)));
 
-        buildingRecipes.add(createBuildingRecipe(BuildingType.DOCK,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 8)));
-
         buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE,
                 new CraftingIngredient(ItemType.WOOD_LOG, 2)));
 

@@ -55,7 +55,7 @@ class BuildingManagerTest {
     void everyRecipeBuildingTypeCanBePlaced() {
         for (BuildingRecipe recipe : recipes.getAllBuildingRecipes()) {
             BuildingType type = recipe.buildingType();
-            boolean water = type == BuildingType.BRIDGE || type == BuildingType.DOCK;
+            boolean water = type == BuildingType.BRIDGE;
             int x = water ? 5 : 2;
             map.getTile(x, 2).setBuilding(null);
             map.getTile(x, 2).setFloor(null);

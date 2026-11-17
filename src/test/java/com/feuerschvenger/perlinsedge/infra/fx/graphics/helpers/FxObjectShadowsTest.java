@@ -91,7 +91,7 @@ class FxObjectShadowsTest {
         assertEquals(1, list.size());
         assertNull(list.silhouette(0));
         assertTrue(list.widthArt(0) > 0);
-        assertFalse(shadowsOf(null, null, 0, BuildingType.DOCK, false, true, 0, 0).size() > 0);
+        assertFalse(shadowsOf(null, null, 0, BuildingType.BRIDGE, false, true, 0, 0).size() > 0);
     }
 
     @Test
