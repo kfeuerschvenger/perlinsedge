@@ -45,8 +45,10 @@ FIRE = ["#9c4247", "#d4705c", "#ffa02a", "#f4d890"]
 RAIL_LOW = (2.5, 4.5)
 RAIL_HIGH = (8.5, 10.5)
 POST_HEIGHT = 13.0
-RH = 1.0
-PH = 2.0
+GATE_POST_HEIGHT = 17.0
+# half thickness of a rail and half width of a post, in tile pixels
+RH = 0.75
+PH = 1.0
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -321,10 +323,14 @@ def bed_boxes():
 
 
 def dock_boxes():
-    posts = [box(5.5, 8, -8, -5.5, 0, 11, WOOD), box(5.5, 8, 5.5, 8, 0, 11, WOOD),
-             box(-1, 1.5, -8, -6, 0, 8, WOOD), box(-1, 1.5, 6, 8, 0, 8, WOOD),
-             box(5.5, 8, -8, -5.5, 11, 12, SAND), box(5.5, 8, 5.5, 8, 11, 12, SAND)]
-    return [box(-8, 8, -8, 8, 0, 3, PLANK, deck_paint)] + posts
+    # the deck is raised over the water, and short piles under it show on the two front faces (+x and +y)
+    piles = []
+    for a in (-6.5, 0, 6.5):
+        piles.append(box(5.8, 7.8, a - 1.0, a + 1.0, 0, DOCK_LIFT, WOOD))
+        piles.append(box(a - 1.0, a + 1.0, 5.8, 7.8, 0, DOCK_LIFT, WOOD))
+    # the land end rests on a solid abutment, so that side is closed down to the ground
+    piles.append(box(-8, -5.8, -8, 8, 0, DOCK_LIFT, WOOD))
+    return piles + [box(-8, 8, -8, 8, DOCK_LIFT, DOCK_LIFT + 3, PLANK, deck_paint)]
 
 
 def bridge_boxes():
@@ -356,25 +362,51 @@ def rail_boxes(direction):
 
 
 def gate_posts():
-    return [box(4, 8, -PH, PH, 0, POST_HEIGHT, PLANK), box(-8, -4, -PH, PH, 0, POST_HEIGHT, PLANK)]
+    """Two posts taller than a fence post, with a lighter cap, at the middle of the tile's two ends so the fence rails of the neighbours reach them."""
+    boxes = []
+    for x0, x1 in ((6, 8), (-8, -6)):
+        boxes.append(box(x0, x1, -PH, PH, 0, GATE_POST_HEIGHT, PLANK))
+        boxes.append(box(x0 - 0.4, x1 + 0.4, -PH - 0.4, PH + 0.4, GATE_POST_HEIGHT, GATE_POST_HEIGHT + 1, SAND))
+    return boxes
+
+
+def panel_box(along, a0, a1, c, t, z0, z1, ramp):
+    """A box that runs from a0 to a1 along the given tile axis, centred on c across it, with half thickness t."""
+    if along == "x":
+        return box(a0, a1, c - t, c + t, z0, z1, ramp)
+    return box(c - t, c + t, a0, a1, z0, z1, ramp)
+
+
+def gate_panel(along, a0, a1, c, rising):
+    """A framed gate leaf: a light wood frame around a darker board infill, with a dark diagonal brace.
+
+    rising is +1 when the brace climbs towards a1 and -1 when it climbs towards a0.
+    """
+    boxes = [
+        panel_box(along, a0, a1, c, 0.75, 8.5, 10.5, SAND),
+        panel_box(along, a0, a1, c, 0.75, 2.5, 4.5, SAND),
+        panel_box(along, a0, a0 + 1, c, 0.75, 2.5, 10.5, SAND),
+        panel_box(along, a1 - 1, a1, c, 0.75, 2.5, 10.5, SAND),
+        panel_box(along, a0 + 1, a1 - 1, c, 0.4, 4.5, 8.5, PLANK),
+    ]
+    inner0, inner1 = a0 + 1, a1 - 1
+    steps = 4
+    width = (inner1 - inner0) / steps
+    for i in range(steps):
+        n = i if rising > 0 else steps - 1 - i
+        z0 = 4.5 + n * 0.8
+        boxes.append(panel_box(along, inner0 + i * width, inner0 + (i + 1) * width, c, 0.75, z0, z0 + 1.4, WOOD))
+    return boxes
 
 
 def gate_closed_boxes():
-    boxes = gate_posts()
-    for z0, z1 in (RAIL_LOW, RAIL_HIGH):
-        boxes.append(box(-4, 4, -RH, RH, z0, z1, PLANK))
-    boxes.append(box(-1.75, -0.25, -RH, RH, 2.5, 10.5, PLANK, stile_paint))
-    boxes.append(box(0.25, 1.75, -RH, RH, 2.5, 10.5, PLANK, stile_paint))
-    return boxes
+    """Two leaves that meet in the middle, their braces rising towards the centre."""
+    return gate_posts() + gate_panel("x", -6, -0.5, 0, 1) + gate_panel("x", 0.5, 6, 0, -1)
 
 
 def gate_open_boxes():
-    boxes = gate_posts()
-    for cx in (-6.0, 6.0):
-        for z0, z1 in (RAIL_LOW, RAIL_HIGH):
-            boxes.append(box(cx - RH, cx + RH, 2.0, 7.5, z0, z1, PLANK))
-        boxes.append(box(cx - RH, cx + RH, 6.0, 7.5, 2.5, 10.5, PLANK))
-    return boxes
+    """Both leaves swung a quarter turn about their hinge posts to the same side, the passage between the posts clear."""
+    return gate_posts() + gate_panel("y", 1, 7.5, 7, 1) + gate_panel("y", 1, 7.5, -7, 1)
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -484,7 +516,8 @@ TWO_WAY = {
     "fence_gate_closed": gate_closed_boxes,
     "fence_gate_open": gate_open_boxes,
 }
-FENCE_H = 30
+FENCE_H = 34
+DOCK_LIFT = 5.0
 
 
 def draw_all():
@@ -611,7 +644,7 @@ def compose_fence(scene, cells, gates):
 
 def placed(path):
     """A fence ring with a corner, a T and two gates, a bridge of 3 tiles from the shore, and a dock."""
-    water = {(i, j) for i in range(8, 11) for j in range(4, 8)} | {(i, j) for i in range(8, 11) for j in range(0, 2)}
+    water = {(i, j) for i in range(8, 11) for j in range(4, 8)}
     scene = Scene(13, 10, water)
     ring = {(i, 1) for i in range(1, 6)} | {(i, 5) for i in range(1, 6)} | {(1, j) for j in range(1, 6)} | {(5, j) for j in range(1, 6)}
     gates = {(3, 5): "fence_gate_closed_0", (5, 3): "fence_gate_open_1"}
@@ -623,7 +656,7 @@ def placed(path):
     for i in range(8, 11):
         scene.put(i, 6, "bridge_0")
     # dock: on the water, the land side flush towards the shore, the open end on the water
-    scene.put(9, 0, "dock_1")
+    scene.put(9, 4, "dock_1")
     for pos, name in (((7, 7), "campfire_1"), ((6, 8), "standing_torch_2")):
         scene.put(pos[0], pos[1], name)
     scene.render(path)
