@@ -9,7 +9,6 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.ui.view.*;
 import javafx.application.Application;
-import javafx.beans.binding.Bindings;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.KeyCombination;
@@ -56,7 +55,7 @@ public class GameApplication extends Application {
     private HealthBar healthBar;
     private InventoryPanel inventoryPanel;
     private MapConfigPanel mapConfigPanel;
-    private BuildingHotbarPanel hotbarPanel;
+    private BuildingPalettePanel palettePanel;
     private ItemHotbarPanel itemHotbarPanel;
     private HintLabel hintLabel;
     private DeathOverlay deathOverlay;
@@ -282,7 +281,7 @@ public class GameApplication extends Application {
 
         // Add components to layer
         // The inventory comes after the hotbars so the stack dragged out of it is drawn over their slots
-        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, hotbarPanel, inventoryPanel, hintLabel,
+        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, palettePanel, inventoryPanel, hintLabel,
                 deathOverlay);
         return layer;
     }
@@ -303,16 +302,7 @@ public class GameApplication extends Application {
      * Creates player-related UI components.
      */
     private void createPlayerUIComponents() {
-        // Hotbar panel (bottom-center, a fixed margin above the bottom edge; the UI layer ignores the world zoom)
-        hotbarPanel = new BuildingHotbarPanel(recipeManager);
-        hotbarPanel.layoutXProperty().bind(
-                rootPane.widthProperty().subtract(hotbarPanel.widthProperty()).divide(2)
-        );
-        hotbarPanel.layoutYProperty().bind(
-                rootPane.heightProperty().subtract(hotbarPanel.heightProperty()).subtract(HUD_MARGIN)
-        );
-
-        // Item hotbar: the same place as the building hotbar, which replaces it in building mode
+        // Item hotbar (bottom-center, a fixed margin above the bottom edge; the UI layer ignores the world zoom)
         itemHotbarPanel = new ItemHotbarPanel();
         itemHotbarPanel.layoutXProperty().bind(
                 rootPane.widthProperty().subtract(itemHotbarPanel.widthProperty()).divide(2)
@@ -321,18 +311,20 @@ public class GameApplication extends Application {
                 rootPane.heightProperty().subtract(itemHotbarPanel.heightProperty()).subtract(HUD_MARGIN)
         );
 
-        // Hearts: above whichever hotbar is shown, aligned to its left edge
+        // Hearts: above the hotbar, aligned to its left edge
         healthBar = new HealthBar();
-        healthBar.layoutXProperty().bind(
-                Bindings.when(hotbarPanel.visibleProperty())
-                        .then(hotbarPanel.layoutXProperty())
-                        .otherwise(itemHotbarPanel.layoutXProperty())
-        );
+        healthBar.layoutXProperty().bind(itemHotbarPanel.layoutXProperty());
         healthBar.layoutYProperty().bind(
-                Bindings.when(hotbarPanel.visibleProperty())
-                        .then(hotbarPanel.layoutYProperty().subtract(healthBar.heightProperty()).subtract(HUD_GAP))
-                        .otherwise(itemHotbarPanel.layoutYProperty().subtract(healthBar.heightProperty())
-                                .subtract(HUD_GAP))
+                itemHotbarPanel.layoutYProperty().subtract(healthBar.heightProperty()).subtract(HUD_GAP)
+        );
+
+        // Building palette: centred above the hearts, shown only while the hammer is in hand
+        palettePanel = new BuildingPalettePanel(recipeManager);
+        palettePanel.layoutXProperty().bind(
+                rootPane.widthProperty().subtract(palettePanel.widthProperty()).divide(2)
+        );
+        palettePanel.layoutYProperty().bind(
+                healthBar.layoutYProperty().subtract(palettePanel.heightProperty()).subtract(HUD_GAP)
         );
 
         // Inventory panel (centered)
@@ -383,7 +375,7 @@ public class GameApplication extends Application {
                     mainCanvas,
                     healthBar,
                     inventoryPanel,
-                    hotbarPanel,
+                    palettePanel,
                     itemHotbarPanel,
                     hintLabel,
                     deathOverlay,

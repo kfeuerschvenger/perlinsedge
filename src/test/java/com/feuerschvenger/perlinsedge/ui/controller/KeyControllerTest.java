@@ -17,14 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeyControllerTest {
 
-    private final List<Integer> pageChanges = new ArrayList<>();
     private final List<Integer> numbers = new ArrayList<>();
     private KeyController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
-                numbers::add, pageChanges::add);
+        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { },
+                numbers::add);
     }
 
     @AfterEach
@@ -53,15 +52,6 @@ class KeyControllerTest {
         config.setFastTime(true);
         assertEquals(config.getFastTimeMultiplier(), config.timeScale(), 0.0);
         assertEquals(config.settings().cycleSeconds() / 40.0, config.getFastTimeMultiplier(), 1e-9);
-    }
-
-    @Test
-    void pageUpAndPageDownChangeTheHotbarPageBackwardsAndForwards() {
-        controller.onKeyAction(GameKey.PAGE_UP);
-        controller.onKeyAction(GameKey.PAGE_DOWN);
-        controller.onKeyAction(GameKey.PAGE_DOWN);
-
-        assertEquals(List.of(-1, 1, 1), pageChanges);
     }
 
     @Test
@@ -140,7 +130,6 @@ class KeyControllerTest {
         controller.onKeyAction(GameKey.DIGIT_3);
 
         assertEquals(List.of(3), numbers);
-        assertTrue(pageChanges.isEmpty());
     }
 
     @Test
@@ -148,14 +137,11 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
                 () -> { }, () -> { }, () -> calls.add("inventory"),
-                () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
+                n -> calls.add("digit"));
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.I);
-        blocked.onKeyAction(GameKey.B);
         blocked.onKeyAction(GameKey.DIGIT_2);
-        blocked.onKeyAction(GameKey.PAGE_UP);
-        blocked.onKeyAction(GameKey.PAGE_DOWN);
 
         assertTrue(calls.isEmpty(), calls.toString());
     }
@@ -164,7 +150,7 @@ class KeyControllerTest {
     void pauseAndCameraKeysWorkWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, () -> { }, () -> { }, n -> { }, p -> { });
+                () -> { }, () -> { }, () -> { }, n -> { });
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.ESCAPE);
@@ -178,7 +164,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         KeyController keys = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
                 () -> calls.add("map"), () -> calls.add("config"), () -> calls.add("inventory"),
-                () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
+                n -> calls.add("digit"));
 
         keys.onKeyAction(GameKey.SPACE);
         keys.onKeyAction(GameKey.SPACE);
@@ -191,7 +177,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         boolean[] blocked = {true};
         KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { },
-                () -> calls.add("inventory"), () -> { }, n -> { }, p -> { });
+                () -> calls.add("inventory"), n -> { });
         keys.setInputBlocked(() -> blocked[0]);
 
         keys.onKeyAction(GameKey.I);
@@ -203,10 +189,8 @@ class KeyControllerTest {
 
     @Test
     void missingActionsAreIgnored() {
-        KeyController bare = new KeyController(null, null, null, null, null, null, null, null);
+        KeyController bare = new KeyController(null, null, null, null, null, null);
 
-        bare.onKeyAction(GameKey.PAGE_UP);
-        bare.onKeyAction(GameKey.PAGE_DOWN);
         bare.onKeyAction(GameKey.DIGIT_1);
         bare.onKeyAction(GameKey.SPACE);
     }

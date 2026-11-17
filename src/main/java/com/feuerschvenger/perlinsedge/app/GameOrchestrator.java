@@ -36,10 +36,10 @@ public class GameOrchestrator {
     private final InventoryManager inventoryManager;
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
-    private final HotbarManager hotbarManager;
     private final ItemHotbarManager itemHotbarManager;
     private final ItemUseManager itemUseManager;
     private final ItemHotbarPanel itemHotbarPanel;
+    private final BuildingPalettePanel buildingPalettePanel;
     private final DropKeyHandler dropKeys;
 
     private final FxRenderer renderer;
@@ -69,8 +69,8 @@ public class GameOrchestrator {
      * @param mainCanvas          main game canvas
      * @param healthBar           player health view
      * @param inventoryPanel      inventory view
-     * @param buildingHotbarPanel building hotbar view
-     * @param itemHotbarPanel     hotbar of the items the player carries, shown outside building mode
+     * @param buildingPalettePanel palette of the building pieces, shown while the hammer is in hand
+     * @param itemHotbarPanel     hotbar of the items the player carries
      * @param hintLabel           short on-screen hints for actions that did nothing
      * @param deathOverlay        death screen shown while the player is dead
      * @param gameState           shared state, a new one is created when null
@@ -79,7 +79,7 @@ public class GameOrchestrator {
     public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
                             FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
                             Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingHotbarPanel buildingHotbarPanel, ItemHotbarPanel itemHotbarPanel,
+                            BuildingPalettePanel buildingPalettePanel, ItemHotbarPanel itemHotbarPanel,
                             HintLabel hintLabel, DeathOverlay deathOverlay, GameStateManager gameState,
                             RecipeManager recipeManager) {
         this.renderer = renderer;
@@ -103,13 +103,15 @@ public class GameOrchestrator {
         dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot,
                 inventoryPanel::isStackInHand, itemDropManager);
         containerManager = new ContainerManager();
-        buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
-        hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
+        buildingManager = new BuildingManager(this.gameState, recipes, containerManager, itemDropManager,
+                inventoryPanel::updateInventoryDisplay);
+        this.buildingPalettePanel = buildingPalettePanel;
+        buildingPalettePanel.setOnBuildingSelected(buildingManager::setSelectedBuildingType);
         itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         itemHotbarManager = new ItemHotbarManager(this.gameState);
 
         gameLoop = new GameLoop(this::update, this::render);
-        transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
+        transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, buildingPalettePanel,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
                 combatManager, containerManager, transitions::showOpenContainer, hintLabel::show);
@@ -221,9 +223,9 @@ public class GameOrchestrator {
         mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerKeyboard(createKeyController());
-        // Ctrl with the wheel zooms in every mode, the plain wheel belongs to whichever hotbar is showing
+        // Ctrl with the wheel zooms in every mode, the plain wheel moves along the item hotbar
         inputWiring.registerWheelInterceptor((deltaY, ctrlDown) -> !gameState.isGameplayInputBlocked()
-                && (itemHotbarManager.handleWheel(deltaY, ctrlDown) || hotbarManager.handleWheel(deltaY, ctrlDown)));
+                && itemHotbarManager.handleWheel(deltaY, ctrlDown));
         inputWiring.registerMouseHandlers();
     }
 
@@ -243,14 +245,12 @@ public class GameOrchestrator {
 
     private KeyController createKeyController() {
         KeyController controller = new KeyController(
-                transitions::togglePauseMenu,
+                this::handleEscape,
                 this::centerOnPlayer,
                 this::regenerateMap,
                 this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
-                transitions::toggleBuildingMode,
-                this::handleNumberKey,
-                hotbarManager::changePage
+                itemHotbarManager::handleNumberKey
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setUseAction(itemUseManager::useActiveItem);
@@ -258,11 +258,22 @@ public class GameOrchestrator {
         return controller;
     }
 
-    /** Gives a number key to the item hotbar while exploring and to the building hotbar while building. */
-    private void handleNumberKey(int number) {
-        if (!itemHotbarManager.handleNumberKey(number)) {
-            hotbarManager.handleHotbarNumberSelection(number);
+    /** @return the building manager, for the tests that read the selected piece */
+    BuildingManager buildingManager() {
+        return buildingManager;
+    }
+
+    /**
+     * Escape drops the selected building piece while the hammer is in hand, so the next click in the world places
+     * nothing and the hammer stays in hand. With no piece selected, and in every other mode, it toggles the pause menu.
+     */
+    void handleEscape() {
+        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE
+                && buildingManager.getSelectedBuildingType() != null) {
+            buildingManager.setSelectedBuildingType(null);
+            return;
         }
+        transitions.togglePauseMenu();
     }
 
     /**
@@ -415,6 +426,8 @@ public class GameOrchestrator {
         gameState.getDayCycle().advance(deltaTime * AppConfig.getInstance().dayCycle().timeScale());
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        // The hammer in hand is what puts the game in build mode, so any way of changing the slot is covered here
+        transitions.syncBuildModeWithHand();
         // The light of the held torch follows the player and the selected item, after the player has moved
         gameState.syncLights(1.0);
         interactionManager.update();
@@ -466,17 +479,12 @@ public class GameOrchestrator {
         }
 
         renderer.render(alpha, deltaTime);
-        // The building hotbar takes the place of the item hotbar in building mode
-        itemHotbarPanel.setVisible(gameState.getCurrentGameMode() != GameMode.BUILDING_MODE);
         itemHotbarPanel.update(gameState.getPlayer());
+        buildingPalettePanel.update(gameState.getPlayer(), buildingManager.getSelectedBuildingType());
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());
         minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());
         minimapDrawer.draw();
-
-        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
-            renderer.drawBuildingModeBorder(mainCanvas.getWidth(), mainCanvas.getHeight());
-        }
     }
 }

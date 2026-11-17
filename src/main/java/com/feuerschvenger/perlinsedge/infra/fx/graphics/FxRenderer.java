@@ -203,16 +203,6 @@ public class FxRenderer {
     }
 
     /**
-     * Draws a black and yellow border around the canvas to indicate building mode.
-     *
-     * @param canvasWidth  The width of the main canvas.
-     * @param canvasHeight The height of the main canvas.
-     */
-    public void drawBuildingModeBorder(double canvasWidth, double canvasHeight) {
-        FxBuildingDrawingHelper.drawBuildingModeBorder(gc, canvasWidth, canvasHeight);
-    }
-
-    /**
      * Renders the tile map with isometric projection using camera position and zoom.
      * Performs frustum culling and depth sorting for efficient rendering.
      */

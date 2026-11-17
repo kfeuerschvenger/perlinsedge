@@ -26,7 +26,13 @@ class FxKeyMapperTest {
         assertEquals(Optional.of(GameKey.ESCAPE), key(KeyCode.ESCAPE));
         assertEquals(Optional.of(GameKey.SPACE), key(KeyCode.SPACE));
         assertEquals(Optional.of(GameKey.I), key(KeyCode.I));
-        assertEquals(Optional.of(GameKey.B), key(KeyCode.B));
+    }
+
+    @Test
+    void theBuildAndPagingKeysAreNotBoundBecauseTheHammerEntersBuildMode() {
+        assertEquals(Optional.empty(), key(KeyCode.B));
+        assertEquals(Optional.empty(), key(KeyCode.PAGE_UP));
+        assertEquals(Optional.empty(), key(KeyCode.PAGE_DOWN));
     }
 
     @Test
@@ -40,12 +46,6 @@ class FxKeyMapperTest {
         assertEquals(Optional.of(GameKey.F5), key(KeyCode.F5));
         assertEquals(Optional.empty(), key(KeyCode.F6));
         assertEquals(Optional.of(GameKey.F7), key(KeyCode.F7));
-    }
-
-    @Test
-    void mapsTheHotbarPageKeys() {
-        assertEquals(Optional.of(GameKey.PAGE_UP), key(KeyCode.PAGE_UP));
-        assertEquals(Optional.of(GameKey.PAGE_DOWN), key(KeyCode.PAGE_DOWN));
     }
 
     @Test

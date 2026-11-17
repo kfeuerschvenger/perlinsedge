@@ -126,11 +126,12 @@ public class BuildingManager {
      *
      * @param worldX X-coordinate in world units
      * @param worldY Y-coordinate in world units
+     * @return true when the piece was placed and its resources consumed, false when anything refused it
      */
-    public void placeBuilding(int worldX, int worldY) {
+    public boolean placeBuilding(int worldX, int worldY) {
         // Validate preconditions
         if (!validatePlacementPreconditions(worldX, worldY)) {
-            return;
+            return false;
         }
 
         TileMap tileMap = gameState.getCurrentMap();
@@ -141,16 +142,14 @@ public class BuildingManager {
 
         // Validate resources and placement rules
         if (!playerHasResources(player, existingRecipe) || !canPlaceOnTile(selectedBuildingType, targetTile)) {
-            return;
+            return false;
         }
 
-        // Create and place building
-        Building newBuilding = createBuildingInstance(selectedBuildingType, worldX, worldY);
-        if (newBuilding == null) return;
-
+        Building newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY);
         consumeResources(player, existingRecipe);
         targetTile.setBuilding(newBuilding);
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
+        return true;
     }
 
     /**
@@ -158,29 +157,31 @@ public class BuildingManager {
      *
      * @param worldX X-coordinate in world units
      * @param worldY Y-coordinate in world units
+     * @return true when a building was demolished and refunded
      */
-    public void removeBuilding(int worldX, int worldY) {
+    public boolean removeBuilding(int worldX, int worldY) {
         TileMap tileMap = gameState.getCurrentMap();
         if (tileMap == null) {
             log.warn("Remove building failed: Map is null");
-            return;
+            return false;
         }
 
         Tile targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null || !targetTile.hasBuilding()) {
             log.debug("No building at ({}, {})", worldX, worldY);
-            return;
+            return false;
         }
 
         Building building = targetTile.getBuilding();
         if (!building.isDestructible()) {
             log.debug("Building not destructible: {}", building.getType().getDisplayName());
-            return;
+            return false;
         }
 
         targetTile.setBuilding(null);
         refund(building);
         log.info("Removed {} from ({}, {})", building.getType().getDisplayName(), worldX, worldY);
+        return true;
     }
 
     /**
@@ -303,31 +304,6 @@ public class BuildingManager {
         }
     }
 
-    /**
-     * Factory method for building creation.
-     *
-     * @return Building instance or null for unknown types
-     */
-    private Building createBuildingInstance(BuildingType type, int x, int y) {
-        return switch (type) {
-            case WALL -> new Wall(x, y);
-            case DOOR -> new Door(x, y);
-            case BRIDGE -> new Bridge(x, y);
-            case DOCK -> new Dock(x, y);
-            case FENCE -> new Fence(x, y);
-            case CHEST -> new Chest(x, y, 9);
-            case FURNACE -> new Furnace(x, y);
-            case CAMPFIRE -> new Campfire(x, y);
-            case STANDING_TORCH -> new StandingTorch(x, y);
-            case ANVIL -> new Anvil(x, y);
-            case WORKBENCH -> new Workbench(x, y);
-            case BED -> new Bed(x, y);
-            default -> {
-                log.warn("Unknown BuildingType: {}", type);
-                yield null;
-            }
-        };
-    }
 
     /**
      * Determines if a building type can be placed on a tile.

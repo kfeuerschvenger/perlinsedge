@@ -23,9 +23,7 @@ public class KeyController implements IKeyListener {
     private final Runnable generateNewMapAction;
     private final Runnable toggleMapConfigPanelAction;
     private final Runnable toggleInventoryPanelAction;
-    private final Runnable toggleBuildingModeAction;
     private final Consumer<Integer> onNumberKeyPress;
-    private final Consumer<Integer> onHotbarPageChange;
     private BooleanSupplier inputBlocked;
     private Runnable onDropOne;
     private Runnable onDropStack;
@@ -34,31 +32,25 @@ public class KeyController implements IKeyListener {
     /**
      * Constructs a KeyController with the specified actions for various key events.
      *
-     * @param togglePauseMenuAction Action to toggle the pause menu.
+     * @param togglePauseMenuAction Action run by Escape: drops the selected building piece while building, otherwise toggles the pause menu.
      * @param centerCameraAction Action to center the camera, run by the space bar.
      * @param generateNewMapAction Action to generate a new random map.
      * @param toggleMapConfigPanelAction Action to toggle the map configuration panel.
      * @param toggleInventoryPanelAction Action to toggle the inventory panel.
-     * @param toggleBuildingModeAction Action to toggle the building mode.
      * @param onNumberKeyPress Action to handle number key presses for hotbar selection.
-     * @param onHotbarPageChange Action to switch the building hotbar page, receives -1 for previous and 1 for next.
      */
     public KeyController(Runnable togglePauseMenuAction,
                          Runnable centerCameraAction,
                          Runnable generateNewMapAction,
                          Runnable toggleMapConfigPanelAction,
                          Runnable toggleInventoryPanelAction,
-                         Runnable toggleBuildingModeAction,
-                         Consumer<Integer> onNumberKeyPress,
-                         Consumer<Integer> onHotbarPageChange) {
+                         Consumer<Integer> onNumberKeyPress) {
         this.togglePauseMenuAction = togglePauseMenuAction;
         this.centerCameraAction = centerCameraAction;
         this.generateNewMapAction = generateNewMapAction;
         this.toggleMapConfigPanelAction = toggleMapConfigPanelAction;
         this.toggleInventoryPanelAction = toggleInventoryPanelAction;
-        this.toggleBuildingModeAction = toggleBuildingModeAction;
         this.onNumberKeyPress = onNumberKeyPress;
-        this.onHotbarPageChange = onHotbarPageChange;
     }
 
     /**
@@ -124,15 +116,6 @@ public class KeyController implements IKeyListener {
             case I:
                 if (toggleInventoryPanelAction != null) toggleInventoryPanelAction.run();
                 break;
-            case B:
-                if (toggleBuildingModeAction != null) toggleBuildingModeAction.run();
-                break;
-            case PAGE_UP:
-                if (onHotbarPageChange != null) onHotbarPageChange.accept(-1);
-                break;
-            case PAGE_DOWN:
-                if (onHotbarPageChange != null) onHotbarPageChange.accept(1);
-                break;
             case DROP_ONE:
                 if (onDropOne != null) onDropOne.run();
                 break;
@@ -171,7 +154,7 @@ public class KeyController implements IKeyListener {
     /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
     private static boolean isGameplayKey(GameKey key) {
         return switch (key) {
-            case I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK, USE_ITEM -> true;
+            case I, DROP_ONE, DROP_STACK, USE_ITEM -> true;
             default -> false;
         };
     }

@@ -153,12 +153,22 @@ public class InputWiring {
         }
     }
 
+    /**
+     * Left click places the selected piece and right click demolishes what stands on the tile. The tile flashes green
+     * when the click did what it says and red when it was refused, the way an exploration click does. A left click with
+     * no piece selected places nothing and does not flash, which is what Escape leaves behind.
+     */
     private void handleBuildingModeClick(MouseEvent event, int tileX, int tileY) {
+        final boolean accepted;
         if (event.getButton() == MouseButton.PRIMARY) {
-            buildingManager.placeBuilding(tileX, tileY);
+            if (buildingManager.getSelectedBuildingType() == null) return;
+            accepted = buildingManager.placeBuilding(tileX, tileY);
         } else if (event.getButton() == MouseButton.SECONDARY) {
-            buildingManager.removeBuilding(tileX, tileY);
+            accepted = buildingManager.removeBuilding(tileX, tileY);
+        } else {
+            return;
         }
+        gameState.getClickFeedback().flash(tileX, tileY, accepted, gameState.getGameTime());
     }
 
     /**

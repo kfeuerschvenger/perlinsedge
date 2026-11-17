@@ -6,9 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Stop;
 
 public class FxBuildingDrawingHelper {
 
@@ -62,37 +59,6 @@ public class FxBuildingDrawingHelper {
 
         gc.fill();
         gc.stroke();
-        gc.restore();
-    }
-
-    /**
-     * Draws a black and yellow border around the canvas to indicate building mode.
-     * This is drawn in screen coordinates, independent of camera transformations.
-     * @param canvasWidth The width of the main canvas.
-     * @param canvasHeight The height of the main canvas.
-     */
-    public static void drawBuildingModeBorder(GraphicsContext gc, double canvasWidth, double canvasHeight) {
-        gc.save();
-        gc.setTransform(1, 0, 0, 1, 0, 0);
-
-        double borderWidth = 10;
-        double stripeWidth = 5;
-        double patternSize = stripeWidth * 2;
-
-        LinearGradient stripePattern = new LinearGradient(
-                0, 0, patternSize, patternSize, false, CycleMethod.REPEAT,
-                new Stop(0, Color.YELLOW),
-                new Stop(0.5, Color.YELLOW),
-                new Stop(0.5, Color.BLACK),
-                new Stop(1, Color.BLACK)
-        );
-
-        gc.setFill(stripePattern);
-        gc.fillRect(0, 0, canvasWidth, borderWidth);
-        gc.fillRect(0, canvasHeight - borderWidth, canvasWidth, borderWidth);
-        gc.fillRect(0, borderWidth, borderWidth, canvasHeight - 2 * borderWidth);
-        gc.fillRect(canvasWidth - borderWidth, borderWidth, borderWidth, canvasHeight - 2 * borderWidth);
-
         gc.restore();
     }
 

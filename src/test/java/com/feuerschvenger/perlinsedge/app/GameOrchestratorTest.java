@@ -17,7 +17,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
-import com.feuerschvenger.perlinsedge.ui.view.BuildingHotbarPanel;
+import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.DeathOverlay;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
 import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
@@ -111,7 +111,7 @@ class GameOrchestratorTest {
                     canvas,
                     new HealthBar(),
                     new InventoryPanel(state),
-                    new BuildingHotbarPanel(recipes),
+                    new BuildingPalettePanel(recipes),
                     new ItemHotbarPanel(),
                     new HintLabel(),
                     new DeathOverlay(),
@@ -404,5 +404,47 @@ class GameOrchestratorTest {
         assertTrue(state.getDroppedItems().isEmpty());
         assertNotNull(state.getPlayer());
         assertFalse(state.getPlayer().isDead());
+    }
+
+    @Test
+    void anUpdateWithTheHammerInHandEntersBuildModeAndAnotherSlotLeavesIt() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getPlayer().setItemAt(1, new Item(ItemType.HAMMER, 1));
+        state.getPlayer().selectHotbarSlot(1);
+
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        assertEquals(GameMode.BUILDING_MODE, state.getCurrentGameMode());
+
+        state.getPlayer().selectHotbarSlot(2);
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        assertEquals(GameMode.EXPLORATION, state.getCurrentGameMode());
+    }
+
+    @Test
+    void escapeDropsTheSelectedPieceFirstAndPausesOnlyWhenNothingIsSelected() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getPlayer().setItemAt(1, new Item(ItemType.HAMMER, 1));
+        state.getPlayer().selectHotbarSlot(1);
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        orchestrator.buildingManager().setSelectedBuildingType(com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType.WALL);
+
+        onFx(orchestrator::handleEscape);
+
+        assertNull(orchestrator.buildingManager().getSelectedBuildingType());
+        assertEquals(GameMode.BUILDING_MODE, state.getCurrentGameMode(), "the hammer stays in hand");
+        assertFalse(state.isGamePaused());
+
+        onFx(orchestrator::handleEscape);
+
+        assertTrue(state.isGamePaused());
+    }
+
+    @Test
+    void escapeWhileExploringPauses() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+
+        onFx(orchestrator::handleEscape);
+
+        assertTrue(state.isGamePaused());
     }
 }

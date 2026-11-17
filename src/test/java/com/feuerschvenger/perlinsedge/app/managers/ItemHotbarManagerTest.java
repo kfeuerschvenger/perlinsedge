@@ -46,12 +46,21 @@ class ItemHotbarManagerTest {
     }
 
     @Test
-    void theKeyBelongsToTheBuildingHotbarInBuildingMode() {
+    void theKeyStillSelectsTheSlotInBuildMode() {
         state.setCurrentGameMode(GameMode.BUILDING_MODE);
 
-        assertFalse(hotbar.handleNumberKey(4));
+        assertTrue(hotbar.handleNumberKey(4));
 
-        assertEquals(0, player.getSelectedHotbarIndex());
+        assertEquals(3, player.getSelectedHotbarIndex());
+    }
+
+    @Test
+    void theWheelStillMovesTheHandInBuildMode() {
+        state.setCurrentGameMode(GameMode.BUILDING_MODE);
+
+        assertTrue(hotbar.handleWheel(-40, false));
+
+        assertEquals(1, player.getSelectedHotbarIndex());
     }
 
     @Test
@@ -112,8 +121,6 @@ class ItemHotbarManagerTest {
 
     @Test
     void theWheelZoomsInsteadWhenNotExploringOrWithoutALivingPlayer() {
-        state.setCurrentGameMode(GameMode.BUILDING_MODE);
-        assertFalse(hotbar.handleWheel(-40, false));
         state.setCurrentGameMode(GameMode.INVENTORY_OPEN);
         assertFalse(hotbar.handleWheel(-40, false));
         state.setCurrentGameMode(GameMode.EXPLORATION);

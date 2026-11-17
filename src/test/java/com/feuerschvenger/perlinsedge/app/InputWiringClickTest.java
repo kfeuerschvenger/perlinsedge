@@ -10,6 +10,10 @@ import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
 import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -42,6 +46,8 @@ class InputWiringClickTest {
     private Player player;
     private InteractionManager interactions;
     private Canvas canvas;
+    private RecipeManager recipes;
+    private BuildingManager buildings;
 
     @BeforeEach
     void setUp() {
@@ -60,7 +66,8 @@ class InputWiringClickTest {
         Canvas minimapCanvas = new Canvas(100, 60);
         FxCamera camera = new FxCamera(0, 0, 1.0);
         ContainerManager containers = new ContainerManager();
-        BuildingManager buildings = new BuildingManager(state, new RecipeManager(), containers);
+        recipes = new RecipeManager();
+        buildings = new BuildingManager(state, recipes, containers);
         interactions = new InteractionManager(state, buildings, new ResourceManager(state), new CombatManager(state),
                 containers, () -> { }, message -> { });
         InputWiring wiring = new InputWiring(state, buildings, new PlayerManager(state, null, null), interactions,
@@ -233,5 +240,67 @@ class InputWiringClickTest {
 
         assertEquals(ClickFeedback.Kind.NONE,
                 state.getClickFeedback().kind(state.getGameTime() + ClickFeedback.DURATION_SECONDS + 0.01));
+    }
+
+    private void buildMode(BuildingType selected) {
+        state.setCurrentGameMode(GameMode.BUILDING_MODE);
+        buildings.activateBuildingMode();
+        buildings.setSelectedBuildingType(selected);
+    }
+
+    @Test
+    void aLeftClickInBuildModePlacesTheSelectedPieceAndFlashesGreen() {
+        player.addItem(new Item(ItemType.STONE, 2));
+        buildMode(BuildingType.WALL);
+
+        click(5, 2, MouseButton.PRIMARY);
+
+        assertTrue(map.getTile(5, 2).hasBuilding());
+        assertEquals(ClickFeedback.Kind.ACCEPTED, flash());
+    }
+
+    @Test
+    void aLeftClickThatCannotPlaceFlashesRedAndPlacesNothing() {
+        buildMode(BuildingType.WALL);
+
+        click(5, 2, MouseButton.PRIMARY);
+
+        assertFalse(map.getTile(5, 2).hasBuilding());
+        assertEquals(ClickFeedback.Kind.REJECTED, flash());
+    }
+
+    @Test
+    void aLeftClickWithNoPieceSelectedDoesNothingAtAll() {
+        player.addItem(new Item(ItemType.STONE, 2));
+        buildMode(null);
+
+        click(5, 2, MouseButton.PRIMARY);
+
+        assertFalse(map.getTile(5, 2).hasBuilding());
+        assertEquals(ClickFeedback.Kind.NONE, flash());
+        assertEquals(2, player.getItemCount(new Item(ItemType.STONE, 1)));
+    }
+
+    @Test
+    void aRightClickInBuildModeDemolishesAndRefunds() {
+        player.addItem(new Item(ItemType.STONE, 2));
+        buildMode(BuildingType.WALL);
+        click(5, 2, MouseButton.PRIMARY);
+        assertEquals(0, player.getItemCount(new Item(ItemType.STONE, 1)));
+
+        click(5, 2, MouseButton.SECONDARY);
+
+        assertFalse(map.getTile(5, 2).hasBuilding());
+        assertEquals(2, player.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(ClickFeedback.Kind.ACCEPTED, flash());
+    }
+
+    @Test
+    void aRightClickOnAnEmptyTileInBuildModeFlashesRed() {
+        buildMode(BuildingType.WALL);
+
+        click(5, 2, MouseButton.SECONDARY);
+
+        assertEquals(ClickFeedback.Kind.REJECTED, flash());
     }
 }

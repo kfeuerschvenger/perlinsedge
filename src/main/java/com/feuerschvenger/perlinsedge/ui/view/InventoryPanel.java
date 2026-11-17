@@ -37,7 +37,7 @@ import java.util.Objects;
  */
 public class InventoryPanel extends BorderPane {
     // Layout dimensions
-    private static final int SLOT_SIZE = (int) BuildingHotbarPanel.SLOT_SIZE;
+    private static final int SLOT_SIZE = (int) ItemHotbarPanel.SLOT_SIZE;
     /** Item icon size: the 16 px art at 2x, so every art pixel stays a whole square block. */
     static final int ITEM_SIZE = 32;
     private static final int ITEM_SPACING = 10;
