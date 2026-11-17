@@ -303,4 +303,28 @@ class InputWiringClickTest {
 
         assertEquals(ClickFeedback.Kind.REJECTED, flash());
     }
+
+    @Test
+    void withTheHammerInHandALeftClickOnAGateDoesNotToggleIt() {
+        com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate gate =
+                new com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate(5, 2);
+        map.getTile(5, 2).setBuilding(gate);
+        buildMode(BuildingType.FENCE);
+
+        click(5, 2, MouseButton.PRIMARY);
+
+        assertFalse(gate.isOpen(), "build clicks place pieces, they do not open gates");
+        assertEquals(ClickFeedback.Kind.REJECTED, flash());
+    }
+
+    @Test
+    void withoutTheHammerALeftClickOnAGateWalksUpAndToggles() {
+        com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate gate =
+                new com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate(5, 2);
+        map.getTile(5, 2).setBuilding(gate);
+
+        click(5, 2, MouseButton.PRIMARY);
+
+        assertEquals(ClickFeedback.Kind.ACCEPTED, flash());
+    }
 }

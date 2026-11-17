@@ -21,6 +21,10 @@ public enum BuildingType {
             "A dock for fishing, docking boats, or just hanging out by the water.",
             Rgba.DARK_BLUE
     ),
+    FENCE_GATE(
+            "A gate in your fence: click it to swing it open for yourself or shut against the critters.",
+            Rgba.BROWN
+    ),
     FENCE(
             "A fence to keep the critters out and your garden safe from nibblers.",
             Rgba.BROWN.brighter()
@@ -109,7 +113,7 @@ public enum BuildingType {
     public int rotationCount() {
         return switch (this) {
             case CHEST, FURNACE, ANVIL, WORKBENCH, BED, DOCK -> 4;
-            case BRIDGE -> 2;
+            case BRIDGE, FENCE_GATE -> 2;
             default -> 1;
         };
     }

@@ -44,6 +44,7 @@ public final class BuildingFactory {
             case BRIDGE -> new Bridge(x, y);
             case DOCK -> new Dock(x, y);
             case FENCE -> new Fence(x, y);
+            case FENCE_GATE -> new FenceGate(x, y);
             case CHEST -> new Chest(x, y, CHEST_CAPACITY);
             case FURNACE -> new Furnace(x, y);
             case CAMPFIRE -> new Campfire(x, y);

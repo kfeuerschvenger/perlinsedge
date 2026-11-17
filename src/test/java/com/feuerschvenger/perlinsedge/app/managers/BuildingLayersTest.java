@@ -241,4 +241,49 @@ class BuildingLayersTest {
 
         assertTrue(state.getDroppedItems().isEmpty());
     }
+
+    @Test
+    void placingAndRemovingFencesKeepsTheirSidesUpToDate() {
+        Building left = build(BuildingType.FENCE, 2, 3);
+        Building right = build(BuildingType.FENCE, 3, 3);
+
+        assertEquals(com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.LOWER_RIGHT,
+                ((com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence) left).getConnections());
+        assertEquals(com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.UPPER_LEFT,
+                ((com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence) right).getConnections());
+
+        manager.removeBuilding(3, 3);
+
+        assertEquals(0, ((com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence) left).getConnections());
+    }
+
+    @Test
+    void aGateIsPlacedOnLandWithItsRotationAndRefusedOnWater() {
+        manager.setSelectedBuildingType(BuildingType.FENCE_GATE);
+        manager.rotateSelected();
+
+        Building gate = build(BuildingType.FENCE_GATE, 2, 3);
+
+        assertEquals(BuildingType.FENCE_GATE, gate.getType());
+        assertEquals(1, gate.getRotation());
+        assertFalse(canPlace(BuildingType.FENCE_GATE, 5, 2));
+    }
+
+    @Test
+    void theGateCostsTwoPlanksAndFourSticks() {
+        var recipe = recipes.getBuildingRecipeByType(BuildingType.FENCE_GATE).orElseThrow();
+
+        assertEquals(java.util.List.of(new CraftingIngredient(ItemType.WOOD_PLANK, 2),
+                new CraftingIngredient(ItemType.STICK, 4)), recipe.ingredients());
+    }
+
+    @Test
+    void theWallAndTheDoorAreGone() {
+        for (BuildingType type : BuildingType.values()) {
+            assertFalse(type.name().equals("WALL") || type.name().equals("DOOR"), type.name());
+        }
+        for (var recipe : recipes.getAllBuildingRecipes()) {
+            assertFalse(recipe.buildingType().name().equals("WALL") || recipe.buildingType().name().equals("DOOR"));
+        }
+    }
 }

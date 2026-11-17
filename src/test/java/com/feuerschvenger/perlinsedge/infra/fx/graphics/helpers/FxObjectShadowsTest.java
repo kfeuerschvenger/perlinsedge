@@ -101,7 +101,7 @@ class FxObjectShadowsTest {
         final ShadowList withoutArt = new ShadowList();
 
         FxObjectShadows.addForTile(withArt, null, null, 0, BuildingType.WORKBENCH, art, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
-        FxObjectShadows.addForTile(withoutArt, null, null, 0, BuildingType.WORKBENCH, null, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+        FxObjectShadows.addForTile(withoutArt, null, null, 0, BuildingType.WORKBENCH, (Image) null, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
 
         assertEquals(1, withArt.size());
         assertNotNull(withArt.silhouette(0));

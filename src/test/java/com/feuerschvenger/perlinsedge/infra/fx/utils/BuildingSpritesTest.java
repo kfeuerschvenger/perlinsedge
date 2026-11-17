@@ -156,6 +156,65 @@ class BuildingSpritesTest {
     @Test
     void aPieceThatDoesNotTurnHasNoRotationInItsName() {
         assertEquals("campfire_0", BuildingSprites.restingName(BuildingType.CAMPFIRE, 3));
-        assertEquals("fence", BuildingSprites.restingName(BuildingType.FENCE, 2));
+        assertEquals("fence_post", BuildingSprites.restingName(BuildingType.FENCE, 2));
+    }
+
+    @Test
+    void theGateHasOneFilePerAxisAndStateAndTheFenceIsComposed() {
+        final com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate gate =
+                new com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate(1, 1);
+        gate.setRotation(1);
+
+        assertEquals("fence_gate_closed_1", BuildingSprites.spriteName(gate, 0));
+        gate.toggleOpen();
+        assertEquals("fence_gate_open_1", BuildingSprites.spriteName(gate, 0));
+        assertEquals("fence_gate_closed_0", BuildingSprites.restingName(BuildingType.FENCE_GATE, 0));
+    }
+
+    private static BuildingSprites fenceSprites(List<String> asked, boolean withPost) {
+        return new BuildingSprites(name -> {
+            asked.add(name);
+            return name.equals("fence_post") && !withPost ? null : new WritableImage(32, 24);
+        });
+    }
+
+    @Test
+    void aFenceIsComposedOfBackRailsThePostAndFrontRailsInThatOrder() {
+        final List<String> asked = new ArrayList<>();
+        final BuildingSprites sprites = fenceSprites(asked, true);
+
+        final Image[] layers = sprites.fenceLayers(15);
+
+        assertEquals(5, layers.length);
+        assertEquals(java.util.Set.of("fence_post", "fence_rail_ul", "fence_rail_ur", "fence_rail_ll", "fence_rail_lr"),
+                new java.util.HashSet<>(asked));
+    }
+
+    @Test
+    void aLoneFencePostIsOneLayerAndARunHasOnlyTheRailsItJoins() {
+        final BuildingSprites sprites = fenceSprites(new ArrayList<>(), true);
+
+        assertEquals(1, sprites.fenceLayers(0).length);
+        assertEquals(3, sprites.fenceLayers(com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.UPPER_LEFT
+                | com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.LOWER_RIGHT).length);
+    }
+
+    @Test
+    void aFenceWithoutPostArtFallsBackToTheProceduralShape() {
+        final BuildingSprites sprites = fenceSprites(new ArrayList<>(), false);
+
+        assertNull(sprites.fenceLayers(15));
+        assertEquals(0, sprites.shadowImages(BuildingFactory.create(BuildingType.FENCE, 1, 1)).length);
+    }
+
+    @Test
+    void aFenceCastsOneShadowImagePerLayer() {
+        final BuildingSprites sprites = fenceSprites(new ArrayList<>(), true);
+        final com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence fence =
+                new com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence(1, 1);
+        fence.setConnections(com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.LOWER_LEFT);
+
+        assertEquals(2, sprites.shadowImages(fence).length);
+        assertEquals(1, sprites.shadowImages(BuildingFactory.create(BuildingType.CHEST, 1, 1)).length);
     }
 }

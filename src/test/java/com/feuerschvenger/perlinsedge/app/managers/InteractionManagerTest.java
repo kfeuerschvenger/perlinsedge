@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -172,6 +173,18 @@ class InteractionManagerTest {
 
         assertTrue(containers.isContainerOpen());
         assertEquals(1, containerShown.get(), "the container was shown once");
+    }
+
+    @Test
+    void aFarGateTogglesOnArrival() {
+        FenceGate gate = new FenceGate(8, 5);
+        map.getTile(8, 5).setBuilding(gate);
+
+        assertTrue(interactions.interact(8, 5).isAccepted());
+        assertFalse(gate.isOpen());
+        tickUntilIdle();
+
+        assertTrue(gate.isOpen());
     }
 
     @Test

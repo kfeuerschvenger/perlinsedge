@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.BuildingSprites;
@@ -83,26 +84,47 @@ public final class FxBuildingDrawingHelper {
      *
      * @param gc      graphics context
      * @param preview the piece and the tint
-     * @param sprite  the art of the piece, or null when it has none
+     * @param sprites the art of the piece, which is several images for a fence, or null or none when it has none
      * @param centerX screen X of the tile centre
      * @param centerY screen Y of the tile centre
      * @param offsetX camera X offset
      * @param offsetY camera Y offset
      * @param zoom    current zoom level
      */
-    public static void drawGhost(GraphicsContext gc, BuildingPreview preview, Image sprite, double centerX,
+    public static void drawGhost(GraphicsContext gc, BuildingPreview preview, Image[] sprites, double centerX,
                                  double centerY, double offsetX, double offsetY, double zoom) {
         gc.save();
         gc.setGlobalAlpha(GHOST_OPACITY);
-        if (sprite != null) {
-            drawSprite(gc, GhostSprites.of(sprite, preview.tint()), centerX, centerY, ZoomSteps.integerArtScale(zoom));
+        if (sprites != null && sprites.length > 0) {
+            for (Image sprite : sprites) {
+                drawSprite(gc, GhostSprites.of(sprite, preview.tint()), centerX, centerY, ZoomSteps.integerArtScale(zoom));
+            }
         } else {
             drawFootprint(gc, preview.color(), centerX, centerY, zoom);
-            FxBuildingPainter.draw(gc, BuildingFactory.create(preview.type(), preview.tileX(), preview.tileY(),
-                            preview.rotation()),
-                    centerX, centerY - AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, zoom);
+            final Building ghost = BuildingFactory.create(preview.type(), preview.tileX(), preview.tileY(),
+                    preview.rotation());
+            if (ghost instanceof Fence fence) {
+                fence.setConnections(preview.connections());
+            }
+            FxBuildingPainter.draw(gc, ghost, centerX,
+                    centerY - AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, zoom);
         }
         gc.restore();
+    }
+
+    /**
+     * Draws several sprites of one building, such as the layers of a fence, one over the other.
+     *
+     * @param gc      graphics context
+     * @param layers  the images in the order they are drawn
+     * @param centerX screen X of the tile centre
+     * @param centerY screen Y of the tile centre
+     * @param zoom    current zoom level
+     */
+    public static void drawLayers(GraphicsContext gc, Image[] layers, double centerX, double centerY, double zoom) {
+        for (Image layer : layers) {
+            drawSprite(gc, layer, centerX, centerY, ZoomSteps.integerArtScale(zoom));
+        }
     }
 
     /** Fills the diamond of a tile with a tint. */

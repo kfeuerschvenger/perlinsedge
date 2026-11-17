@@ -2,6 +2,9 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import javafx.scene.image.Image;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,6 +40,8 @@ public final class BuildingSprites {
 
     private final Function<String, Image> loader;
     private final Map<String, Image> cache = new HashMap<>();
+    private final Image[][] fenceCache = new Image[16][];
+    private final boolean[] fenceCacheFilled = new boolean[16];
 
     /** The lazily created instance that reads the classpath. */
     private static final class InstanceHolder {
@@ -68,6 +73,8 @@ public final class BuildingSprites {
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
+            case FENCE_GATE -> (building instanceof FenceGate gate && gate.isOpen() ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)
+                    [Math.floorMod(building.getRotation(), 2)];
             default -> restingName(building.getType(), building.getRotation());
         };
     }
@@ -83,6 +90,8 @@ public final class BuildingSprites {
     public static String restingName(BuildingType type, int rotation) {
         return switch (type) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(type)[0];
+            case FENCE -> FENCE_POST;
+            case FENCE_GATE -> GATE_CLOSED_NAMES[Math.floorMod(rotation, 2)];
             case FURNACE -> FURNACE_NAMES[Math.floorMod(rotation, FURNACE_NAMES.length)];
             default -> {
                 final String[] names = NAMES.get(type);
@@ -95,6 +104,11 @@ public final class BuildingSprites {
     private static final Map<BuildingType, String[]> NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> FLAME_NAMES = new EnumMap<>(BuildingType.class);
     private static final String[] FURNACE_NAMES = new String[4];
+    private static final String[] GATE_CLOSED_NAMES = {"fence_gate_closed_0", "fence_gate_closed_1"};
+    private static final String[] GATE_OPEN_NAMES = {"fence_gate_open_0", "fence_gate_open_1"};
+    /** The post of a fence and its four half rails, in the order they are drawn: the back ones, the post, the front ones. */
+    static final String FENCE_POST = "fence_post";
+    private static final String[] FENCE_RAILS = {"fence_rail_ul", "fence_rail_ur", "fence_rail_ll", "fence_rail_lr"};
 
     static {
         for (BuildingType type : BuildingType.values()) {
@@ -156,6 +170,69 @@ public final class BuildingSprites {
     public Image restingImage(BuildingType type) {
         return restingImage(type, 0);
     }
+    /**
+     * Gives the images a fence is drawn from, in the order they are drawn: the half rails toward the upper left and the
+     * upper right, which stand behind the post, then the post, then the half rails toward the lower left and the lower
+     * right, which stand in front of it. Each image is a full canvas with the anchor of every building sprite, so they
+     * are laid on top of each other as they are.
+     *
+     * @param connections the joined sides of the fence, a mask of {@link FenceConnections}
+     * @return the images to draw, or null when there is no art for the post, which means the procedural shape is drawn
+     */
+    public Image[] fenceLayers(int connections) {
+        final int mask = connections & 15;
+        Image[] layers = fenceCache[mask];
+        if (layers == null && !fenceCacheFilled[mask]) {
+            fenceCacheFilled[mask] = true;
+            layers = composeFence(mask);
+            fenceCache[mask] = layers;
+        }
+        return layers;
+    }
+
+    private Image[] composeFence(int mask) {
+        final Image post = image(FENCE_POST);
+        if (post == null) {
+            return null;
+        }
+        final java.util.List<Image> layers = new java.util.ArrayList<>(5);
+        addRail(layers, mask, FenceConnections.UPPER_LEFT, 0);
+        addRail(layers, mask, FenceConnections.UPPER_RIGHT, 1);
+        layers.add(post);
+        addRail(layers, mask, FenceConnections.LOWER_LEFT, 2);
+        addRail(layers, mask, FenceConnections.LOWER_RIGHT, 3);
+        return layers.toArray(new Image[0]);
+    }
+
+    private void addRail(java.util.List<Image> layers, int mask, int bit, int rail) {
+        if ((mask & bit) != 0) {
+            final Image image = image(FENCE_RAILS[rail]);
+            if (image != null) {
+                layers.add(image);
+            }
+        }
+    }
+
+    /**
+     * Gives the images a building casts its shadow from, in its present state: a fence casts its post and its rails as
+     * separate silhouettes, any other piece one silhouette. The flame pieces cast their first frame.
+     *
+     * @param building the building
+     * @return the images, empty when the piece has no art and casts the ellipse of its type
+     */
+    public Image[] shadowImages(Building building) {
+        if (building instanceof Fence fence) {
+            final Image[] layers = fenceLayers(fence.getConnections());
+            return layers != null ? layers : NO_IMAGES;
+        }
+        final String name = building.getType() == BuildingType.CAMPFIRE || building.getType() == BuildingType.STANDING_TORCH
+                ? restingName(building.getType(), 0) : spriteName(building, 0);
+        final Image image = image(name);
+        return image != null ? new Image[]{image} : NO_IMAGES;
+    }
+
+    private static final Image[] NO_IMAGES = new Image[0];
+
     private Image image(String name) {
         if (cache.containsKey(name)) {
             return cache.get(name);

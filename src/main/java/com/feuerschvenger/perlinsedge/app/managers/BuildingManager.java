@@ -196,6 +196,7 @@ public class BuildingManager {
             targetTile.setFloor(newBuilding);
         } else {
             targetTile.setBuilding(newBuilding);
+            FenceConnections.refresh(tileMap, worldX, worldY);
         }
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
         return true;
@@ -232,6 +233,7 @@ public class BuildingManager {
         }
 
         targetTile.setBuilding(null);
+        FenceConnections.refresh(tileMap, worldX, worldY);
         refund(building);
         log.info("Removed {} from ({}, {})", building.getType().getDisplayName(), worldX, worldY);
         return true;
@@ -426,7 +428,7 @@ public class BuildingManager {
             }
 
             // Every other piece stands on land and never on a floor
-            case FENCE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
+            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
                 boolean valid = !tile.hasFloor() && isWalkableLand(tile);
                 if (!valid) {
                     log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());

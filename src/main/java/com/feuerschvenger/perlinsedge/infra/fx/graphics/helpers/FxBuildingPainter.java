@@ -2,6 +2,9 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -37,7 +40,8 @@ public final class FxBuildingPainter {
         switch (building.getType()) {
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
             case DOCK -> drawDock(gc, screenX, screenY, zoom);
-            case FENCE -> drawFence(gc, screenX, screenY, zoom);
+            case FENCE -> drawFence(gc, building instanceof Fence fence ? fence.getConnections() : 0, screenX, screenY, zoom);
+            case FENCE_GATE -> drawFenceGate(gc, (FenceGate) building, screenX, screenY, zoom);
             case CHEST -> drawChest(gc, screenX, screenY, zoom);
             case FURNACE -> drawFurnace(gc, screenX, screenY, zoom);
             case ANVIL -> drawAnvil(gc, screenX, screenY, zoom);
@@ -120,31 +124,76 @@ public final class FxBuildingPainter {
         gc.fillRect(screenX + width / 2 - postSize * 1.5, drawY + height - postHeight, postSize, postHeight);
     }
 
-    private static void drawFence(GraphicsContext gc, double screenX, double screenY, double zoom) {
-        double postWidth = 10 * zoom;
-        double postHeight = 40 * zoom;
-        double barHeight = 10 * zoom;
-        double totalWidth = 50 * zoom;
+    /** The four sides of a fence in drawing order: the back rails, then the front rails, with the screen direction of each. */
+    private static final int[] FENCE_SIDES = {
+            FenceConnections.UPPER_LEFT, FenceConnections.UPPER_RIGHT,
+            FenceConnections.LOWER_LEFT, FenceConnections.LOWER_RIGHT};
+    private static final int[][] FENCE_SIDE_DIRECTION = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
 
-        double drawY = screenY - postHeight;
+    /**
+     * Draws a fence as a post with a half rail toward every joined side. The rails toward the upper edges stand behind
+     * the post and are drawn first, the ones toward the lower edges stand in front and are drawn last.
+     */
+    private static void drawFence(GraphicsContext gc, int connections, double screenX, double screenY, double zoom) {
+        final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
+        final double centerY = screenY + graphics.getTileHalfHeight() * zoom;
+        final double reachX = graphics.getTileHalfWidth() * zoom / 2.0;
+        final double reachY = graphics.getTileHalfHeight() * zoom / 2.0;
+        final double postWidth = 8 * zoom;
+        final double postHeight = 30 * zoom;
 
-        gc.setFill(Color.DARKGOLDENROD);
         gc.setStroke(Color.BROWN);
+        gc.setLineWidth(3 * zoom);
+        for (int side = 0; side < FENCE_SIDES.length; side++) {
+            if (side == 2) {
+                drawPost(gc, screenX, centerY, postWidth, postHeight, zoom);
+            }
+            if ((connections & FENCE_SIDES[side]) == 0) continue;
+            for (double height : new double[]{postHeight * 0.45, postHeight * 0.8}) {
+                gc.strokeLine(screenX, centerY - height,
+                        screenX + FENCE_SIDE_DIRECTION[side][0] * reachX,
+                        centerY - height + FENCE_SIDE_DIRECTION[side][1] * reachY);
+            }
+        }
+    }
+
+    private static void drawPost(GraphicsContext gc, double screenX, double centerY, double width, double height,
+                                 double zoom) {
+        gc.setFill(Color.DARKGOLDENROD);
+        gc.setStroke(Color.SADDLEBROWN);
         gc.setLineWidth(1 * zoom);
+        gc.fillRect(screenX - width / 2, centerY - height, width, height);
+        gc.strokeRect(screenX - width / 2, centerY - height, width, height);
+        gc.setStroke(Color.BROWN);
+        gc.setLineWidth(3 * zoom);
+    }
 
-        gc.fillRect(screenX - totalWidth / 2, drawY, postWidth, postHeight);
-        gc.strokeRect(screenX - totalWidth / 2, drawY, postWidth, postHeight);
+    /**
+     * Draws a gate as two posts at the ends of the axis it runs along, with two rails between them while it is closed.
+     * An open gate has only its posts.
+     */
+    private static void drawFenceGate(GraphicsContext gc, FenceGate gate, double screenX, double screenY, double zoom) {
+        final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
+        final double centerY = screenY + graphics.getTileHalfHeight() * zoom;
+        final double reachX = graphics.getTileHalfWidth() * zoom / 2.0;
+        final double reachY = graphics.getTileHalfHeight() * zoom / 2.0;
+        // Rotation 0 runs from the upper left edge to the lower right edge, rotation 1 from the upper right to the lower left
+        final double dx = gate.getRotation() == 0 ? 1 : -1;
+        final double postWidth = 6 * zoom;
+        final double postHeight = 30 * zoom;
+        final double[] ends = {-1, 1};
 
-        gc.fillRect(screenX + totalWidth / 2 - postWidth, drawY, postWidth, postHeight);
-        gc.strokeRect(screenX + totalWidth / 2 - postWidth, drawY, postWidth, postHeight);
-
-        double barY = drawY + postHeight * 0.3;
-        gc.fillRect(screenX - totalWidth / 2, barY, totalWidth, barHeight);
-        gc.strokeRect(screenX - totalWidth / 2, barY, totalWidth, barHeight);
-
-        double lowerBarY = drawY + postHeight * 0.7;
-        gc.fillRect(screenX - totalWidth / 2, lowerBarY, totalWidth, barHeight);
-        gc.strokeRect(screenX - totalWidth / 2, lowerBarY, totalWidth, barHeight);
+        for (double end : ends) {
+            drawPost(gc, screenX + end * dx * reachX, centerY + end * reachY, postWidth, postHeight, zoom);
+        }
+        if (!gate.isOpen()) {
+            gc.setStroke(Color.BROWN);
+            gc.setLineWidth(3 * zoom);
+            for (double height : new double[]{postHeight * 0.45, postHeight * 0.8}) {
+                gc.strokeLine(screenX - dx * reachX, centerY - reachY - height, screenX + dx * reachX,
+                        centerY + reachY - height);
+            }
+        }
     }
 
     private static void drawFurnace(GraphicsContext gc, double screenX, double screenY, double zoom) {

@@ -6,6 +6,8 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
@@ -427,7 +429,7 @@ public class FxRenderer {
                     renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, buildingArt, false, tile);
                     if (rebuildStatic) {
                         FxObjectShadows.addForTile(staticShadows, null, null, 0, building.getType(),
-                                buildingSprites.restingImage(building.getType()),
+                                buildingSprites.shadowImages(building),
                                 screenX - shadowCameraX, screenY - shadowCameraY, halfTileHeight, artScale);
                     }
                 }
@@ -679,7 +681,7 @@ public class FxRenderer {
         }
         FxObjectShadows.addForTile(staticShadows, hasResource ? resource.getType() : null, image, contactArt,
                 hasBuilding ? building.getType() : null,
-                hasBuilding ? buildingSprites.restingImage(building.getType()) : null,
+                hasBuilding ? buildingSprites.shadowImages(building) : null,
                 screenX - shadowCameraX, screenY + drop - shadowCameraY, halfTileHeight, artScale);
     }
 
@@ -691,14 +693,7 @@ public class FxRenderer {
 
     /** The ghost of the building being placed, recreated only when the tile, the piece or the tint changes. */
     private BuildingPreview previewFor() {
-        BuildingPreview preview = cachedPreview;
-        if (preview == null || preview.tileX() != previewTileX || preview.tileY() != previewTileY
-                || preview.type() != previewBuildingType || preview.rotation() != previewRotation
-                || preview.color() != previewColor) {
-            preview = new BuildingPreview(previewTileX, previewTileY, previewBuildingType, previewRotation, previewRgba,
-                    previewColor);
-            cachedPreview = preview;
-        }
+final TileMap map = gameState.getCurrentMap();        final int connections = previewBuildingType == BuildingType.FENCE && map != null                ? FenceConnections.maskAt(map, previewTileX, previewTileY) : 0;        BuildingPreview preview = cachedPreview;        if (preview == null || preview.tileX() != previewTileX || preview.tileY() != previewTileY                || preview.type() != previewBuildingType || preview.rotation() != previewRotation                || preview.connections() != connections || preview.color() != previewColor) {            preview = new BuildingPreview(previewTileX, previewTileY, previewBuildingType, previewRotation,                    connections, previewRgba, previewColor);            cachedPreview = preview;        }
         return preview;
     }
 
@@ -814,10 +809,17 @@ public class FxRenderer {
         }
     }
 
+    private static Image[] singleton(Image image) {
+        return image != null ? new Image[]{image} : null;
+    }
+
     /** Draws the ghost of the selected piece on the hovered tile, from its sprite when it has one. */
     private void drawBuildingGhost(BuildingPreview preview, Renderable r) {
         final double zoom = camera.getZoom();
-        FxBuildingDrawingHelper.drawGhost(gc, preview, buildingSprites.restingImage(preview.type(), preview.rotation()), r.screenX(),
+        final Image[] art = preview.type() == BuildingType.FENCE
+                ? buildingSprites.fenceLayers(preview.connections())
+                : singleton(buildingSprites.restingImage(preview.type(), preview.rotation()));
+        FxBuildingDrawingHelper.drawGhost(gc, preview, art, r.screenX(),
                 r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, camera.getX(),
                 camera.getY(), zoom);
     }
@@ -830,6 +832,7 @@ public class FxRenderer {
      */
     private void drawBuilding(Building building, Renderable r) {
         final double zoom = camera.getZoom();
+final double centerY = r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;        if (building instanceof Fence fence && r.sprite() != null) {            final Image[] layers = buildingSprites.fenceLayers(fence.getConnections());            if (layers != null) {                FxBuildingDrawingHelper.drawLayers(gc, layers, r.screenX(), centerY, zoom);                return;            }        }
         FxBuildingDrawingHelper.drawBuilding(gc, building, r.sprite(), r.screenX(),
                 r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom,
                 camera.getX(), camera.getY(), zoom);

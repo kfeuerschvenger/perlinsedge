@@ -156,6 +156,10 @@ public class RecipeManager {
         buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE,
                 new CraftingIngredient(ItemType.WOOD_LOG, 2)));
 
+        buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE_GATE,
+                new CraftingIngredient(ItemType.WOOD_PLANK, 2),
+                new CraftingIngredient(ItemType.STICK, 4)));
+
         // Containers
         buildingRecipes.add(createBuildingRecipe(BuildingType.CHEST,
                 new CraftingIngredient(ItemType.WOOD_PLANK, 6)));
