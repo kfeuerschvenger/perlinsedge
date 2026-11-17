@@ -114,6 +114,17 @@ public enum BuildingType {
         };
     }
 
+    /**
+     * Tells whether a piece of this type is a floor, which lies in its own layer of the tile under the other pieces. A
+     * bridge and a dock are floors, they make water walkable, and of the other pieces only the standing torch can be
+     * put on one.
+     *
+     * @return true for the bridge and the dock
+     */
+    public boolean isFloor() {
+        return this == BRIDGE || this == DOCK;
+    }
+
     /** @return true when the rotation key changes how a piece of this type faces */
     public boolean isRotatable() {
         return rotationCount() > 1;

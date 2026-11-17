@@ -107,6 +107,7 @@ public class GameOrchestrator {
                 inventoryPanel::updateInventoryDisplay);
         this.buildingPalettePanel = buildingPalettePanel;
         buildingPalettePanel.setOnBuildingSelected(buildingManager::setSelectedBuildingType);
+        buildingManager.setHintSink(hintLabel::show);
         itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         itemHotbarManager = new ItemHotbarManager(this.gameState);
 

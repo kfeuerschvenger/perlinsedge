@@ -97,9 +97,18 @@ public class ItemDropManager {
      * @param player the player whose tile receives the pile
      */
     public void dropAtFeet(Item item, Player player) {
+        dropAt(item, player.getCurrentTileX(), player.getCurrentTileY());
+    }
+
+    /**
+     * Drops items on a tile, merging them into the piles of the same type nearby.
+     *
+     * @param item the dropped units, it is not stored itself
+     * @param x    tile X
+     * @param y    tile Y
+     */
+    public void dropAt(Item item, int x, int y) {
         if (item == null || item.getQuantity() <= 0) return;
-        int x = player.getCurrentTileX();
-        int y = player.getCurrentTileY();
         double now = gameState.getGameTime();
         int remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(), x, y, now);
         if (remaining > 0) {

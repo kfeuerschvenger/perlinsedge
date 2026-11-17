@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Manages building operations including placement, removal, interaction, and preview visualization.
@@ -25,6 +26,8 @@ import java.util.Optional;
 @Slf4j
 public class BuildingManager {
     private static final double PREVIEW_OPACITY = 0.7;
+    /** The tile offsets of the four neighbours that share an edge with a tile, not the diagonal ones. */
+    private static final int[][] EDGE_NEIGHBOURS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
     // Dependencies
     private final GameStateManager gameState;
@@ -32,6 +35,7 @@ public class BuildingManager {
     private final ContainerManager containerManager;
     private final ItemDropManager itemDropManager;
     private final Runnable onInventoryChanged;
+    private Consumer<String> hintSink = message -> { };
 
     // Building mode state
     @Getter
@@ -72,6 +76,15 @@ public class BuildingManager {
         this.onInventoryChanged = onInventoryChanged;
         this.buildingModeActive = false;
         this.selectedBuildingType = null;
+    }
+
+    /**
+     * Sets where the short hints of a refused action go.
+     *
+     * @param hintSink receives the hint text
+     */
+    public void setHintSink(Consumer<String> hintSink) {
+        this.hintSink = hintSink != null ? hintSink : message -> { };
     }
 
     /**
@@ -178,7 +191,12 @@ public class BuildingManager {
         Building newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY,
                 getRotation(selectedBuildingType));
         consumeResources(player, existingRecipe);
-        targetTile.setBuilding(newBuilding);
+        // A bridge or a dock is the floor of the tile and every other piece stands on top of it
+        if (selectedBuildingType.isFloor()) {
+            targetTile.setFloor(newBuilding);
+        } else {
+            targetTile.setBuilding(newBuilding);
+        }
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
         return true;
     }
@@ -198,9 +216,13 @@ public class BuildingManager {
         }
 
         Tile targetTile = tileMap.getTile(worldX, worldY);
-        if (targetTile == null || !targetTile.hasBuilding()) {
+        if (targetTile == null || (!targetTile.hasBuilding() && !targetTile.hasFloor())) {
             log.debug("No building at ({}, {})", worldX, worldY);
             return false;
+        }
+        // The piece on top comes down first, and the floor under it only once nothing stands on it
+        if (!targetTile.hasBuilding()) {
+            return removeFloor(worldX, worldY);
         }
 
         Building building = targetTile.getBuilding();
@@ -216,11 +238,50 @@ public class BuildingManager {
     }
 
     /**
+     * Demolishes the floor of a tile, a bridge or a dock. A floor with a piece standing on it cannot be demolished
+     * until that piece is removed, so the player is never left with a piece hanging over the water.
+     *
+     * @param worldX tile X
+     * @param worldY tile Y
+     * @return true when the floor was demolished and refunded, false when there is none, a piece stands on it, or it
+     *         cannot be destroyed
+     */
+    public boolean removeFloor(int worldX, int worldY) {
+        final TileMap tileMap = gameState.getCurrentMap();
+        final Tile tile = tileMap != null ? tileMap.getTile(worldX, worldY) : null;
+        if (tile == null || !tile.hasFloor()) {
+            return false;
+        }
+        if (tile.hasBuilding()) {
+            log.debug("The floor at ({}, {}) has a piece on it", worldX, worldY);
+            hintSink.accept("Remove what stands on it first");
+            return false;
+        }
+        final Building floor = tile.getFloor();
+        if (!floor.isDestructible()) {
+            return false;
+        }
+        tile.setFloor(null);
+        refund(floor);
+        log.info("Removed {} from ({}, {})", floor.getType().getDisplayName(), worldX, worldY);
+        return true;
+    }
+
+    /**
      * Gives the player back the share of the recipe that matches the health the building has left: for each
      * ingredient {@code floor(quantity * health / maxHealth)} items. What the inventory has no room for is dropped as a
      * pile at the player's feet.
      */
     private void refund(Building building) {
+        // What a chest held falls out on its own tile, whole, whatever its health
+        if (building instanceof Chest chest) {
+            for (Item content : chest.getItems()) {
+                if (content != null && content.getQuantity() > 0) {
+                    itemDropManager.dropAt(content, building.getTileX(), building.getTileY());
+                }
+            }
+            onInventoryChanged.run();
+        }
         Player player = gameState.getPlayer();
         Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(building.getType());
         if (player == null || recipe.isEmpty()) return;
@@ -344,25 +405,33 @@ public class BuildingManager {
      * @return true if placement is valid according to game rules
      */
     public boolean canPlaceOnTile(BuildingType type, Tile tile) {
-        if (!tile.isBuildable()) return false;
+        // Nothing is built on a resource or on a piece that already stands there
+        if (tile == null || tile.hasResource() || tile.hasBuilding()) return false;
 
         switch (type) {
-            // Land-based structures
-            case FENCE, CHEST, FURNACE, CAMPFIRE, STANDING_TORCH, ANVIL, WORKBENCH, BED -> {
-                boolean validLand = tile.getType().isLand() && tile.getType().isWalkable();
-                if (!validLand) {
-                    log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
+            // A bridge or a dock is a floor over water that is next to land or to another floor, so it grows out from
+            // the shore one tile at a time. Diagonal neighbours do not count: they share no edge to walk across
+            case BRIDGE, DOCK -> {
+                boolean valid = !tile.hasFloor() && tile.getType().isWater() && touchesLandOrFloor(tile);
+                if (!valid) {
+                    log.debug("Invalid tile for {}: needs free water that shares an edge with land or a floor",
+                            type.getDisplayName());
                 }
-                return validLand;
+                return valid;
             }
 
-            // Water-based structures
-            case BRIDGE, DOCK -> {
-                boolean validWater = tile.getType().isWater();
-                if (!validWater) {
-                    log.debug("Invalid terrain for {}: Requires water", type.getDisplayName());
+            // The torch is the one piece that also stands on a floor
+            case STANDING_TORCH -> {
+                return tile.hasFloor() || isWalkableLand(tile);
+            }
+
+            // Every other piece stands on land and never on a floor
+            case FENCE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
+                boolean valid = !tile.hasFloor() && isWalkableLand(tile);
+                if (!valid) {
+                    log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
                 }
-                return validWater;
+                return valid;
             }
 
             default -> {
@@ -370,6 +439,26 @@ public class BuildingManager {
                 return false;
             }
         }
+    }
+
+    private static boolean isWalkableLand(Tile tile) {
+        return tile.getType().isLand() && tile.getType().isWalkable();
+    }
+
+    /**
+     * Tells whether a tile shares an edge with land, a bridge or a dock. The four neighbours across an edge count, the
+     * four diagonal ones do not.
+     */
+    private boolean touchesLandOrFloor(Tile tile) {
+        final TileMap tileMap = gameState.getCurrentMap();
+        if (tileMap == null) return false;
+        for (int[] edge : EDGE_NEIGHBOURS) {
+            final Tile neighbour = tileMap.getTile(tile.getX() + edge[0], tile.getY() + edge[1]);
+            if (neighbour != null && (neighbour.getType().isLand() || neighbour.hasFloor())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

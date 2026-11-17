@@ -173,7 +173,7 @@ class PathfinderTest {
         }
         assertNull(new Pathfinder(map).findPath(0, 3, 6, 3));
 
-        map.getTile(3, 3).setBuilding(new Bridge(3, 3));
+        map.getTile(3, 3).setFloor(new Bridge(3, 3));
 
         List<PathNode> path = new Pathfinder(map).findPath(0, 3, 6, 3);
         assertNotNull(path);

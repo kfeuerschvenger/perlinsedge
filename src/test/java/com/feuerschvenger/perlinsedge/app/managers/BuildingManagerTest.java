@@ -58,12 +58,13 @@ class BuildingManagerTest {
             boolean water = type == BuildingType.BRIDGE || type == BuildingType.DOCK;
             int x = water ? 5 : 2;
             map.getTile(x, 2).setBuilding(null);
+            map.getTile(x, 2).setFloor(null);
             giveIngredients(recipe);
             manager.setSelectedBuildingType(type);
 
             manager.placeBuilding(x, 2);
 
-            Building placed = map.getTile(x, 2).getBuilding();
+            Building placed = type.isFloor() ? map.getTile(x, 2).getFloor() : map.getTile(x, 2).getBuilding();
             assertNotNull(placed, type + " has a recipe but cannot be built");
             assertEquals(type, placed.getType());
         }

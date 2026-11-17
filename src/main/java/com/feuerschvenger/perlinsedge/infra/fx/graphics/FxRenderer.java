@@ -381,6 +381,12 @@ public class FxRenderer {
                 screenY += FxObjectShadows.waterDrop(!isGrayscaleEnabled && tile.getType().isWater(),
                         tileSprite != null, halfTileHeight);
                 tileQueue.add(screenX, screenY, screenY + halfTileHeight, tile, tileSprite, false, tile);
+                // The floor, a bridge or a dock, lies on the ground right after its tile, under the shadows and the objects
+                final Building floor = tile.getFloor();
+                if (floor != null && !isGrayscaleEnabled) {
+                    tileQueue.add(screenX, screenY, screenY + halfTileHeight, floor,
+                            buildingSprites.imageFor(floor, 0), false, tile);
+                }
 
                 // Add resource if present
                 final Resource resource = tile.getWorldResource();
@@ -701,7 +707,7 @@ public class FxRenderer {
      * when the hammer is in hand and the building lost some health.
      */
     private void queueHealthBar(Tile tile, double artScale, double zoom) {
-        final Building building = tile.getBuilding();
+        final Building building = tile.hasBuilding() ? tile.getBuilding() : tile.getFloor();
         if (!FxBuildingHealthBar.isShown(buildModeActive, building)) {
             return;
         }
