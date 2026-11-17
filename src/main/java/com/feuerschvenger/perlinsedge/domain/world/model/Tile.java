@@ -95,12 +95,32 @@ public class Tile {
     }
 
     /**
-     * Records the map this tile is stored in, which is called by the map when the tile is put into it.
+     * Records the map this tile is stored in, which is called by the map when the tile is put into it. A tile belongs to
+     * one map at a time, because it tells its map about every change and a second owner would never hear of them.
      *
      * @param map the map that now holds the tile
+     * @throws IllegalStateException when another map still holds the tile
      */
     void attachTo(TileMap map) {
+        if (owner != null && owner != map) {
+            throw new IllegalStateException("The tile at (" + x + ", " + y + ") belongs to another map");
+        }
         this.owner = map;
+    }
+
+    /** Forgets the map this tile was stored in, which the map calls when the tile is replaced in it. */
+    void detach() {
+        this.owner = null;
+    }
+
+    /**
+     * Tells whether this tile is held by a given map.
+     *
+     * @param map the map to ask about
+     * @return true when the map is the owner of the tile
+     */
+    boolean isOwnedBy(TileMap map) {
+        return owner == map;
     }
 
     /** Tells the map this tile is stored in that something on it changed, when it is stored in one. */

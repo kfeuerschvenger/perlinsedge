@@ -52,12 +52,19 @@ public class TileMap {
      * @param y Y coordinate (0 <= y < height)
      * @param tile Tile instance to set (can be null)
      * @return true if tile was set, false if coordinates invalid
+     * @throws IllegalStateException when the tile is held by another map, which is checked before anything changes
      */
     public boolean setTile(int x, int y, Tile tile) {
         if (isValidCoordinate(x, y)) {
-            tiles[x][y] = tile;
+            final Tile replaced = tiles[x][y];
             if (tile != null) {
+                // Refuses a tile of another map before the grid is touched
                 tile.attachTo(this);
+            }
+            tiles[x][y] = tile;
+            // The tile that was replaced no longer reports its changes here
+            if (replaced != null && replaced != tile) {
+                replaced.detach();
             }
             markChanged();
             return true;
