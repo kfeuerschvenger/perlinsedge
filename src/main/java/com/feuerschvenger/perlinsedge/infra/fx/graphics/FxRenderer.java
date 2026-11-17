@@ -261,10 +261,12 @@ public class FxRenderer {
             shadowWindowTop = shadowPass.windowTop();
             shadowWindowWidth = shadowPass.windowWidth();
             shadowWindowHeight = shadowPass.windowHeight();
-            overhang = FxShadowPass.windowOverhangPixels(artScale);
+            overhang = shadowPass.windowOverhangPixels();
         }
-        shadowCameraX = offsetX;
-        shadowCameraY = offsetY;
+        // The static shadows are given relative to the whole pixel camera offset the pass snaps to, which the camera
+        // already is, and the pass adds it back to round them on the screen the way the sprites are
+        shadowCameraX = castShadows ? shadowPass.snappedOffsetX() : offsetX;
+        shadowCameraY = castShadows ? shadowPass.snappedOffsetY() : offsetY;
         final int nearTiles = castShadows ? FxShadowHelper.nearRingTiles(shadowReach + overhang, halfTileHeight) : 0;
         final int farTiles = castShadows
                 ? FxShadowHelper.farRingTiles(shadowReach + overhang, shadowBottomReach + overhang, halfTileHeight) : 0;

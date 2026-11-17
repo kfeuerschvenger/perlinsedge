@@ -20,10 +20,11 @@ import javafx.scene.image.WritableImage;
  * <p>
  * The shadows come in two lists that are cast into two layers. The static ones, of the resources and buildings on the
  * tiles, are given in world coordinates, which are screen coordinates with the camera offset taken off, and are cast
- * into a window of the world that is larger than the canvas by a margin of cells on every side. The window stays where
- * it is while the camera pans inside it, and the camera offset is applied when the layer is drawn, so walking casts no
- * static shadow at all: the layer is cast again only when the window has to move, the sun moves a step, the world
- * changes or the list of static shadows does. The dynamic ones, of the player and the enemies, are given in screen
+ * into a window of the world that is larger than the canvas by a margin of cells on every side, a quarter of the canvas
+ * or at least {@link #WINDOW_MARGIN_CELLS}. The window stays where it is while the camera pans inside it, and the camera
+ * offset is applied when the layer is drawn, so walking casts no static shadow at all: the layer is cast again only when
+ * the window has to move, which places it again around the camera, the sun moves a step, the world changes or the list
+ * of static shadows does. The dynamic ones, of the player and the enemies, are given in screen
  * coordinates and change with every step, so they are cast into a layer of the size of the canvas, aligned to the
  * camera. Each layer is mirrored into an image of its own, and only the area that changed is uploaded.
  * <p>
@@ -42,11 +43,18 @@ public final class FxShadowPass {
     private static final double SAMPLE_NUDGE = 0.25;
 
     /**
-     * The cells the static window reaches past the canvas on every side when it is placed. The camera can pan this many
-     * cells either way before the window has to move, and a pan of that many cells is what a recast of the static
-     * layer is paid for.
+     * The fewest cells the static window reaches past the canvas on every side when it is placed. A canvas that is
+     * large in cells gets a margin of {@link #WINDOW_MARGIN_SHARE} of its size instead, see {@link #marginFor}.
      */
     static final int WINDOW_MARGIN_CELLS = 40;
+
+    /**
+     * The share of the canvas, across or down, that the static window reaches past it on every side when it is placed.
+     * The camera can pan this far either way before the window has to move, and a recast of the static layer is what a
+     * pan of that distance is paid with, so a margin that grows with the canvas keeps a camera that follows the player
+     * from casting again every few tiles.
+     */
+    static final double WINDOW_MARGIN_SHARE = 0.25;
 
     /** The shadows of the things that stay where they are, cast into their own layer, a window of the world. */
     private final ShadowLayer staticLayer = new ShadowLayer();
@@ -97,6 +105,10 @@ public final class FxShadowPass {
     private int windowCellX;
     /** The world row of the first cell of the window, in cells. */
     private int windowCellY;
+    /** The cells the window reaches past the canvas on the left and on the right. */
+    private int windowMarginX;
+    /** The cells the window reaches past the canvas above and below. */
+    private int windowMarginY;
     /** The number of cells across the window. */
     private int windowCellsWide;
     /** The number of cells down the window. */
@@ -161,17 +173,21 @@ public final class FxShadowPass {
         wholeCellsY = (int) Math.floor(snappedY / artScale);
         phaseX = snappedX - wholeCellsX * artScale;
         phaseY = snappedY - wholeCellsY * artScale;
-        final int margin = WINDOW_MARGIN_CELLS;
+        final int marginX = marginFor(cellsWide);
+        final int marginY = marginFor(cellsHigh);
         // The canvas shows the window shifted by the whole cells of the camera offset plus where the window was placed;
-        // it stays valid while the canvas lies inside the window
+        // it stays valid while the canvas lies inside the window, and a window that has to move is placed again around
+        // the camera of this frame
         final boolean fits = windowPlaced && artScale == windowScale && cellsWide == windowCanvasWide
-                && cellsHigh == windowCanvasHigh && Math.abs(windowCellX + wholeCellsX + margin) <= margin
-                && Math.abs(windowCellY + wholeCellsY + margin) <= margin;
+                && cellsHigh == windowCanvasHigh && Math.abs(windowCellX + wholeCellsX + marginX) <= marginX
+                && Math.abs(windowCellY + wholeCellsY + marginY) <= marginY;
         if (!fits) {
-            windowCellX = -margin - wholeCellsX;
-            windowCellY = -margin - wholeCellsY;
-            windowCellsWide = cellsWide + 2 * margin;
-            windowCellsHigh = cellsHigh + 2 * margin;
+            windowMarginX = marginX;
+            windowMarginY = marginY;
+            windowCellX = -marginX - wholeCellsX;
+            windowCellY = -marginY - wholeCellsY;
+            windowCellsWide = cellsWide + 2 * marginX;
+            windowCellsHigh = cellsHigh + 2 * marginY;
             windowScale = artScale;
             windowCanvasWide = cellsWide;
             windowCanvasHigh = cellsHigh;
@@ -183,14 +199,35 @@ public final class FxShadowPass {
     }
 
     /**
-     * Returns how far the static window can reach past the canvas on one side at most, in screen pixels: the margin it
-     * is placed with plus the distance the camera may pan before the window moves, and a cell of rounding on each.
+     * Returns the margin of the static window along one axis of the canvas grid.
      *
-     * @param artScale screen pixels per art pixel
+     * @param canvasCells the number of cells across the canvas grid along the axis
+     * @return the larger of {@link #WINDOW_MARGIN_CELLS} and {@link #WINDOW_MARGIN_SHARE} of the canvas, in cells
+     */
+    static int marginFor(int canvasCells) {
+        return Math.max(WINDOW_MARGIN_CELLS, (int) Math.ceil(canvasCells * WINDOW_MARGIN_SHARE));
+    }
+
+    /**
+     * Returns how far the static window can reach past the canvas on one side at most, in screen pixels: the margin it
+     * is placed with plus the distance the camera may pan before the window moves, and a cell of rounding on each. It
+     * is the larger of the two axes, so a walk that covers it covers the window on every side. It describes the window
+     * of the frame, so it is asked after {@link #beginFrame}.
+     *
      * @return the overhang in screen pixels
      */
-    public static double windowOverhangPixels(double artScale) {
-        return (2.0 * WINDOW_MARGIN_CELLS + 2.0) * artScale;
+    public double windowOverhangPixels() {
+        return (2.0 * Math.max(windowMarginX, windowMarginY) + 2.0) * windowScale;
+    }
+
+    /** @return the camera offset of the frame along X in whole screen pixels, which the static shadows are given relative to */
+    public double snappedOffsetX() {
+        return snappedX;
+    }
+
+    /** @return the camera offset of the frame along Y in whole screen pixels, which the static shadows are given relative to */
+    public double snappedOffsetY() {
+        return snappedY;
     }
 
     /** @return the screen X of the left edge of the static window of the frame, see {@link #beginFrame} */
@@ -271,9 +308,9 @@ public final class FxShadowPass {
             final int right = Math.min(staticLayer.stampedRight(), cellsWide - shiftX);
             final int bottom = Math.min(staticLayer.stampedBottom(), cellsHigh - shiftY);
             if (right > left && bottom > top) {
-                gc.drawImage(staticImage, left + nudge, top + nudge, right - left, bottom - top,
-                        phaseX + (left + shiftX - 1) * artScale, phaseY + (top + shiftY - 1) * artScale,
-                        (right - left) * artScale, (bottom - top) * artScale);
+                gc.drawImage(staticImage, left + nudge, top + nudge, sourceSpan(left, right, windowCellsWide, nudge),
+                        sourceSpan(top, bottom, windowCellsHigh, nudge), phaseX + (left + shiftX - 1) * artScale,
+                        phaseY + (top + shiftY - 1) * artScale, (right - left) * artScale, (bottom - top) * artScale);
             }
         }
         if (hasDynamic) {
@@ -281,10 +318,27 @@ public final class FxShadowPass {
             final int top = dynamicLayer.stampedTop();
             final int wide = dynamicLayer.stampedRight() - left;
             final int high = dynamicLayer.stampedBottom() - top;
-            gc.drawImage(dynamicImage, left + nudge, top + nudge, wide, high, phaseX + (left - 1) * artScale,
+            gc.drawImage(dynamicImage, left + nudge, top + nudge, sourceSpan(left, left + wide, cellsWide, nudge),
+                    sourceSpan(top, top + high, cellsHigh, nudge), phaseX + (left - 1) * artScale,
                     phaseY + (top - 1) * artScale, wide * artScale, high * artScale);
         }
         gc.setGlobalAlpha(1.0);
+    }
+
+    /**
+     * Returns how many cells of an image to read from a source rectangle that starts a nudge into its first cell. The
+     * nudge moves the whole rectangle, so a rectangle that reaches the last cell of the image would read the nudge past
+     * its edge, and it is shortened by the nudge there instead. What a pipeline samples outside an image is up to it, so
+     * the source is kept inside.
+     *
+     * @param from       the first cell of the rectangle
+     * @param to         the cell after the last of the rectangle
+     * @param imageCells the number of cells of the image along the axis
+     * @param nudge      how far into its first cell the rectangle starts, in cells
+     * @return the span to read along the axis, in cells
+     */
+    static double sourceSpan(int from, int to, int imageCells, double nudge) {
+        return to + nudge > imageCells ? (to - from) - nudge : to - from;
     }
 
     /**
@@ -351,7 +405,7 @@ public final class FxShadowPass {
             final double worldPhaseX = windowCellX * artScale;
             final double worldPhaseY = windowCellY * artScale;
             for (int i = 0, count = shadows.size(); i < count; i++) {
-                castOne(staticLayer, shadows, i, worldPhaseX, worldPhaseY, artScale);
+                castOne(staticLayer, shadows, i, worldPhaseX, worldPhaseY, artScale, snappedX, snappedY);
             }
             castStatic.copyFrom(shadows);
         }
@@ -376,7 +430,7 @@ public final class FxShadowPass {
         dynamicLayer.prepare(cellsWide, cellsHigh, angle, length, scale);
         if (visible) {
             for (int i = 0, count = shadows.size(); i < count; i++) {
-                castOne(dynamicLayer, shadows, i, phaseX, phaseY, artScale);
+                castOne(dynamicLayer, shadows, i, phaseX, phaseY, artScale, 0.0, 0.0);
             }
             castDynamic.copyFrom(shadows);
         }
@@ -429,9 +483,19 @@ public final class FxShadowPass {
         return (int) Math.min(255, Math.round(255.0 * (d - s) / (1.0 - opacity * s)));
     }
 
-    /** Casts one shadow of a list into a layer, anchored the way its object is drawn. */
+    /**
+     * Casts one shadow of a list into a layer, anchored the way its object is drawn. A sprite is drawn with its edges
+     * rounded in screen space, so the base is rounded there too: the shadow is moved to the screen by the offset its
+     * list is given relative to, rounded the way the sprite is, and moved back. Where the rounding of a tie depends on
+     * the position on the screen, which it does for a sprite an odd number of pixels wide, the shadow then falls where
+     * the sprite does.
+     *
+     * @param offsetX what the list adds to a world X to get the screen X: the camera offset for the static list, zero
+     *                for the dynamic one, which is given in screen coordinates
+     * @param offsetY the same along Y
+     */
     private void castOne(ShadowLayer layer, ShadowList shadows, int i, double gridPhaseX, double gridPhaseY,
-                         double artScale) {
+                         double artScale, double offsetX, double offsetY) {
         final int alpha = (int) Math.round(shadows.fade(i) * 255.0);
         final Silhouette sprite = shadows.silhouette(i);
         if (sprite != null) {
@@ -439,10 +503,12 @@ public final class FxShadowPass {
                 return;
             }
             // The layer grid has a cell of border before the first cell that lies on the canvas
-            final double anchorX = ShadowAnchor.cell(
-                    ShadowAnchor.baseX(shadows.centreX(i), shadows.drawnWidth(i), artScale), gridPhaseX, artScale);
-            final double anchorY = ShadowAnchor.cell(
-                    ShadowAnchor.baseY(shadows.centreY(i), shadows.drawnHeight(i), artScale), gridPhaseY, artScale);
+            final double baseX = ShadowAnchor.baseX(shadows.centreX(i) + offsetX, shadows.drawnWidth(i), artScale)
+                    - offsetX;
+            final double baseY = ShadowAnchor.baseY(shadows.centreY(i) + offsetY, shadows.drawnHeight(i), artScale)
+                    - offsetY;
+            final double anchorX = ShadowAnchor.cell(baseX, gridPhaseX, artScale);
+            final double anchorY = ShadowAnchor.cell(baseY, gridPhaseY, artScale);
             final double heightFactor = shadows.groundRow(i) > 0 ? shadows.drawnHeight(i) / shadows.groundRow(i) : 1.0;
             layer.castSprite(sprite, anchorX, anchorY, shadows.groundRow(i), shadows.widthArt(i) / sprite.width(),
                     heightFactor, alpha);

@@ -265,11 +265,17 @@ class FxShadowPassTest {
     /** Draws one frame with a static and a dynamic list at art scale two and reads the grey levels back. */
     private static int[][] renderBoth(FxShadowPass pass, Canvas canvas, ShadowList fixed, ShadowList moving,
                                       double originX) {
+        return renderBoth(pass, canvas, fixed, moving, 2.0, originX);
+    }
+
+    /** Draws one frame with a static and a dynamic list at an art scale and reads the grey levels back. */
+    private static int[][] renderBoth(FxShadowPass pass, Canvas canvas, ShadowList fixed, ShadowList moving,
+                                      double scale, double originX) {
         final GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.setImageSmoothing(false);
         gc.setFill(Color.WHITE);
         gc.fillRect(0, 0, WIDTH, HEIGHT);
-        pass.draw(gc, fixed, moving, 2.0, originX, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
+        pass.draw(gc, fixed, moving, scale, originX, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
         final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
         final int[][] grey = new int[HEIGHT][WIDTH];
         for (int y = 0; y < HEIGHT; y++) {
@@ -448,6 +454,87 @@ class FxShadowPassTest {
         final double before = pass.windowLeft();
         pass.beginFrame(2.0, 10, 20, WIDTH, HEIGHT);
         assertEquals(before, pass.windowLeft(), "asking twice in a frame changes nothing");
-        assertTrue(FxShadowPass.windowOverhangPixels(2.0) >= 2 * margin);
+        assertTrue(pass.windowOverhangPixels() >= 2 * margin);
+    }
+
+    /** Draws one frame of empty shadow lists at the given scale and camera, which casts the static layer when it moved. */
+    private static int drawEmpty(FxShadowPass pass, Canvas canvas, double scale, double originX) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        pass.draw(gc, new ShadowList(), new ShadowList(), scale, originX, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
+        return pass.staticRecasts();
+    }
+
+    @Test
+    void theSourceOfADrawStaysInsideTheImageWhereItsBoxTouchesTheEdge() {
+        final double nudge = 0.25 / 3.0;
+        assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 20, nudge), 1e-12, "inside the image the span is the box");
+        assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 14, nudge) + nudge, 1e-12, "at the edge it gives up the nudge");
+        assertTrue(4 + nudge + FxShadowPass.sourceSpan(4, 14, 14, nudge) <= 14 + 1e-12);
+        assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 14 + 1, nudge), 1e-12, "a cell of room is enough");
+    }
+
+    @Test
+    void theMarginOfTheStaticWindowGrowsWithTheCanvasAndNeverFallsBelowTheMinimum() {
+        // 240 by 160 at art scale 1 is 242 by 162 cells: a quarter is 61 across and 41 down
+        assertEquals(61, FxShadowPass.marginFor(242));
+        assertEquals(41, FxShadowPass.marginFor(162));
+        assertEquals(FxShadowPass.WINDOW_MARGIN_CELLS, FxShadowPass.marginFor(122), "a small canvas keeps the minimum");
+        assertEquals(481, FxShadowPass.marginFor(1922));
+
+        final FxShadowPass pass = new FxShadowPass();
+        pass.beginFrame(1.0, 0, 0, WIDTH, HEIGHT);
+        assertEquals(-62.0, pass.windowLeft(), 1e-9, "61 cells and the border cell");
+        assertEquals(-42.0, pass.windowTop(), 1e-9, "41 cells and the border cell");
+        assertEquals(242 + 2 * 61, pass.windowWidth(), 1e-9);
+        assertEquals(162 + 2 * 41, pass.windowHeight(), 1e-9);
+        assertTrue(pass.windowOverhangPixels() >= 2 * 61, "the walk ring covers the window after a pan of the margin");
+    }
+
+    @Test
+    void aPanJustUnderTheMarginDoesNotCastTheStaticLayerAndALargerOneCastsOnceAndRecentres() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> drawEmpty(pass, canvas, 1.0, 0));
+        assertEquals(1, pass.staticRecasts());
+        // The window of the world, which a pan inside the margin leaves where it is, and its place on the screen when
+        // it was cast around the camera
+        final double worldLeft = pass.windowLeft() - pass.snappedOffsetX();
+        final double centredLeft = pass.windowLeft();
+
+        // The window reaches 61 cells past the canvas along X, so a camera 60 cells away is still inside it, both ways
+        for (double origin : new double[]{-60, 60, -30, 0}) {
+            FxToolkitSupport.onFx(() -> drawEmpty(pass, canvas, 1.0, origin));
+            assertEquals(1, pass.staticRecasts(), "a pan of " + origin + " cells inside the margin cast again");
+            assertEquals(worldLeft, pass.windowLeft() - pass.snappedOffsetX(), 1e-9, "the window did not move");
+        }
+        FxToolkitSupport.onFx(() -> drawEmpty(pass, canvas, 1.0, -62));
+
+        assertEquals(2, pass.staticRecasts(), "a pan past the margin casts once");
+        assertEquals(centredLeft, pass.windowLeft(), 1e-9, "the window is centred on the camera again");
+        assertTrue(pass.windowLeft() - pass.snappedOffsetX() != worldLeft, "and it moved in the world");
+        FxToolkitSupport.onFx(() -> drawEmpty(pass, canvas, 1.0, -62 - 60));
+        assertEquals(2, pass.staticRecasts(), "and the new window holds again for a pan under the margin");
+    }
+
+    @Test
+    void aStaticShadowOfAnOddDrawnWidthLandsWhereTheSpriteDoesAtEveryCameraOffset() {
+        // 5 art pixels at scale 3 is 15 screen pixels: the middle of the sprite is half a pixel off the grid, so its left
+        // edge is a tie that the rounding of the draw call settles by the parity of its position on the screen
+        final Silhouette odd = block(5, 6);
+        for (double origin : new double[]{0, 1, 2, 3, -1, -2, 7, 100, 101}) {
+            final ShadowList moving = new ShadowList();
+            moving.addSilhouette(120, 60, odd, 6, 1.0, 1.0);
+            final ShadowList fixed = new ShadowList();
+            // The renderer gives a static shadow relative to the camera, so the same screen position is this world one
+            fixed.addSilhouette(120 - origin, 60, odd, 6, 1.0, 1.0);
+
+            final int[][] drawnAsSprite = FxToolkitSupport.onFx(() -> renderBoth(new FxShadowPass(),
+                    new Canvas(WIDTH, HEIGHT), new ShadowList(), moving, 3.0, origin));
+            final int[][] drawnAsStatic = FxToolkitSupport.onFx(() -> renderBoth(new FxShadowPass(),
+                    new Canvas(WIDTH, HEIGHT), fixed, new ShadowList(), 3.0, origin));
+
+            assertTrue(Arrays.deepEquals(drawnAsSprite, drawnAsStatic), "the shadow slips a pixel at camera " + origin);
+        }
     }
 }
