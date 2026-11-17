@@ -119,14 +119,6 @@ public final class LightLayer {
     /** How many numbers of {@link #signature} are valid. */
     private int signatureLength;
 
-    /** Left column of the box that holds all the lights. */
-    private int left;
-    /** Top row of the box. */
-    private int top;
-    /** Column after the last of the box. */
-    private int right;
-    /** Row after the last of the box. */
-    private int bottom;
     /** The horizontal phase of the camera grid the cells were worked out at. */
     private double phaseX;
     /** The vertical phase of the camera grid the cells were worked out at. */
@@ -185,24 +177,25 @@ public final class LightLayer {
      */
     private void collect(LightRegistry registry, double gameTime, double artScale, double snappedX, double snappedY) {
         count = 0;
-        left = Integer.MAX_VALUE;
-        top = Integer.MAX_VALUE;
-        right = Integer.MIN_VALUE;
-        bottom = Integer.MIN_VALUE;
         for (int i = 0, total = registry.size(); i < total; i++) {
             final LightSource source = registry.get(i);
             final Flicker flicker = source.flicker();
-            final double radius = source.radius() * flicker.radiusFactor(gameTime);
-            final double intensity = Math.max(0.0, Math.min(1.0, source.intensity() * flicker.intensityFactor(gameTime)));
-            if (!(radius > 0.0) || intensity <= 0.0) {
-                continue;
-            }
             // The light shines from where an entity at its position would stand, and is placed on a whole screen pixel
             final double screenX = PixelSnap.round((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale + snappedX);
             final double screenY = PixelSnap.round(((source.x() + source.y()) * TILE_ART_HALF_HEIGHT
                     + TILE_ART_HALF_HEIGHT) * artScale + snappedY);
             final double centreX = (screenX - phaseX) / artScale + 1.0;
             final double centreY = (screenY - phaseY) / artScale + 1.0;
+            // A light whose widest possible reach stays off the canvas is dropped before any flicker is evaluated
+            if (!reachesCanvas(centreX, centreY, source.radius() * (1.0 + flicker.radiusAmplitude()), flicker)) {
+                continue;
+            }
+            final double radius = source.radius() * flicker.radiusFactor(gameTime);
+            final double intensity = Math.max(0.0, Math.min(1.0,
+                    source.intensity() * flicker.intensityFactor(gameTime)));
+            if (!(radius > 0.0) || intensity <= 0.0) {
+                continue;
+            }
             // A circle of the ground is an ellipse of the screen: sqrt(2) tiles along each diagonal of a tile, and the
             // shape of the light can reach out by its amplitude
             final double reach = radius * Math.sqrt(2.0) * (1.0 + flicker.shapeAmplitude());
@@ -244,11 +237,23 @@ public final class LightLayer {
             lights[at + BOX_AT + 3] = boxBottom;
             flickers[count] = flicker;
             count++;
-            left = Math.min(left, boxLeft);
-            top = Math.min(top, boxTop);
-            right = Math.max(right, boxRight);
-            bottom = Math.max(bottom, boxBottom);
         }
+    }
+
+    /**
+     * Tells whether a light can reach the canvas at all, from its position and the largest radius its flicker can give
+     * it, so a light far outside costs a few multiplications and no flicker is evaluated for it.
+     *
+     * @param centreX   the column of the light on the grid
+     * @param centreY   the row of the light on the grid
+     * @param maxRadius the largest radius the flicker can give the light, in tiles
+     * @param flicker   the flicker of the light, whose shape can stretch the radius
+     * @return false when the box of the light is empty whatever the moment
+     */
+    private boolean reachesCanvas(double centreX, double centreY, double maxRadius, Flicker flicker) {
+        final double reach = maxRadius * Math.sqrt(2.0) * (1.0 + flicker.shapeAmplitude());
+        return centreX + reach * TILE_ART_HALF_WIDTH > 0.0 && centreX - reach * TILE_ART_HALF_WIDTH < cellsWide
+                && centreY + reach * TILE_ART_HALF_HEIGHT > 0.0 && centreY - reach * TILE_ART_HALF_HEIGHT < cellsHigh;
     }
 
     /**
@@ -598,26 +603,6 @@ public final class LightLayer {
     /** @return the number of cells down the grid */
     public int height() {
         return cellsHigh;
-    }
-
-    /** @return the left column of the box that holds all the lights, of which only the regions are worked out */
-    public int boxLeft() {
-        return left;
-    }
-
-    /** @return the top row of the box that holds all the lights */
-    public int boxTop() {
-        return top;
-    }
-
-    /** @return the column after the last of the box that holds all the lights */
-    public int boxRight() {
-        return right;
-    }
-
-    /** @return the row after the last of the box that holds all the lights */
-    public int boxBottom() {
-        return bottom;
     }
 
     /** @return how many regions the lights are merged into: the boxes the cells are worked out and kept in */

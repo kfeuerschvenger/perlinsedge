@@ -273,10 +273,10 @@ class FxSkyTintTest {
                 final LightLayer layer = tint.layer();
                 final String at = "scale " + scale + " origin " + originX + "," + originY;
 
-                final double left = layer.phaseX() + (layer.boxLeft() - 1) * scale;
-                final double top = layer.phaseY() + (layer.boxTop() - 1) * scale;
-                final double right = layer.phaseX() + (layer.boxRight() - 1) * scale;
-                final double bottom = layer.phaseY() + (layer.boxBottom() - 1) * scale;
+                final double left = layer.phaseX() + (layer.regionLeft(0) - 1) * scale;
+                final double top = layer.phaseY() + (layer.regionTop(0) - 1) * scale;
+                final double right = layer.phaseX() + (layer.regionRight(0) - 1) * scale;
+                final double bottom = layer.phaseY() + (layer.regionBottom(0) - 1) * scale;
                 assertTrue(left > 0 && top > 0 && right < W && bottom < H, "the box is inside the canvas: " + at);
                 // The corners of the box are no part of the light, so the cells there are the plain tint
                 for (int row : new int[]{(int) top, (int) bottom - 1}) {
@@ -301,11 +301,11 @@ class FxSkyTintTest {
         final int[][] unlit = argbWithLights(new FxSkyTint(), new LightRegistry(), scale, 120, -24);
         final LightLayer layer = tint.layer();
 
-        assertEquals(layer.width(), layer.boxRight(), "the box touches the right edge of the cells");
-        assertEquals(layer.height(), layer.boxBottom(), "and the bottom edge");
+        assertEquals(layer.width(), layer.regionRight(0), "the box touches the right edge of the cells");
+        assertEquals(layer.height(), layer.regionBottom(0), "and the bottom edge");
         // The top right and the bottom left corners of the box lie outside the light, whatever the edge does
-        final int topRow = (int) (layer.phaseY() + (layer.boxTop() - 1) * scale);
-        final int leftColumn = (int) (layer.phaseX() + (layer.boxLeft() - 1) * scale);
+        final int topRow = (int) (layer.phaseY() + (layer.regionTop(0) - 1) * scale);
+        final int leftColumn = (int) (layer.phaseX() + (layer.regionLeft(0) - 1) * scale);
         assertTrue(apart(lit[topRow][W - 1], unlit[topRow][W - 1]) <= 1, "last column " + Integer.toHexString(lit[topRow][W - 1]));
         assertTrue(apart(lit[H - 1][leftColumn], unlit[H - 1][leftColumn]) <= 1, "last row " + Integer.toHexString(lit[H - 1][leftColumn]));
     }
