@@ -82,6 +82,17 @@ public final class FxSkyTint {
      */
     public void draw(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, double artScale,
                      double originX, double originY, double width, double height) {
+        // The fill and the alpha the tint sets are the tint's own, so what is drawn after it starts from the state it had
+        gc.save();
+        try {
+            layTint(gc, sky, lights, gameTime, artScale, originX, originY, width, height);
+        } finally {
+            gc.restore();
+        }
+    }
+
+    private void layTint(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, double artScale,
+                         double originX, double originY, double width, double height) {
         // The tint of the frame is read once and passed on to everything that needs it
         final SkyTint tint = sky.tint();
         final double strength = Math.min(1.0, tint.strength());

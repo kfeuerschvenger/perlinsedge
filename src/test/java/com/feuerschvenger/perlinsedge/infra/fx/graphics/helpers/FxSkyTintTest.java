@@ -369,4 +369,62 @@ class FxSkyTintTest {
 
         assertNotSame(first, tint.colour());
     }
+
+    @Test
+    void layingTheTintLeavesTheFillAndTheAlphaOfTheContextAsItFoundThem() {
+        final Color[] fillAfter = new Color[1];
+        final double[] alphaAfter = new double[1];
+        FxToolkitSupport.onFx(() -> {
+            final Canvas canvas = new Canvas(8, 8);
+            final GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.setFill(Color.RED);
+            gc.setGlobalAlpha(0.5);
+            new FxSkyTint().draw(gc, at(DAWN / 2), new LightRegistry(), 0.0, 2.0, 0, 0, 8, 8);
+            fillAfter[0] = (Color) gc.getFill();
+            alphaAfter[0] = gc.getGlobalAlpha();
+            return null;
+        });
+
+        assertEquals(Color.RED, fillAfter[0]);
+        assertEquals(0.5, alphaAfter[0], 1e-12);
+    }
+
+    /** The grey level of a canvas pixel after the tint of a moment, with the lights of the registry. */
+    private static int[] pixelAfter(FxSkyTint tint, DayCycle sky, LightRegistry lights, int x, int y) {
+        return FxToolkitSupport.onFx(() -> {
+            final Canvas canvas = new Canvas(480, 320);
+            final GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.setFill(Color.rgb(128, 128, 128));
+            gc.fillRect(0, 0, 480, 320);
+            tint.draw(gc, sky, lights, 0.0, 2.0, 240, 20, 480, 320);
+            final int argb = canvas.snapshot(null, null).getPixelReader().getArgb(x, y);
+            return new int[]{(argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF};
+        });
+    }
+
+    @Test
+    void aCellOfALitRegionThatNoLightReachesIsTheColourOfThePlainFill() {
+        final double[] moments = {DAWN * 0.2, DAWN * 0.8, DAWN + DAY + DUSK * 0.5, DAWN + DAY + DUSK + 100};
+        for (double moment : moments) {
+            final DayCycle sky = at(moment);
+            final LightRegistry lights = new LightRegistry();
+            lights.add(new PointLight(5, 5, 4.5, new Rgba(1.0, 0.72, 0.38, 1.0), 1.0, Flicker.STEADY));
+            final FxSkyTint lit = new FxSkyTint();
+            // The first call finds the region, whose top left cell is outside the ellipse of the light
+            pixelAfter(lit, sky, lights, 0, 0);
+            final LightLayer layer = lit.layer();
+            final double screenX = layer.phaseX() + layer.regionLeft(0) * 2.0 - 2.0 + 1.0;
+            final double screenY = layer.phaseY() + layer.regionTop(0) * 2.0 - 2.0 + 1.0;
+            final int x = (int) screenX;
+            final int y = (int) screenY;
+
+            final int[] inRegion = pixelAfter(new FxSkyTint(), sky, lights, x, y);
+            final int[] plain = pixelAfter(new FxSkyTint(), sky, new LightRegistry(), x, y);
+            // A cell is blended as an image and the fill as a colour, and the platform may round the two one level apart
+
+            assertEquals(plain[0], inRegion[0], 1, "red at " + moment);
+            assertEquals(plain[1], inRegion[1], 1, "green at " + moment);
+            assertEquals(plain[2], inRegion[2], 1, "blue at " + moment);
+        }
+    }
 }

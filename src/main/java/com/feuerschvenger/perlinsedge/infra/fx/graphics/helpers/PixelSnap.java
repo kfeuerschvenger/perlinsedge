@@ -20,6 +20,9 @@ public final class PixelSnap {
      * @return the whole pixel
      */
     public static double round(double value) {
-        return Math.floor(value + 0.5);
+        // The fraction is exact, where value + 0.5 is not: the one value just under a half, 0.49999999999999994,
+        // gets 1.0 from the sum, which rounds up to the next whole number, and so the nearest whole pixel is 1 instead of 0
+        final double whole = Math.floor(value);
+        return value - whole >= 0.5 ? whole + 1.0 : whole;
     }
 }

@@ -77,7 +77,20 @@ public final class Flicker {
     /**
      * Creates a flicker.
      *
-     * @throws IllegalArgumentException if an amplitude is outside its range or a frequency is not above zero
+     * @param intensityAmplitude the most the intensity moves away from its value, as a share of it, from 0 up to but
+     *                           excluding 1
+     * @param radiusAmplitude    the most the radius moves away from its value, as a share of it, from 0 up to but
+     *                           excluding 1
+     * @param frequencyHz        the frequency of the slowest wave of the crackle in cycles per second, above zero
+     * @param seed               what the phases of the waves are worked out from
+     * @param shapeAmplitude     the most the radius varies with the angle, as a share of it, from 0 up to but excluding
+     *                           one half, 0 for a round light
+     * @param shapeDriftHz       how fast the lobes of the shape turn, in turns per second, above zero
+     * @param colourLow          the colour at one end of the colour drift, or null for a light that keeps its colour
+     * @param colourHigh         the colour at the other end of the drift, null exactly when {@code colourLow} is
+     * @param colourHz           the frequency of the slow colour drift in cycles per second, above zero
+     * @throws IllegalArgumentException if an amplitude is outside its range, a frequency is not above zero or only one
+     *                                  of the drift colours is given
      */
     private Flicker(double intensityAmplitude, double radiusAmplitude, double frequencyHz, long seed,
                     double shapeAmplitude, double shapeDriftHz, Rgba colourLow, Rgba colourHigh, double colourHz) {
