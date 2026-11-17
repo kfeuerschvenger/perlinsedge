@@ -209,6 +209,20 @@ class FxSkyTintTest {
                     differing += Math.abs(value - unlit[by][bx]) > 2 ? 1 : 0;
                     for (int dy = 0; dy < block; dy++) {
                         for (int dx = 0; dx < block; dx++) {
+                            if (value != lit[by + dy][bx + dx]) {
+                                final StringBuilder dump = new StringBuilder();
+                                for (int row = Math.max(0, by - 1); row <= Math.min(H - 1, by + 4); row++) {
+                                    dump.append("\nrow ").append(row).append(" lit:");
+                                    for (int col = Math.max(0, bx - 8); col < W; col++) {
+                                        dump.append(' ').append(lit[row][col]);
+                                    }
+                                    dump.append(" | unlit:");
+                                    for (int col = Math.max(0, bx - 8); col < W; col++) {
+                                        dump.append(' ').append(unlit[row][col]);
+                                    }
+                                }
+                                System.out.println("DIAG scale " + scale + " block " + bx + "," + by + dump);
+                            }
                             assertEquals(value, lit[by + dy][bx + dx],
                                     "scale " + scale + " block " + bx + "," + by + " must be one flat colour");
                         }

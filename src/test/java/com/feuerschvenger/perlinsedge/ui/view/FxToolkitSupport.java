@@ -39,6 +39,7 @@ public final class FxToolkitSupport {
      * so later calls report it at once instead of waiting again.
      */
     private static void start() {
+        System.setProperty("prism.verbose", "true");
         LAUNCHER.start(System.getenv("CI"), Platform::startup);
     }
 
