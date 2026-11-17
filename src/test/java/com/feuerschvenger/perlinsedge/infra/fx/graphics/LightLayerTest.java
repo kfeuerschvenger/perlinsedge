@@ -586,4 +586,25 @@ class LightLayerTest {
         assertEquals(cellsWide() + 10, layer.width());
         assertEquals(2, layer.composes());
     }
+
+    @Test
+    void theLightsAreMergedIntoRegionsOnlyWhenWhatTheyDependOnChanged() {
+        final LightRegistry lights = oneTorch();
+        lights.add(torch(6, 5, Flicker.STEADY));
+        final LightLayer layer = new LightLayer();
+
+        compose(layer, lights, 0.0, NIGHT_STRENGTH);
+        final int regions = layer.regionCount();
+        compose(layer, lights, 0.1, NIGHT_STRENGTH);
+        compose(layer, lights, 0.2, NIGHT_STRENGTH);
+
+        assertEquals(1, layer.groupRuns(), "two calls that found no change merged nothing");
+        assertEquals(regions, layer.regionCount(), "and kept the regions of the last merge");
+        assertEquals(1, regions, "the two torches overlap into one region");
+
+        lights.add(torch(4, 6, Flicker.STEADY));
+        compose(layer, lights, 0.3, NIGHT_STRENGTH);
+
+        assertEquals(2, layer.groupRuns());
+    }
 }

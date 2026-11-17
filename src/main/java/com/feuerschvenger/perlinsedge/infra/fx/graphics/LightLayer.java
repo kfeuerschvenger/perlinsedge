@@ -129,6 +129,8 @@ public final class LightLayer {
     private boolean changed;
     /** How many times the cells were worked out so far. */
     private int composes;
+    /** How many times the boxes were merged into regions so far. */
+    private int groupRuns;
 
     /**
      * Works out the cells for the lights in view, unless nothing they depend on changed since the last call.
@@ -163,10 +165,13 @@ public final class LightLayer {
         if (count == 0) {
             return false;
         }
-        group();
         if (!differsFromLast(style, tint, tintStrength, artScale)) {
             return true;
         }
+        // The regions follow from the boxes of the lights, which the signature holds, so a call that found no change
+        // keeps the regions of the last one and runs no merge
+        group();
+        groupRuns++;
         work(style, tint, tintStrength, gameTime);
         changed = true;
         composes++;
@@ -698,5 +703,10 @@ public final class LightLayer {
     /** @return how many times the cells were worked out so far, which a call that found no change does not count */
     public int composes() {
         return composes;
+    }
+
+    /** @return how many times the boxes of the lights were merged into regions, which a call that found no change does not count */
+    public int groupRuns() {
+        return groupRuns;
     }
 }

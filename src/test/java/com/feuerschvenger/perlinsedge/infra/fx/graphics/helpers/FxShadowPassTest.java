@@ -586,4 +586,39 @@ class FxShadowPassTest {
             assertTrue(Arrays.deepEquals(drawnAsSprite, drawnAsStatic), "the shadow slips a pixel at camera " + origin);
         }
     }
+
+    /** Draws one frame with a static list that carries a version. */
+    private static void drawVersioned(FxShadowPass pass, Canvas canvas, ShadowList fixed, long version) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        pass.draw(gc, fixed, version, new ShadowList(), 2.0, 0, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
+    }
+
+    @Test
+    void aStaticListWithAVersionIsCastAgainOnlyWhenTheVersionChanges() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final ShadowList list = oneBlock(60, 120);
+
+        FxToolkitSupport.onFx(() -> {
+            drawVersioned(pass, canvas, list, 7);
+            drawVersioned(pass, canvas, list, 7);
+            return null;
+        });
+        assertEquals(1, pass.staticRecasts(), "the same version is not compared shadow by shadow");
+
+        // The content is not read while the version stays: the caller promises it did not change
+        list.add(10, 20, 8, 1.0);
+        FxToolkitSupport.onFx(() -> {
+            drawVersioned(pass, canvas, list, 7);
+            return null;
+        });
+        assertEquals(1, pass.staticRecasts());
+
+        FxToolkitSupport.onFx(() -> {
+            drawVersioned(pass, canvas, list, 8);
+            return null;
+        });
+        assertEquals(2, pass.staticRecasts(), "a new version casts the list again");
+    }
 }

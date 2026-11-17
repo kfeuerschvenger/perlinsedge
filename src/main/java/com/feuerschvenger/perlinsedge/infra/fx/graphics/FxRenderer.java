@@ -98,6 +98,8 @@ public class FxRenderer {
     private final ShadowList staticShadows = new ShadowList();
     /** Whether {@link #staticShadows} holds a list that was built from the state remembered in the fields below. */
     private boolean staticCastersValid;
+    /** Changes whenever {@link #staticShadows} does, so the shadow pass tells a changed list without comparing it. */
+    private long staticShadowVersion;
     /** The map the static list was built from. */
     private TileMap staticCastersMap;
     /** The revision of that map when the list was built. */
@@ -317,6 +319,7 @@ public class FxRenderer {
         final boolean rebuildStatic = castShadows && staticCastersStale(map, zoom, artScale, isGrayscaleEnabled,
                 currentMapType);
         if (rebuildStatic || !castShadows) {
+            staticShadowVersion++;
             staticShadows.clear();
         }
         if (!castShadows) {
@@ -531,7 +534,8 @@ public class FxRenderer {
         if (buildModeActive && mouseOverTileX != -1 && mouseOverTileY != -1) {
             FxBuildGridPainter.draw(gc, map, mouseOverTileX, mouseOverTileY, offsetX, offsetY, zoom);
         }
-        shadowPass.draw(gc, staticShadows, dynamicShadows, artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
+        shadowPass.draw(gc, staticShadows, staticShadowVersion, dynamicShadows, artScale, offsetX, offsetY,
+                canvas.getWidth(), canvas.getHeight(),
                 SunScreenMapping.shadowAngle(shadowSunProgress), shadowLengthFactor, shadowStrength);
         renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {

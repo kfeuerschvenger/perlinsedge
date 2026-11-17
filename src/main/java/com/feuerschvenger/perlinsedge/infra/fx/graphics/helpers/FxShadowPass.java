@@ -70,8 +70,14 @@ public final class FxShadowPass {
     /** The image that mirrors the cells of the dynamic layer as they are drawn. */
     private WritableImage dynamicImage;
 
+    /** The version that says the caller does not keep one, see {@link #draw(GraphicsContext, ShadowList, long, ShadowList, double, double, double, double, double, double, double, double)}. */
+    public static final long NO_VERSION = -1L;
     /** The static shadows the static layer was last cast from, so an unchanged list is recognised. */
     private final ShadowList castStatic = new ShadowList();
+    /** The version of the static list the static layer was last cast from, or {@link Long#MIN_VALUE} for none. */
+    private long castStaticVersion = Long.MIN_VALUE;
+    /** The version of the static list of the frame being drawn. */
+    private long pendingStaticVersion = NO_VERSION;
     /** The dynamic shadows the dynamic layer was last cast from, so an unchanged list is recognised. */
     private final ShadowList castDynamic = new ShadowList();
     /** Whether the layers were cast at all last time, which is false while the shadows are too faint to see. */
@@ -281,6 +287,34 @@ public final class FxShadowPass {
     public void draw(GraphicsContext gc, ShadowList staticShadows, ShadowList dynamicShadows, double artScale,
                      double originX, double originY, double canvasW, double canvasH, double angle, double length,
                      double strength) {
+        draw(gc, staticShadows, NO_VERSION, dynamicShadows, artScale, originX, originY, canvasW, canvasH, angle, length,
+                strength);
+    }
+
+    /**
+     * Casts the shadows of a frame like {@link #draw(GraphicsContext, ShadowList, ShadowList, double, double, double,
+     * double, double, double, double, double)}, telling whether the static list changed by a version the caller keeps
+     * instead of comparing every shadow of the list with the last cast, which a list of thousands of shadows would cost
+     * on every frame.
+     *
+     * @param gc             the graphics context, with image smoothing off and no transform
+     * @param staticShadows  the shadows of the resources and buildings, in world coordinates
+     * @param staticVersion  a number the caller changes whenever the static list changes, and keeps while it does not;
+     *                       {@link #NO_VERSION} compares the lists shadow by shadow
+     * @param dynamicShadows the shadows of the player and the enemies, in screen coordinates
+     * @param artScale       the integer number of screen pixels per art pixel
+     * @param originX        screen X of the camera origin, which the art grid is aligned to
+     * @param originY        screen Y of the camera origin
+     * @param canvasW        canvas width
+     * @param canvasH        canvas height
+     * @param angle          direction of the shadows on the screen in radians
+     * @param length         how long shadows are as a multiple of the height of what casts them
+     * @param strength       how dark shadows are as a share of their full opacity, 0 to 1
+     */
+    public void draw(GraphicsContext gc, ShadowList staticShadows, long staticVersion, ShadowList dynamicShadows,
+                     double artScale, double originX, double originY, double canvasW, double canvasH, double angle,
+                     double length, double strength) {
+        pendingStaticVersion = staticVersion;
         beginFrame(artScale, originX, originY, canvasW, canvasH);
         final boolean visible = strength >= FxShadowHelper.MIN_VISIBLE_STRENGTH;
         final double opacity = GroundShadow.OPACITY * Math.min(1.0, strength);
@@ -291,7 +325,8 @@ public final class FxShadowPass {
                 || cellsHigh != lastCellsHigh || artScale != lastArtScale || angle != lastAngle || length != lastLength;
         // The static layer does not depend on the phase of the camera grid, only the dynamic one does
         final boolean staticChanged = everythingChanged || windowFresh
-                || (visible && !staticShadows.sameShadowsAs(castStatic));
+                || (visible && (staticVersion == NO_VERSION
+                ? !staticShadows.sameShadowsAs(castStatic) : staticVersion != castStaticVersion));
         final boolean dynamicChanged = everythingChanged || phaseX != lastPhaseX || phaseY != lastPhaseY
                 || (visible && !dynamicShadows.sameShadowsAs(castDynamic));
         // The dynamic cells are lowered against the static layer, so they are worked out again when it moved against
@@ -463,7 +498,12 @@ public final class FxShadowPass {
             for (int i = 0, count = shadows.size(); i < count; i++) {
                 castOne(staticLayer, shadows, i, worldPhaseX, worldPhaseY, artScale, snappedX, snappedY);
             }
-            castStatic.copyFrom(shadows);
+            // A caller that keeps a version says by it when the list changed, so the copy to compare with is for the
+            // caller that does not
+            castStaticVersion = pendingStaticVersion;
+            if (pendingStaticVersion == NO_VERSION) {
+                castStatic.copyFrom(shadows);
+            }
         }
         if (!fitsPadded(staticImage, windowCellsWide, windowCellsHigh)) {
             staticImage = newPaddedImage(windowCellsWide, windowCellsHigh);
