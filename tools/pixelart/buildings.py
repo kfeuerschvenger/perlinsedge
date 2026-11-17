@@ -1,12 +1,19 @@
 """Draw every building sprite of the build mode with no raw input, 32 px wide and up to 48 px tall.
 
-Every piece is built from isometric prisms (a lit top diamond, a bright left face and a dark right face, light from the upper left), painted in colours of palette.hex and wrapped in the palette outline.
+Every piece is a stack of axis aligned boxes in a tile local space and is rendered by a small ray caster, so a rotated piece is the same object seen from another side (a back view shows the back, never a mirror of the front). Light comes from the upper left, the colours are those of palette.hex and the drawing is wrapped in the palette outline.
 
-Anchor convention: the footprint of the tile is the 32x16 diamond of a land tile top, and it always occupies the BOTTOM 16 rows of the canvas. The bottom centre pixel of the canvas is therefore the bottom vertex of the tile diamond, and the tile centre is the pixel (16, height - 8). A tree, by contrast, is drawn with its canvas bottom on the tile centre, so a building is drawn 8 art pixels lower than a tree sprite of the same height: to place one, put the bottom centre of the canvas on the bottom vertex of the tile top diamond (the tile centre plus 8 art pixels). The deck sprites (bridge, dock) are flat: their top diamond is the footprint itself. No sprite leaves the 32 px width, so one tile of the map never overlaps a neighbour sideways.
+Tile space: the origin is the tile centre, X grows towards the lower right edge and Y towards the lower left edge, both from -8 to 8 pixels, and Z grows up. A point projects to the screen at (X - Y, (X + Y) / 2 - Z) from the tile centre.
 
-usage: python -I -B tools/pixelart/buildings.py [--out <assets/buildings folder>] [--preview preview.png] [--placed placed.png]
+Anchor convention: the tile footprint (the 32x16 diamond of a land tile top) fills the bottom 16 rows of the canvas. The bottom centre pixel of a sprite is the bottom vertex of the tile diamond and the tile centre is the pixel (16, height - 8). A tree is drawn with its canvas bottom on the tile centre, so a building is drawn 8 art pixels lower than a tree of the same height. Every sprite of one family has the same height for all its orientations.
+
+Orientation of 4 way pieces (suffix _0 to _3): the front faces the lower right edge (0), the lower left edge (1), the upper left edge (2) and the upper right edge (3), each step a quarter turn clockwise seen from above. 2 way pieces: axis 0 runs between the upper left and lower right edges, axis 1 between the upper right and lower left edges.
+
+Fence parts are drawn to be composed by the game on the same anchor: the rails of a neighbour reach the middle of the tile edge, where the next tile's rail or a gate post continues them at the same heights.
+
+usage: python -I -B tools/pixelart/buildings.py [--out <assets/buildings folder>] [--preview sheet.png] [--placed scene.png] [--orient scene.png]
 """
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -20,10 +27,11 @@ from trees import OUTLINE, Canvas, hexc  # noqa: E402
 
 WIDTH = 32
 DIAMOND_H = 16
+MAX_H = 48
 DEFAULT_OUT = HERE.parent.parent / "src" / "main" / "resources" / "assets" / "buildings"
 ASSETS = HERE.parent.parent / "src" / "main" / "resources" / "assets"
 
-# colour ramps, dark to light
+# colour ramps, dark to light: right face, left face, top, top rim
 STONE = ["#4a4868", "#7d7a8c", "#aeadb8", "#dcecf8"]
 WOOD = ["#4e2f36", "#7a4a3a", "#a0643f", "#c4925a"]
 PLANK = ["#7a4a3a", "#a0643f", "#c4925a", "#dba867"]
@@ -31,312 +39,360 @@ SAND = ["#7b6040", "#a2825a", "#dba867", "#f4d890"]
 IRON = ["#1d1830", "#4a4868", "#7d7a8c", "#aeadb8"]
 RED = ["#9c4247", "#d4705c", "#d4705c", "#f4bf9a"]
 CREAM = ["#aeadb8", "#dcecf8", "#fcf4e4", "#fcf4e4"]
+BRASS = ["#a2825a", "#dba867", "#f4d890", "#f4d890"]
 FIRE = ["#9c4247", "#d4705c", "#ffa02a", "#f4d890"]
-GOLD = "#f4d890"
+
+RAIL_LOW = (2.5, 4.5)
+RAIL_HIGH = (8.5, 10.5)
+POST_HEIGHT = 13.0
+RH = 1.0
+PH = 2.0
 
 
-def px(cv, x, y, colour):
-    """Paints one pixel with a hex colour."""
-    cv.set(x, y, hexc(colour))
+# ----------------------------------------------------------------------------------------------------------------
+# the box ray caster
+# ----------------------------------------------------------------------------------------------------------------
+
+def box(x0, x1, y0, y1, z0, z1, ramp, paint=None, ghost=False):
+    """A box of tile space. A ghost box hides what is behind it and paints nothing, which the fence rails use to stop at the post."""
+    return {"b": (x0, x1, y0, y1, z0, z1), "ramp": ramp, "paint": paint, "ghost": ghost}
 
 
-def rect(cv, x0, y0, x1, y1, colour):
-    """Fills a rectangle, both corners included."""
-    for y in range(y0, y1 + 1):
-        for x in range(x0, x1 + 1):
-            px(cv, x, y, colour)
+def rot(x, y, k):
+    """Turns a tile point k quarter turns, which moves the object front from the lower right edge to the lower left edge and on."""
+    for _ in range(k % 4):
+        x, y = -y, x
+    return x, y
 
 
-def finish(cv):
-    """Wraps the drawing in the outline and returns the image."""
-    cv.outline()
+def unrot(x, y, k):
+    """The inverse of rot."""
+    for _ in range(k % 4):
+        x, y = y, -x
+    return x, y
+
+
+def face_name(dx, dy):
+    return {(1, 0): "+x", (-1, 0): "-x", (0, 1): "+y", (0, -1): "-y"}[(dx, dy)]
+
+
+def render(boxes, k=0, h=MAX_H):
+    """Ray casts the boxes turned k quarter turns onto a canvas of height h and returns the outlined image."""
+    cv = Canvas(WIDTH, h)
+    cy = h - DIAMOND_H // 2
+    world = []
+    for bx in boxes:
+        x0, x1, y0, y1, z0, z1 = bx["b"]
+        ax, ay = rot(x0, y0, k)
+        bx_, by_ = rot(x1, y1, k)
+        world.append((min(ax, bx_), max(ax, bx_), min(ay, by_), max(ay, by_), z0, z1, bx))
+    masked = set()
+    for py in range(h):
+        sy = py + 0.5 - cy
+        for px_ in range(WIDTH):
+            sx = px_ + 0.5 - WIDTH // 2
+            best = None
+            for wx0, wx1, wy0, wy1, wz0, wz1, bx in world:
+                lo = max(2 * wx0 - sx, 2 * wy0 + sx, 2 * (wz0 + sy))
+                hx, hy, hz = 2 * wx1 - sx, 2 * wy1 + sx, 2 * (wz1 + sy)
+                hi = min(hx, hy, hz)
+                if hi - lo > 1e-6 and (best is None or hi > best[0] + 1e-9):
+                    best = (hi, "x" if hx <= hi + 1e-9 else "y" if hy <= hi + 1e-9 else "z", wx0, wy0, bx, wx1, wy1)
+            if best is None:
+                continue
+            w, side, wx0, wy0, bx, wx1, wy1 = best
+            if bx["ghost"]:
+                masked.add((px_, py))
+                continue
+            wxp, wyp, zp = (w + sx) / 2, (w - sx) / 2, w / 2 - sy
+            shade = {"x": 0, "y": 1, "z": 2}[side]
+            ramp = bx["ramp"]
+            colour = ramp[shade]
+            if side == "z" and min(wx1 - wx0, wy1 - wy0) >= 4 and (wxp - wx0 < 0.75 or wyp - wy0 < 0.75):
+                colour = ramp[3]
+            if bx["paint"]:
+                ox, oy = unrot(wxp, wyp, k)
+                if side == "z":
+                    face = "top"
+                else:
+                    dx, dy = unrot(1 if side == "x" else 0, 1 if side == "y" else 0, k)
+                    face = face_name(dx, dy)
+                painted = bx["paint"](face, ox, oy, zp, shade)
+                if painted:
+                    colour = painted
+            cv.set(px_, py, hexc(colour))
+    # the outline, skipping the pixels a ghost box covers so it never overwrites a neighbouring part
+    out = [r[:] for r in cv.px]
+    for y in range(h):
+        for x in range(WIDTH):
+            if cv.px[y][x] is None and (x, y) not in masked and any(
+                    0 <= x + dx < WIDTH and 0 <= y + dy < h and cv.px[y + dy][x + dx] is not None
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                out[y][x] = OUTLINE
+    cv.px = out
     return cv.image()
 
 
-def centre(h):
-    """Returns the row of the tile centre of a canvas of the given height."""
-    return h - DIAMOND_H // 2
+def top_row(img):
+    """The first row of the image that holds a painted pixel."""
+    for y in range(img.height):
+        if any(img.getpixel((x, y))[3] for x in range(img.width)):
+            return y
+    return img.height
 
 
-def prism(cv, cx, cy, hw, height, ramp, top_fn=None, left_fn=None, right_fn=None, edges=True):
-    """Draws an isometric box whose base diamond is centred on (cx, cy), with half width hw and half height hw / 2.
-
-    The top face is lit (ramp[2]), the left face is ramp[1] and the right face ramp[0]. A top_fn(u, v) returning a hex colour or None paints the top face from its own coordinates, u running to the lower right and v to the upper right, both in [-0.5, 0.5]. A left_fn or right_fn(s, t) does the same for a side face with s across 0..1 and t down 0..1.
-    """
-    hh = hw / 2
-    for x in range(cx - hw, cx + hw):
-        dx = x + 0.5 - cx
-        d = abs(dx) / hw
-        half = hh * (1 - d)
-        top0 = round(cy - height - half)
-        top1 = round(cy - height + half)
-        bottom = round(cy + half)
-        is_left = dx < 0
-        for y in range(top0, bottom):
-            if y < top1:
-                # the top face
-                a, b = dx / hw, (y + 0.5 - (cy - height)) / hh
-                u, v = (a + b) / 2, (a - b) / 2
-                colour = top_fn(u, v) if top_fn else None
-                if colour is None:
-                    colour = ramp[2]
-                    if edges and y == top0:
-                        colour = ramp[3]
-                px(cv, x, y, colour)
-            else:
-                face = ramp[1] if is_left else ramp[0]
-                fn = left_fn if is_left else right_fn
-                s = (x - (cx - hw)) / hw if is_left else (x - cx) / hw
-                t = (y - top1) / max(1, bottom - top1)
-                colour = fn(s, t) if fn else None
-                if colour is not None:
-                    face = colour
-                px(cv, x, y, face)
-    if edges and height > 1:
-        # a dark seam where the two faces meet, and a light rim along the top edge of the left face
-        for y in range(round(cy - height + hh), round(cy + hh) - 0):
-            px(cv, cx, y, ramp[0])
-            px(cv, cx - 1, y, ramp[0])
+def family(boxes, ks, h=None):
+    """Renders a piece for every orientation in ks on one shared height, the smallest that holds every orientation."""
+    images = [render(boxes, k) for k in ks]
+    keep = h if h else MAX_H - min(top_row(i) for i in images)
+    return [i.crop((0, MAX_H - keep, WIDTH, MAX_H)) for i in images]
 
 
-def brick_fn(ramp, rows, per_face=2):
-    """Returns a face painter that lays brick courses: mortar lines between rows and staggered joints."""
-    def paint(s, t):
-        row = int(t * rows)
-        within = t * rows - row
-        if within < 1 / (rows * 0.9) * 0.55 and row > 0:
-            return ramp[0]
-        offset = 0.5 / per_face if row % 2 else 0.0
-        col = ((s + offset) * per_face) % 1.0
-        if col < 0.09:
-            return ramp[0]
+# ----------------------------------------------------------------------------------------------------------------
+# face painters, in the object space where the front is +x
+# ----------------------------------------------------------------------------------------------------------------
+
+def bricks(ramp, course, joint, skip_top=True):
+    """Returns a painter that lays courses of bricks with staggered joints."""
+    def paint(face, x, y, z, shade):
+        if face == "top":
+            return None
+        a = y if face in ("+x", "-x") else x
+        row = int(max(0, z) // course)
+        mortar = ramp[max(0, shade - 1)] if shade > 0 else "#33304f"
+        if z % course < 0.8 and z > 0.8:
+            return mortar
+        if (a + 20 + (joint / 2 if row % 2 else 0)) % joint < 0.8:
+            return mortar
         return None
     return paint
 
 
-# ----------------------------------------------------------------------------------------------------------------
-# buildings
-# ----------------------------------------------------------------------------------------------------------------
-
-def wall():
-    h = 36
-    cv = Canvas(WIDTH, h)
-    prism(cv, 16, centre(h), 15, 16, STONE, top_fn=cap_stones, left_fn=brick_fn(STONE, 4), right_fn=brick_fn(STONE, 4))
-    return finish(cv)
-
-
-def cap_stones(u, v):
-    """The top of a wall: a lighter slab with a darker joint line across it."""
-    if abs(u - v) < 0.04:
-        return STONE[1]
-    return STONE[2]
-
-
-def fence():
-    h = 22
-    cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    # two posts at the middle of the north east and south west edges, two rails between them
-    posts = [(cx, cy + dy) for cx, dy in ((8, 4), (24, -4))]
-    for cx, foot in posts:
-        rect(cv, cx - 1, foot - 11, cx, foot, PLANK[1])
-        rect(cv, cx - 1, foot - 11, cx - 1, foot, PLANK[2])
-        rect(cv, cx, foot - 11, cx, foot, PLANK[0])
-        px(cv, cx - 1, foot - 12, PLANK[3])
-        px(cv, cx, foot - 12, PLANK[2])
-        px(cv, cx - 1, foot - 11, PLANK[3])
-    for lift in (4, 8):
-        for x in range(9, 24):
-            y = cy + 4 - round((x - 8) * 0.5) - lift
-            px(cv, x, y, PLANK[2])
-            px(cv, x, y + 1, PLANK[1])
-    return finish(cv)
-
-
-def chest():
-    h = 24
-    cv = Canvas(WIDTH, h)
-
-    def side(s, t):
-        if 0.4 < s < 0.62:
-            return IRON[2] if t > 0.36 else IRON[3]
-        if t < 0.34:
-            return WOOD[3]
-        if t < 0.42:
-            return IRON[1]
+def chest_paint(face, x, y, z, shade):
+    if face == "top":
         return None
+    # the metal band that circles the body, and corner plates at the foot
+    if 2.2 <= z < 3.4:
+        return IRON[2 if shade == 1 else 1]
+    if abs(y) > 5.3 and face in ("+x", "-x") and (z < 1.5 or 4.6 <= z < 6.0):
+        return IRON[2 if shade == 1 else 1]
+    # the lid seam
+    if 6.0 <= z < 6.7:
+        return WOOD[0]
+    if face == "+x":
+        if abs(y) < 1.8 and 3.6 <= z < 7.8:
+            if abs(y) < 0.7 and 4.4 <= z < 6.2:
+                return IRON[0]
+            return BRASS[2]
+    if face == "-x" and 3.3 < abs(y) < 5.2 and 4.8 <= z < 8.0:
+        return IRON[2]
+    return None
 
-    def side_dark(s, t):
-        if 0.4 < s < 0.62:
-            return IRON[1]
-        if t < 0.34:
-            return WOOD[2]
-        if t < 0.42:
+
+def furnace_paint(lit):
+    brick = bricks(STONE, 3.0, 5.0)
+
+    def paint(face, x, y, z, shade):
+        if face == "+x":
+            top = 3.0 + math.sqrt(max(0.0, 12.25 - y * y))
+            if abs(y) < 3.5 and 1.5 <= z < top:
+                if not lit:
+                    return IRON[0] if z > 2.2 else "#4e2f36"
+                if z < 3.2:
+                    return FIRE[3]
+                return FIRE[2] if z < 5.0 else FIRE[1]
+            if abs(y) < 4.6 and 1.0 <= z < top + 1.1:
+                return STONE[0] if shade == 0 else STONE[1]
+        return brick(face, x, y, z, shade)
+    return paint
+
+
+def chimney_paint(face, x, y, z, shade):
+    if face == "top":
+        if abs(y) < 1.4 and -4.2 < x < -1.8:
             return IRON[0]
         return None
-
-    def lid(u, v):
-        if abs(u + v) < 0.06:
-            return IRON[2]
-        return WOOD[3]
-
-    cy = centre(h)
-    prism(cv, 16, cy, 11, 10, WOOD, top_fn=lid, left_fn=side, right_fn=side_dark)
-    # the gold clasp where the lid meets the body on the front corner
-    rect(cv, 14, cy + 3 - 7, 17, cy + 3 - 4, GOLD)
-    rect(cv, 15, cy + 3 - 6, 16, cy + 3 - 5, IRON[0])
-    return finish(cv)
+    if z % 3.0 < 0.8:
+        return STONE[max(0, shade - 1)] if shade else "#33304f"
+    return None
 
 
-def anvil():
-    h = 28
-    cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    prism(cv, 16, cy, 8, 3, IRON)
-    prism(cv, 16, cy - 3, 4, 5, IRON)
-    # the face: a wide slab that sticks out to the left as a horn
-    prism(cv, 16, cy - 8, 9, 4, IRON, top_fn=lambda u, v: IRON[3] if u + v < 0 else IRON[2])
-    for i, x in enumerate((5, 6, 7, 8)):
-        rect(cv, x, cy - 13 + i // 2, x, cy - 10, IRON[2] if i < 2 else IRON[1])
-    return finish(cv)
+def anvil_top(face, x, y, z, shade):
+    if face == "top" and abs(x) < 0.6 and -5.5 < y < -4.0:
+        return IRON[0]
+    return None
 
 
-def workbench():
-    h = 30
-    cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    # four legs under the table top
-    for lx, ly in ((6, 3), (25, 3), (16, 9), (16, -3)):
-        if ly == -3:
-            continue
-        rect(cv, lx - 1, cy + ly - 10, lx, cy + ly, PLANK[0] if lx > 16 else PLANK[1])
-
-    def boards(u, v):
-        n = int((v + 0.5) * 5)
-        if abs(((v + 0.5) * 5) - round((v + 0.5) * 5)) < 0.12:
+def board_paint(face, x, y, z, shade):
+    if face == "top":
+        n = (x + 5.0) / 2.5
+        if n % 1.0 < 0.22:
             return PLANK[1]
-        return PLANK[3] if n % 2 else PLANK[2]
-
-    prism(cv, 16, cy - 9, 14, 4, PLANK, top_fn=boards)
-    # a saw lying on the top
-    rect(cv, 11, cy - 17, 17, cy - 17, IRON[3])
-    rect(cv, 18, cy - 18, 20, cy - 17, WOOD[1])
-    px(cv, 12, cy - 16, IRON[2])
-    px(cv, 14, cy - 16, IRON[2])
-    px(cv, 16, cy - 16, IRON[2])
-    return finish(cv)
+        return PLANK[3] if int(n) % 2 else PLANK[2]
+    return None
 
 
-def bed():
-    h = 30
-    cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    # the headboard rises behind the mattress along the upper right edge
-    for x in range(16, 30):
-        edge = round(cy - 6 - (7 - 0.5) * (1 - (x + 0.5 - 16) / 14) * 0 - (14 - (x - 16)) * 0.5)
-        for y in range(edge - 7, edge + 1):
-            px(cv, x, y, WOOD[2] if y < edge - 5 else WOOD[1])
-        px(cv, x, edge - 7, WOOD[3])
-
-    def top(u, v):
-        if v > 0.12:
-            return CREAM[2] if u < 0.12 else CREAM[1]
-        if v > -0.5:
-            return RED[3] if abs(v + 0.12) < 0.03 else (RED[2] if (u + v) < 0.1 else RED[1])
+def bed_paint(face, x, y, z, shade):
+    if face == "top":
+        if x < -3.2:
+            return CREAM[2]
+        if x < -2.2:
+            return RED[3]
         return None
-
-    prism(cv, 16, cy, 14, 6, WOOD, top_fn=top, left_fn=lambda s, t: WOOD[2] if t < 0.4 else WOOD[1])
-    return finish(cv)
-
-
-def door(opened):
-    h = 36
-    cv = Canvas(WIDTH, h)
-
-    def panel(lit):
-        def paint(s, t):
-            # a round topped doorway in the middle of the face
-            inside = 0.26 < s < 0.74 and t > 0.2
-            if not inside:
-                return brick_fn(STONE, 4)(s, t)
-            if t < 0.3 and (s < 0.3 or s > 0.7):
-                return STONE[1] if lit else STONE[0]
-            if opened:
-                return IRON[0] if s > 0.32 and s < 0.68 else WOOD[0]
-            if s < 0.32 or s > 0.68:
-                return WOOD[0]
-            if abs(t - 0.62) < 0.03:
-                return WOOD[1]
-            if 0.44 < s < 0.52 and 0.5 < t < 0.6:
-                return GOLD
-            return WOOD[3] if lit else WOOD[2]
-        return paint
-
-    prism(cv, 16, centre(h), 15, 16, STONE, top_fn=cap_stones, left_fn=panel(True), right_fn=panel(False))
-    return finish(cv)
+    if x < -3.2:
+        return CREAM[1] if shade == 1 else CREAM[0]
+    return None
 
 
-def deck_top(u, v):
-    """Planks running along one axis with a dark gap between neighbours."""
-    n = (v + 0.5) * 8
-    if abs(n - round(n)) < 0.13:
-        return PLANK[0]
-    k = int(n)
-    return [PLANK[2], PLANK[3], PLANK[1]][k % 3]
+def deck_paint(face, x, y, z, shade):
+    """The deck of a bridge or dock: planks across the run (the x axis), a dark gap between neighbours."""
+    if face == "top":
+        n = (x + 8.0) / 2.0
+        if n % 1.0 < 0.2:
+            return PLANK[0]
+        return [PLANK[2], PLANK[3], PLANK[2], PLANK[1]][int(n) % 4] if abs(y) < 5.5 else None
+    if z < 1.0:
+        return WOOD[shade] if shade < 2 else None
+    return None
 
 
-def bridge():
-    h = 20
-    cv = Canvas(WIDTH, h)
-    prism(cv, 16, centre(h) + 0, 15, 3, PLANK, top_fn=deck_top, edges=False)
-    return finish(cv)
+def stile_paint(face, x, y, z, shade):
+    if face in ("+y", "-y") and abs(x) < 1.3 and 5.0 <= z < 6.2:
+        return BRASS[1 if shade else 0]
+    return None
 
 
-def dock():
-    h = 28
-    cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    # posts going down to the water under the deck corners
-    for px_, py_ in ((3, 0), (28, 0), (16, 7)):
-        rect(cv, px_ - 1, cy + py_ - 6, px_ + 1, cy + py_ + 4, WOOD[1])
-        rect(cv, px_ - 1, cy + py_ - 6, px_ - 1, cy + py_ + 4, WOOD[2])
-        rect(cv, px_ + 1, cy + py_ - 6, px_ + 1, cy + py_ + 4, WOOD[0])
-    prism(cv, 16, cy - 5, 15, 3, PLANK, top_fn=deck_top, edges=False)
-    # the post that stands proud of the deck at the lower corner
-    rect(cv, 15, cy + 3 - 6, 17, cy + 3, WOOD[1])
-    rect(cv, 15, cy + 3 - 6, 15, cy + 3, WOOD[2])
-    rect(cv, 17, cy + 3 - 6, 17, cy + 3, WOOD[0])
-    px(cv, 16, cy + 3 - 7, WOOD[3])
-    return finish(cv)
+# ----------------------------------------------------------------------------------------------------------------
+# object definitions
+# ----------------------------------------------------------------------------------------------------------------
+
+def chest_boxes():
+    return [
+        box(-4.5, 4.5, -6.5, 6.5, 0, 6, WOOD, chest_paint),
+        box(-4.5, 4.5, -6.5, 6.5, 6, 8.4, PLANK, chest_paint),
+        box(-3.0, 3.0, -6.5, 6.5, 8.4, 9.8, PLANK, chest_paint),
+    ]
 
 
-def furnace(lit):
-    h = 38
-    cv = Canvas(WIDTH, h)
-    cy = centre(h)
+def furnace_boxes(lit):
+    return [
+        box(-6, 6, -6, 6, 0, 12, STONE, furnace_paint(lit)),
+        box(-5, -1, -2.5, 2.5, 12, 18, STONE, chimney_paint),
+    ]
 
-    def left_face(s, t):
-        if 0.25 < s < 0.75 and t > 0.3:
-            if t < 0.4 and not 0.35 < s < 0.65:
-                return STONE[0]
-            if not lit:
-                return IRON[0]
-            glow = abs(s - 0.5) * 2
-            return FIRE[3] if glow < 0.25 and t > 0.6 else FIRE[2] if glow < 0.7 else FIRE[1]
-        return brick_fn(STONE, 3, 2)(s, t)
 
-    prism(cv, 16, cy, 12, 14, STONE, top_fn=cap_stones, left_fn=left_face, right_fn=brick_fn(STONE, 3, 2))
-    # the chimney on the top
-    prism(cv, 18, cy - 12, 4, 7, STONE, top_fn=lambda u, v: IRON[0], left_fn=brick_fn(STONE, 2, 1))
-    if lit:
-        # light spilling on the ground in front of the opening
-        for x, y in ((8, cy + 2), (9, cy + 3), (10, cy + 3), (11, cy + 4)):
-            px(cv, x, y, FIRE[1])
-    return finish(cv)
+def anvil_boxes():
+    dark = ["#1d1830", "#4a4868", "#7d7a8c", "#aeadb8"]
+    return [
+        box(-4, 4, -5, 4, 0, 2.5, dark),
+        box(-2.5, 2.5, -3, 3, 2.5, 6.5, IRON),
+        box(-4, 4, -7.5, 3, 6.5, 10.5, STONE, anvil_top),
+        box(-3.6, 3.6, 3, 4.2, 7.0, 10.5, STONE),
+        box(-3.0, 3.0, 4.2, 5.4, 7.8, 10.5, STONE),
+        box(-2.2, 2.2, 5.4, 6.6, 8.6, 10.5, STONE),
+        box(-1.4, 1.4, 6.6, 7.6, 9.3, 10.5, STONE),
+        box(-0.7, 0.7, 7.6, 8, 9.9, 10.5, STONE),
+    ]
 
+
+def workbench_boxes():
+    legs = [box(sx * 3 - (0 if sx > 0 else 2), sx * 3 + (2 if sx > 0 else 0), sy * 5 - (0 if sy > 0 else 2),
+                sy * 5 + (2 if sy > 0 else 0), 0, 8, WOOD) for sx in (1, -1) for sy in (1, -1)]
+    # legs sit under the corners of the top: x 3..5, y 5..7
+    legs = [box(x0, x0 + 2, y0, y0 + 2, 0, 8, WOOD) for x0 in (3, -5) for y0 in (5, -7)]
+    return legs + [
+        box(3.5, 4.5, -5, 5, 3, 4.2, WOOD),
+        box(-4.5, -3.5, -5, 5, 3, 4.2, WOOD),
+        box(-5, 5, -7, 7, 8, 11, PLANK, board_paint),
+        box(-3.5, 0, -6, -1.5, 11, 12, SAND),
+        box(1.5, 2.5, 1.5, 6.5, 11, 12, WOOD),
+        box(0.5, 3.5, 5.5, 7, 11, 13, IRON),
+    ]
+
+
+def bed_boxes():
+    return [
+        box(-8, 8, -6.5, 6.5, 0, 3, WOOD),
+        box(-8, -7, -6.5, 6.5, 3, 10, WOOD),
+        box(7, 8, -6.5, 6.5, 3, 6, WOOD),
+        box(-7, 7, -6, 6, 3, 5.5, RED, bed_paint),
+        box(-6.8, -3.6, -5, 5, 5.5, 7, CREAM),
+    ]
+
+
+def dock_boxes():
+    posts = [box(5.5, 8, -8, -5.5, 0, 11, WOOD), box(5.5, 8, 5.5, 8, 0, 11, WOOD),
+             box(-1, 1.5, -8, -6, 0, 8, WOOD), box(-1, 1.5, 6, 8, 0, 8, WOOD),
+             box(5.5, 8, -8, -5.5, 11, 12, SAND), box(5.5, 8, 5.5, 8, 11, 12, SAND)]
+    return [box(-8, 8, -8, 8, 0, 3, PLANK, deck_paint)] + posts
+
+
+def bridge_boxes():
+    return [
+        box(-8, 8, -8, 8, 0, 3, PLANK, deck_paint),
+        box(-8, 8, -8, -6.5, 0, 4.2, WOOD),
+        box(-8, 8, 6.5, 8, 0, 4.2, WOOD),
+    ]
+
+
+def fence_post_box():
+    return box(-PH, PH, -PH, PH, 0, POST_HEIGHT, PLANK)
+
+
+def rail_boxes(direction):
+    """The rails from the post to the middle of one tile edge, stopped by a ghost post so they never overdraw it."""
+    boxes = []
+    for z0, z1 in (RAIL_LOW, RAIL_HIGH):
+        if direction == "lr":
+            boxes.append(box(0, 8, -RH, RH, z0, z1, PLANK))
+        elif direction == "ul":
+            boxes.append(box(-8, 0, -RH, RH, z0, z1, PLANK))
+        elif direction == "ll":
+            boxes.append(box(-RH, RH, 0, 8, z0, z1, PLANK))
+        else:
+            boxes.append(box(-RH, RH, -8, 0, z0, z1, PLANK))
+    boxes.append(box(-PH, PH, -PH, PH, 0, POST_HEIGHT, PLANK, ghost=True))
+    return boxes
+
+
+def gate_posts():
+    return [box(4, 8, -PH, PH, 0, POST_HEIGHT, PLANK), box(-8, -4, -PH, PH, 0, POST_HEIGHT, PLANK)]
+
+
+def gate_closed_boxes():
+    boxes = gate_posts()
+    for z0, z1 in (RAIL_LOW, RAIL_HIGH):
+        boxes.append(box(-4, 4, -RH, RH, z0, z1, PLANK))
+    boxes.append(box(-1.75, -0.25, -RH, RH, 2.5, 10.5, PLANK, stile_paint))
+    boxes.append(box(0.25, 1.75, -RH, RH, 2.5, 10.5, PLANK, stile_paint))
+    return boxes
+
+
+def gate_open_boxes():
+    boxes = gate_posts()
+    for cx in (-6.0, 6.0):
+        for z0, z1 in (RAIL_LOW, RAIL_HIGH):
+            boxes.append(box(cx - RH, cx + RH, 2.0, 7.5, z0, z1, PLANK))
+        boxes.append(box(cx - RH, cx + RH, 6.0, 7.5, 2.5, 10.5, PLANK))
+    return boxes
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# fire pieces, unrotated
+# ----------------------------------------------------------------------------------------------------------------
 
 FLAME_HEIGHT = [8, 10, 7, 10]
 FLAME_SWAY = [0, 1, 0, -1]
+
+
+def px(cv, x, y, colour):
+    cv.set(x, y, hexc(colour))
+
+
+def rect(cv, x0, y0, x1, y1, colour):
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            px(cv, x, y, colour)
 
 
 def flame(cv, cx, base, frame, scale=1.0):
@@ -344,12 +400,11 @@ def flame(cv, cx, base, frame, scale=1.0):
     top = round(FLAME_HEIGHT[frame] * scale)
     sway = FLAME_SWAY[frame]
     for k in range(top):
-        t = k / max(1, top - 1)  # 0 at the tip, 1 at the base
+        t = k / max(1, top - 1)
         half = round((1.0 + 3.2 * scale) * (t ** 0.55)) if t > 0.0 else 0
         row = base - top + k + 1
         shift = round(sway * (1 - t))
-        width_outer = half
-        rect(cv, cx + shift - width_outer, row, cx + shift + width_outer, row, FIRE[2])
+        rect(cv, cx + shift - half, row, cx + shift + half, row, FIRE[2])
         if t > 0.35:
             w2 = max(0, round(half * 0.62))
             rect(cv, cx + shift - w2, row, cx + shift + w2, row, FIRE[3])
@@ -359,16 +414,13 @@ def flame(cv, cx, base, frame, scale=1.0):
         if t > 0.8:
             px(cv, cx + shift - half, row, FIRE[1])
             px(cv, cx + shift + half, row, FIRE[1])
-    # a spark that jumps around
     px(cv, cx + [3, -3, 2, -2][frame], base - top - [1, 2, 0, 1][frame], FIRE[3])
 
 
 def campfire(frame):
     h = 32
     cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    # a ring of stones on an ellipse
-    import math
+    cy = h - DIAMOND_H // 2
     n = 11
     for i in range(n):
         a = i / n * 2 * math.pi
@@ -378,12 +430,10 @@ def campfire(frame):
         rect(cv, sx - 1, sy - 1, sx + 1, sy + 1, STONE[2] if light else STONE[1])
         px(cv, sx - 1, sy - 1, STONE[3] if light else STONE[2])
         px(cv, sx + 1, sy + 1, STONE[0])
-    # the embers inside the ring
     for y in range(cy - 3, cy + 4):
         for x in range(8, 25):
             if ((x - 16) / 8.5) ** 2 + ((y - cy) / 4.0) ** 2 <= 1:
                 px(cv, x, y, "#4e2f36")
-    # two crossed logs
     for (x0, y0, x1, y1) in ((9, cy - 2, 22, cy + 3), (10, cy + 3, 23, cy - 2)):
         steps = 13
         for i in range(steps + 1):
@@ -393,14 +443,14 @@ def campfire(frame):
             px(cv, x, y + 1, WOOD[0])
     rect(cv, 22, cy - 1, 23, cy + 3, WOOD[3])
     flame(cv, 16, cy + 1, frame)
-    return finish(cv)
+    cv.outline()
+    return cv.image()
 
 
 def standing_torch(frame):
     h = 40
     cv = Canvas(WIDTH, h)
-    cy = centre(h)
-    # a few stones at the foot, then the post
+    cy = h - DIAMOND_H // 2
     rect(cv, 12, cy, 20, cy + 2, STONE[1])
     rect(cv, 13, cy - 1, 19, cy - 1, STONE[2])
     rect(cv, 12, cy, 13, cy + 1, STONE[2])
@@ -408,59 +458,84 @@ def standing_torch(frame):
     rect(cv, 15, cy - 17, 17, cy - 1, WOOD[1])
     rect(cv, 15, cy - 17, 15, cy - 1, WOOD[2])
     rect(cv, 17, cy - 17, 17, cy - 1, WOOD[0])
-    # the cup that holds the fire
     rect(cv, 13, cy - 20, 19, cy - 18, IRON[1])
     rect(cv, 13, cy - 20, 19, cy - 20, IRON[2])
     rect(cv, 18, cy - 19, 19, cy - 18, IRON[0])
     flame(cv, 16, cy - 20, frame, 0.8)
-    return finish(cv)
+    cv.outline()
+    return cv.image()
 
 
-SPRITES = {
-    "wall": wall,
-    "fence": fence,
-    "chest": chest,
-    "anvil": anvil,
-    "workbench": workbench,
-    "bed": bed,
-    "door_closed": lambda: door(False),
-    "door_open": lambda: door(True),
-    "bridge": bridge,
-    "dock": dock,
-    "furnace_off": lambda: furnace(False),
-    "furnace_on": lambda: furnace(True),
+# ----------------------------------------------------------------------------------------------------------------
+# the table of sprites
+# ----------------------------------------------------------------------------------------------------------------
+
+FOUR_WAY = {
+    "chest": chest_boxes,
+    "furnace_off": lambda: furnace_boxes(False),
+    "furnace_on": lambda: furnace_boxes(True),
+    "anvil": anvil_boxes,
+    "workbench": workbench_boxes,
+    "bed": bed_boxes,
+    "dock": dock_boxes,
 }
-for _i in range(4):
-    SPRITES[f"campfire_{_i}"] = (lambda i=_i: campfire(i))
-    SPRITES[f"standing_torch_{_i}"] = (lambda i=_i: standing_torch(i))
+TWO_WAY = {
+    "bridge": bridge_boxes,
+    "fence_gate_closed": gate_closed_boxes,
+    "fence_gate_open": gate_open_boxes,
+}
+FENCE_H = 30
 
 
 def draw_all():
-    """Returns every (name, image) pair, in table order."""
-    return [(name, maker()) for name, maker in SPRITES.items()]
+    """Returns every (name, image) pair, in file order."""
+    sprites = []
+    for name, boxes in FOUR_WAY.items():
+        for k, img in enumerate(family(boxes(), range(4), 38 if name.startswith("furnace") else None)):
+            sprites.append((f"{name}_{k}", img))
+    for name, boxes in TWO_WAY.items():
+        h = FENCE_H if name.startswith("fence") else None
+        for k, img in enumerate(family(boxes(), range(2), h)):
+            sprites.append((f"{name}_{k}", img))
+    sprites.append(("fence_post", family([fence_post_box()], [0], FENCE_H)[0]))
+    for edge in ("ul", "ur", "ll", "lr"):
+        sprites.append((f"fence_rail_{edge}", family(rail_boxes(edge), [0], FENCE_H)[0]))
+    for i in range(4):
+        sprites.append((f"campfire_{i}", campfire(i)))
+    for i in range(4):
+        sprites.append((f"standing_torch_{i}", standing_torch(i)))
+    return sprites
 
 
 def write_all(out):
-    """Writes every sprite into the folder and returns how many files it wrote."""
+    """Writes every sprite into the folder, removes the stale png files and returns how many files it wrote."""
     out.mkdir(parents=True, exist_ok=True)
-    count = 0
-    for name, img in draw_all():
+    sprites = draw_all()
+    names = {f"{name}.png" for name, _ in sprites}
+    for old in sorted(out.glob("*.png")):
+        if old.name not in names:
+            old.unlink()
+            print(f"removed {old.name}")
+    for name, img in sprites:
         img.save(out / f"{name}.png")
-        count += 1
-    return count
+    return len(sprites)
 
 
-def preview(path, scale=4):
+# ----------------------------------------------------------------------------------------------------------------
+# previews
+# ----------------------------------------------------------------------------------------------------------------
+
+def preview(path, scale=3):
     """Renders every sprite on grass green and on water blue, enlarged with no smoothing and labelled."""
     sprites = draw_all()
-    cols = 6
-    cell_w, cell_h = WIDTH + 8, 48 + 6
+    cols = 8
+    cell_w, cell_h = WIDTH + 6, 44
     rows = (len(sprites) + cols - 1) // cols
     panels = []
     for bg in ((0x59, 0xa8, 0x4a, 255), (0x38, 0x9c, 0xc4, 255)):
         sheet = Image.new("RGBA", (cols * cell_w, rows * cell_h), bg)
         for i, (_, img) in enumerate(sprites):
-            x, y = (i % cols) * cell_w + 4, (i // cols) * cell_h + 48 + 3 - img.height
+            x, y = (i % cols) * cell_w + 3, (i // cols) * cell_h + cell_h - 2 - img.height
             sheet.alpha_composite(img, (x, y))
         panels.append(sheet.resize((sheet.width * scale, sheet.height * scale), Image.NEAREST))
     out = Image.new("RGBA", (panels[0].width, panels[0].height * 2), (0, 0, 0, 255))
@@ -468,48 +543,102 @@ def preview(path, scale=4):
         out.alpha_composite(panel, (0, k * panel.height))
     draw = ImageDraw.Draw(out)
     for i, (name, _) in enumerate(sprites):
-        draw.text(((i % cols) * cell_w * scale + 6, (i // cols) * cell_h * scale + 2), name, fill=(255, 255, 255, 255))
+        draw.text(((i % cols) * cell_w * scale + 4, (i // cols) * cell_h * scale + 1), name, fill=(255, 255, 255, 255))
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     out.save(path)
 
 
-def placed(path, scale=3):
-    """Renders a small iso map of grass tiles with a pond, and pieces placed on it at their anchor, to check they sit on the tile."""
-    grass = Image.open(ASSETS / "tiles" / "grass-1.png").convert("RGBA")
-    bed = Image.open(ASSETS / "tiles" / "bed-1.png").convert("RGBA")
-    sheet = Image.open(ASSETS / "water" / "sheet.png").convert("RGBA")
-    sprites = dict(draw_all())
-    n = 7
-    pond = {(3, 1), (3, 2), (3, 3), (3, 4), (2, 3), (4, 3), (2, 4), (4, 4), (4, 2), (2, 2)}
-    layout = {
-        (1, 1): "wall", (1, 2): "door_closed", (1, 3): "door_open", (0, 4): "fence", (0, 5): "fence",
-        (1, 5): "chest", (2, 5): "anvil", (2, 0): "workbench", (3, 0): "bed", (4, 1): "furnace_off", (5, 1): "furnace_on",
-        (5, 3): "campfire_1", (5, 4): "standing_torch_1", (4, 5): "bridge", (3, 3): "bridge", (4, 4): "dock",
-    }
-    w, h = (n * 2) * 16 + 32, n * 16 + 64
-    img = Image.new("RGBA", (w, h), (0x1d, 0x18, 0x30, 255))
-    ox, oy = w // 2 - 16, 40
-    for i in range(n):
-        for j in range(n):
-            x, y = ox + (i - j) * 16, oy + (i + j) * 8
-            if (i, j) in pond:
-                img.alpha_composite(bed, (x, y + 10))
-                img.alpha_composite(sheet, (x, y + 5))
-            else:
-                img.alpha_composite(grass, (x, y))
-        # sprites of this diagonal band are drawn after the tiles of the same band
-    for s in range(2 * n - 1):
-        for i in range(n):
-            j = s - i
-            if (i, j) in layout:
-                sprite = sprites[layout[(i, j)]]
-                x, y = ox + (i - j) * 16, oy + (i + j) * 8
-                # the bottom centre of the canvas goes on the bottom vertex of the tile top diamond
-                img.alpha_composite(sprite, (x, y + DIAMOND_H - sprite.height))
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.resize((img.width * scale, img.height * scale), Image.NEAREST).save(path)
+class Scene:
+    """A small iso map of grass tiles and water, where sprites are placed at their anchor."""
+
+    def __init__(self, n, m, water):
+        self.n, self.m, self.water = n, m, water
+        self.grass = Image.open(ASSETS / "tiles" / "grass-1.png").convert("RGBA")
+        self.bed = Image.open(ASSETS / "tiles" / "bed-1.png").convert("RGBA")
+        self.sheet = Image.open(ASSETS / "water" / "sheet.png").convert("RGBA")
+        self.sprites = dict(draw_all())
+        self.items = {}
+        self.ox = m * 16 + 8
+        self.img = Image.new("RGBA", ((n + m) * 16 + 32, (n + m) * 8 + 70), (0x1d, 0x18, 0x30, 255))
+
+    def at(self, i, j):
+        """The screen position of the top left of the tile (i, j): i grows to the lower right, j to the lower left."""
+        return self.ox + (i - j) * 16, 44 + (i + j) * 8
+
+    def put(self, i, j, name):
+        self.items.setdefault((i, j), []).append(name)
+
+    def render(self, path, scale=3):
+        for i in range(self.n):
+            for j in range(self.m):
+                x, y = self.at(i, j)
+                if (i, j) in self.water:
+                    self.img.alpha_composite(self.bed, (x, y + 10))
+                    self.img.alpha_composite(self.sheet, (x, y + 5))
+                else:
+                    self.img.alpha_composite(self.grass, (x, y))
+        for s in range(self.n + self.m - 1):
+            for i in range(self.n):
+                j = s - i
+                for name in self.items.get((i, j), []):
+                    sprite = self.sprites[name]
+                    x, y = self.at(i, j)
+                    # the bottom centre of the canvas goes on the bottom vertex of the tile top diamond
+                    self.img.alpha_composite(sprite, (x, y + DIAMOND_H - sprite.height))
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.img.resize((self.img.width * scale, self.img.height * scale), Image.NEAREST).save(path)
+
+
+def compose_fence(scene, cells, gates):
+    """Places fence parts the way the game composes them: back rails, the post, then front rails.
+
+    cells is the set of (i, j) fence tiles, gates maps a tile to its gate sprite name. A rail goes to every neighbour that is a fence or a gate.
+    """
+    linked = set(cells) | set(gates)
+    for (i, j) in cells:
+        for edge, (di, dj) in (("ul", (-1, 0)), ("ur", (0, -1))):
+            if (i + di, j + dj) in linked:
+                scene.put(i, j, f"fence_rail_{edge}")
+        scene.put(i, j, "fence_post")
+        for edge, (di, dj) in (("ll", (0, 1)), ("lr", (1, 0))):
+            if (i + di, j + dj) in linked:
+                scene.put(i, j, f"fence_rail_{edge}")
+    for pos, name in gates.items():
+        scene.put(pos[0], pos[1], name)
+
+
+def placed(path):
+    """A fence ring with a corner, a T and two gates, a bridge of 3 tiles from the shore, and a dock."""
+    water = {(i, j) for i in range(8, 11) for j in range(4, 8)} | {(i, j) for i in range(8, 11) for j in range(0, 2)}
+    scene = Scene(13, 10, water)
+    ring = {(i, 1) for i in range(1, 6)} | {(i, 5) for i in range(1, 6)} | {(1, j) for j in range(1, 6)} | {(5, j) for j in range(1, 6)}
+    gates = {(3, 5): "fence_gate_closed_0", (5, 3): "fence_gate_open_1"}
+    ring -= set(gates)
+    # the T: a spur that leaves the middle of the top row
+    cells = ring | {(3, 0)}
+    compose_fence(scene, cells, gates)
+    # bridge: three tiles from the shore across the water, the run along the lower right axis
+    for i in range(8, 11):
+        scene.put(i, 6, "bridge_0")
+    # dock: on the water, the land side flush towards the shore, the open end on the water
+    scene.put(9, 0, "dock_1")
+    for pos, name in (((7, 7), "campfire_1"), ((6, 8), "standing_torch_2")):
+        scene.put(pos[0], pos[1], name)
+    scene.render(path)
+
+
+def orient(path):
+    """Every 4 way piece in its 4 orientations, one piece per row."""
+    names = list(FOUR_WAY)
+    scene = Scene(2 * len(names), 8, set())
+    for i, name in enumerate(names):
+        for k in range(4):
+            if name == "dock":
+                scene.water.add((2 * i, 2 * k))
+            scene.put(2 * i, 2 * k, f"{name}_{k}")
+    scene.render(path)
 
 
 def main():
@@ -517,12 +646,15 @@ def main():
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--preview")
     parser.add_argument("--placed")
+    parser.add_argument("--orient")
     args = parser.parse_args()
-    if args.preview or args.placed:
+    if args.preview or args.placed or args.orient:
         if args.preview:
             preview(args.preview)
         if args.placed:
             placed(args.placed)
+        if args.orient:
+            orient(args.orient)
         return
     print(f"buildings {write_all(Path(args.out))}")
 
