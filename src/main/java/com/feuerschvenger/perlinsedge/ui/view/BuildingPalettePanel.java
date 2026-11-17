@@ -23,9 +23,9 @@ import java.util.function.ToIntFunction;
 
 /**
  * The palette of building pieces, shown above the item hotbar while the hammer is in hand. Every piece has a card with
- * its icon, its name and its cost, each ingredient as {@code held/needed} in green when the player has enough and in red
- * when not, the way the crafting list shows it. A piece is chosen by clicking its card and stays chosen until another
- * is. The click is consumed here, so it never reaches the world. The panel keeps no selection of its own: the selected
+ * its icon and its name, greyed the way the crafting list greys a recipe when the player cannot afford the piece; what
+ * the selected piece costs is shown by {@link BuildingCostPanel}. A piece is chosen by clicking its card and stays
+ * chosen until another is. The click is consumed here, so it never reaches the world. The panel keeps no selection of its own: the selected
  * piece is given to {@link #update(Player, BuildingType)}, which redraws only what changed.
  */
 public class BuildingPalettePanel extends HBox {
@@ -48,10 +48,10 @@ public class BuildingPalettePanel extends HBox {
     private BuildingType shownSelected;
     private boolean selectionShown;
 
-    /** One piece of the palette: its card and the lines of its cost. */
+    /** One piece of the palette: its card and what the piece costs, which the card uses only to tell if it is affordable. */
     private static final class Card {
         final VBox node = new VBox(2);
-        final List<IngredientLine> lines = new ArrayList<>();
+        final List<CraftingIngredient> cost = new ArrayList<>();
         ImageView icon;
         /** The name of the piece, wrapped to at most two lines. */
         Label name;
@@ -61,9 +61,6 @@ public class BuildingPalettePanel extends HBox {
         Label rotateHint;
         int shownRotation = -1;
     }
-
-    /** One ingredient of a cost: what the recipe needs and the label that shows it. */
-    private record IngredientLine(CraftingIngredient ingredient, Label label) { }
 
     /**
      * Creates the palette with a card for every building recipe, hidden until {@link #showPalette()}.
@@ -94,7 +91,7 @@ public class BuildingPalettePanel extends HBox {
         card.node.setMaxWidth(CARD_WIDTH);
 
         // The name wraps to a second line instead of cutting off, and takes the height of two lines whether it needs
-        // them or not, so the icons and the costs of every card line up
+        // them or not, so the cards stay aligned
         final Label name = new Label(UiTheme.caps(type.getDisplayName()));
         name.getStyleClass().add(UiTheme.SMALL);
         name.setMouseTransparent(true);
@@ -117,13 +114,7 @@ public class BuildingPalettePanel extends HBox {
             card.node.getChildren().add(card.rotateHint);
         }
 
-        for (CraftingIngredient ingredient : recipe.ingredients()) {
-            final Label label = new Label();
-            label.getStyleClass().add(UiTheme.SMALL);
-            label.setMouseTransparent(true);
-            card.lines.add(new IngredientLine(ingredient, label));
-            card.node.getChildren().add(label);
-        }
+        card.cost.addAll(recipe.ingredients());
 
         Tooltip.install(card.node, new Tooltip(type.getDescription()));
         card.node.setOnMousePressed(event -> {
@@ -219,8 +210,8 @@ public class BuildingPalettePanel extends HBox {
             shownInventoryVersion = version;
             for (Card card : cards.values()) {
                 boolean affordable = true;
-                for (IngredientLine line : card.lines) {
-                    affordable &= showIngredient(line, player);
+                for (CraftingIngredient ingredient : card.cost) {
+                    affordable &= BuildingCostPanel.held(player, ingredient) >= ingredient.quantity();
                 }
                 showAffordable(card, affordable);
             }
@@ -239,17 +230,6 @@ public class BuildingPalettePanel extends HBox {
         card.affordable = affordable;
         UiTheme.setClass(card.node, UiTheme.CELL_UNAVAILABLE, !affordable);
         UiTheme.setIconUnavailable(card.icon, !affordable);
-    }
-
-    /** Shows one ingredient line and tells whether the player holds enough of it. */
-    private static boolean showIngredient(IngredientLine line, Player player) {
-        final CraftingIngredient ingredient = line.ingredient();
-        final int held = BuildingCostPanel.held(player, ingredient);
-        line.label().setText(UiTheme.caps(ingredient.itemType().getDisplayName()) + " " + held + "/" + ingredient.quantity());
-        final boolean enough = held >= ingredient.quantity();
-        UiTheme.setClass(line.label(), UiTheme.TEXT_GOOD, enough);
-        UiTheme.setClass(line.label(), UiTheme.TEXT_BAD, !enough);
-        return enough;
     }
 
     private void showSelection(BuildingType selected) {
@@ -285,16 +265,6 @@ public class BuildingPalettePanel extends HBox {
      */
     VBox cardNode(BuildingType type) {
         return cards.get(type).node;
-    }
-
-    /**
-     * Gives the labels of the cost of a piece as they are now shown, for the tests.
-     *
-     * @param type the piece
-     * @return one label per ingredient, in recipe order
-     */
-    List<Label> costLabels(BuildingType type) {
-        return cards.get(type).lines.stream().map(IngredientLine::label).toList();
     }
 
     /**

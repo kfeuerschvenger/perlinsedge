@@ -41,6 +41,8 @@ public final class UiTheme {
     public static final String HEADING = "pe-heading";
     /** Muted secondary text. */
     public static final String MUTED = "pe-muted";
+    /** Title of a small HUD panel, bold and slightly larger than the lines under it. */
+    public static final String PANEL_TITLE = "pe-panel-title";
     /** Small text. */
     public static final String SMALL = "pe-small";
     /** Dark pill behind a short label. */

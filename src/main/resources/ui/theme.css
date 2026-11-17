@@ -92,6 +92,14 @@
     -fx-fill: -pe-muted;
 }
 
+/* The title of a small HUD panel: bold, a step above the 12px lines under it, with room before the first line */
+.pe-panel-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -pe-text;
+    -fx-padding: 0 0 4 0;
+}
+
 .pe-small {
     -fx-font-size: 12px;
 }
@@ -241,17 +249,6 @@
 .pe-cell-unavailable .label {
     -fx-text-fill: -pe-disabled;
     -fx-opacity: 0.7;
-}
-
-/* The requirement lines of an unavailable card keep their green and red, so what is missing stays readable */
-.pe-cell-unavailable .label.pe-good {
-    -fx-text-fill: -pe-good;
-    -fx-opacity: 1;
-}
-
-.pe-cell-unavailable .label.pe-bad {
-    -fx-text-fill: -pe-danger;
-    -fx-opacity: 1;
 }
 
 .pe-good {

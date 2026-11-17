@@ -72,6 +72,18 @@ class BuildingCostPanelTest {
     }
 
     @Test
+    void theTitleCarriesThePanelTitleStyleThatTheThemeDefines() throws java.io.IOException {
+        assertTrue(FxToolkitSupport.onFx(() -> panel.titleLabel().getStyleClass().contains(UiTheme.PANEL_TITLE)));
+        try (java.io.InputStream css = getClass().getResourceAsStream(UiTheme.STYLESHEET_PATH)) {
+            final String theme = new String(css.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            final String rule = theme.substring(theme.indexOf("." + UiTheme.PANEL_TITLE));
+            final String body = rule.substring(0, rule.indexOf('}'));
+            assertTrue(body.contains("-fx-font-weight: bold"), "bold");
+            assertTrue(body.contains("-fx-padding: 0 0 4 0"), "room below the title");
+        }
+    }
+
+    @Test
     void itListsEveryIngredientOfTheSelectedPieceWithItsQuantity() {
         enable(true);
         update(BuildingType.BED);

@@ -57,14 +57,10 @@ class BuildingPalettePanelTest {
         });
     }
 
-    private List<String> costTexts(BuildingType type) {
-        return FxToolkitSupport.onFx(() -> panel.costLabels(type).stream().map(Label::getText).toList());
-    }
-
     @Test
-    void everyRecipeHasACardWithItsCost() {
+    void everyRecipeHasACard() {
         for (BuildingRecipe recipe : recipes.getAllBuildingRecipes()) {
-            assertEquals(recipe.ingredients().size(), FxToolkitSupport.onFx(() -> panel.costLabels(recipe.buildingType()).size()));
+            assertNotNull(FxToolkitSupport.onFx(() -> panel.cardNode(recipe.buildingType())));
         }
     }
 
@@ -119,30 +115,12 @@ class BuildingPalettePanelTest {
     }
 
     @Test
-    void theCostShowsHeldOverNeededInGreenWhenEnoughAndRedWhenNot() {
-        player.addItem(new Item(ItemType.WOOD_LOG, 1));
-        update(null);
-
-        List<String> texts = costTexts(BuildingType.FENCE);
-        assertEquals(List.of("WOOD LOG 1/2"), texts);
-        assertTrue(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.FENCE).get(0).getStyleClass().contains(UiTheme.TEXT_BAD)));
-
-        player.addItem(new Item(ItemType.WOOD_LOG, 1));
-        update(null);
-
-        assertEquals(List.of("WOOD LOG 2/2"), costTexts(BuildingType.FENCE));
-        assertTrue(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.FENCE).get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)));
-        assertFalse(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.FENCE).get(0).getStyleClass().contains(UiTheme.TEXT_BAD)));
-    }
-
-    @Test
-    void eachIngredientOfAPieceIsColouredOnItsOwn() {
-        player.addItem(new Item(ItemType.WOOD_PLANK, 5));
-        update(null);
-
-        List<Label> bed = FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.BED));
-        assertTrue(FxToolkitSupport.onFx(() -> bed.get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)), "planks 5/3");
-        assertTrue(FxToolkitSupport.onFx(() -> bed.get(1).getStyleClass().contains(UiTheme.TEXT_BAD)), "fiber 0/5");
+    void aCardHoldsOnlyTheIconAndTheNameAndTheRotateHint() {
+        for (BuildingRecipe recipe : recipes.getAllBuildingRecipes()) {
+            final BuildingType type = recipe.buildingType();
+            final int expected = type.isRotatable() ? 3 : 2;
+            assertEquals(expected, FxToolkitSupport.onFx(() -> panel.cardNode(type).getChildren().size()), type.name());
+        }
     }
 
     @Test

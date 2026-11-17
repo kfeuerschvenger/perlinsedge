@@ -45,7 +45,7 @@ public class BuildingCostPanel extends VBox {
         setAlignment(Pos.TOP_LEFT);
         setSpacing(LINE_SPACING);
         getStyleClass().add(UiTheme.PANEL);
-        title.getStyleClass().addAll(UiTheme.SMALL, UiTheme.MUTED);
+        title.getStyleClass().add(UiTheme.PANEL_TITLE);
         getChildren().add(title);
         // Nothing here takes a click, so it never swallows one meant for the world
         setMouseTransparent(true);
