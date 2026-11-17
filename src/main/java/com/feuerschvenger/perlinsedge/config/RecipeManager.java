@@ -85,6 +85,12 @@ public class RecipeManager {
                 new CraftingIngredient(ItemType.STICK, 1))
         );
 
+        // The tool that puts the player in build mode while it is held
+        itemRecipes.add(createToolRecipe(ItemType.HAMMER,
+                new CraftingIngredient(ItemType.STICK, 2),
+                new CraftingIngredient(ItemType.STONE, 2))
+        );
+
         // Light sources
         itemRecipes.add(new Recipe(
                 ItemType.TORCH,

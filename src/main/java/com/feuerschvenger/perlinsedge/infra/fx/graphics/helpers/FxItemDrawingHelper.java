@@ -139,6 +139,7 @@ public final class FxItemDrawingHelper {
             case PICKAXE -> drawTool(gc, x, y, width, height, Tool.PICKAXE);
             case AXE -> drawTool(gc, x, y, width, height, Tool.AXE);
             case SWORD -> drawTool(gc, x, y, width, height, Tool.SWORD);
+            case HAMMER -> drawTool(gc, x, y, width, height, Tool.HAMMER);
             default -> drawDefaultShape(gc, x, y, width, height);
         }
 
@@ -248,7 +249,7 @@ public final class FxItemDrawingHelper {
     }
 
     /** The items drawn as a handle with a head. The head switch covers every constant, so a new tool cannot go undrawn. */
-    private enum Tool { PICKAXE, AXE, SWORD }
+    private enum Tool { PICKAXE, AXE, SWORD, HAMMER }
 
     private static void drawTool(GraphicsContext gc, double x, double y, double width, double height, Tool tool) {
         // Draw handle
@@ -274,6 +275,9 @@ public final class FxItemDrawingHelper {
             case AXE -> new double[][]{
                     {x + width * 0.3, x + width * 0.7, x + width * 0.9, x + width * 0.1},
                     {y + height * 0.2, y + height * 0.2, y + height * 0.4, y + height * 0.4}};
+            case HAMMER -> new double[][]{
+                    {x + width * 0.2, x + width * 0.8, x + width * 0.8, x + width * 0.2},
+                    {y + height * 0.15, y + height * 0.15, y + height * 0.4, y + height * 0.4}};
             case SWORD -> new double[][]{
                     {headCenterX - width * 0.05, headCenterX + width * 0.05, headCenterX},
                     {y + height * 0.05, y + height * 0.05, y + height * 0.4}};

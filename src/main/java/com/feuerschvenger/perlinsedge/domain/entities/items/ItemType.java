@@ -139,6 +139,11 @@ public enum ItemType {
             "A trusted companion for adventurers. " +
                     "Sharp, strong, and always ready."
     ),
+    HAMMER(
+            1,
+            "Hold it to raise walls, doors and workbenches, " +
+                    "and to take them down again."
+    ),
     POTION_HEALTH(
             8,
             "A magical brew for when things go wrong, " +

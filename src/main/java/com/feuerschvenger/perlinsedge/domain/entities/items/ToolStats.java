@@ -53,6 +53,8 @@ public final class ToolStats {
                 ResourceType.IRON_ORE, 12,
                 ResourceType.CRYSTALS, 9), HAND_COMBAT_DAMAGE));
         PROFILES.put(ItemType.SWORD, new Profile(Map.of(), HAND_COMBAT_DAMAGE * 2));
+        // The hammer builds, it does not harvest or fight: it suits no resource and hits like a hand
+        PROFILES.put(ItemType.HAMMER, new Profile(Map.of(), HAND_COMBAT_DAMAGE));
     }
 
     /** Not instantiable: the class only holds the table. */
