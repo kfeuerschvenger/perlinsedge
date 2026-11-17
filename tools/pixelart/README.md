@@ -17,6 +17,7 @@ flowchart LR
   Q --> E[slime strip]
   P[player.py] --> O
   I[items.py] --> O
+  B[buildings.py] --> O
   Q --> G[hearts]
   L[tiles.py] --> O[src/main/resources/assets]
   T[trees.py] --> O
@@ -54,6 +55,16 @@ python -I tools/pixelart/items.py
 `items.py` draws the icon of every `ItemType` with no raw input, 16x16 each, into `assets/items/<item>.png`. The file name is the lower case constant name, which is the name the game looks an icon up by. Every icon is built from a few shaded blobs, rectangles, lines and single pixels in colours of `palette.hex`, lit from the upper left and wrapped in the dark outline. The script has one drawing function per item and an `ICONS` table that maps the file name to it, so adding an item type is one function and one table entry. It writes every icon of the table and removes the stale icons of the folder, which are the files named like an item icon (lower case `ItemType` style names, such as `wood_log.png`) that no drawing produces. It prints each file it removes and never touches any other file, so a differently named image in the folder is safe. The game shows an icon at a whole multiple of its own size with image smoothing off, which keeps every art pixel a crisp block, and it only draws a stand-in shape for an item whose file is missing. `build.py` does not touch items, so running it never overwrites them.
 
 `--preview <file>` renders every icon on a dark panel at 4x instead of writing the assets.
+
+## Buildings drawn by script
+
+```bash
+python -I -B tools/pixelart/buildings.py
+```
+
+`buildings.py` draws every build mode piece with no raw input into `assets/buildings/<name>.png`: `wall`, `fence`, `chest`, `anvil`, `workbench`, `bed`, `door_closed`, `door_open`, `bridge`, `dock`, `furnace_off`, `furnace_on`, `campfire_0` to `campfire_3` and `standing_torch_0` to `standing_torch_3`. Every sprite is 32 px wide and between 20 and 40 px tall. The pieces are isometric prisms (lit top, bright left face, dark right face) in colours of `palette.hex` with the dark outline. The footprint is the 32x16 diamond of a land tile top and it always fills the bottom 16 rows of the canvas, so the bottom centre pixel of a sprite goes on the bottom vertex of the tile diamond and the tile centre is the pixel (16, height - 8). This differs from the resource sprites, whose canvas bottom sits on the tile centre: a building is drawn 8 art pixels lower than a tree of the same height.
+
+`--preview <file>` renders every sprite at 4x on grass green and on water blue with labels, and `--placed <file>` renders a small map of grass tiles and a pond with the pieces placed at their anchor. Neither writes assets.
 
 ## Raw layout
 
