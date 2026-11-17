@@ -399,8 +399,9 @@ def axe():
 
 def hammer():
     cv = Canvas(SIZE, SIZE)
-    # a wooden haft rising from the lower left, the same slant as the axe so the hotbar reads as one tool family
-    handle(cv, 2, 14, 11, 5)
+    # a wooden haft rising from the lower left, the same slant as the axe so the hotbar reads as one tool family;
+    # it runs through the middle of the head and its tip shows a pixel or two beyond the head
+    handle(cv, 2, 14, 12, 3)
     # the head is a block centred on the haft with both faces showing: long across the haft, short along it,
     # which is what tells a hammer from an axe (one blade on one side) and from a pickaxe (a thin curved bar)
     root = (10.0, 5.0)
