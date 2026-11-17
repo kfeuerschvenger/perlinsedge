@@ -143,4 +143,32 @@ class BuildingPalettePanelTest {
         assertTrue(FxToolkitSupport.onFx(() -> bed.get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)), "planks 5/3");
         assertTrue(FxToolkitSupport.onFx(() -> bed.get(1).getStyleClass().contains(UiTheme.TEXT_BAD)), "fiber 0/5");
     }
+
+    @Test
+    void theRotateHintShowsOnlyOnTheSelectedCardOfAPieceThatCanTurn() {
+        update(BuildingType.CHEST);
+        assertTrue(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.CHEST)));
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.BED)), "not selected");
+
+        update(BuildingType.CAMPFIRE);
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.CHEST)));
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.CAMPFIRE)), "it cannot turn");
+
+        update(null);
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.CHEST)));
+    }
+
+    @Test
+    void theCardsShowTheRotationTheyAreGiven() {
+        final java.util.List<BuildingType> asked = new ArrayList<>();
+        FxToolkitSupport.onFx(() -> {
+            panel.update(player, BuildingType.BED, type -> {
+                asked.add(type);
+                return type == BuildingType.BED ? 2 : 0;
+            });
+            return null;
+        });
+
+        assertTrue(asked.containsAll(List.of(BuildingType.values())), "every card is asked for its rotation");
+    }
 }

@@ -10,6 +10,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -18,6 +19,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.ToIntFunction;
 
 /**
  * The palette of building pieces, shown above the item hotbar while the hammer is in hand. Every piece has a card with
@@ -33,6 +35,8 @@ public class BuildingPalettePanel extends HBox {
     static final int ICON_SIZE = 40;
     private static final double CARD_PADDING = 4;
     private static final double CARD_GAP = 4;
+    /** What the selected card of a piece that can turn tells about the rotation key. */
+    static final String ROTATE_HINT = "R rotate";
 
     private final Map<BuildingType, Card> cards = new EnumMap<>(BuildingType.class);
     private Consumer<BuildingType> onBuildingSelected;
@@ -45,6 +49,10 @@ public class BuildingPalettePanel extends HBox {
     private static final class Card {
         final VBox node = new VBox(2);
         final List<IngredientLine> lines = new ArrayList<>();
+        ImageView icon;
+        /** The line that tells the rotation key, shown only on the selected card of a piece that can turn. */
+        Label rotateHint;
+        int shownRotation = -1;
     }
 
     /** One ingredient of a cost: what the recipe needs and the label that shows it. */
@@ -81,7 +89,16 @@ public class BuildingPalettePanel extends HBox {
         final Label name = new Label(UiTheme.caps(type.getDisplayName()));
         name.getStyleClass().add(UiTheme.SMALL);
         name.setMouseTransparent(true);
-        card.node.getChildren().addAll(BuildingIcons.view(type, ICON_SIZE), name);
+        card.icon = BuildingIcons.view(type, 0, ICON_SIZE);
+        card.node.getChildren().addAll(card.icon, name);
+        if (type.isRotatable()) {
+            card.rotateHint = new Label(UiTheme.caps(ROTATE_HINT));
+            card.rotateHint.getStyleClass().addAll(UiTheme.SMALL, UiTheme.MUTED);
+            card.rotateHint.setMouseTransparent(true);
+            card.rotateHint.setVisible(false);
+            card.rotateHint.setManaged(false);
+            card.node.getChildren().add(card.rotateHint);
+        }
 
         for (CraftingIngredient ingredient : recipe.ingredients()) {
             final Label label = new Label();
@@ -139,6 +156,27 @@ public class BuildingPalettePanel extends HBox {
      * @param selected the piece that is selected, or null for none
      */
     public void update(Player player, BuildingType selected) {
+        update(player, selected, type -> 0);
+    }
+
+    /**
+     * Redraws the costs, the selection border and the icons when the inventory, the selection or a rotation changed since
+     * the last call. The icon of every card shows the way its piece faces now, and the selected card of a piece that can
+     * turn tells the rotation key.
+     *
+     * @param player     the player whose inventory the costs are read against, null shows every ingredient as missing
+     * @param selected   the piece that is selected, or null for none
+     * @param rotationOf gives the way the next piece of a type faces
+     */
+    public void update(Player player, BuildingType selected, ToIntFunction<BuildingType> rotationOf) {
+        for (Map.Entry<BuildingType, Card> entry : cards.entrySet()) {
+            final Card card = entry.getValue();
+            final int rotation = rotationOf.applyAsInt(entry.getKey());
+            if (rotation != card.shownRotation) {
+                card.shownRotation = rotation;
+                BuildingIcons.show(card.icon, entry.getKey(), rotation);
+            }
+        }
         final long version = player != null ? player.getInventoryVersion() : -1;
         if (player != shownPlayer || version != shownInventoryVersion) {
             shownPlayer = player;
@@ -167,7 +205,14 @@ public class BuildingPalettePanel extends HBox {
         }
         selectionShown = true;
         shownSelected = selected;
-        cards.forEach((type, card) -> UiTheme.setClass(card.node, UiTheme.SLOT_SELECTED, type == selected));
+        cards.forEach((type, card) -> {
+            UiTheme.setClass(card.node, UiTheme.SLOT_SELECTED, type == selected);
+            if (card.rotateHint != null) {
+                final boolean shown = type == selected;
+                card.rotateHint.setVisible(shown);
+                card.rotateHint.setManaged(shown);
+            }
+        });
     }
 
     /**
@@ -197,5 +242,26 @@ public class BuildingPalettePanel extends HBox {
      */
     List<Label> costLabels(BuildingType type) {
         return cards.get(type).lines.stream().map(IngredientLine::label).toList();
+    }
+
+    /**
+     * Tells whether the card of a piece shows the line about the rotation key, for the tests.
+     *
+     * @param type the piece
+     * @return true when the line is visible, false when it is hidden or the piece cannot turn
+     */
+    boolean isRotateHintShown(BuildingType type) {
+        final Label hint = cards.get(type).rotateHint;
+        return hint != null && hint.isVisible();
+    }
+
+    /**
+     * Gives the icon of the card of a piece, for the tests.
+     *
+     * @param type the piece
+     * @return the icon node
+     */
+    ImageView iconOf(BuildingType type) {
+        return cards.get(type).icon;
     }
 }

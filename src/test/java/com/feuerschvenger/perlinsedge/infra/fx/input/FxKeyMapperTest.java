@@ -26,6 +26,7 @@ class FxKeyMapperTest {
         assertEquals(Optional.of(GameKey.ESCAPE), key(KeyCode.ESCAPE));
         assertEquals(Optional.of(GameKey.SPACE), key(KeyCode.SPACE));
         assertEquals(Optional.of(GameKey.I), key(KeyCode.I));
+        assertEquals(Optional.of(GameKey.ROTATE), key(KeyCode.R));
     }
 
     @Test

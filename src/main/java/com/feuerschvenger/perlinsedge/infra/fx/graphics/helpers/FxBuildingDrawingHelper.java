@@ -98,7 +98,8 @@ public final class FxBuildingDrawingHelper {
             drawSprite(gc, GhostSprites.of(sprite, preview.tint()), centerX, centerY, ZoomSteps.integerArtScale(zoom));
         } else {
             drawFootprint(gc, preview.color(), centerX, centerY, zoom);
-            FxBuildingPainter.draw(gc, BuildingFactory.create(preview.type(), preview.tileX(), preview.tileY()),
+            FxBuildingPainter.draw(gc, BuildingFactory.create(preview.type(), preview.tileX(), preview.tileY(),
+                            preview.rotation()),
                     centerX, centerY - AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, zoom);
         }
         gc.restore();

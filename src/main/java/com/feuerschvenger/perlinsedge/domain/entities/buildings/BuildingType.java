@@ -90,6 +90,36 @@ public enum BuildingType {
     }
 
     // ==================================================================
+    //  Rotation
+    // ==================================================================
+
+    /**
+     * Gives how many ways a piece of this type can face. A four way piece has a front that turns through the four edges
+     * of its tile, a two way piece runs along one of the two diagonals of its tile, and the others look the same
+     * whichever way they are placed.
+     * <p>
+     * A four way piece has rotation 0 when its front faces the lower right edge of the tile on the screen, 1 for the
+     * lower left, 2 for the upper left and 3 for the upper right, so one turn of the rotation key is a quarter turn
+     * clockwise seen from above. A two way piece has rotation 0 when it runs between the upper left and the lower right
+     * edge, which is along the tile X axis, and 1 when it runs between the upper right and the lower left edge, which
+     * is along the tile Y axis.
+     *
+     * @return 4, 2 or 1
+     */
+    public int rotationCount() {
+        return switch (this) {
+            case CHEST, FURNACE, ANVIL, WORKBENCH, BED, DOCK -> 4;
+            case BRIDGE -> 2;
+            default -> 1;
+        };
+    }
+
+    /** @return true when the rotation key changes how a piece of this type faces */
+    public boolean isRotatable() {
+        return rotationCount() > 1;
+    }
+
+    // ==================================================================
     //  Accessor Methods
     // ==================================================================
 

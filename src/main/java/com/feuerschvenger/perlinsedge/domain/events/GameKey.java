@@ -10,6 +10,8 @@ public enum GameKey {
     /** Centres the camera on the player. */
     SPACE,
     I,
+    /** R: turns the selected building piece a quarter turn clockwise while the hammer is in hand. */
+    ROTATE,
     /** E: uses the item held in hand, such as a potion. */
     USE_ITEM,
     /** Q: throws one item out of the hovered or selected inventory slot. */

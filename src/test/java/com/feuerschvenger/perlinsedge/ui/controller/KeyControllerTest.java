@@ -194,4 +194,21 @@ class KeyControllerTest {
         bare.onKeyAction(GameKey.DIGIT_1);
         bare.onKeyAction(GameKey.SPACE);
     }
+
+    @Test
+    void theRotateKeyRunsItsActionAndIsIgnoredWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        controller.setRotateAction(() -> calls.add("rotate"));
+
+        controller.onKeyAction(GameKey.ROTATE);
+        controller.setInputBlocked(() -> true);
+        controller.onKeyAction(GameKey.ROTATE);
+
+        assertEquals(List.of("rotate"), calls);
+    }
+
+    @Test
+    void theRotateKeyWithNoActionSetDoesNothing() {
+        assertDoesNotThrow(() -> controller.onKeyAction(GameKey.ROTATE));
+    }
 }

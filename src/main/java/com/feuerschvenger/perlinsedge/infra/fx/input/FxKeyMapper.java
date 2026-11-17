@@ -36,6 +36,7 @@ public final class FxKeyMapper {
             case ESCAPE -> GameKey.ESCAPE;
             case SPACE -> GameKey.SPACE;
             case I -> GameKey.I;
+            case R -> GameKey.ROTATE;
             case F1 -> GameKey.F1;
             case F2 -> GameKey.F2;
             case F3 -> GameKey.F3;

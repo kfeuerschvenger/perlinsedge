@@ -26,6 +26,8 @@ public abstract class Building {
     protected final int maxHealth;
     /** Health left, from {@code maxHealth} down to 0. */
     protected int health;
+    /** The way the building faces, from 0 up to but excluding {@link BuildingType#rotationCount()}, see there. */
+    protected int rotation;
 
     /**
      * Creates a new building instance at the specified tile position.
@@ -44,6 +46,16 @@ public abstract class Building {
         this.isDestructible = isDestructible;
         this.maxHealth = BuildingStats.maxHealth(type);
         this.health = maxHealth;
+    }
+
+    /**
+     * Sets the way the building faces. The value wraps around the number of ways its type can face, so any whole number
+     * is a valid rotation and a type that cannot turn always keeps 0.
+     *
+     * @param rotation the rotation, see {@link BuildingType#rotationCount()}
+     */
+    public void setRotation(int rotation) {
+        this.rotation = Math.floorMod(rotation, type.rotationCount());
     }
 
     /**

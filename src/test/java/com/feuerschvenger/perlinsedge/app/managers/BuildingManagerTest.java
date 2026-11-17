@@ -196,4 +196,76 @@ class BuildingManagerTest {
         assertEquals(BuildingStats.maxHealth(BuildingType.FENCE), wall.getHealth());
         assertFalse(wall.isDamaged());
     }
+
+    @Test
+    void rotatingTurnsTheSelectedPieceThroughItsWaysAndBackToTheFirst() {
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+
+        assertEquals(0, manager.getRotation(BuildingType.CHEST));
+        for (int expected : new int[]{1, 2, 3, 0}) {
+            assertTrue(manager.rotateSelected());
+            assertEquals(expected, manager.getRotation(BuildingType.CHEST));
+        }
+    }
+
+    @Test
+    void aTwoWayPieceTurnsBetweenItsTwoAxes() {
+        manager.setSelectedBuildingType(BuildingType.BRIDGE);
+
+        manager.rotateSelected();
+        assertEquals(1, manager.getRotation(BuildingType.BRIDGE));
+        manager.rotateSelected();
+        assertEquals(0, manager.getRotation(BuildingType.BRIDGE));
+    }
+
+    @Test
+    void aPieceThatDoesNotTurnIgnoresTheRotateKey() {
+        manager.setSelectedBuildingType(BuildingType.CAMPFIRE);
+        assertFalse(manager.rotateSelected());
+
+        manager.setSelectedBuildingType(BuildingType.FENCE);
+        assertFalse(manager.rotateSelected());
+        manager.setSelectedBuildingType(null);
+        assertFalse(manager.rotateSelected());
+    }
+
+    @Test
+    void theRotationIsRememberedPerPieceTypeWhileTheHammerStaysInHand() {
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+        manager.rotateSelected();
+        manager.rotateSelected();
+        manager.setSelectedBuildingType(BuildingType.BED);
+        manager.rotateSelected();
+
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+        assertEquals(2, manager.getRotation(BuildingType.CHEST), "each type keeps its own");
+        assertEquals(1, manager.getRotation(BuildingType.BED));
+        manager.setSelectedBuildingType(null);
+        assertEquals(2, manager.getRotation(BuildingType.CHEST), "dropping the selection keeps it");
+    }
+
+    @Test
+    void theRotationsAreForgottenWhenTheHammerLeavesTheHand() {
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+        manager.rotateSelected();
+
+        manager.deactivateBuildingMode();
+        manager.activateBuildingMode();
+
+        assertEquals(0, manager.getRotation(BuildingType.CHEST));
+    }
+
+    @Test
+    void aPlacedPieceKeepsTheRotationItWasPlacedWith() {
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+        manager.rotateSelected();
+        manager.rotateSelected();
+        manager.rotateSelected();
+
+        Building chest = build(BuildingType.CHEST, 2, 2);
+
+        assertEquals(3, chest.getRotation());
+        manager.rotateSelected();
+        assertEquals(3, chest.getRotation(), "turning the next piece does not turn the placed one");
+    }
 }

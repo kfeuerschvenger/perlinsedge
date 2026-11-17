@@ -158,6 +158,7 @@ public class FxRenderer {
     private int previewTileX = -1;
     private int previewTileY = -1;
     private BuildingType previewBuildingType;
+    private int previewRotation;
     /** Whether the hammer is in hand, which is when the grid, the ghost and the health bar of a hovered building show. */
     private boolean buildModeActive;
     private Rgba previewRgba;
@@ -198,6 +199,20 @@ public class FxRenderer {
      *                     amber when the resources are missing
      */
     public void setBuildingPreview(int tileX, int tileY, BuildingType buildingType, Rgba color) {
+        setBuildingPreview(tileX, tileY, buildingType, 0, color);
+    }
+
+    /**
+     * Turns on what is drawn while the hammer is in hand, with the ghost facing a given way.
+     *
+     * @param tileX        the hovered tile X, -1 for none
+     * @param tileY        the hovered tile Y, -1 for none
+     * @param buildingType the selected piece, or null for none, which leaves the grid without a ghost
+     * @param rotation     the way the ghost faces, see {@link BuildingType#rotationCount()}
+     * @param color        the tint of the ghost, see {@link #setBuildingPreview(int, int, BuildingType, Rgba)}
+     */
+    public void setBuildingPreview(int tileX, int tileY, BuildingType buildingType, int rotation, Rgba color) {
+        this.previewRotation = rotation;
         this.buildModeActive = true;
         this.previewTileX = tileX;
         this.previewTileY = tileY;
@@ -672,8 +687,10 @@ public class FxRenderer {
     private BuildingPreview previewFor() {
         BuildingPreview preview = cachedPreview;
         if (preview == null || preview.tileX() != previewTileX || preview.tileY() != previewTileY
-                || preview.type() != previewBuildingType || preview.color() != previewColor) {
-            preview = new BuildingPreview(previewTileX, previewTileY, previewBuildingType, previewRgba, previewColor);
+                || preview.type() != previewBuildingType || preview.rotation() != previewRotation
+                || preview.color() != previewColor) {
+            preview = new BuildingPreview(previewTileX, previewTileY, previewBuildingType, previewRotation, previewRgba,
+                    previewColor);
             cachedPreview = preview;
         }
         return preview;
@@ -794,7 +811,7 @@ public class FxRenderer {
     /** Draws the ghost of the selected piece on the hovered tile, from its sprite when it has one. */
     private void drawBuildingGhost(BuildingPreview preview, Renderable r) {
         final double zoom = camera.getZoom();
-        FxBuildingDrawingHelper.drawGhost(gc, preview, buildingSprites.restingImage(preview.type()), r.screenX(),
+        FxBuildingDrawingHelper.drawGhost(gc, preview, buildingSprites.restingImage(preview.type(), preview.rotation()), r.screenX(),
                 r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, camera.getX(),
                 camera.getY(), zoom);
     }

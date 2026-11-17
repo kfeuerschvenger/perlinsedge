@@ -14,6 +14,8 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -36,6 +38,8 @@ public class BuildingManager {
     private BuildingType selectedBuildingType;
     /** The piece chosen last, which comes back as the selection when the hammer is picked up again. */
     private BuildingType lastBuildingType;
+    /** The rotation chosen for each piece type, kept while the hammer stays in hand. */
+    private final Map<BuildingType, Integer> rotations = new EnumMap<>(BuildingType.class);
     @Getter
     private boolean buildingModeActive;
 
@@ -82,12 +86,38 @@ public class BuildingManager {
     }
 
     /**
-     * Deactivates building mode. Nothing stays selected, and the piece chosen last is remembered.
+     * Turns the selected piece a quarter turn clockwise seen from above, which is the next way it can face. The rotation
+     * is remembered for that piece type until the hammer leaves the hand.
+     *
+     * @return true when a rotatable piece is selected and was turned, false when there is none or it cannot turn
+     */
+    public boolean rotateSelected() {
+        if (!buildingModeActive || selectedBuildingType == null || !selectedBuildingType.isRotatable()) {
+            return false;
+        }
+        rotations.put(selectedBuildingType, (getRotation(selectedBuildingType) + 1) % selectedBuildingType.rotationCount());
+        return true;
+    }
+
+    /**
+     * Gives the rotation the next piece of a type is placed with.
+     *
+     * @param type a building type
+     * @return the remembered rotation, 0 when none was chosen or the type cannot turn
+     */
+    public int getRotation(BuildingType type) {
+        return type == null ? 0 : rotations.getOrDefault(type, 0);
+    }
+
+    /**
+     * Deactivates building mode. Nothing stays selected, and the piece chosen last is remembered. The rotations are
+     * forgotten, they only last while the hammer stays in hand.
      */
     public void deactivateBuildingMode() {
         if (buildingModeActive) {
             buildingModeActive = false;
             selectedBuildingType = null;
+            rotations.clear();
             log.info("Building mode: OFF");
         }
     }
@@ -145,7 +175,8 @@ public class BuildingManager {
             return false;
         }
 
-        Building newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY);
+        Building newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY,
+                getRotation(selectedBuildingType));
         consumeResources(player, existingRecipe);
         targetTile.setBuilding(newBuilding);
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);

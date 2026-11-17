@@ -37,31 +37,66 @@ final class BuildingIcons {
      * @return the icon with its aspect kept, drawn without smoothing when it is pixel art
      */
     static ImageView view(BuildingType type, int size) {
-        final Image image = image(type);
-        final ImageView view = new ImageView(image);
+        return view(type, 0, size);
+    }
+
+    /**
+     * Gives the icon of a building type facing a given way as a node.
+     *
+     * @param type     building type
+     * @param rotation the way the piece faces, which only a piece with art shows
+     * @param size     edge of the square the icon fits in, in pixels
+     * @return the icon with its aspect kept
+     */
+    static ImageView view(BuildingType type, int rotation, int size) {
+        final ImageView view = new ImageView();
         view.setFitWidth(size);
         view.setFitHeight(size);
         view.setPreserveRatio(true);
-        view.setSmooth(!isSprite(type));
+        show(view, type, rotation);
         return view;
     }
 
     /**
-     * Gives the art of a type: its sprite, or the cropped render of the procedural shape.
+     * Shows a type facing a given way in an icon that already exists, so a card follows the rotation without a new node.
      *
-     * @param type building type
+     * @param view     the icon to change
+     * @param type     building type
+     * @param rotation the way the piece faces
+     */
+    static void show(ImageView view, BuildingType type, int rotation) {
+        view.setImage(image(type, rotation));
+        view.setSmooth(!isSprite(type, rotation));
+    }
+
+    /**
+     * Gives the art of a type facing a given way: its sprite, or the cropped render of the procedural shape, which looks
+     * the same whichever way it faces.
+     *
+     * @param type     building type
+     * @param rotation the way the piece faces
      * @return the image, never null
      */
-    static synchronized Image image(BuildingType type) {
-        final Image sprite = BuildingSprites.getInstance().restingImage(type);
+    static synchronized Image image(BuildingType type, int rotation) {
+        final Image sprite = BuildingSprites.getInstance().restingImage(type, rotation);
         if (sprite != null) {
             return sprite;
         }
         return CACHE.computeIfAbsent(type, BuildingIcons::renderProcedural);
     }
 
-    private static boolean isSprite(BuildingType type) {
-        return BuildingSprites.getInstance().restingImage(type) != null;
+    /**
+     * Gives the art of a type facing the first way.
+     *
+     * @param type building type
+     * @return the image, never null
+     */
+    static Image image(BuildingType type) {
+        return image(type, 0);
+    }
+
+    private static boolean isSprite(BuildingType type, int rotation) {
+        return BuildingSprites.getInstance().restingImage(type, rotation) != null;
     }
 
     private static Image renderProcedural(BuildingType type) {

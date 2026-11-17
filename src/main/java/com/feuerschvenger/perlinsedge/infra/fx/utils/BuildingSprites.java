@@ -14,10 +14,11 @@ import java.util.function.Function;
 
 /**
  * Loads the building art once and hands it out by building. The files live in {@code assets/buildings} and are named
- * after the piece: {@code wall}, {@code fence}, {@code chest}, {@code anvil}, {@code workbench}, {@code bed},
- * {@code bridge}, {@code dock}, {@code furnace_off}, {@code furnace_on},
- * and the four frames {@code campfire_0} to {@code campfire_3} and {@code standing_torch_0} to
- * {@code standing_torch_3}. A piece with no file answers null, and the caller draws the procedural shape instead.
+ * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off},
+ * {@code anvil}, {@code workbench}, {@code bed} and {@code dock}, and {@code bridge_0} and {@code bridge_1}. The
+ * campfire and the standing torch do not turn and have four flame frames, {@code campfire_0} to {@code campfire_3} and
+ * {@code standing_torch_0} to {@code standing_torch_3}. A piece with no file answers null, and the caller draws the
+ * procedural shape instead.
  * <p>
  * Building art is 32 px wide and its bottom 16 rows are the footprint of the tile, a 32 by 16 diamond, so the bottom
  * centre of the image is the bottom vertex of the tile and the centre of the tile is {@value #TILE_CENTER_ART_PIXELS}
@@ -57,7 +58,8 @@ public final class BuildingSprites {
     }
 
     /**
-     * Gives the file name, without extension, of the art of a building in its present state.
+     * Gives the file name, without extension, of the art of a building in its present state and the way it faces. A
+     * rotatable piece has one file for each way it faces, numbered as {@link BuildingType#rotationCount()} describes.
      *
      * @param building the building
      * @param frame    the animation frame, used by the pieces that animate
@@ -65,26 +67,51 @@ public final class BuildingSprites {
      */
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
-            // The furnace has no lit state yet, so it is always shown cold
-            case FURNACE -> "furnace_off";
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
-            default -> PLAIN_NAMES.get(building.getType());
+            default -> restingName(building.getType(), building.getRotation());
+        };
+    }
+
+    /**
+     * Gives the file name of the art of a type at rest, which is what the palette and the placement ghost show. The
+     * furnace has no lit state yet, so it is always shown cold.
+     *
+     * @param type     the building type
+     * @param rotation the way the piece faces
+     * @return the name of the art
+     */
+    public static String restingName(BuildingType type, int rotation) {
+        return switch (type) {
+            case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(type)[0];
+            case FURNACE -> FURNACE_NAMES[Math.floorMod(rotation, FURNACE_NAMES.length)];
+            default -> {
+                final String[] names = NAMES.get(type);
+                yield names[Math.floorMod(rotation, names.length)];
+            }
         };
     }
 
     /** The names are built once, so naming a building every frame allocates nothing. */
-    private static final Map<BuildingType, String> PLAIN_NAMES = new EnumMap<>(BuildingType.class);
+    private static final Map<BuildingType, String[]> NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> FLAME_NAMES = new EnumMap<>(BuildingType.class);
+    private static final String[] FURNACE_NAMES = new String[4];
 
     static {
         for (BuildingType type : BuildingType.values()) {
             final String base = type.name().toLowerCase(Locale.ROOT);
-            PLAIN_NAMES.put(type, base);
+            final String[] names = new String[type.rotationCount()];
+            for (int i = 0; i < names.length; i++) {
+                names[i] = type.isRotatable() ? base + "_" + i : base;
+            }
+            NAMES.put(type, names);
             final String[] frames = new String[FLAME_FRAMES];
             for (int i = 0; i < FLAME_FRAMES; i++) {
                 frames[i] = base + "_" + i;
             }
             FLAME_NAMES.put(type, frames);
+        }
+        for (int i = 0; i < FURNACE_NAMES.length; i++) {
+            FURNACE_NAMES[i] = "furnace_off_" + i;
         }
     }
 
@@ -110,19 +137,25 @@ public final class BuildingSprites {
     }
 
     /**
-     * Gives the art of a type in its resting state, which is what the palette and the placement ghost show.
+     * Gives the art of a type at rest facing a given way, which is what the palette and the placement ghost show.
+     *
+     * @param type     the building type
+     * @param rotation the way the piece faces
+     * @return the image, or null when the piece has no art
+     */
+    public Image restingImage(BuildingType type, int rotation) {
+        return image(restingName(type, rotation));
+    }
+
+    /**
+     * Gives the art of a type at rest facing the first way.
      *
      * @param type the building type
      * @return the image, or null when the piece has no art
      */
     public Image restingImage(BuildingType type) {
-        return switch (type) {
-            case FURNACE -> image("furnace_off");
-            case CAMPFIRE, STANDING_TORCH -> image(FLAME_NAMES.get(type)[0]);
-            default -> image(PLAIN_NAMES.get(type));
-        };
+        return restingImage(type, 0);
     }
-
     private Image image(String name) {
         if (cache.containsKey(name)) {
             return cache.get(name);

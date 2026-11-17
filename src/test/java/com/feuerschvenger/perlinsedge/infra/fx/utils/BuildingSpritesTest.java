@@ -48,12 +48,12 @@ class BuildingSpritesTest {
 
         assertSame(image, sprites.imageFor(of(BuildingType.WORKBENCH), 0));
         assertSame(image, sprites.imageFor(of(BuildingType.WORKBENCH), 3));
-        assertEquals(List.of("workbench"), asked, "the image is loaded once and kept");
+        assertEquals(List.of("workbench_0"), asked, "the image is loaded once and kept");
     }
 
     @Test
     void theFurnaceIsAlwaysShownColdUntilItCanBeLit() {
-        assertEquals("furnace_off", BuildingSprites.spriteName(of(BuildingType.FURNACE), 2));
+        assertEquals("furnace_off_0", BuildingSprites.spriteName(of(BuildingType.FURNACE), 2));
     }
 
     @Test
@@ -70,8 +70,8 @@ class BuildingSpritesTest {
 
     @Test
     void everyOtherPieceIsNamedAfterItsType() {
-        assertEquals("workbench", BuildingSprites.spriteName(of(BuildingType.WORKBENCH), 0));
-        assertEquals("bridge", BuildingSprites.spriteName(of(BuildingType.BRIDGE), 0));
+        assertEquals("workbench_0", BuildingSprites.spriteName(of(BuildingType.WORKBENCH), 0));
+        assertEquals("bridge_0", BuildingSprites.spriteName(of(BuildingType.BRIDGE), 0));
     }
 
     @Test
@@ -119,7 +119,43 @@ class BuildingSpritesTest {
         assertNotNull(BuildingSprites.getInstance());
         // The shipped art may be absent: the answer is null then, and the caller draws the procedural shape
         final Image image = BuildingSprites.getInstance().restingImage(BuildingType.WORKBENCH);
-        final boolean shipped = BuildingSpritesTest.class.getResource("/assets/buildings/workbench.png") != null;
+        final boolean shipped = BuildingSpritesTest.class.getResource("/assets/buildings/workbench_0.png") != null;
         assertTrue(shipped == (image != null));
+    }
+
+    @Test
+    void aRotatablePieceHasOneFilePerWayItFaces() {
+        for (int rotation = 0; rotation < 4; rotation++) {
+            final Building chest = BuildingFactory.create(BuildingType.CHEST, 1, 1, rotation);
+            assertEquals("chest_" + rotation, BuildingSprites.spriteName(chest, 0));
+            assertEquals("chest_" + rotation, BuildingSprites.restingName(BuildingType.CHEST, rotation));
+            assertEquals("anvil_" + rotation, BuildingSprites.restingName(BuildingType.ANVIL, rotation));
+            assertEquals("workbench_" + rotation, BuildingSprites.restingName(BuildingType.WORKBENCH, rotation));
+            assertEquals("bed_" + rotation, BuildingSprites.restingName(BuildingType.BED, rotation));
+            assertEquals("dock_" + rotation, BuildingSprites.restingName(BuildingType.DOCK, rotation));
+            assertEquals("furnace_off_" + rotation, BuildingSprites.spriteName(
+                    BuildingFactory.create(BuildingType.FURNACE, 1, 1, rotation), 0));
+        }
+        assertEquals("bridge_0", BuildingSprites.restingName(BuildingType.BRIDGE, 0));
+        assertEquals("bridge_1", BuildingSprites.restingName(BuildingType.BRIDGE, 1));
+    }
+
+    @Test
+    void theGhostAsksForTheArtOfTheRotationItShows() {
+        final List<String> asked = new ArrayList<>();
+        final BuildingSprites sprites = new BuildingSprites(name -> {
+            asked.add(name);
+            return null;
+        });
+
+        sprites.restingImage(BuildingType.BED, 2);
+
+        assertEquals(List.of("bed_2"), asked);
+    }
+
+    @Test
+    void aPieceThatDoesNotTurnHasNoRotationInItsName() {
+        assertEquals("campfire_0", BuildingSprites.restingName(BuildingType.CAMPFIRE, 3));
+        assertEquals("fence", BuildingSprites.restingName(BuildingType.FENCE, 2));
     }
 }

@@ -11,7 +11,8 @@ import javafx.scene.paint.Color;
  * @param tileX the hovered tile X
  * @param tileY the hovered tile Y
  * @param type  the selected piece
+ * @param rotation the way the selected piece faces
  * @param tint  the tint as the domain gives it
  * @param color the same tint as a drawing colour
  */
-public record BuildingPreview(int tileX, int tileY, BuildingType type, Rgba tint, Color color) { }
+public record BuildingPreview(int tileX, int tileY, BuildingType type, int rotation, Rgba tint, Color color) { }

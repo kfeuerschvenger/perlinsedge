@@ -254,6 +254,7 @@ public class GameOrchestrator {
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setUseAction(itemUseManager::useActiveItem);
+        controller.setRotateAction(buildingManager::rotateSelected);
         controller.setInputBlocked(gameState::isGameplayInputBlocked);
         return controller;
     }
@@ -472,6 +473,7 @@ public class GameOrchestrator {
                     mouseTile[0],
                     mouseTile[1],
                     buildingManager.getSelectedBuildingType(),
+                    buildingManager.getRotation(buildingManager.getSelectedBuildingType()),
                     previewColor
             );
         } else {
@@ -480,7 +482,8 @@ public class GameOrchestrator {
 
         renderer.render(alpha, deltaTime);
         itemHotbarPanel.update(gameState.getPlayer());
-        buildingPalettePanel.update(gameState.getPlayer(), buildingManager.getSelectedBuildingType());
+        buildingPalettePanel.update(gameState.getPlayer(), buildingManager.getSelectedBuildingType(),
+                buildingManager::getRotation);
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());

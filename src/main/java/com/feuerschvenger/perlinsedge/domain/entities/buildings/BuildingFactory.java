@@ -21,6 +21,25 @@ public final class BuildingFactory {
      * @return a new building of the type
      */
     public static Building create(BuildingType type, int x, int y) {
+        return create(type, x, y, 0);
+    }
+
+    /**
+     * Creates a building at full health, facing a given way.
+     *
+     * @param type     the kind of building
+     * @param x        tile X
+     * @param y        tile Y
+     * @param rotation the way it faces, which wraps around the ways its type can face
+     * @return a new building of the type
+     */
+    public static Building create(BuildingType type, int x, int y, int rotation) {
+        final Building building = createUnrotated(type, x, y);
+        building.setRotation(rotation);
+        return building;
+    }
+
+    private static Building createUnrotated(BuildingType type, int x, int y) {
         return switch (type) {
             case BRIDGE -> new Bridge(x, y);
             case DOCK -> new Dock(x, y);
