@@ -17,14 +17,14 @@ class ShadowAnchorTest {
 
     /** The screen column of the middle of a resource sprite, from the rounding of the draw call. */
     private static double drawnBaseX(double tileCentreX, int spriteWidth, double scale) {
-        final double left = Math.rint(tileCentreX - spriteWidth * scale / 2);
+        final double left = PixelSnap.round(tileCentreX - spriteWidth * scale / 2);
         return left + spriteWidth * scale / 2;
     }
 
     /** The screen row of the ground row of a resource sprite, from the rounding of the draw call. */
     private static double drawnBaseY(double tileTopY, double halfTileHeight, int spriteHeight, int groundRow,
                                      double scale) {
-        final double top = Math.rint(tileTopY + halfTileHeight - spriteHeight * scale);
+        final double top = PixelSnap.round(tileTopY + halfTileHeight - spriteHeight * scale);
         return top + groundRow * scale;
     }
 
@@ -93,7 +93,7 @@ class ShadowAnchorTest {
                     // the first row of the shadow and nothing else
                     layer.castSprite(sprite, ShadowAnchor.cell(baseX, 0.0, scale), 5.0, 2.0,
                             widthArt / sprite.width(), 255);
-                    final double left = Math.rint(centreX - drawnWidth / 2.0);
+                    final double left = PixelSnap.round(centreX - drawnWidth / 2.0);
                     for (int x = 0; x < 60; x++) {
                         final double cellCentre = ShadowAnchor.screen(x + 0.5, 0.0, scale);
                         final boolean under = cellCentre >= left && cellCentre < left + drawnWidth;
@@ -101,6 +101,17 @@ class ShadowAnchorTest {
                                 "scale " + scale + " width " + drawnWidth + " centre " + centreX + " cell " + x);
                     }
                 }
+            }
+        }
+    }
+
+    @Test
+    void theRoundingOfASpriteAndOfItsAnchorMovesByExactlyTheWholePixelsOfAPan() {
+        for (int shift = -101; shift <= 101; shift++) {
+            for (double x = 10.0; x < 12.0; x += 0.25) {
+                assertEquals(PixelSnap.round(x) + shift, PixelSnap.round(x + shift), 0.0, x + " shifted by " + shift);
+                assertEquals(ShadowAnchor.baseX(x, 5, 3.0) + shift, ShadowAnchor.baseX(x + shift, 5, 3.0), 0.0);
+                assertEquals(ShadowAnchor.baseY(x, 5, 3.0) + shift, ShadowAnchor.baseY(x + shift, 5, 3.0), 0.0);
             }
         }
     }

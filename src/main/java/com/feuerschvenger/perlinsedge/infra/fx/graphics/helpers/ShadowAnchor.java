@@ -2,7 +2,8 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 /**
  * Where the shadow of a sprite is anchored, so that it stands on the same point as the sprite it belongs to. A sprite is
- * drawn with its left edge at {@code rint(centreX - width / 2)} and its top edge at {@code rint(groundY - groundRow)},
+ * drawn with its left edge at {@code round(centreX - width / 2)} and its top edge at {@code round(groundY - groundRow)},
+ * where the rounding is {@link PixelSnap#round},
  * all in screen pixels, and the shadow is anchored on the base point that results from those same roundings instead of on
  * the unrounded contact point. The two then move together by whole pixels while the camera pans or the object walks.
  */
@@ -24,7 +25,7 @@ final class ShadowAnchor {
     static double baseX(double centreX, double widthArt, double artScale) {
         // A drawn width is a whole number of screen pixels, so a width given as a share of an art pixel is taken as that
         final double half = Math.rint(widthArt * artScale) / 2.0;
-        return Math.rint(centreX - half) + half;
+        return PixelSnap.round(centreX - half) + half;
     }
 
     /**
@@ -40,7 +41,7 @@ final class ShadowAnchor {
     static double baseY(double groundY, double groundRow, double artScale) {
         // A drawn height is a whole number of screen pixels, so a height given in art pixels is taken as that
         final double rows = Math.rint(groundRow * artScale);
-        return Math.rint(groundY - rows) + rows;
+        return PixelSnap.round(groundY - rows) + rows;
     }
 
     /**

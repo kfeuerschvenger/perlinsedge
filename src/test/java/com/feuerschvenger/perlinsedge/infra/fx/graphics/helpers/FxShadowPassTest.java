@@ -466,6 +466,29 @@ class FxShadowPassTest {
     }
 
     @Test
+    void aStaticShadowCastOnceStaysOnItsOddWidthSpriteAfterAnyWholePixelPanWithoutCastingAgain() {
+        final Silhouette odd = block(5, 6);
+        final ShadowList fixed = new ShadowList();
+        fixed.addSilhouette(120, 60, odd, 6, 1.0, 1.0);
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, fixed, new ShadowList(), 3.0, 0));
+        assertEquals(1, pass.staticRecasts());
+
+        for (double pan : new double[]{1, 2, 3, 101}) {
+            // The sprite of the same world point is drawn at its world position plus the camera
+            final ShadowList sprite = new ShadowList();
+            sprite.addSilhouette(120 + pan, 60, odd, 6, 1.0, 1.0);
+            final int[][] panned = FxToolkitSupport.onFx(() -> renderBoth(pass, canvas, fixed, new ShadowList(), 3.0, pan));
+            final int[][] expected = FxToolkitSupport.onFx(() -> renderBoth(new FxShadowPass(), new Canvas(WIDTH, HEIGHT),
+                    new ShadowList(), sprite, 3.0, pan));
+
+            assertEquals(1, pass.staticRecasts(), "a pan of " + pan + " cast again");
+            assertTrue(Arrays.deepEquals(expected, panned), "the shadow slipped off its sprite after a pan of " + pan);
+        }
+    }
+
+    @Test
     void theSourceOfADrawStaysInsideTheImageWhereItsBoxTouchesTheEdge() {
         final double nudge = 0.25 / 3.0;
         assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 20, nudge), 1e-12, "inside the image the span is the box");

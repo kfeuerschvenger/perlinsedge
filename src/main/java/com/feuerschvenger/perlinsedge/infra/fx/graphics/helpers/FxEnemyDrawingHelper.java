@@ -66,7 +66,8 @@ public final class FxEnemyDrawingHelper {
             final double width = drawnSize(frame.getWidth(), scale, jumping ? 1.0 : restingWidthFactor(slime, gameTime));
             final double height = drawnSize(frame.getHeight(), scale,
                     jumping ? 1.0 : restingHeightFactor(slime, gameTime));
-            gc.drawImage(frame, Math.rint(tileTopX - width / 2), Math.rint(baseDrawY - height), width, height);
+            gc.drawImage(frame, PixelSnap.round(tileTopX - width / 2), PixelSnap.round(baseDrawY - height),
+                    width, height);
             return;
         }
 

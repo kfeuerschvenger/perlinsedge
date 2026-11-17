@@ -103,7 +103,7 @@ public final class FxTileDrawingHelper {
         final double spriteHeight = resourceSprite.getHeight() * scale;
 
         final double baseY = screenY + halfTileHeight;
-        gc.drawImage(resourceSprite, Math.rint(screenX - spriteWidth / 2), Math.rint(baseY - spriteHeight),
+        gc.drawImage(resourceSprite, PixelSnap.round(screenX - spriteWidth / 2), PixelSnap.round(baseY - spriteHeight),
                 spriteWidth, spriteHeight);
     }
 

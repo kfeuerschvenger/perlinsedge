@@ -56,11 +56,11 @@ class FxEnemyDrawingHelperShadowTest {
 
         assertEquals(1, shadows.size());
         assertNotNull(shadows.silhouette(0));
-        // The body is drawn with its left edge at rint(x - width / 2) and its top edge at rint(baseY - height)
+        // The body is drawn with its left edge at PixelSnap.round(x - width / 2) and its top edge at PixelSnap.round(baseY - height)
         final double halfTileHeight = AppConfig.getInstance().graphics().getTileHalfHeight() * ZOOM;
         final double baseDrawY = tileTopY + halfTileHeight * 1.5 + slime.getRenderOffsetY();
-        final double drawnBaseX = Math.rint(tileTopX - drawnWidth / 2) + drawnWidth / 2;
-        final double drawnBaseY = Math.rint(baseDrawY - drawnHeight) + drawnHeight;
+        final double drawnBaseX = PixelSnap.round(tileTopX - drawnWidth / 2) + drawnWidth / 2;
+        final double drawnBaseY = PixelSnap.round(baseDrawY - drawnHeight) + drawnHeight;
         assertEquals(drawnBaseX, ShadowAnchor.baseX(shadows.centreX(0), shadows.drawnWidth(0), scale), 1e-9);
         assertEquals(drawnBaseY, ShadowAnchor.baseY(shadows.centreY(0), shadows.drawnHeight(0), scale), 1e-9);
         assertEquals(drawnWidth / scale, shadows.drawnWidth(0), 1e-9);

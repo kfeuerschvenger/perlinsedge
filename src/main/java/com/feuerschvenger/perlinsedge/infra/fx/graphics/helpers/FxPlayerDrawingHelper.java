@@ -61,8 +61,8 @@ public final class FxPlayerDrawingHelper {
         final double spriteHeight = playerSprite.getHeight() * scale;
 
         // Bottom centre of the sprite on the tile centre, on whole pixels
-        final double drawX = Math.rint(tileTopX - (spriteWidth * SPRITE_CENTER_OFFSET));
-        final double drawY = Math.rint(tileTopY - spriteHeight + halfTileHeight);
+        final double drawX = PixelSnap.round(tileTopX - (spriteWidth * SPRITE_CENTER_OFFSET));
+        final double drawY = PixelSnap.round(tileTopY - spriteHeight + halfTileHeight);
 
         if (player.isAttacking()) {
             applyAttackTransformation(gc, drawX, drawY, spriteWidth, spriteHeight);
