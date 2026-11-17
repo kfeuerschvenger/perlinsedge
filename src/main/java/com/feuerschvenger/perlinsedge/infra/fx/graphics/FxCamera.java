@@ -12,6 +12,14 @@ import javafx.scene.canvas.Canvas;
 public class FxCamera extends Camera {
     private final AppConfig config;
 
+    /**
+     * Creates a camera. The zoom is snapped to the step grid by {@link Camera#setZoom(double)}, so a camera never
+     * starts at a zoom the art cannot be drawn at.
+     *
+     * @param x    initial horizontal offset, rounded to a whole pixel
+     * @param y    initial vertical offset, rounded to a whole pixel
+     * @param zoom initial zoom
+     */
     public FxCamera(double x, double y, double zoom) {
         super(Math.rint(x), Math.rint(y), zoom);
         this.config = AppConfig.getInstance();

@@ -110,4 +110,10 @@ class FxCameraZoomTest {
         assertEquals(100, camera.getX());
         assertEquals(100, camera.getY());
     }
+
+    @Test
+    void theConstructorSnapsAZoomThatIsOffTheStepGrid() {
+        assertEquals(1.5, new FxCamera(0, 0, 1.4).getZoom());
+        assertEquals(1.0, new FxCamera(0, 0, 1.2).getZoom());
+    }
 }
