@@ -5,8 +5,10 @@ import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingStats;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -101,5 +103,97 @@ class BuildingManagerTest {
 
         assertEquals(null, manager.getSelectedBuildingType());
         assertFalse(manager.isBuildingModeActive());
+    }
+
+    @Test
+    void comingBackToTheHammerSelectsTheLastPieceAgain() {
+        manager.setSelectedBuildingType(BuildingType.DOOR);
+        manager.deactivateBuildingMode();
+
+        manager.activateBuildingMode();
+
+        assertEquals(BuildingType.DOOR, manager.getSelectedBuildingType());
+    }
+
+    @Test
+    void droppingTheSelectionKeepsTheMemoryOfTheLastPiece() {
+        manager.setSelectedBuildingType(BuildingType.DOOR);
+        manager.setSelectedBuildingType(null);
+
+        assertEquals(null, manager.getSelectedBuildingType());
+        manager.deactivateBuildingMode();
+        manager.activateBuildingMode();
+
+        assertEquals(BuildingType.DOOR, manager.getSelectedBuildingType());
+    }
+
+    @Test
+    void nothingIsPlacedWithoutASelectedPiece() {
+        manager.setSelectedBuildingType(null);
+
+        manager.placeBuilding(1, 1);
+
+        assertFalse(map.getTile(1, 1).hasBuilding());
+    }
+
+    private Building build(BuildingType type, int x, int y) {
+        giveIngredients(recipes.getBuildingRecipeByType(type).orElseThrow());
+        manager.setSelectedBuildingType(type);
+        manager.placeBuilding(x, y);
+        return map.getTile(x, y).getBuilding();
+    }
+
+    private int held(ItemType type) {
+        return player.getItemCount(new Item(type, 1));
+    }
+
+    @Test
+    void demolishingAFullHealthPieceReturnsTheWholeRecipe() {
+        build(BuildingType.DOOR, 2, 2);
+        assertEquals(0, held(ItemType.WOOD_PLANK));
+
+        manager.removeBuilding(2, 2);
+
+        assertFalse(map.getTile(2, 2).hasBuilding());
+        assertEquals(5, held(ItemType.WOOD_PLANK));
+        assertEquals(1, held(ItemType.IRON_INGOT));
+    }
+
+    @Test
+    void demolishingADamagedPieceReturnsTheShareOfTheHealthLeftRoundedDown() {
+        Building door = build(BuildingType.DOOR, 2, 2);
+        door.damage(door.getMaxHealth() / 2);
+
+        manager.removeBuilding(2, 2);
+
+        // Half of 5 planks is 2, half of 1 ingot is 0
+        assertEquals(2, held(ItemType.WOOD_PLANK));
+        assertEquals(0, held(ItemType.IRON_INGOT));
+    }
+
+    @Test
+    void whatTheInventoryCannotHoldIsDroppedAtThePlayersFeet() {
+        build(BuildingType.WORKBENCH, 2, 2);
+        for (int i = 0; i < player.getCapacity(); i++) {
+            player.setItemAt(i, new Item(ItemType.WOOD_LOG, 1));
+        }
+
+        manager.removeBuilding(2, 2);
+
+        assertEquals(0, held(ItemType.WOOD_PLANK));
+        assertEquals(1, state.getDroppedItems().size());
+        var pile = state.getDroppedItems().get(0);
+        assertEquals(ItemType.WOOD_PLANK, pile.getItem().getType());
+        assertEquals(4, pile.getItem().getQuantity());
+        assertEquals(player.getCurrentTileX(), pile.getTileX());
+        assertEquals(player.getCurrentTileY(), pile.getTileY());
+    }
+
+    @Test
+    void aPlacedPieceStartsAtFullHealth() {
+        Building wall = build(BuildingType.WALL, 3, 3);
+
+        assertEquals(BuildingStats.maxHealth(BuildingType.WALL), wall.getHealth());
+        assertFalse(wall.isDamaged());
     }
 }

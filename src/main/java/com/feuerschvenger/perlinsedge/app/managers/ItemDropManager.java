@@ -90,6 +90,26 @@ public class ItemDropManager {
     }
 
     /**
+     * Drops items on the tile the player stands on, merging them into the piles of the same type nearby. It is where
+     * what the inventory has no room for ends up, so nothing a refund returns is lost.
+     *
+     * @param item   the dropped units, it is not stored itself
+     * @param player the player whose tile receives the pile
+     */
+    public void dropAtFeet(Item item, Player player) {
+        if (item == null || item.getQuantity() <= 0) return;
+        int x = player.getCurrentTileX();
+        int y = player.getCurrentTileY();
+        double now = gameState.getGameTime();
+        int remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(), x, y, now);
+        if (remaining > 0) {
+            gameState.getDroppedItems().add(new DroppedItem(x, y,
+                    new Item(item.getType(), remaining), now, DroppedItem.DropSource.PLAYER));
+        }
+        onInventoryChanged.run();
+    }
+
+    /**
      * Updates all dropped item operations: despawning and pickup checks.
      */
     public void update() {

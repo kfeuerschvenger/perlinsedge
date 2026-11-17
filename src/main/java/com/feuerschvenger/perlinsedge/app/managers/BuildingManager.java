@@ -28,44 +28,61 @@ public class BuildingManager {
     private final GameStateManager gameState;
     private final RecipeManager recipeManager;
     private final ContainerManager containerManager;
+    private final ItemDropManager itemDropManager;
+    private final Runnable onInventoryChanged;
 
     // Building mode state
     @Getter
     private BuildingType selectedBuildingType;
+    /** The piece chosen last, which comes back as the selection when the hammer is picked up again. */
+    private BuildingType lastBuildingType;
     @Getter
     private boolean buildingModeActive;
 
+    /**
+     * Creates the manager with a refund that drops what the inventory cannot hold and tells nobody.
+     *
+     * @param gameState        shared game state
+     * @param recipeManager    building recipes
+     * @param containerManager opens the containers the player interacts with
+     */
     public BuildingManager(GameStateManager gameState, RecipeManager recipeManager, ContainerManager containerManager) {
+        this(gameState, recipeManager, containerManager, new ItemDropManager(gameState, () -> { }), () -> { });
+    }
+
+    /**
+     * Creates the manager.
+     *
+     * @param gameState          shared game state
+     * @param recipeManager      building recipes
+     * @param containerManager   opens the containers the player interacts with
+     * @param itemDropManager    drops the part of a refund that does not fit into the inventory
+     * @param onInventoryChanged called after a demolition changed the inventory, so the views are redrawn
+     */
+    public BuildingManager(GameStateManager gameState, RecipeManager recipeManager, ContainerManager containerManager,
+                           ItemDropManager itemDropManager, Runnable onInventoryChanged) {
         this.gameState = gameState;
         this.recipeManager = recipeManager;
         this.containerManager = containerManager;
+        this.itemDropManager = itemDropManager;
+        this.onInventoryChanged = onInventoryChanged;
         this.buildingModeActive = false;
         this.selectedBuildingType = null;
     }
 
     /**
-     * Toggles building mode on/off. Resets selection when deactivated.
-     */
-    public void toggleBuildingMode() {
-        if (buildingModeActive) {
-            deactivateBuildingMode();
-        } else {
-            activateBuildingMode();
-        }
-    }
-
-    /**
-     * Activates building mode.
+     * Activates building mode. The piece chosen last is selected again.
      */
     public void activateBuildingMode() {
         if (!buildingModeActive) {
             buildingModeActive = true;
+            selectedBuildingType = lastBuildingType;
             log.info("Building mode: ON");
         }
     }
 
     /**
-     * Deactivates building mode and clears any selected building type.
+     * Deactivates building mode. Nothing stays selected, and the piece chosen last is remembered.
      */
     public void deactivateBuildingMode() {
         if (buildingModeActive) {
@@ -76,17 +93,32 @@ public class BuildingManager {
     }
 
     /**
-     * Sets the currently selected building type for placement.
+     * Sets the currently selected building type for placement. A piece is remembered as the last one chosen, a null
+     * clears the selection and keeps the memory.
      *
      * @param type Building type to select (null to clear selection)
      */
     public void setSelectedBuildingType(BuildingType type) {
         selectedBuildingType = type;
         if (type != null) {
+            lastBuildingType = type;
             log.debug("Selected building type: {}", type.getDisplayName());
         } else {
             log.debug("Building type selection cleared.");
         }
+    }
+
+    /**
+     * Gives the building on a tile, for the views that show its health.
+     *
+     * @param tileX tile X
+     * @param tileY tile Y
+     * @return the building, or null when the tile is outside the map or has none
+     */
+    public Building getBuildingAt(int tileX, int tileY) {
+        TileMap tileMap = gameState.getCurrentMap();
+        Tile tile = tileMap != null ? tileMap.getTile(tileX, tileY) : null;
+        return tile != null ? tile.getBuilding() : null;
     }
 
     /**
@@ -147,7 +179,30 @@ public class BuildingManager {
         }
 
         targetTile.setBuilding(null);
+        refund(building);
         log.info("Removed {} from ({}, {})", building.getType().getDisplayName(), worldX, worldY);
+    }
+
+    /**
+     * Gives the player back the share of the recipe that matches the health the building has left: for each
+     * ingredient {@code floor(quantity * health / maxHealth)} items. What the inventory has no room for is dropped as a
+     * pile at the player's feet.
+     */
+    private void refund(Building building) {
+        Player player = gameState.getPlayer();
+        Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(building.getType());
+        if (player == null || recipe.isEmpty()) return;
+
+        for (CraftingIngredient ingredient : recipe.get().ingredients()) {
+            int quantity = building.refundOf(ingredient.quantity());
+            if (quantity <= 0) continue;
+            Item refund = new Item(ingredient.itemType(), quantity);
+            player.addItem(refund);
+            if (refund.getQuantity() > 0) {
+                itemDropManager.dropAtFeet(refund, player);
+            }
+        }
+        onInventoryChanged.run();
     }
 
     /**
