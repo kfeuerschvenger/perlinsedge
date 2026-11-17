@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.world.light.LightFalloff;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightRegistry;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightSource;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.PixelSnap;
 
 import java.util.Arrays;
 
@@ -159,8 +160,8 @@ public final class LightLayer {
             pixels = new int[wide * high];
             signatureLength = 0;
         }
-        final double snappedX = Math.rint(originX);
-        final double snappedY = Math.rint(originY);
+        final double snappedX = PixelSnap.round(originX);
+        final double snappedY = PixelSnap.round(originY);
         phaseX = snappedX - Math.floor(snappedX / artScale) * artScale;
         phaseY = snappedY - Math.floor(snappedY / artScale) * artScale;
         plain = pack(tintStrength * 255.0, tint.r() * tintStrength * 255.0, tint.g() * tintStrength * 255.0,
@@ -198,9 +199,9 @@ public final class LightLayer {
                 continue;
             }
             // The light shines from where an entity at its position would stand, and is placed on a whole screen pixel
-            final double screenX = Math.rint((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale + snappedX);
-            final double screenY = Math.rint(((source.x() + source.y()) * TILE_ART_HALF_HEIGHT + TILE_ART_HALF_HEIGHT)
-                    * artScale + snappedY);
+            final double screenX = PixelSnap.round((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale + snappedX);
+            final double screenY = PixelSnap.round(((source.x() + source.y()) * TILE_ART_HALF_HEIGHT
+                    + TILE_ART_HALF_HEIGHT) * artScale + snappedY);
             final double centreX = (screenX - phaseX) / artScale + 1.0;
             final double centreY = (screenY - phaseY) / artScale + 1.0;
             // A circle of the ground is an ellipse of the screen: sqrt(2) tiles along each diagonal of a tile, and the

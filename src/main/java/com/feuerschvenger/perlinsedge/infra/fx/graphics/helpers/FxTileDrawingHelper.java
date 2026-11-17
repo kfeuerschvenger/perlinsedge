@@ -55,7 +55,7 @@ public final class FxTileDrawingHelper {
         final double scale = ZoomSteps.artScale(zoom);
         final double width = tileSprite.getWidth() * scale;
         final double height = tileSprite.getHeight() * scale;
-        gc.drawImage(tileSprite, Math.rint(screenX - width / 2), Math.rint(screenY), width, height);
+        gc.drawImage(tileSprite, PixelSnap.round(screenX - width / 2), PixelSnap.round(screenY), width, height);
     }
 
     /**
@@ -81,7 +81,7 @@ public final class FxTileDrawingHelper {
         final double anchorY = screenY + halfH + (offsetU + offsetV) * halfH;
         final double width = decal.getWidth() * scale;
         final double height = decal.getHeight() * scale;
-        gc.drawImage(decal, Math.rint(anchorX - width / 2), Math.rint(anchorY - height), width, height);
+        gc.drawImage(decal, PixelSnap.round(anchorX - width / 2), PixelSnap.round(anchorY - height), width, height);
     }
 
     /**

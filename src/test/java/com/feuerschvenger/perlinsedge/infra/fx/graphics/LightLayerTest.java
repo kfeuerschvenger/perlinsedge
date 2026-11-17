@@ -523,6 +523,22 @@ class LightLayerTest {
     }
 
     @Test
+    void aLightOnAHalfPixelMovesByExactlyTheWholePixelPanWhateverTheParityOfTheCamera() {
+        // The light stands half a pixel off the grid at scale one, a tie that must round the same way at every pan
+        final LightRegistry registry = new LightRegistry();
+        registry.add(torch(6.03125, 6, Flicker.STEADY));
+        int offset = Integer.MIN_VALUE;
+
+        for (int pan = 0; pan < 4; pan++) {
+            final LightLayer layer = new LightLayer();
+            layer.compose(registry, STYLE, 0.0, NIGHT, NIGHT_STRENGTH, 1.0, 240 + pan, ORIGIN_Y, cellsWide(), cellsHigh());
+            final int left = layer.regionLeft(0) - pan;
+            offset = pan == 0 ? left : offset;
+            assertEquals(offset, left, "a pan of " + pan + " moved the light by another distance");
+        }
+    }
+
+    @Test
     void aCanvasOfAnotherSizeIsWorkedOutAgainFromScratch() {
         final LightLayer layer = new LightLayer();
         compose(layer, oneTorch(), 0.0, NIGHT_STRENGTH);

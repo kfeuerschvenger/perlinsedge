@@ -82,9 +82,9 @@ public final class FxItemDrawingHelper {
             finalWidth = sprite.getWidth() * scale;
             finalHeight = sprite.getHeight() * scale;
 
-            finalDrawX = Math.rint(tileTopX - (finalWidth / 2));
+            finalDrawX = PixelSnap.round(tileTopX - (finalWidth / 2));
             // The icon floats over the tile, bobbing on whole pixels
-            finalDrawY = Math.rint(baseDrawY - finalHeight + floatingOffset
+            finalDrawY = PixelSnap.round(baseDrawY - finalHeight + floatingOffset
                     + (SPRITE_MANAGER.getItemSprite(itemType).getVerticalOffset() * zoom));
 
             gc.drawImage(sprite, finalDrawX, finalDrawY, finalWidth, finalHeight);
