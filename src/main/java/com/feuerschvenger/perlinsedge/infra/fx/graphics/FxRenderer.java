@@ -17,6 +17,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.BuildingSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.CursorStyle;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.DebugTileSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FlatTileSprites;
@@ -60,6 +61,11 @@ public class FxRenderer {
     /** Width in art pixels the shadow is sized from for a player drawn without art. */
     private static final double FALLBACK_PLAYER_ART_WIDTH = 12.0;
 
+    /** Depth of the health bar of a building, far past every object so nothing is drawn over it. */
+    private static final double HEALTH_BAR_DEPTH = 1.0e9;
+    /** Height in art pixels the bar floats above a procedural building, which has no sprite to measure. */
+    private static final double PROCEDURAL_BUILDING_HEIGHT_ART = 24.0;
+
     /** The resting crosshair, dark over light ground and light over dark ground, each over an outline of the other. */
     private static final Color CURSOR_DARK = Color.rgb(40, 40, 40);
     private static final Color CURSOR_LIGHT = Color.rgb(235, 235, 235);
@@ -76,6 +82,7 @@ public class FxRenderer {
     private final Canvas canvas;
     private final FxCamera camera;
     private final SpriteManager spriteManager;
+    private final BuildingSprites buildingSprites = BuildingSprites.getInstance();
     private final GameStateManager gameState;
     /** The tiles of a frame, drawn first and in the order they were queued. */
     private final RenderQueue tileQueue = new RenderQueue();
@@ -149,6 +156,8 @@ public class FxRenderer {
     private int previewTileX = -1;
     private int previewTileY = -1;
     private BuildingType previewBuildingType;
+    /** Whether the hammer is in hand, which is when the grid, the ghost and the health bar of a hovered building show. */
+    private boolean buildModeActive;
     private Rgba previewRgba;
     private Color previewColor;
     private BuildingPreview cachedPreview;
@@ -176,11 +185,25 @@ public class FxRenderer {
         return effect;
     }
 
+    /**
+     * Turns on what is drawn while the hammer is in hand: the faint grid around the hovered tile, and the ghost of the
+     * selected piece on it. Call it every frame of the build mode and {@link #clearBuildingPreview()} when it ends.
+     *
+     * @param tileX        the hovered tile X, -1 for none
+     * @param tileY        the hovered tile Y, -1 for none
+     * @param buildingType the selected piece, or null for none, which leaves the grid without a ghost
+     * @param color        the tint of the ghost: green when the piece can be placed, red when the tile refuses it,
+     *                     amber when the resources are missing
+     */
     public void setBuildingPreview(int tileX, int tileY, BuildingType buildingType, Rgba color) {
+        this.buildModeActive = true;
         this.previewTileX = tileX;
         this.previewTileY = tileY;
         this.previewBuildingType = buildingType;
-        if (previewRgba == null || !previewRgba.equals(color)) {
+        if (color == null) {
+            this.previewRgba = null;
+            this.previewColor = null;
+        } else if (previewRgba == null || !previewRgba.equals(color)) {
             this.previewRgba = color;
             this.previewColor = FxColors.toFx(color);
         }
@@ -193,8 +216,9 @@ public class FxRenderer {
         staticCastersMap = null;
     }
 
-    /** Forgets the building preview, so the normal tile highlight is drawn again. */
+    /** Ends the build mode drawing: no grid, no ghost, no health bar, and the normal tile highlight is drawn again. */
     public void clearBuildingPreview() {
+        buildModeActive = false;
         previewTileX = -1;
         previewTileY = -1;
         previewBuildingType = null;
@@ -366,9 +390,14 @@ public class FxRenderer {
                 // Add building if present
                 final Building building = tile.getBuilding();
                 if (tile.hasBuilding() && !isGrayscaleEnabled && building != null) {
-                    renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, null, false, tile);
+                    // A piece with art is drawn from its sprite, in its present state and frame, the others from
+                    // their procedural shape
+                    final Image buildingArt = buildingSprites.imageFor(building,
+                            BuildingSprites.flameFrame(currentFrameGameTime));
+                    renderQueue.add(screenX, screenY, screenY + halfTileHeight, building, buildingArt, false, tile);
                     if (rebuildStatic) {
                         FxObjectShadows.addForTile(staticShadows, null, null, 0, building.getType(),
+                                buildingSprites.restingImage(building.getType()),
                                 screenX - shadowCameraX, screenY - shadowCameraY, halfTileHeight, artScale);
                     }
                 }
@@ -390,15 +419,25 @@ public class FxRenderer {
         if (mouseOverTileX != -1 && mouseOverTileY != -1) {
             Tile highlightTile = map.getTile(mouseOverTileX, mouseOverTileY);
             if (highlightTile != null) {
-                // Show the construction preview while building, the normal highlight otherwise
-                if (previewBuildingType != null && previewColor != null) {
-                    double screenX = (mouseOverTileX - mouseOverTileY) * halfTileWidth + offsetX;
-                    double centerY = cursorCenterY(highlightTile, mouseOverTileX, mouseOverTileY, zoom, offsetY);
-                    renderQueue.add(screenX, centerY, centerY + 1, previewFor(), null, false, null);
+                // The ghost of the selected piece stands on the hovered tile while building, the crosshair otherwise.
+                // The ghost is a piece, so it is depth sorted where a building of that tile would be
+                if (buildModeActive && previewBuildingType != null && previewColor != null) {
+                    final double screenX = (mouseOverTileX - mouseOverTileY) * halfTileWidth + offsetX;
+                    final double topY = (mouseOverTileX + mouseOverTileY) * halfTileHeight + offsetY
+                            + FxObjectShadows.waterDrop(highlightTile.getType().isWater(),
+                            spriteManager.getTileSprite(currentMapType, highlightTile.getType(), mouseOverTileX,
+                                    mouseOverTileY) != null, halfTileHeight);
+                    renderQueue.add(screenX, topY, topY + halfTileHeight + 0.5, previewFor(), null, false, null);
+                    // The answer to a click still shows on the tile, over the ghost
+                    if (flashOnHover) {
+                        queueCursor(highlightTile, mouseOverTileX, mouseOverTileY, flashKind, false, zoom, offsetX,
+                                offsetY);
+                    }
                 } else {
                     queueCursor(highlightTile, mouseOverTileX, mouseOverTileY,
                             flashOnHover ? flashKind : ClickFeedback.Kind.NONE, false, zoom, offsetX, offsetY);
                 }
+                queueHealthBar(highlightTile, artScale, zoom);
             }
         }
         if (flashKind != ClickFeedback.Kind.NONE && !flashOnHover) {
@@ -481,6 +520,10 @@ public class FxRenderer {
         gc.save();
         for (int i = 0, count = tileQueue.size(); i < count; i++) {
             drawRenderable(tileQueue.get(i));
+        }
+        // The grid of the build mode lies on the ground, under the shadows and the objects
+        if (buildModeActive && mouseOverTileX != -1 && mouseOverTileY != -1) {
+            FxBuildGridPainter.draw(gc, map, mouseOverTileX, mouseOverTileY, offsetX, offsetY, zoom);
         }
         shadowPass.draw(gc, staticShadows, dynamicShadows, artScale, offsetX, offsetY, canvas.getWidth(), canvas.getHeight(),
                 SunScreenMapping.shadowAngle(shadowSunProgress), shadowLengthFactor, shadowStrength);
@@ -595,8 +638,9 @@ public class FxRenderer {
             contactArt = metadata != null ? metadata.getContactArtPixels() : 0;
         }
         FxObjectShadows.addForTile(staticShadows, hasResource ? resource.getType() : null, image, contactArt,
-                hasBuilding ? building.getType() : null, screenX - shadowCameraX, screenY + drop - shadowCameraY,
-                halfTileHeight, artScale);
+                hasBuilding ? building.getType() : null,
+                hasBuilding ? buildingSprites.restingImage(building.getType()) : null,
+                screenX - shadowCameraX, screenY + drop - shadowCameraY, halfTileHeight, artScale);
     }
 
     /** Tells whether something stands on a tile that casts a shadow: a resource or a building. */
@@ -605,15 +649,42 @@ public class FxRenderer {
                 || (tile.hasBuilding() && tile.getBuilding() != null);
     }
 
-    /** The preview of the building being placed, recreated only when the tile or the colour changes. */
+    /** The ghost of the building being placed, recreated only when the tile, the piece or the tint changes. */
     private BuildingPreview previewFor() {
         BuildingPreview preview = cachedPreview;
         if (preview == null || preview.tileX() != previewTileX || preview.tileY() != previewTileY
-                || preview.color() != previewColor) {
-            preview = new BuildingPreview(previewTileX, previewTileY, previewColor);
+                || preview.type() != previewBuildingType || preview.color() != previewColor) {
+            preview = new BuildingPreview(previewTileX, previewTileY, previewBuildingType, previewRgba, previewColor);
             cachedPreview = preview;
         }
         return preview;
+    }
+
+    /**
+     * Queues the health bar over the building of the hovered tile, drawn after everything else so nothing covers it,
+     * when the hammer is in hand and the building lost some health.
+     */
+    private void queueHealthBar(Tile tile, double artScale, double zoom) {
+        final Building building = tile.getBuilding();
+        if (!FxBuildingHealthBar.isShown(buildModeActive, building)) {
+            return;
+        }
+        final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
+        final double halfTileWidth = graphics.getTileHalfWidth() * zoom;
+        final double halfTileHeight = graphics.getTileHalfHeight() * zoom;
+        final int x = building.getTileX();
+        final int y = building.getTileY();
+        final double centerX = (x - y) * halfTileWidth + camera.getX();
+        final double topVertexY = (x + y) * halfTileHeight + camera.getY()
+                + FxObjectShadows.waterDrop(tile.getType().isWater(),
+                spriteManager.getTileSprite(activeMapType, tile.getType(), x, y) != null, halfTileHeight);
+        final double centerY = topVertexY + halfTileHeight;
+        final Image art = buildingSprites.imageFor(building, 0);
+        final double buildingTopY = art != null
+                ? BuildingSprites.drawY(centerY, (int) art.getHeight(), artScale)
+                : centerY - PROCEDURAL_BUILDING_HEIGHT_ART * zoom;
+        renderQueue.add(centerX, topVertexY, HEALTH_BAR_DEPTH,
+                new HealthBarMark(centerX, buildingTopY, building.getHealthFraction()), null, false, null);
     }
 
     /**
@@ -685,7 +756,7 @@ public class FxRenderer {
         } else if (object instanceof ResourceType) {
             drawResource(r);
         } else if (object instanceof Building building) {
-            drawBuilding(building);
+            drawBuilding(building, r);
         } else if (object instanceof Player) {
             drawPlayer(r);
         } else if (object instanceof Enemy) {
@@ -695,25 +766,31 @@ public class FxRenderer {
         } else if (object instanceof TileHighlight h) {
             drawHighlightTile(h);
         } else if (object instanceof BuildingPreview bp) {
-            drawBuildingPlacementPreview(bp);
+            drawBuildingGhost(bp, r);
+        } else if (object instanceof HealthBarMark mark) {
+            FxBuildingHealthBar.draw(gc, mark, ZoomSteps.integerArtScale(camera.getZoom()));
         }
     }
 
-    private void drawBuildingPlacementPreview(BuildingPreview preview) {
-        Tile tile = gameState.getCurrentMap().getTile(preview.tileX(), preview.tileY());
-        if (tile != null) {
-            FxBuildingDrawingHelper.drawBuildingPlacementPreview(
-                    gc, tile, preview.color(), camera.getX(), camera.getY(), camera.getZoom()
-            );
-        }
+    /** Draws the ghost of the selected piece on the hovered tile, from its sprite when it has one. */
+    private void drawBuildingGhost(BuildingPreview preview, Renderable r) {
+        final double zoom = camera.getZoom();
+        FxBuildingDrawingHelper.drawGhost(gc, preview, buildingSprites.restingImage(preview.type()), r.screenX(),
+                r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, camera.getX(),
+                camera.getY(), zoom);
     }
 
     /**
-     * Draws a generic building using its abstract draw method.
+     * Draws a building from its sprite when it has one, from its procedural shape otherwise.
+     *
      * @param building The building to draw.
+     * @param r        The queued entry, which holds the tile position on screen and the sprite
      */
-    private void drawBuilding(Building building) {
-        FxBuildingDrawingHelper.drawBuilding(gc, building, camera.getX(), camera.getY(), camera.getZoom());
+    private void drawBuilding(Building building, Renderable r) {
+        final double zoom = camera.getZoom();
+        FxBuildingDrawingHelper.drawBuilding(gc, building, r.sprite(), r.screenX(),
+                r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom,
+                camera.getX(), camera.getY(), zoom);
     }
 
     /**

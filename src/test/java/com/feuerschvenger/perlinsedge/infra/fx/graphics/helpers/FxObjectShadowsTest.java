@@ -93,4 +93,28 @@ class FxObjectShadowsTest {
         assertTrue(list.widthArt(0) > 0);
         assertFalse(shadowsOf(null, null, 0, BuildingType.DOCK, false, true, 0, 0).size() > 0);
     }
+
+    @Test
+    void aBuildingWithArtCastsTheSilhouetteOfItsSpriteAndOneWithoutCastsTheEllipse() {
+        final Image art = sprite();
+        final ShadowList withArt = new ShadowList();
+        final ShadowList withoutArt = new ShadowList();
+
+        FxObjectShadows.addForTile(withArt, null, null, 0, BuildingType.WALL, art, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+        FxObjectShadows.addForTile(withoutArt, null, null, 0, BuildingType.WALL, null, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+
+        assertEquals(1, withArt.size());
+        assertNotNull(withArt.silhouette(0));
+        assertEquals(1, withoutArt.size());
+        assertNull(withoutArt.silhouette(0));
+    }
+
+    @Test
+    void aFlatBuildingCastsNoShadowEvenWithArt() {
+        final ShadowList list = new ShadowList();
+
+        FxObjectShadows.addForTile(list, null, null, 0, BuildingType.BRIDGE, sprite(), 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+
+        assertEquals(0, list.size());
+    }
 }

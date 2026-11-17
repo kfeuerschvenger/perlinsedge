@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.BuildingSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
@@ -54,13 +55,43 @@ public final class FxObjectShadows {
     public static void addForTile(ShadowList shadows, ResourceType resource, Image image, int contactArt,
                                   BuildingType building, double screenX, double screenY, double halfTileHeight,
                                   double artScale) {
+        addForTile(shadows, resource, image, contactArt, building, null, screenX, screenY, halfTileHeight, artScale);
+    }
+
+    /**
+     * Adds the shadows of the resource and the building of a tile, the building casting the silhouette of its sprite
+     * when it has one.
+     *
+     * @param shadows        the list to add to
+     * @param resource       the type of the resource on the tile, or null for none
+     * @param image          the sprite of the resource, or null when it is drawn without art
+     * @param contactArt     how far below the tile centre the lowest painted pixel of the resource sprite lies, in art pixels
+     * @param building       the type of the building on the tile, or null for none
+     * @param buildingImage  the sprite of the building, or null when it is drawn from its procedural shape
+     * @param screenX        screen X of the tile centre
+     * @param screenY        screen Y of the top vertex of the tile, already lowered by {@link #waterDrop}
+     * @param halfTileHeight half the height of a tile in screen pixels
+     * @param artScale       screen pixels per art pixel
+     */
+    public static void addForTile(ShadowList shadows, ResourceType resource, Image image, int contactArt,
+                                  BuildingType building, Image buildingImage, double screenX, double screenY,
+                                  double halfTileHeight, double artScale) {
         final double groundY = screenY + halfTileHeight;
         if (resource != null) {
             addResource(shadows, resource, image, screenX, groundY + contactArt * artScale, contactArt > 0);
         }
         if (building != null) {
             final double width = GroundShadow.widthFor(building);
-            if (width > 0) {
+            if (width <= 0) {
+                return;
+            }
+            if (buildingImage != null) {
+                // The sprite stands with its bottom edge on the bottom vertex of the tile, so the ground row of the
+                // shadow is the row of the tile centre
+                final Silhouette silhouette = SilhouetteSprites.of(buildingImage);
+                shadows.addSilhouette(screenX, groundY, silhouette,
+                        silhouette.height() - BuildingSprites.TILE_CENTER_ART_PIXELS, 1.0, 1.0);
+            } else {
                 shadows.add(screenX, groundY, width, 1.0);
             }
         }

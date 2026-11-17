@@ -7,7 +7,9 @@ import javafx.scene.image.Image;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -67,10 +69,25 @@ public final class BuildingSprites {
             case DOOR -> building instanceof Door door && door.isOpen() ? "door_open" : "door_closed";
             // The furnace has no lit state yet, so it is always shown cold
             case FURNACE -> "furnace_off";
-            case CAMPFIRE, STANDING_TORCH -> building.getType().name().toLowerCase() + "_"
-                    + Math.floorMod(frame, FLAME_FRAMES);
-            default -> building.getType().name().toLowerCase();
+            case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
+            default -> PLAIN_NAMES.get(building.getType());
         };
+    }
+
+    /** The names are built once, so naming a building every frame allocates nothing. */
+    private static final Map<BuildingType, String> PLAIN_NAMES = new EnumMap<>(BuildingType.class);
+    private static final Map<BuildingType, String[]> FLAME_NAMES = new EnumMap<>(BuildingType.class);
+
+    static {
+        for (BuildingType type : BuildingType.values()) {
+            final String base = type.name().toLowerCase(Locale.ROOT);
+            PLAIN_NAMES.put(type, base);
+            final String[] frames = new String[FLAME_FRAMES];
+            for (int i = 0; i < FLAME_FRAMES; i++) {
+                frames[i] = base + "_" + i;
+            }
+            FLAME_NAMES.put(type, frames);
+        }
     }
 
     /**
@@ -104,8 +121,8 @@ public final class BuildingSprites {
         return switch (type) {
             case DOOR -> image("door_closed");
             case FURNACE -> image("furnace_off");
-            case CAMPFIRE, STANDING_TORCH -> image(type.name().toLowerCase() + "_0");
-            default -> image(type.name().toLowerCase());
+            case CAMPFIRE, STANDING_TORCH -> image(FLAME_NAMES.get(type)[0]);
+            default -> image(PLAIN_NAMES.get(type));
         };
     }
 
