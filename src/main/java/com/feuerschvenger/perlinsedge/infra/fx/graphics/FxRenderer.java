@@ -270,7 +270,7 @@ public class FxRenderer {
         // walk covers a wider ring of tiles, and only the casting is done for the tiles outside the view
         // The art scale is snapped to a whole number once here, and the shadow and light passes take this value, so the
         // grids they cast on and the integer scale they draw at can never disagree
-        final double artScale = Math.max(1, Math.rint(ZoomSteps.artScale(zoom)));
+        final double artScale = ZoomSteps.integerArtScale(zoom);
         shadowReach = castShadows ? FxShadowHelper.reachMargin(MAX_CASTER_ART_HEIGHT, MAX_CASTER_ART_HALF_WIDTH,
                 shadowLengthFactor, artScale) : 0.0;
         // Shadows fall down the screen, so a caster below the view reaches into it far less than one above or beside it,
@@ -632,7 +632,7 @@ public class FxRenderer {
      */
     private double cursorCenterY(Tile tile, int tileX, int tileY, double zoom, double offsetY) {
         final double halfTileHeight = AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
-        final double sheetDrop = tile.getType().isWater() ? TileDepths.SURFACE_PIXELS * ZoomSteps.artScale(zoom) : 0;
+        final double sheetDrop = tile.getType().isWater() ? TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom) : 0;
         return (tileX + tileY) * halfTileHeight + offsetY + halfTileHeight + sheetDrop;
     }
 
@@ -679,7 +679,7 @@ public class FxRenderer {
      */
     private boolean isTileVisible(double screenX, double screenY, double tileWidth, double tileHeight) {
         return ScreenCulling.isTileVisible(screenX, screenY, tileWidth, tileHeight,
-                canvas.getWidth(), canvas.getHeight(), ZoomSteps.artScale(camera.getZoom()));
+                canvas.getWidth(), canvas.getHeight(), ZoomSteps.integerArtScale(camera.getZoom()));
     }
 
     /**
@@ -767,7 +767,7 @@ public class FxRenderer {
         final int flash = HurtReaction.flashPhase(sinceHurt);
         final Image sprite = r.sprite() != null && flash != HurtReaction.NO_FLASH
                 ? TintedSprites.of(r.sprite(), flash) : r.sprite();
-        final double shakeX = HurtReaction.shakeScreenOffset(sinceHurt, ZoomSteps.artScale(camera.getZoom()));
+        final double shakeX = HurtReaction.shakeScreenOffset(sinceHurt, ZoomSteps.integerArtScale(camera.getZoom()));
         FxPlayerDrawingHelper.drawPlayer(
                 gc, r.screenX() + shakeX, r.screenY(),
                 camera.getZoom(), player, sprite
@@ -846,7 +846,7 @@ public class FxRenderer {
 
         columns.drawBed(map, tile, r.sprite(), AssetPaths.tileArt(tile.getType()), r.screenX(), r.screenY(), zoom, seed);
 
-        final double surfaceY = r.screenY() + TileDepths.SURFACE_PIXELS * ZoomSteps.artScale(zoom);
+        final double surfaceY = r.screenY() + TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom);
         final Image sheet = spriteManager.getWaterSprite(AssetPaths.waterArt(tile.getType()));
         if (sheet != null) {
             FxTileDrawingHelper.drawTileSprite(gc, sheet, r.screenX(), surfaceY, zoom);

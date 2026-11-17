@@ -84,7 +84,7 @@ public final class FxDamageNumbersPainter {
     public static void draw(GraphicsContext gc, DamageNumbers numbers, double gameTime, double halfTileW,
                             double halfTileH, double offsetX, double offsetY, double zoom, double canvasWidth,
                             double canvasHeight) {
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         boolean prepared = false;
         for (int i = 0, count = numbers.size(); i < count; i++) {
             final DamageNumbers.Entry entry = numbers.get(i);

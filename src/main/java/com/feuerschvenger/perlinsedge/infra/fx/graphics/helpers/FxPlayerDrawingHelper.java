@@ -56,7 +56,7 @@ public final class FxPlayerDrawingHelper {
     private static void renderPlayerSprite(GraphicsContext gc, double tileTopX, double tileTopY,
                                            double zoom, Player player, Image playerSprite) {
         final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double spriteWidth = playerSprite.getWidth() * scale;
         final double spriteHeight = playerSprite.getHeight() * scale;
 

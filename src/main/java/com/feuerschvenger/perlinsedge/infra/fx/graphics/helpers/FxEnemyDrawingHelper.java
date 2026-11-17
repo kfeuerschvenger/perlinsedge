@@ -62,7 +62,7 @@ public final class FxEnemyDrawingHelper {
 
         if (frame != null) {
             // The sprite rests on the point the oval is centred on, whole pixels
-            final double scale = ZoomSteps.artScale(zoom);
+            final double scale = ZoomSteps.integerArtScale(zoom);
             final double width = drawnSize(frame.getWidth(), scale, jumping ? 1.0 : restingWidthFactor(slime, gameTime));
             final double height = drawnSize(frame.getHeight(), scale,
                     jumping ? 1.0 : restingHeightFactor(slime, gameTime));
@@ -112,7 +112,7 @@ public final class FxEnemyDrawingHelper {
         // Height above the resting position, which is where the shadow stays
         final double jumpHeight = jumping
                 ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final Image frame = frames.apply(
                 SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
         final double fade = SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
@@ -148,7 +148,7 @@ public final class FxEnemyDrawingHelper {
      */
     public static void addGenericShadow(ShadowList shadows, double screenX, double screenY, double zoom) {
         final double size = GENERIC_ENEMY_SIZE * zoom;
-        shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.artScale(zoom), 1.0);
+        shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.integerArtScale(zoom), 1.0);
     }
 
     /**

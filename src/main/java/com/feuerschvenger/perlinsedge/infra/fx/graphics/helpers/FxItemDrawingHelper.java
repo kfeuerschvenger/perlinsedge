@@ -78,7 +78,7 @@ public final class FxItemDrawingHelper {
 
         if (sprite != null) {
             // The icon is drawn at the integer art scale on whole pixels, so its pixels stay crisp
-            final double scale = ZoomSteps.artScale(zoom);
+            final double scale = ZoomSteps.integerArtScale(zoom);
             finalWidth = sprite.getWidth() * scale;
             finalHeight = sprite.getHeight() * scale;
 

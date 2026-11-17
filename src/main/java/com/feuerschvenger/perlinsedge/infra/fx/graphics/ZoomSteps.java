@@ -40,4 +40,16 @@ public final class ZoomSteps {
     public static double artScale(double zoom) {
         return zoom * ART_SCALE_AT_UNIT_ZOOM;
     }
+
+    /**
+     * Returns the art scale rounded to a whole number of at least one. Every sprite, shadow and light is drawn at this
+     * one value, so the grids the shadows and the lights are cast on and the size the sprites are drawn at can never
+     * disagree, even for a zoom that is not on the step grid.
+     *
+     * @param zoom the camera zoom
+     * @return the whole number of screen pixels one logical art pixel covers, never below one
+     */
+    public static double integerArtScale(double zoom) {
+        return Math.max(1.0, Math.rint(artScale(zoom)));
+    }
 }

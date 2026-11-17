@@ -52,7 +52,7 @@ public final class FxTileDrawingHelper {
      * @param zoom Current zoom level
      */
     public static void drawTileSprite(GraphicsContext gc, Image tileSprite, double screenX, double screenY, double zoom) {
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double width = tileSprite.getWidth() * scale;
         final double height = tileSprite.getHeight() * scale;
         gc.drawImage(tileSprite, PixelSnap.round(screenX - width / 2), PixelSnap.round(screenY), width, height);
@@ -74,7 +74,7 @@ public final class FxTileDrawingHelper {
      */
     public static void drawDecal(GraphicsContext gc, Image decal, double screenX, double screenY, double zoom,
                                  double offsetU, double offsetV) {
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double halfW = DECAL_TILE_HALF_WIDTH * scale;
         final double halfH = DECAL_TILE_HALF_HEIGHT * scale;
         final double anchorX = screenX + (offsetU - offsetV) * halfW;
@@ -98,7 +98,7 @@ public final class FxTileDrawingHelper {
 
         final AppConfig config = AppConfig.getInstance();
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double spriteWidth = resourceSprite.getWidth() * scale;
         final double spriteHeight = resourceSprite.getHeight() * scale;
 

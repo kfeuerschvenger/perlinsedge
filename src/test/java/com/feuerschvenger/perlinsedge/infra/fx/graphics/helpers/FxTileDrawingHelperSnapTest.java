@@ -54,6 +54,38 @@ class FxTileDrawingHelperSnapTest {
         });
     }
 
+    /** Draws with the given painter on a fresh canvas and returns how many columns hold paint. */
+    private static int paintedColumns(Consumer<GraphicsContext> painter) {
+        return FxToolkitSupport.onFx(() -> {
+            final Canvas canvas = new Canvas(60, 40);
+            final GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.setImageSmoothing(false);
+            painter.accept(gc);
+            final SnapshotParameters parameters = new SnapshotParameters();
+            parameters.setFill(Color.TRANSPARENT);
+            final PixelReader reader = canvas.snapshot(parameters, null).getPixelReader();
+            int columns = 0;
+            for (int x = 0; x < 60; x++) {
+                boolean painted = false;
+                for (int y = 0; y < 40 && !painted; y++) {
+                    painted = reader.getArgb(x, y) >>> 24 != 0;
+                }
+                columns += painted ? 1 : 0;
+            }
+            return columns;
+        });
+    }
+
+    @Test
+    void aZoomOffTheStepGridDrawsAtAWholeNumberOfScreenPixelsPerArtPixel() {
+        final Image decal = block(3, 2);
+        final Image tile = block(3, 2);
+
+        // A zoom of 0.7 is an art scale of 1.4, which is drawn as 1
+        assertEquals(3, paintedColumns(gc -> FxTileDrawingHelper.drawDecal(gc, decal, 20, 5, 0.7, 0, 0)));
+        assertEquals(3, paintedColumns(gc -> FxTileDrawingHelper.drawTileSprite(gc, tile, 20, 5, 0.7)));
+    }
+
     @Test
     void aDecalOfOddWidthMovesByExactlyTheWholePixelPan() {
         final Image decal = block(3, 2);

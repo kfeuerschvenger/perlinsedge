@@ -36,7 +36,7 @@ public final class TilePicker {
                                double zoom, double halfTileWidth, double halfTileHeight, int[] out) {
         final double scaledHalfWidth = halfTileWidth * zoom;
         final double scaledHalfHeight = halfTileHeight * zoom;
-        final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.artScale(zoom);
+        final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom);
 
         final double worldX = screenX - cameraX;
         final double worldY = screenY - cameraY;
