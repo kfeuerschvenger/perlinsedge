@@ -2,7 +2,6 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Door;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -12,13 +11,6 @@ import javafx.scene.paint.Color;
  */
 public final class FxBuildingPainter {
 
-    private static final double WALL_HEIGHT_FACTOR = 4.0;
-    private static final double WALL_ELEVATION_OFFSET_FACTOR = 2.0;
-    private static final double WALL_STROKE_WIDTH = 1.5;
-    private static final Color BASE_WALL_COLOR = Color.rgb(100, 100, 100);
-    private static final Color WALL_TOP_COLOR = BASE_WALL_COLOR.deriveColor(0, 1, 1.2, 1);
-    private static final Color WALL_RIGHT_COLOR = BASE_WALL_COLOR.deriveColor(0, 1, 0.8, 1);
-    private static final Color WALL_LEFT_COLOR = BASE_WALL_COLOR.deriveColor(0, 1, 0.9, 1);
 
     private static final double CHEST_SIZE_FACTOR = 0.6;
     private static final double CHEST_VISUAL_HEIGHT_FACTOR = 1.2;
@@ -43,8 +35,6 @@ public final class FxBuildingPainter {
      */
     public static void draw(GraphicsContext gc, Building building, double screenX, double screenY, double zoom) {
         switch (building.getType()) {
-            case WALL -> drawWall(gc, screenX, screenY, zoom);
-            case DOOR -> drawDoor(gc, building instanceof Door door && door.isOpen(), screenX, screenY, zoom);
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
             case DOCK -> drawDock(gc, screenX, screenY, zoom);
             case FENCE -> drawFence(gc, screenX, screenY, zoom);
@@ -102,29 +92,6 @@ public final class FxBuildingPainter {
         double plankSpacing = 15 * zoom;
         for (double i = 0; i < length; i += plankSpacing) {
             gc.strokeLine(screenX - length / 2 + i, drawY - width / 2, screenX - length / 2 + i, drawY + width / 2);
-        }
-    }
-
-    private static void drawDoor(GraphicsContext gc, boolean isOpen, double screenX, double screenY, double zoom) {
-        double width = 40 * zoom;
-        double height = 60 * zoom;
-
-        double drawY = screenY - height / 2 - (10 * zoom);
-
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(1 * zoom);
-
-        if (isOpen) {
-            gc.setFill(Color.web("#ADD8E6", 0.5));
-            gc.fillRect(screenX - width / 2, drawY, width, height);
-            gc.setStroke(Color.BROWN);
-            gc.strokeRect(screenX - width / 2, drawY, width, height);
-        } else {
-            gc.setFill(Color.BROWN);
-            gc.fillRect(screenX - width / 2, drawY, width, height);
-            gc.strokeRect(screenX - width / 2, drawY, width, height);
-            gc.setFill(Color.GOLD);
-            gc.fillOval(screenX + width / 2 - (10 * zoom), drawY + height / 2 - (5 * zoom), 5 * zoom, 5 * zoom);
         }
     }
 
@@ -301,68 +268,6 @@ public final class FxBuildingPainter {
         gc.setFill(Color.SADDLEBROWN);
         gc.fillRect(drawX - headboardWidth / 2, drawY - bedLength - headboardHeight, headboardWidth, headboardHeight);
         gc.strokeRect(drawX - headboardWidth / 2, drawY - bedLength - headboardHeight, headboardWidth, headboardHeight);
-    }
-
-    // ------------------------------------------------------------------
-    //  Wall
-    // ------------------------------------------------------------------
-
-    private static void drawWall(GraphicsContext gc, double screenX, double screenY, double zoom) {
-        final AppConfig config = AppConfig.getInstance();
-
-        final double halfWidth = config.graphics().getTileHalfWidth() * zoom;
-        final double halfHeight = config.graphics().getTileHalfHeight() * zoom;
-        final double tileBaseHeight = config.graphics().getTileVisualBaseHeight() * zoom;
-
-        final double elevationOffset = halfHeight * WALL_ELEVATION_OFFSET_FACTOR;
-        final double topY = screenY - elevationOffset;
-        final double wallVisualHeight = tileBaseHeight * WALL_HEIGHT_FACTOR;
-
-        final double rightX = screenX + halfWidth;
-        final double rightY = topY + halfHeight;
-        final double bottomY = topY + 2 * halfHeight;
-        final double leftX = screenX - halfWidth;
-        final double leftY = topY + halfHeight;
-        final double baseRightY = rightY + wallVisualHeight;
-        final double baseBottomY = bottomY + wallVisualHeight;
-        final double baseLeftY = leftY + wallVisualHeight;
-
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(WALL_STROKE_WIDTH * zoom);
-
-        gc.setFill(WALL_LEFT_COLOR);
-        gc.beginPath();
-        gc.moveTo(leftX, leftY);
-        gc.lineTo(leftX, baseLeftY);
-        gc.lineTo(screenX, baseBottomY);
-        gc.lineTo(screenX, bottomY);
-        gc.closePath();
-        gc.fill();
-        gc.stroke();
-
-        gc.setFill(WALL_RIGHT_COLOR);
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(WALL_STROKE_WIDTH * zoom);
-        gc.beginPath();
-        gc.moveTo(rightX, rightY);
-        gc.lineTo(rightX, baseRightY);
-        gc.lineTo(screenX, baseBottomY);
-        gc.lineTo(screenX, bottomY);
-        gc.closePath();
-        gc.fill();
-        gc.stroke();
-
-        gc.setFill(WALL_TOP_COLOR);
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(WALL_STROKE_WIDTH * zoom);
-        gc.beginPath();
-        gc.moveTo(screenX, topY);
-        gc.lineTo(rightX, rightY);
-        gc.lineTo(screenX, bottomY);
-        gc.lineTo(leftX, leftY);
-        gc.closePath();
-        gc.fill();
-        gc.stroke();
     }
 
     // ------------------------------------------------------------------

@@ -86,28 +86,28 @@ class BuildingPalettePanelTest {
 
     @Test
     void clickingACardChoosesThePieceAndTheClickNeverReachesTheWorld() {
-        boolean reachedParent = press(BuildingType.DOOR);
+        boolean reachedParent = press(BuildingType.CHEST);
 
-        assertEquals(List.of(BuildingType.DOOR), chosen);
+        assertEquals(List.of(BuildingType.CHEST), chosen);
         assertFalse(reachedParent, "the press is consumed by the card");
-        assertEquals(BuildingType.DOOR, FxToolkitSupport.onFx(panel::getShownSelected));
+        assertEquals(BuildingType.CHEST, FxToolkitSupport.onFx(panel::getShownSelected));
     }
 
     @Test
     void theSelectedCardKeepsItsBorderUntilAnotherPieceIsChosen() {
-        update(BuildingType.WALL);
-        assertTrue(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.WALL).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
-        assertFalse(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.DOOR).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
+        update(BuildingType.FENCE);
+        assertTrue(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.FENCE).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
+        assertFalse(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.CHEST).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
 
-        update(BuildingType.DOOR);
+        update(BuildingType.CHEST);
 
-        assertFalse(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.WALL).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
-        assertTrue(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.DOOR).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
+        assertFalse(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.FENCE).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
+        assertTrue(FxToolkitSupport.onFx(() -> panel.cardNode(BuildingType.CHEST).getStyleClass().contains(UiTheme.SLOT_SELECTED)));
     }
 
     @Test
     void droppingTheSelectionClearsEveryBorder() {
-        update(BuildingType.WALL);
+        update(BuildingType.FENCE);
 
         update(null);
 
@@ -119,19 +119,19 @@ class BuildingPalettePanelTest {
 
     @Test
     void theCostShowsHeldOverNeededInGreenWhenEnoughAndRedWhenNot() {
-        player.addItem(new Item(ItemType.STONE, 1));
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
         update(null);
 
-        List<String> texts = costTexts(BuildingType.WALL);
-        assertEquals(List.of("STONE 1/2"), texts);
-        assertTrue(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.WALL).get(0).getStyleClass().contains(UiTheme.TEXT_BAD)));
+        List<String> texts = costTexts(BuildingType.FENCE);
+        assertEquals(List.of("WOOD LOG 1/2"), texts);
+        assertTrue(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.FENCE).get(0).getStyleClass().contains(UiTheme.TEXT_BAD)));
 
-        player.addItem(new Item(ItemType.STONE, 1));
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
         update(null);
 
-        assertEquals(List.of("STONE 2/2"), costTexts(BuildingType.WALL));
-        assertTrue(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.WALL).get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)));
-        assertFalse(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.WALL).get(0).getStyleClass().contains(UiTheme.TEXT_BAD)));
+        assertEquals(List.of("WOOD LOG 2/2"), costTexts(BuildingType.FENCE));
+        assertTrue(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.FENCE).get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)));
+        assertFalse(FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.FENCE).get(0).getStyleClass().contains(UiTheme.TEXT_BAD)));
     }
 
     @Test
@@ -139,8 +139,8 @@ class BuildingPalettePanelTest {
         player.addItem(new Item(ItemType.WOOD_PLANK, 5));
         update(null);
 
-        List<Label> door = FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.DOOR));
-        assertTrue(FxToolkitSupport.onFx(() -> door.get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)), "planks 5/5");
-        assertTrue(FxToolkitSupport.onFx(() -> door.get(1).getStyleClass().contains(UiTheme.TEXT_BAD)), "iron ingot 0/1");
+        List<Label> bed = FxToolkitSupport.onFx(() -> panel.costLabels(BuildingType.BED));
+        assertTrue(FxToolkitSupport.onFx(() -> bed.get(0).getStyleClass().contains(UiTheme.TEXT_GOOD)), "planks 5/3");
+        assertTrue(FxToolkitSupport.onFx(() -> bed.get(1).getStyleClass().contains(UiTheme.TEXT_BAD)), "fiber 0/5");
     }
 }

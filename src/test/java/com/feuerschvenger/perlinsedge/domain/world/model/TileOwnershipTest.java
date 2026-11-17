@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.model;
 
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,7 +49,7 @@ class TileOwnershipTest {
         map.setTile(1, 1, new Tile(1, 1, TileType.SAND));
         final long revision = map.getRevision();
 
-        old.setBuilding(new Wall(1, 1));
+        old.setBuilding(new Fence(1, 1));
 
         assertFalse(old.isOwnedBy(map));
         assertEquals(revision, map.getRevision(), "a tile that left the map does not count as a change of it");

@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
@@ -39,7 +39,7 @@ class EnemyBehaviourTest {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 if (dx != 0 || dy != 0) {
-                    map.getTile(cx + dx, cy + dy).setBuilding(new Wall(cx + dx, cy + dy));
+                    map.getTile(cx + dx, cy + dy).setBuilding(new Fence(cx + dx, cy + dy));
                 }
             }
         }

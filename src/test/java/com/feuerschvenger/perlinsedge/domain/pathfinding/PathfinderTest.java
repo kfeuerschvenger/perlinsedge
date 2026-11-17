@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.pathfinding;
 
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Bridge;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -30,7 +30,7 @@ class PathfinderTest {
     }
 
     private static void wall(TileMap map, int x, int y) {
-        map.getTile(x, y).setBuilding(new Wall(x, y));
+        map.getTile(x, y).setBuilding(new Fence(x, y));
     }
 
     private static PathNode last(List<PathNode> path) {

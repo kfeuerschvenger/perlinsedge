@@ -84,9 +84,9 @@ class BuildingManagerTest {
 
     @Test
     void placingConsumesTheIngredients() {
-        BuildingRecipe recipe = recipes.getBuildingRecipeByType(BuildingType.WALL).orElseThrow();
+        BuildingRecipe recipe = recipes.getBuildingRecipeByType(BuildingType.FENCE).orElseThrow();
         giveIngredients(recipe);
-        manager.setSelectedBuildingType(BuildingType.WALL);
+        manager.setSelectedBuildingType(BuildingType.FENCE);
 
         manager.placeBuilding(1, 1);
 
@@ -97,7 +97,7 @@ class BuildingManagerTest {
 
     @Test
     void leavingBuildingModeClearsTheSelection() {
-        manager.setSelectedBuildingType(BuildingType.WALL);
+        manager.setSelectedBuildingType(BuildingType.FENCE);
 
         manager.deactivateBuildingMode();
 
@@ -107,24 +107,24 @@ class BuildingManagerTest {
 
     @Test
     void comingBackToTheHammerSelectsTheLastPieceAgain() {
-        manager.setSelectedBuildingType(BuildingType.DOOR);
+        manager.setSelectedBuildingType(BuildingType.CHEST);
         manager.deactivateBuildingMode();
 
         manager.activateBuildingMode();
 
-        assertEquals(BuildingType.DOOR, manager.getSelectedBuildingType());
+        assertEquals(BuildingType.CHEST, manager.getSelectedBuildingType());
     }
 
     @Test
     void droppingTheSelectionKeepsTheMemoryOfTheLastPiece() {
-        manager.setSelectedBuildingType(BuildingType.DOOR);
+        manager.setSelectedBuildingType(BuildingType.CHEST);
         manager.setSelectedBuildingType(null);
 
         assertEquals(null, manager.getSelectedBuildingType());
         manager.deactivateBuildingMode();
         manager.activateBuildingMode();
 
-        assertEquals(BuildingType.DOOR, manager.getSelectedBuildingType());
+        assertEquals(BuildingType.CHEST, manager.getSelectedBuildingType());
     }
 
     @Test
@@ -149,26 +149,26 @@ class BuildingManagerTest {
 
     @Test
     void demolishingAFullHealthPieceReturnsTheWholeRecipe() {
-        build(BuildingType.DOOR, 2, 2);
+        build(BuildingType.BED, 2, 2);
         assertEquals(0, held(ItemType.WOOD_PLANK));
 
         manager.removeBuilding(2, 2);
 
         assertFalse(map.getTile(2, 2).hasBuilding());
-        assertEquals(5, held(ItemType.WOOD_PLANK));
-        assertEquals(1, held(ItemType.IRON_INGOT));
+        assertEquals(3, held(ItemType.WOOD_PLANK));
+        assertEquals(5, held(ItemType.FIBER));
     }
 
     @Test
     void demolishingADamagedPieceReturnsTheShareOfTheHealthLeftRoundedDown() {
-        Building door = build(BuildingType.DOOR, 2, 2);
-        door.damage(door.getMaxHealth() / 2);
+        Building bed = build(BuildingType.BED, 2, 2);
+        bed.damage(bed.getMaxHealth() / 2);
 
         manager.removeBuilding(2, 2);
 
-        // Half of 5 planks is 2, half of 1 ingot is 0
-        assertEquals(2, held(ItemType.WOOD_PLANK));
-        assertEquals(0, held(ItemType.IRON_INGOT));
+        // Half of 3 planks is 1, half of 5 fiber is 2
+        assertEquals(1, held(ItemType.WOOD_PLANK));
+        assertEquals(2, held(ItemType.FIBER));
     }
 
     @Test
@@ -191,9 +191,9 @@ class BuildingManagerTest {
 
     @Test
     void aPlacedPieceStartsAtFullHealth() {
-        Building wall = build(BuildingType.WALL, 3, 3);
+        Building wall = build(BuildingType.FENCE, 3, 3);
 
-        assertEquals(BuildingStats.maxHealth(BuildingType.WALL), wall.getHealth());
+        assertEquals(BuildingStats.maxHealth(BuildingType.FENCE), wall.getHealth());
         assertFalse(wall.isDamaged());
     }
 }

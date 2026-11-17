@@ -35,6 +35,6 @@ class GroundShadowTest {
     void bridgesAndDocksLieFlatAndCastNoShadow() {
         assertEquals(0.0, GroundShadow.widthFor(BuildingType.BRIDGE));
         assertEquals(0.0, GroundShadow.widthFor(BuildingType.DOCK));
-        assertTrue(GroundShadow.widthFor(BuildingType.WALL) > GroundShadow.widthFor(BuildingType.STANDING_TORCH));
+        assertTrue(GroundShadow.widthFor(BuildingType.WORKBENCH) > GroundShadow.widthFor(BuildingType.STANDING_TORCH));
     }
 }

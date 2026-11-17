@@ -3,8 +3,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Door;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -176,18 +175,6 @@ class InteractionManagerTest {
     }
 
     @Test
-    void aFarDoorTogglesOnArrival() {
-        Door door = new Door(8, 5);
-        map.getTile(8, 5).setBuilding(door);
-
-        assertTrue(interactions.interact(8, 5).isAccepted());
-        assertFalse(door.isOpen());
-        tickUntilIdle();
-
-        assertTrue(door.isOpen());
-    }
-
-    @Test
     void aNewClickCancelsThePendingInteraction() {
         Resource stone = stoneAt(8, 5);
         interactions.interact(8, 5);
@@ -311,7 +298,7 @@ class InteractionManagerTest {
     void aTileWithNothingToInteractWithIsRefused() {
         assertFalse(interactions.interact(3, 3).isAccepted());
 
-        map.getTile(4, 4).setBuilding(new Wall(4, 4));
+        map.getTile(4, 4).setBuilding(new Fence(4, 4));
         assertFalse(interactions.interact(4, 4).isAccepted(), "a wall does nothing when clicked");
         assertFalse(interactions.hasPending());
     }
@@ -463,7 +450,7 @@ class InteractionManagerTest {
     void aClickBetweenTwoTilesPlansFromTheTileBeingApproached() {
         // A wall the straight line from the tile left behind would graze: the walk goes around it from the next tile
         Resource stone = stoneAt(4, 6);
-        map.getTile(2, 5).setBuilding(new Wall(2, 5));
+        map.getTile(2, 5).setBuilding(new Fence(2, 5));
         player.walkAlong(List.of(new PathNode(1, 5), new PathNode(1, 6), new PathNode(1, 7)));
         for (int i = 0; i < 4; i++) {
             player.update(STEP);

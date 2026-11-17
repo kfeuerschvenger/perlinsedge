@@ -22,8 +22,6 @@ public final class BuildingFactory {
      */
     public static Building create(BuildingType type, int x, int y) {
         return switch (type) {
-            case WALL -> new Wall(x, y);
-            case DOOR -> new Door(x, y);
             case BRIDGE -> new Bridge(x, y);
             case DOCK -> new Dock(x, y);
             case FENCE -> new Fence(x, y);

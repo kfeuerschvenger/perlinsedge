@@ -12,8 +12,6 @@ public final class BuildingStats {
     private static final Map<BuildingType, Integer> MAX_HEALTH = new EnumMap<>(BuildingType.class);
 
     static {
-        MAX_HEALTH.put(BuildingType.WALL, 120);
-        MAX_HEALTH.put(BuildingType.DOOR, 60);
         MAX_HEALTH.put(BuildingType.BRIDGE, 80);
         MAX_HEALTH.put(BuildingType.DOCK, 80);
         MAX_HEALTH.put(BuildingType.FENCE, 40);

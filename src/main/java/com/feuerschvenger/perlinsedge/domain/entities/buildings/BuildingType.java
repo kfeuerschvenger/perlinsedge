@@ -13,14 +13,6 @@ public enum BuildingType {
     // ==================================================================
     //  Structural Buildings
     // ==================================================================
-    WALL(
-            "A sturdy wall block, keeping out the baddies and making your fortress strong.",
-            Rgba.GRAY
-    ),
-    DOOR(
-            "A door that swings open to new adventures, or slams shut on pesky intruders.",
-            Rgba.BROWN
-    ),
     BRIDGE(
             "A bridge block, connecting distant lands and making travel a breeze.",
             Rgba.DARK_GOLDENROD

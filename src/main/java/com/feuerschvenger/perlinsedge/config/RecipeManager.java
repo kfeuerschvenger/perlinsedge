@@ -147,13 +147,6 @@ public class RecipeManager {
      */
     private void initializeBuildingRecipes() {
         // Structural buildings
-        buildingRecipes.add(createBuildingRecipe(BuildingType.WALL,
-                new CraftingIngredient(ItemType.STONE, 2)));
-
-        buildingRecipes.add(createBuildingRecipe(BuildingType.DOOR,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 5),
-                new CraftingIngredient(ItemType.IRON_INGOT, 1)));
-
         buildingRecipes.add(createBuildingRecipe(BuildingType.BRIDGE,
                 new CraftingIngredient(ItemType.WOOD_PLANK, 10)));
 

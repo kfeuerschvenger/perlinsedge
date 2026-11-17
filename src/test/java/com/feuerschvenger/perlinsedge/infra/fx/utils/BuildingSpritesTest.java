@@ -3,7 +3,6 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Door;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
@@ -47,18 +46,9 @@ class BuildingSpritesTest {
             return image;
         });
 
-        assertSame(image, sprites.imageFor(of(BuildingType.WALL), 0));
-        assertSame(image, sprites.imageFor(of(BuildingType.WALL), 3));
-        assertEquals(List.of("wall"), asked, "the image is loaded once and kept");
-    }
-
-    @Test
-    void theDoorPicksOpenOrClosedByItsState() {
-        final Door door = new Door(1, 1);
-
-        assertEquals("door_closed", BuildingSprites.spriteName(door, 0));
-        door.toggleOpen();
-        assertEquals("door_open", BuildingSprites.spriteName(door, 0));
+        assertSame(image, sprites.imageFor(of(BuildingType.WORKBENCH), 0));
+        assertSame(image, sprites.imageFor(of(BuildingType.WORKBENCH), 3));
+        assertEquals(List.of("workbench"), asked, "the image is loaded once and kept");
     }
 
     @Test
@@ -80,7 +70,6 @@ class BuildingSpritesTest {
 
     @Test
     void everyOtherPieceIsNamedAfterItsType() {
-        assertEquals("wall", BuildingSprites.spriteName(of(BuildingType.WALL), 0));
         assertEquals("workbench", BuildingSprites.spriteName(of(BuildingType.WORKBENCH), 0));
         assertEquals("bridge", BuildingSprites.spriteName(of(BuildingType.BRIDGE), 0));
     }
@@ -129,8 +118,8 @@ class BuildingSpritesTest {
     void theClasspathLoaderAnswersNullForAMissingFileAndAnImageForAPresentOne() {
         assertNotNull(BuildingSprites.getInstance());
         // The shipped art may be absent: the answer is null then, and the caller draws the procedural shape
-        final Image image = BuildingSprites.getInstance().restingImage(BuildingType.WALL);
-        final boolean shipped = BuildingSpritesTest.class.getResource("/assets/buildings/wall.png") != null;
+        final Image image = BuildingSprites.getInstance().restingImage(BuildingType.WORKBENCH);
+        final boolean shipped = BuildingSpritesTest.class.getResource("/assets/buildings/workbench.png") != null;
         assertTrue(shipped == (image != null));
     }
 }

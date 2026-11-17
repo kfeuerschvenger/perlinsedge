@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities;
 
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -140,7 +140,7 @@ class PlayerMoveOrderTest {
 
     @Test
     void aWalkVisitsEveryNodeOfThePathAndNeverCutsAroundAnObstacle() {
-        map.getTile(1, 1).setBuilding(new Wall(1, 1));
+        map.getTile(1, 1).setBuilding(new Fence(1, 1));
         assertTrue(player.moveTo(map, 2, 2));
 
         for (int i = 0; i < 240; i++) {
@@ -188,7 +188,7 @@ class PlayerMoveOrderTest {
 
     @Test
     void aMoveOrderMidStepFinishesTheStepBeforeTurningAndNeverCutsABlockedCorner() {
-        map.getTile(1, 1).setBuilding(new Wall(1, 1));
+        map.getTile(1, 1).setBuilding(new Fence(1, 1));
         assertTrue(player.walkAlong(List.of(new PathNode(1, 0), new PathNode(2, 0), new PathNode(3, 0))));
         updateFrames(4);
         assertTrue(player.getPosX() > 0 && player.getPosX() < 1, "the player is between (0, 0) and (1, 0)");

@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.pathfinding;
 
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -81,7 +81,7 @@ class InteractionPlannerTest {
     @Test
     void aSolidTargetIsApproachedThroughTheTilesAroundIt() {
         TileMap map = grassMap();
-        map.getTile(6, 4).setBuilding(new Wall(6, 4));
+        map.getTile(6, 4).setBuilding(new Fence(6, 4));
 
         List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 4, 6, 4);
 
@@ -92,7 +92,7 @@ class InteractionPlannerTest {
     @Test
     void aBlockedSideIsSkippedForAnOpenOne() {
         TileMap map = grassMap();
-        map.getTile(5, 4).setBuilding(new Wall(5, 4));
+        map.getTile(5, 4).setBuilding(new Fence(5, 4));
 
         List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 4, 6, 4);
 

@@ -141,7 +141,7 @@ public enum ItemType {
     ),
     HAMMER(
             1,
-            "Hold it to raise walls, doors and workbenches, " +
+            "Hold it to raise fences, chests and workbenches, " +
                     "and to take them down again."
     ),
     POTION_HEALTH(

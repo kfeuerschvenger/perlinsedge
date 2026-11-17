@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.model;
 
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,7 +74,7 @@ class TileMapRevisionTest {
         final TileMap map = mapWithTile();
         final long start = map.getRevision();
 
-        map.getTile(1, 1).setBuilding(new Wall(1, 1));
+        map.getTile(1, 1).setBuilding(new Fence(1, 1));
         final long placed = map.getRevision();
         map.getTile(1, 1).setBuilding(null);
         final long removed = map.getRevision();
@@ -119,7 +119,7 @@ class TileMapRevisionTest {
         final Tile loose = new Tile(2, 2, TileType.GRASS);
 
         loose.setWorldResource(new Resource(ResourceType.TREE, 1));
-        loose.setBuilding(new Wall(2, 2));
+        loose.setBuilding(new Fence(2, 2));
 
         assertEquals(before, map.getRevision());
     }

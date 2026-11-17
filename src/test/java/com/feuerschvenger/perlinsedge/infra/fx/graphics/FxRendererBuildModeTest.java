@@ -5,7 +5,7 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -139,11 +139,11 @@ class FxRendererBuildModeTest {
         buildMode(null, null);
         final int[] noGhost = frame();
 
-        buildMode(BuildingType.WALL, Rgba.LIME_GREEN);
+        buildMode(BuildingType.WORKBENCH, Rgba.LIME_GREEN);
         final double[] green = averageChange(noGhost, frame());
-        buildMode(BuildingType.WALL, Rgba.RED);
+        buildMode(BuildingType.WORKBENCH, Rgba.RED);
         final double[] red = averageChange(noGhost, frame());
-        buildMode(BuildingType.WALL, Rgba.ORANGE);
+        buildMode(BuildingType.WORKBENCH, Rgba.ORANGE);
         final double[] amber = averageChange(noGhost, frame());
 
         assertTrue(green[1] - green[0] > red[1] - red[0], "green leans greener than red does");
@@ -164,7 +164,7 @@ class FxRendererBuildModeTest {
 
     @Test
     void aDamagedBuildingShowsItsHealthBarOnlyWhileTheHammerHoversIt() {
-        final Wall wall = new Wall(HOVER, HOVER);
+        final Fence wall = new Fence(HOVER, HOVER);
         map.getTile(HOVER, HOVER).setBuilding(wall);
 
         buildMode(null, null);
@@ -173,7 +173,7 @@ class FxRendererBuildModeTest {
         final int[] hurt = frame();
         renderer.clearBuildingPreview();
         final int[] hurtWithoutHammer = frame();
-        final Wall fresh = new Wall(HOVER, HOVER);
+        final Fence fresh = new Fence(HOVER, HOVER);
         map.getTile(HOVER, HOVER).setBuilding(fresh);
         final int[] freshWithoutHammer = frame();
 
@@ -183,7 +183,7 @@ class FxRendererBuildModeTest {
 
     @Test
     void theHealthBarRuleNeedsBuildModeAndADamagedBuildingUnderTheCursor() {
-        final Building wall = new Wall(0, 0);
+        final Building wall = new Fence(0, 0);
         assertFalse(com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxBuildingHealthBar.isShown(true, wall));
         wall.damage(1);
         assertTrue(com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxBuildingHealthBar.isShown(true, wall));

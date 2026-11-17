@@ -250,8 +250,8 @@ class InputWiringClickTest {
 
     @Test
     void aLeftClickInBuildModePlacesTheSelectedPieceAndFlashesGreen() {
-        player.addItem(new Item(ItemType.STONE, 2));
-        buildMode(BuildingType.WALL);
+        player.addItem(new Item(ItemType.WOOD_LOG, 2));
+        buildMode(BuildingType.FENCE);
 
         click(5, 2, MouseButton.PRIMARY);
 
@@ -261,7 +261,7 @@ class InputWiringClickTest {
 
     @Test
     void aLeftClickThatCannotPlaceFlashesRedAndPlacesNothing() {
-        buildMode(BuildingType.WALL);
+        buildMode(BuildingType.FENCE);
 
         click(5, 2, MouseButton.PRIMARY);
 
@@ -271,33 +271,33 @@ class InputWiringClickTest {
 
     @Test
     void aLeftClickWithNoPieceSelectedDoesNothingAtAll() {
-        player.addItem(new Item(ItemType.STONE, 2));
+        player.addItem(new Item(ItemType.WOOD_LOG, 2));
         buildMode(null);
 
         click(5, 2, MouseButton.PRIMARY);
 
         assertFalse(map.getTile(5, 2).hasBuilding());
         assertEquals(ClickFeedback.Kind.NONE, flash());
-        assertEquals(2, player.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(2, player.getItemCount(new Item(ItemType.WOOD_LOG, 1)));
     }
 
     @Test
     void aRightClickInBuildModeDemolishesAndRefunds() {
-        player.addItem(new Item(ItemType.STONE, 2));
-        buildMode(BuildingType.WALL);
+        player.addItem(new Item(ItemType.WOOD_LOG, 2));
+        buildMode(BuildingType.FENCE);
         click(5, 2, MouseButton.PRIMARY);
-        assertEquals(0, player.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(0, player.getItemCount(new Item(ItemType.WOOD_LOG, 1)));
 
         click(5, 2, MouseButton.SECONDARY);
 
         assertFalse(map.getTile(5, 2).hasBuilding());
-        assertEquals(2, player.getItemCount(new Item(ItemType.STONE, 1)));
+        assertEquals(2, player.getItemCount(new Item(ItemType.WOOD_LOG, 1)));
         assertEquals(ClickFeedback.Kind.ACCEPTED, flash());
     }
 
     @Test
     void aRightClickOnAnEmptyTileInBuildModeFlashesRed() {
-        buildMode(BuildingType.WALL);
+        buildMode(BuildingType.FENCE);
 
         click(5, 2, MouseButton.SECONDARY);
 

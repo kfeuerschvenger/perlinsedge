@@ -13,8 +13,8 @@ class BuildingHealthTest {
         for (BuildingType type : BuildingType.values()) {
             assertTrue(BuildingStats.maxHealth(type) > 0, type.name());
         }
-        Wall wall = new Wall(1, 1);
-        assertEquals(BuildingStats.maxHealth(BuildingType.WALL), wall.getHealth());
+        Fence wall = new Fence(1, 1);
+        assertEquals(BuildingStats.maxHealth(BuildingType.FENCE), wall.getHealth());
         assertEquals(wall.getMaxHealth(), wall.getHealth());
         assertFalse(wall.isDamaged());
         assertEquals(1.0, wall.getHealthFraction(), 1e-9);
@@ -22,7 +22,7 @@ class BuildingHealthTest {
 
     @Test
     void damageLowersTheHealthAndNeverGoesBelowZero() {
-        Wall wall = new Wall(1, 1);
+        Fence wall = new Fence(1, 1);
 
         wall.damage(30);
         assertEquals(wall.getMaxHealth() - 30, wall.getHealth());
@@ -36,14 +36,14 @@ class BuildingHealthTest {
 
     @Test
     void aNegativeDamageChangesNothing() {
-        Wall wall = new Wall(1, 1);
+        Fence wall = new Fence(1, 1);
         wall.damage(-5);
         assertEquals(wall.getMaxHealth(), wall.getHealth());
     }
 
     @Test
     void theRefundIsTheShareOfTheQuantityThatMatchesTheHealthRoundedDown() {
-        Wall wall = new Wall(1, 1);
+        Fence wall = new Fence(1, 1);
         assertEquals(7, wall.refundOf(7));
 
         wall.damage(wall.getMaxHealth() / 2);

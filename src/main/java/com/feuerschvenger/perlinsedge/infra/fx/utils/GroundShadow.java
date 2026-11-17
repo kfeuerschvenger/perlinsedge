@@ -45,11 +45,10 @@ public final class GroundShadow {
         return switch (type) {
             case BRIDGE, DOCK -> 0.0;
             case STANDING_TORCH -> 8.0;
-            case FENCE, DOOR, ANVIL -> 16.0;
+            case FENCE, ANVIL -> 16.0;
             case CHEST, CAMPFIRE -> 18.0;
             case FURNACE -> 22.0;
             case WORKBENCH, BED -> 26.0;
-            case WALL -> 30.0;
         };
     }
 }

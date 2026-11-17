@@ -426,7 +426,7 @@ class GameOrchestratorTest {
         state.getPlayer().setItemAt(1, new Item(ItemType.HAMMER, 1));
         state.getPlayer().selectHotbarSlot(1);
         onFx(() -> orchestrator.update(1.0 / 60.0));
-        orchestrator.buildingManager().setSelectedBuildingType(com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType.WALL);
+        orchestrator.buildingManager().setSelectedBuildingType(com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType.FENCE);
 
         onFx(orchestrator::handleEscape);
 

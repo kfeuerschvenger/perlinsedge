@@ -2,7 +2,6 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Door;
 import javafx.scene.image.Image;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,7 +15,7 @@ import java.util.function.Function;
 /**
  * Loads the building art once and hands it out by building. The files live in {@code assets/buildings} and are named
  * after the piece: {@code wall}, {@code fence}, {@code chest}, {@code anvil}, {@code workbench}, {@code bed},
- * {@code door_closed}, {@code door_open}, {@code bridge}, {@code dock}, {@code furnace_off}, {@code furnace_on},
+ * {@code bridge}, {@code dock}, {@code furnace_off}, {@code furnace_on},
  * and the four frames {@code campfire_0} to {@code campfire_3} and {@code standing_torch_0} to
  * {@code standing_torch_3}. A piece with no file answers null, and the caller draws the procedural shape instead.
  * <p>
@@ -66,7 +65,6 @@ public final class BuildingSprites {
      */
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
-            case DOOR -> building instanceof Door door && door.isOpen() ? "door_open" : "door_closed";
             // The furnace has no lit state yet, so it is always shown cold
             case FURNACE -> "furnace_off";
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
@@ -119,7 +117,6 @@ public final class BuildingSprites {
      */
     public Image restingImage(BuildingType type) {
         return switch (type) {
-            case DOOR -> image("door_closed");
             case FURNACE -> image("furnace_off");
             case CAMPFIRE, STANDING_TORCH -> image(FLAME_NAMES.get(type)[0]);
             default -> image(PLAIN_NAMES.get(type));
