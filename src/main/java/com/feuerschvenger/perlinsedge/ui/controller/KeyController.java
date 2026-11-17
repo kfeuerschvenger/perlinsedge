@@ -229,8 +229,9 @@ public class KeyController implements IKeyListener {
     }
 
     /**
-     * Generates a new random map.
-     * This action is only available when debug mode is enabled.
+     * Generates a new random map. This is the F5 key.
+     * This action is only available when debug mode is enabled. The map is replaced inside the same session, so the
+     * time of day, the day number and the fast time carry over to the new map.
      */
     private void generateNewRandomMap() {
         if (debug.isEnabled() && generateNewMapAction != null) {

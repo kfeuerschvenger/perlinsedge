@@ -8,7 +8,10 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
+import com.feuerschvenger.perlinsedge.domain.world.light.PointLight;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
@@ -159,6 +162,58 @@ class GameOrchestratorTest {
         assertNotNull(state.getCurrentMap());
         assertNotSame(first, state.getCurrentMap());
         assertNotNull(state.getPlayer());
+    }
+
+    @Test
+    void aRebuildKeepsTheTimeOfDayAndTheFastTimeBecauseItIsTheSameSession() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getDayCycle().advance(1234.5);
+        final double minute = state.getDayCycle().clockMinuteOfDay();
+        final int day = state.getDayCycle().dayNumber();
+        final AppConfig.DayCycleConfig config = AppConfig.getInstance().dayCycle();
+        final boolean before = config.isFastTime();
+        config.setFastTime(true);
+        try {
+            onFx(orchestrator::regenerateMap);
+            onFx(() -> applyConfig(MapType.TUNDRA));
+
+            assertEquals(minute, state.getDayCycle().clockMinuteOfDay(), "the clock is the clock of the session");
+            assertEquals(day, state.getDayCycle().dayNumber());
+            assertTrue(config.isFastTime(), "so is the fast time");
+        } finally {
+            config.setFastTime(before);
+        }
+    }
+
+    @Test
+    void aRebuildEmptiesTheLightRegistryAndTheHeldTorchLightsAgainOnTheNewMap() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getPlayer().addItem(new Item(ItemType.TORCH, 1));
+        state.getPlayer().selectHotbarSlot(0);
+        state.syncLights(1.0);
+        state.getLights().add(new PointLight(3, 3, 2.0, new Rgba(1, 1, 1, 1), 1.0, Flicker.STEADY));
+        assertEquals(2, state.getLights().size());
+
+        onFx(orchestrator::regenerateMap);
+
+        assertEquals(0, state.getLights().size(), "the lights of the old map are gone");
+        state.syncLights(1.0);
+        assertEquals(1, state.getLights().size(), "the torch in hand lights the new map");
+        assertEquals(state.getPlayer().getInterpolatedX(1.0), state.getLights().get(0).x(), 1e-12);
+    }
+
+    @Test
+    void anUpdateRegistersTheHeldTorchWhereThePlayerStands() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getPlayer().addItem(new Item(ItemType.TORCH, 1));
+        state.getPlayer().selectHotbarSlot(0);
+
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+
+        assertEquals(1, state.getLights().size());
+        state.getPlayer().selectHotbarSlot(3);
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        assertEquals(0, state.getLights().size());
     }
 
     @Test

@@ -5,6 +5,10 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationConte
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
+import com.feuerschvenger.perlinsedge.domain.world.light.HeldTorch;
+import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycleSettings;
 
@@ -22,6 +26,7 @@ public class AppConfig {
     private final WorldConfig world = new WorldConfig();
     private final GraphicsConfig graphics = new GraphicsConfig();
     private final DayCycleConfig dayCycle = new DayCycleConfig();
+    private final LightsConfig lights = new LightsConfig();
     private final PlayerConfig player = new PlayerConfig();
     private final DebugConfig debug = new DebugConfig();
     private final GameMechanicsConfig gameMechanics = new GameMechanicsConfig();
@@ -42,6 +47,7 @@ public class AppConfig {
     public WorldConfig world() { return world; }
     public GraphicsConfig graphics() { return graphics; }
     public DayCycleConfig dayCycle() { return dayCycle; }
+    public LightsConfig lights() { return lights; }
     public PlayerConfig player() { return player; }
     public DebugConfig debug() { return debug; }
     public GameMechanicsConfig gameMechanics() { return gameMechanics; }
@@ -232,6 +238,70 @@ public class AppConfig {
 
         /** @return the game seconds that pass per real second: one normally, the fast multiplier with the fast time on */
         public double timeScale() { return fastTime ? getFastTimeMultiplier() : 1.0; }
+    }
+
+    /**
+     * The lights of the world: the torch the player holds and how every light is drawn.
+     */
+    public static class LightsConfig {
+        /** How far the light of the held torch reaches on the ground in tiles. */
+        private static final double TORCH_RADIUS = 4.5;
+        /** The warm colour of the light of a torch. */
+        private static final Rgba TORCH_COLOUR = new Rgba(1.0, 0.72, 0.38, 1.0);
+        /** How strongly the held torch pushes back the dark at its brightest. */
+        private static final double TORCH_INTENSITY = 1.0;
+        /** The most the intensity of a crackling flame moves, as a share of it. */
+        private static final double TORCH_INTENSITY_FLICKER = 0.10;
+        /** The most the radius of a crackling flame moves, as a share of it. */
+        private static final double TORCH_RADIUS_FLICKER = 0.05;
+        /** The frequency of the slowest wave of the flame in cycles per second. */
+        private static final double TORCH_FLICKER_HZ = 3.2;
+        /** What the phases of the flame of the held torch are worked out from. */
+        private static final long TORCH_FLICKER_SEED = 0x70C4L;
+        /** The deeper orange the colour of the flame drifts to. */
+        private static final Rgba FLAME_ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
+        /** The yellow the colour of the flame drifts to. */
+        private static final Rgba FLAME_YELLOW = new Rgba(1.0, 0.82, 0.45, 1.0);
+        /** The frequency of the slow drift of the colour of the flame in cycles per second. */
+        private static final double FLAME_COLOUR_HZ = 0.7;
+        /** The most the radius of the flame varies with the angle, as a share of it. */
+        private static final double FLAME_SHAPE_AMPLITUDE = 0.10;
+        /** How fast the lobes of the light of the flame turn, in turns per second. */
+        private static final double FLAME_SHAPE_DRIFT_HZ = 0.25;
+        /** The opacity of the warm overlay at the centre of a light in the deepest dark. */
+        private static final double WARM_STRENGTH = 0.16;
+        /** The tint strength of the deepest dark, which the warm overlay is scaled against. */
+        private static final double REFERENCE_DARKNESS = 0.72;
+
+        /** How every light is drawn, built once because the renderer reads it on every frame. */
+        private final LightStyle style = new LightStyle(WARM_STRENGTH, REFERENCE_DARKNESS);
+
+        /**
+         * Creates the light of a torch held in hand, which the game state registers while a torch is selected.
+         *
+         * @return a new held torch light with the values of this configuration
+         */
+        public HeldTorch newHeldTorch() {
+            return new HeldTorch(TORCH_RADIUS, TORCH_COLOUR, TORCH_INTENSITY, newFlameFlicker(TORCH_FLICKER_SEED));
+        }
+
+        /**
+         * Creates the flicker of a flame: the intensity and the radius crackle, the colour drifts between a deeper
+         * orange and a yellow and the edge of the light breathes. Other fire sources reuse it with a seed of their own.
+         *
+         * @param seed what the phases of the flame are worked out from
+         * @return the flicker
+         */
+        public Flicker newFlameFlicker(long seed) {
+            return Flicker.crackling(TORCH_INTENSITY_FLICKER, TORCH_RADIUS_FLICKER, TORCH_FLICKER_HZ, seed)
+                    .withColourDrift(FLAME_ORANGE, FLAME_YELLOW, FLAME_COLOUR_HZ)
+                    .withShape(FLAME_SHAPE_AMPLITUDE, FLAME_SHAPE_DRIFT_HZ);
+        }
+
+        /** @return how every light is drawn, the same instance every time */
+        public LightStyle style() {
+            return style;
+        }
     }
 
     /**

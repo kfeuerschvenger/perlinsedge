@@ -14,16 +14,18 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 - **Basic Combat**: Swing or smash your way through enemies.
 - **Exploration**: Roam biomes, find hidden secrets, or just get lost (we won’t judge).
 - **Pathfinding**: Smart navigation for friends: and foes.
+- **Day and Night**: The sun crosses the sky, shadows follow its height, and the world turns warm at dawn and dusk and a dark moonlit blue at night.
+- **Torchlight**: Hold a torch and it lights the night around you with a warm wash of crackling light that fades smoothly outward, drifts between orange and yellow, and breathes at its edge. The light appears the moment the torch is the item in your hand and disappears when you pick anything else or die.
 
 ## Debug Modes & Hotkeys
 
 Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys:
 
-- **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner.
+- **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner. The sky line shows the day number, the phase and the clock, and the day number turns when the dawn begins at 03:00, not at midnight.
 - **F2**: Grayscale Mode: See the Perlin noise tile values in all their gray glory.
 - **F3**: Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
 - **F4**: Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
-- **F5**: Regenerate Map: Smash this to get a fresh world with a random seed.
+- **F5**: Regenerate Map: Smash this to get a fresh world with a random seed. It is the same session, so the time of day, the day number and the fast time of F7 carry over to the new map: only a new game starts a new day. The map panel of F4 rebuilds the world the same way.
 - **F7**: Fast Time: Makes a whole day pass in about 40 seconds, so you can watch the sun cross the sky and the shadows turn.
 
 ## How to Play
@@ -49,6 +51,7 @@ Each map not only looks different but also features unique resources and special
 - **Gather and use**: Left-click trees, rocks, chests, doors, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore and crystals need a pickaxe in your hand, see Tools below.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, an enemy on the tile of a move order, or a missing tool.
 - **Hotbar**: Nine slots of their own are always on the bar at the bottom of the screen, in addition to the 18 slots of the inventory, so you carry 27 stacks. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand. In building mode the item hotbar is hidden, the number keys and the wheel belong to the building hotbar, and `Q` and `Ctrl+Q` do nothing.
+- **Torch**: Select a torch in the hotbar and it lights a circle of about four and a half tiles around you at night and at dusk. It does nothing at midday, when there is no darkness to push back, and the flame crackles a little. Outside its light the night stays dark, but not black.
 - **Where items go**: Everything you pick up, craft or take from a chest goes first into the stacks of the same item you already carry, hotbar before inventory, then into the first free hotbar slot, then into the first free inventory slot.
 - **Use**: `E` uses the item in hand, and pressing the number of the slot you already hold does nothing. A health potion heals 50, cooked meat 20 and raw meat 5, one item at a time and never above your maximum health. At full health nothing is used up and a hint says so. Using is off while an inventory is open, while paused and while dead.
 - **Zoom**: `Ctrl` with the mouse wheel zooms the camera in every mode, while the plain wheel moves along the hotbar. In building mode the wheel flips the building pages and `Ctrl` with the wheel still zooms.
@@ -170,7 +173,7 @@ perlins-edge/
 
 ## Things to Improve / Add
 
-The bigger ideas, such as digging and farming, a player bow, fishing, a day and night cycle with lighting, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
+The bigger ideas, such as digging and farming, a player bow, fishing, placed light sources, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 - **Better sprites!!!**
 - **Save/Load** game progress

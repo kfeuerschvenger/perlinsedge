@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxTileDrawingHelper;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.PixelSnap;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
@@ -44,7 +45,7 @@ final class ColumnPainter {
      * @param seed    world seed
      */
     void drawBed(TileMap map, Tile tile, Image bed, String art, double screenX, double screenY, double zoom, long seed) {
-        final double bedY = screenY + TileDepths.sinkPixels(tile.getType()) * ZoomSteps.artScale(zoom);
+        final double bedY = screenY + TileDepths.sinkPixels(tile.getType()) * ZoomSteps.integerArtScale(zoom);
         FxTileDrawingHelper.drawTileSprite(gc, bed, screenX, bedY, zoom);
         drawExposedFaces(map, tile, art, screenX, bedY, zoom);
         final int x = tile.getX();
@@ -85,11 +86,11 @@ final class ColumnPainter {
 
     /** Draws one half of a face strip, the strip once per 5 pixels of drop, each one 5 pixels below the last. */
     private void drawStrips(Image strip, boolean rightHalf, int count, double screenX, double screenY, double zoom) {
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double halfWidth = strip.getWidth() / 2;
         final double height = strip.getHeight();
-        final double left = Math.rint(screenX - halfWidth * scale) + (rightHalf ? halfWidth * scale : 0);
-        final double top = Math.rint(screenY);
+        final double left = PixelSnap.round(screenX - halfWidth * scale) + (rightHalf ? halfWidth * scale : 0);
+        final double top = PixelSnap.round(screenY);
         for (int i = 0; i < count; i++) {
             gc.drawImage(strip, rightHalf ? halfWidth : 0, 0, halfWidth, height,
                     left, top + i * TileDepths.FACE_PIXELS * scale, halfWidth * scale, height * scale);

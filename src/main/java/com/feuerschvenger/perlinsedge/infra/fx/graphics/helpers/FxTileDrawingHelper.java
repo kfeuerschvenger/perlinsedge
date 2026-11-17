@@ -52,10 +52,10 @@ public final class FxTileDrawingHelper {
      * @param zoom Current zoom level
      */
     public static void drawTileSprite(GraphicsContext gc, Image tileSprite, double screenX, double screenY, double zoom) {
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double width = tileSprite.getWidth() * scale;
         final double height = tileSprite.getHeight() * scale;
-        gc.drawImage(tileSprite, Math.rint(screenX - width / 2), Math.rint(screenY), width, height);
+        gc.drawImage(tileSprite, PixelSnap.round(screenX - width / 2), PixelSnap.round(screenY), width, height);
     }
 
     /**
@@ -74,14 +74,14 @@ public final class FxTileDrawingHelper {
      */
     public static void drawDecal(GraphicsContext gc, Image decal, double screenX, double screenY, double zoom,
                                  double offsetU, double offsetV) {
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double halfW = DECAL_TILE_HALF_WIDTH * scale;
         final double halfH = DECAL_TILE_HALF_HEIGHT * scale;
         final double anchorX = screenX + (offsetU - offsetV) * halfW;
         final double anchorY = screenY + halfH + (offsetU + offsetV) * halfH;
         final double width = decal.getWidth() * scale;
         final double height = decal.getHeight() * scale;
-        gc.drawImage(decal, Math.rint(anchorX - width / 2), Math.rint(anchorY - height), width, height);
+        gc.drawImage(decal, PixelSnap.round(anchorX - width / 2), PixelSnap.round(anchorY - height), width, height);
     }
 
     /**
@@ -98,12 +98,12 @@ public final class FxTileDrawingHelper {
 
         final AppConfig config = AppConfig.getInstance();
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
-        final double scale = ZoomSteps.artScale(zoom);
+        final double scale = ZoomSteps.integerArtScale(zoom);
         final double spriteWidth = resourceSprite.getWidth() * scale;
         final double spriteHeight = resourceSprite.getHeight() * scale;
 
         final double baseY = screenY + halfTileHeight;
-        gc.drawImage(resourceSprite, Math.rint(screenX - spriteWidth / 2), Math.rint(baseY - spriteHeight),
+        gc.drawImage(resourceSprite, PixelSnap.round(screenX - spriteWidth / 2), PixelSnap.round(baseY - spriteHeight),
                 spriteWidth, spriteHeight);
     }
 

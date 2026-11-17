@@ -472,4 +472,34 @@ class DayCycleTest {
         cycle.advance(1.0);
         assertNotSame(before, cycle.skyTint(), "a new moment gets a new tint");
     }
+
+    @Test
+    void aHoldPhaseSharesOneColourInsteadOfBuildingOnePerMoment() {
+        final Rgba night = at(DAWN + DAY + DUSK + 100).skyTint();
+        final Rgba laterNight = at(DAWN + DAY + DUSK + 200).skyTint();
+        final Rgba noon = at(DAWN + 10).skyTint();
+        final Rgba laterNoon = at(DAWN + 20).skyTint();
+
+        assertSame(night, laterNight);
+        assertSame(noon, laterNoon);
+    }
+
+    @Test
+    void everyChannelOfTheTintStaysInRangeAcrossTheWholeCycle() {
+        final DayCycle cycle = atCycleStart();
+        for (int step = 0; step < 2000; step++) {
+            final Rgba colour = cycle.skyTint();
+            for (double channel : new double[]{colour.r(), colour.g(), colour.b()}) {
+                assertTrue(channel >= 0.0 && channel <= 1.0);
+            }
+            assertTrue(cycle.skyTintStrength() >= 0.0 && cycle.skyTintStrength() <= 1.0);
+            cycle.advance(CYCLE / 1000);
+        }
+    }
+
+    @Test
+    void theSkyHasItsOwnVisibilityThreshold() {
+        assertTrue(DayCycle.MIN_VISIBLE_TINT_STRENGTH > 0.0 && DayCycle.MIN_VISIBLE_TINT_STRENGTH < 0.05);
+        assertEquals(0.0, at(DAWN + 10).skyTintStrength(), 1e-12, "midday is below the threshold");
+    }
 }

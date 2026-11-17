@@ -1,6 +1,10 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowLayer;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -13,14 +17,14 @@ class ShadowAnchorTest {
 
     /** The screen column of the middle of a resource sprite, from the rounding of the draw call. */
     private static double drawnBaseX(double tileCentreX, int spriteWidth, double scale) {
-        final double left = Math.rint(tileCentreX - spriteWidth * scale / 2);
+        final double left = PixelSnap.round(tileCentreX - spriteWidth * scale / 2);
         return left + spriteWidth * scale / 2;
     }
 
     /** The screen row of the ground row of a resource sprite, from the rounding of the draw call. */
     private static double drawnBaseY(double tileTopY, double halfTileHeight, int spriteHeight, int groundRow,
                                      double scale) {
-        final double top = Math.rint(tileTopY + halfTileHeight - spriteHeight * scale);
+        final double top = PixelSnap.round(tileTopY + halfTileHeight - spriteHeight * scale);
         return top + groundRow * scale;
     }
 
@@ -64,6 +68,50 @@ class ShadowAnchorTest {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * A noon shadow of a one row sprite lies in one row of cells, and a cell is under the sprite when its centre lies
+     * inside the span the sprite is drawn over, so the shadow must cover exactly those cells, whatever the parity of
+     * the drawn width.
+     */
+    @Test
+    void aShadowOfAnOddDrawnWidthCoversTheCellsUnderTheSpriteAtEveryScale() {
+        final int[] pixels = new int[32];
+        Arrays.fill(pixels, 0xFFFFFFFF);
+        final Silhouette sprite = new Silhouette(16, 2, pixels);
+        for (int scale : new int[]{1, 2, 3}) {
+            for (int drawnWidth : new int[]{7, 9, 15, 29, 31}) {
+                final ShadowLayer layer = new ShadowLayer();
+                for (double centreX = 40.0; centreX < 42.0; centreX += 0.25) {
+                    layer.prepare(60, 10, Math.PI / 2, 1.0, scale);
+                    final double widthArt = drawnWidth / (double) scale;
+                    final double baseX = ShadowAnchor.baseX(centreX, widthArt, scale);
+                    // The sprite is two rows tall and its anchor is on the top edge of row 5, so row 5 of the layer holds
+                    // the first row of the shadow and nothing else
+                    layer.castSprite(sprite, ShadowAnchor.cell(baseX, 0.0, scale), 5.0, 2.0,
+                            widthArt / sprite.width(), 255);
+                    final double left = PixelSnap.round(centreX - drawnWidth / 2.0);
+                    for (int x = 0; x < 60; x++) {
+                        final double cellCentre = ShadowAnchor.screen(x + 0.5, 0.0, scale);
+                        final boolean under = cellCentre >= left && cellCentre < left + drawnWidth;
+                        assertEquals(under, layer.alphaAt(x, 5) > 0,
+                                "scale " + scale + " width " + drawnWidth + " centre " + centreX + " cell " + x);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void theRoundingOfASpriteAndOfItsAnchorMovesByExactlyTheWholePixelsOfAPan() {
+        for (int shift = -101; shift <= 101; shift++) {
+            for (double x = 10.0; x < 12.0; x += 0.25) {
+                assertEquals(PixelSnap.round(x) + shift, PixelSnap.round(x + shift), 0.0, x + " shifted by " + shift);
+                assertEquals(ShadowAnchor.baseX(x, 5, 3.0) + shift, ShadowAnchor.baseX(x + shift, 5, 3.0), 0.0);
+                assertEquals(ShadowAnchor.baseY(x, 5, 3.0) + shift, ShadowAnchor.baseY(x + shift, 5, 3.0), 0.0);
             }
         }
     }

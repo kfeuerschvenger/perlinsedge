@@ -8,6 +8,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
+import com.feuerschvenger.perlinsedge.domain.world.light.HeldTorch;
+import com.feuerschvenger.perlinsedge.domain.world.light.LightRegistry;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
@@ -47,6 +49,14 @@ public class GameStateManager {
     /** The clock of the sky, advanced next to the game clock so a paused game stands still. */
     private final DayCycle dayCycle = new DayCycle(AppConfig.getInstance().dayCycle().settings());
 
+    /**
+     * The lights of the world. Whatever gives light registers a source here, and the renderer lights the world from
+     * them. The registry belongs to the world, so a new world and a rebuilt map start with it empty.
+     */
+    private final LightRegistry lights = new LightRegistry();
+    /** The light of the torch held in hand, which is in the registry only while a torch is the selected item. */
+    private final HeldTorch heldTorch = AppConfig.getInstance().lights().newHeldTorch();
+
     // Input & UI State
     private int mouseOverTileX = -1;
     private int mouseOverTileY = -1;
@@ -76,6 +86,9 @@ public class GameStateManager {
         // World reset
         currentMap = null;
         resourceHitTimes.clear();
+
+        // The lights belong to the world that is gone
+        lights.clear();
 
         // Timer reset
         gameTime = 0;
@@ -116,6 +129,18 @@ public class GameStateManager {
      */
     public void incrementGameTime(double deltaTime) {
         gameTime += deltaTime;
+    }
+
+    /**
+     * Brings the light of the held torch in step with the player: it is registered where the player is while a torch is
+     * the selected item and the player is alive, and taken out otherwise. The game calls it with every update, so the
+     * registry is right for whatever reads it, and the renderer calls it with the interpolation of its frame, so the
+     * light is where the sprite of the player is drawn and appears and disappears the moment the selection changes.
+     *
+     * @param alpha how far between the last two updates the frame is, 1 for the position of the last update
+     */
+    public void syncLights(double alpha) {
+        heldTorch.sync(lights, player, alpha);
     }
 
     /**

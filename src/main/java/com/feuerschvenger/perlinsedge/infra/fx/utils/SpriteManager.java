@@ -259,13 +259,13 @@ public final class SpriteManager {
         return variants;
     }
 
-    /** Counts the fully transparent rows under the lowest painted pixel of an image. */
+    /** Counts the rows under the lowest painted pixel of an image, a pixel being painted as a {@link Silhouette} counts it. */
     private static int bottomPadding(Image image) {
         final PixelReader reader = image.getPixelReader();
         final int width = (int) image.getWidth();
         return ResourceAnchor.bottomPadding((int) image.getHeight(), row -> {
             for (int x = 0; x < width; x++) {
-                if ((reader.getArgb(x, row) >>> 24) != 0) {
+                if ((reader.getArgb(x, row) >>> 24) >= Silhouette.PAINTED_ALPHA) {
                     return false;
                 }
             }

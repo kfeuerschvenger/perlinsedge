@@ -2,6 +2,8 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
 import org.junit.jupiter.api.Test;
@@ -73,5 +75,30 @@ class GameStateManagerTest {
         keys.onKeyAction(GameKey.DROP_ONE);
         assertEquals(List.of(3), numbers);
         assertEquals(List.of("one"), drops);
+    }
+
+    @Test
+    void theHeldTorchIsInTheRegistryOnlyWhileATorchIsSelectedAndTheGameStateResetsTheRegistry() {
+        GameStateManager state = new GameStateManager();
+        Player player = new Player(4, 6);
+        player.addItem(new Item(ItemType.TORCH, 1));
+        player.selectHotbarSlot(0);
+        state.setPlayer(player);
+        assertTrue(state.getLights().isEmpty(), "nothing registers until the frame or the update syncs");
+
+        state.syncLights(1.0);
+        assertEquals(1, state.getLights().size());
+        assertEquals(4.0, state.getLights().get(0).x(), 1e-12);
+
+        player.selectHotbarSlot(5);
+        state.syncLights(1.0);
+        assertTrue(state.getLights().isEmpty());
+
+        player.selectHotbarSlot(0);
+        state.syncLights(1.0);
+        state.resetGameState();
+        assertTrue(state.getLights().isEmpty(), "a new world starts with no lights");
+        state.syncLights(1.0);
+        assertTrue(state.getLights().isEmpty(), "and with no player there is no held torch");
     }
 }

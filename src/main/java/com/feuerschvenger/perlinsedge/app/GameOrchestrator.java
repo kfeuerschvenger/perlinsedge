@@ -283,7 +283,12 @@ public class GameOrchestrator {
         }
     }
 
-    /** Replaces the world with a new one of the same type and a new seed, while a game is running. */
+    /**
+     * Replaces the world with a new one of the same type and a new seed, while a game is running. This is what the F5
+     * key does. It is the same session, so the time of day, the day number and the fast time carry over to the new
+     * map, and only a new game starts a new day. The lights of the old map are gone, and the torch in the player's
+     * hand lights the new map as soon as the next frame.
+     */
     void regenerateMap() {
         if (!isGameRunning("a map regeneration")) return;
         log.debug("Regenerating current map");
@@ -316,6 +321,8 @@ public class GameOrchestrator {
 
     /**
      * Replaces the current map while the game keeps running.
+     * The sky is not part of the map: the clock of the day and the fast time are kept, and the lights are cleared
+     * because they belong to the map that is replaced.
      * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
      * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
@@ -335,6 +342,8 @@ public class GameOrchestrator {
         try {
             leaveGame();
             gameState.getClickFeedback().clear();
+            // The lights belong to the map that is being replaced
+            gameState.getLights().clear();
             mapManager.generateNewMap(context);
             AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
             playerManager.initializePlayer();
@@ -406,6 +415,8 @@ public class GameOrchestrator {
         gameState.getDayCycle().advance(deltaTime * AppConfig.getInstance().dayCycle().timeScale());
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        // The light of the held torch follows the player and the selected item, after the player has moved
+        gameState.syncLights(1.0);
         interactionManager.update();
         if (gameState.isPlayerDead()) {
             // Building mode and the inventory cannot stay open under the death screen

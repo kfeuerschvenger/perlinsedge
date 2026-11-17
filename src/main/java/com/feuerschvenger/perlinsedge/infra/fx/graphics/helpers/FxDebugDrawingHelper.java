@@ -23,7 +23,8 @@ public final class FxDebugDrawingHelper {
     private FxDebugDrawingHelper() {} // Prevent instantiation
 
     /**
-     * Describes the sky for the debug overlay: the day, the phase and the time of day on the 24 hour clock.
+     * Describes the sky for the debug overlay: the day, the phase and the time of day on the 24 hour clock. The day
+     * number turns when the dawn begins, which is 03:00 on the clock, not at midnight.
      *
      * @param dayCycle the clock of the sky
      * @param fastTime whether the fast time of the debug key is on

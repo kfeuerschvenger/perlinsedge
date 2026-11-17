@@ -78,13 +78,13 @@ public final class FxItemDrawingHelper {
 
         if (sprite != null) {
             // The icon is drawn at the integer art scale on whole pixels, so its pixels stay crisp
-            final double scale = ZoomSteps.artScale(zoom);
+            final double scale = ZoomSteps.integerArtScale(zoom);
             finalWidth = sprite.getWidth() * scale;
             finalHeight = sprite.getHeight() * scale;
 
-            finalDrawX = Math.rint(tileTopX - (finalWidth / 2));
+            finalDrawX = PixelSnap.round(tileTopX - (finalWidth / 2));
             // The icon floats over the tile, bobbing on whole pixels
-            finalDrawY = Math.rint(baseDrawY - finalHeight + floatingOffset
+            finalDrawY = PixelSnap.round(baseDrawY - finalHeight + floatingOffset
                     + (SPRITE_MANAGER.getItemSprite(itemType).getVerticalOffset() * zoom));
 
             gc.drawImage(sprite, finalDrawX, finalDrawY, finalWidth, finalHeight);

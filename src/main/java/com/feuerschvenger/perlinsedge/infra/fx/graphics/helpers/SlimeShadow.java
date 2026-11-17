@@ -14,7 +14,7 @@ public final class SlimeShadow {
     static final double MAX_SHRINK = 0.3;
     /** The shadow width factor is rounded to a multiple of one over this, so the shadow takes few distinct shapes. */
     static final int WIDTH_STEPS = 16;
-    /** Share of the baked shadow opacity under a slime resting on the ground. */
+    /** Share of the shadow opacity under a slime resting on the ground: all of it. */
     static final double BASE_OPACITY = 1.0;
     /** Fraction of the opacity lost at the top of a jump. */
     static final double MAX_FADE = 0.4;
@@ -36,7 +36,7 @@ public final class SlimeShadow {
     }
 
     /**
-     * Computes the share of the baked shadow opacity for a slime at a height above the ground.
+     * Computes the share of the shadow opacity for a slime at a height above the ground.
      * A negative height counts as the ground and a height past the maximum counts as the top of the jump.
      *
      * @param height    how far the slime is above the ground, in pixels
