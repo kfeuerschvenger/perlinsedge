@@ -490,12 +490,35 @@ class FxShadowPassTest {
     }
 
     @Test
-    void theSourceOfADrawStaysInsideTheImageWhereItsBoxTouchesTheEdge() {
-        final double nudge = 0.25 / 3.0;
-        assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 20, nudge), 1e-12, "inside the image the span is the box");
-        assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 14, nudge) + nudge, 1e-12, "at the edge it gives up the nudge");
-        assertTrue(4 + nudge + FxShadowPass.sourceSpan(4, 14, 14, nudge) <= 14 + 1e-12);
-        assertEquals(10.0, FxShadowPass.sourceSpan(4, 14, 14 + 1, nudge), 1e-12, "a cell of room is enough");
+    void theImageOfALayerHasAPadThatRepeatsItsLastColumnAndRowSoTheNudgedSourceStaysInside() {
+        final int wide = 5;
+        final int high = 4;
+        final int[] cells = new int[wide * high];
+        for (int i = 0; i < cells.length; i++) {
+            cells[i] = 0xFF000000 | (i + 1);
+        }
+        final int[][] read = FxToolkitSupport.onFx(() -> {
+            final javafx.scene.image.WritableImage image = FxShadowPass.newPaddedImage(wide, high);
+            FxShadowPass.uploadPadded(image, wide, high, 0, 0, wide, high, cells);
+            final int[][] argb = new int[high + 1][wide + 1];
+            for (int y = 0; y <= high; y++) {
+                for (int x = 0; x <= wide; x++) {
+                    argb[y][x] = image.getPixelReader().getArgb(x, y);
+                }
+            }
+            return argb;
+        });
+
+        assertEquals(high + 1, read.length);
+        assertEquals(wide + 1, read[0].length);
+        for (int y = 0; y < high; y++) {
+            assertEquals(cells[y * wide + wide - 1], read[y][wide], "the pad column repeats the last column, row " + y);
+        }
+        for (int x = 0; x < wide; x++) {
+            assertEquals(cells[(high - 1) * wide + x], read[high][x], "the pad row repeats the last row, column " + x);
+        }
+        assertEquals(cells[cells.length - 1], read[high][wide], "the corner repeats the last cell");
+        assertEquals(cells[0], read[0][0], "the cells themselves are untouched");
     }
 
     @Test

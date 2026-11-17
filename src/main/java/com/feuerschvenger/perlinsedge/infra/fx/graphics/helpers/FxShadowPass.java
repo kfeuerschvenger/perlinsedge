@@ -42,6 +42,9 @@ public final class FxShadowPass {
      */
     private static final double SAMPLE_NUDGE = 0.25;
 
+    /** The cells of pad an image has past the last column and the last row of its layer, see {@link #newPaddedImage}. */
+    static final int EDGE_PAD = 1;
+
     /**
      * The fewest cells the static window reaches past the canvas on every side when it is placed. A canvas that is
      * large in cells gets a margin of {@link #WINDOW_MARGIN_SHARE} of its size instead, see {@link #marginFor}.
@@ -317,8 +320,8 @@ public final class FxShadowPass {
             final int right = Math.min(staticLayer.stampedRight(), cellsWide - shiftX);
             final int bottom = Math.min(staticLayer.stampedBottom(), cellsHigh - shiftY);
             if (right > left && bottom > top) {
-                gc.drawImage(staticImage, left + nudge, top + nudge, sourceSpan(left, right, windowCellsWide, nudge),
-                        sourceSpan(top, bottom, windowCellsHigh, nudge), phaseX + (left + shiftX - 1) * artScale,
+                gc.drawImage(staticImage, left + nudge, top + nudge, right - left, bottom - top,
+                        phaseX + (left + shiftX - 1) * artScale,
                         phaseY + (top + shiftY - 1) * artScale, (right - left) * artScale, (bottom - top) * artScale);
             }
         }
@@ -327,27 +330,71 @@ public final class FxShadowPass {
             final int top = dynamicLayer.stampedTop();
             final int wide = dynamicLayer.stampedRight() - left;
             final int high = dynamicLayer.stampedBottom() - top;
-            gc.drawImage(dynamicImage, left + nudge, top + nudge, sourceSpan(left, left + wide, cellsWide, nudge),
-                    sourceSpan(top, top + high, cellsHigh, nudge), phaseX + (left - 1) * artScale,
+            gc.drawImage(dynamicImage, left + nudge, top + nudge, wide, high, phaseX + (left - 1) * artScale,
                     phaseY + (top - 1) * artScale, wide * artScale, high * artScale);
         }
         gc.setGlobalAlpha(1.0);
     }
 
     /**
-     * Returns how many cells of an image to read from a source rectangle that starts a nudge into its first cell. The
-     * nudge moves the whole rectangle, so a rectangle that reaches the last cell of the image would read the nudge past
-     * its edge, and it is shortened by the nudge there instead. What a pipeline samples outside an image is up to it, so
-     * the source is kept inside.
+     * Creates an image for the cells of a layer, with {@link #EDGE_PAD} more column and row than the layer has. The source
+     * of a draw starts a nudge into its first cell, so a draw that reaches the last cell reads the nudge past it, and
+     * what a pipeline samples outside an image is up to it. The extra column and row, which {@link #uploadPadded} fills
+     * with the cells next to them, keep that source inside the image so the draw keeps its exact scale.
      *
-     * @param from       the first cell of the rectangle
-     * @param to         the cell after the last of the rectangle
-     * @param imageCells the number of cells of the image along the axis
-     * @param nudge      how far into its first cell the rectangle starts, in cells
-     * @return the span to read along the axis, in cells
+     * @param cellsWide the number of cells of the layer across
+     * @param cellsHigh the number of cells of the layer down
+     * @return an empty image with room for the layer and its edge pad
      */
-    static double sourceSpan(int from, int to, int imageCells, double nudge) {
-        return to + nudge > imageCells ? (to - from) - nudge : to - from;
+    static WritableImage newPaddedImage(int cellsWide, int cellsHigh) {
+        return new WritableImage(cellsWide + EDGE_PAD, cellsHigh + EDGE_PAD);
+    }
+
+    /**
+     * Tells whether an image made by {@link #newPaddedImage} fits a layer.
+     *
+     * @param image     the image, or null when there is none yet
+     * @param cellsWide the number of cells of the layer across
+     * @param cellsHigh the number of cells of the layer down
+     * @return true when the image has the size {@link #newPaddedImage} gives for the layer
+     */
+    static boolean fitsPadded(WritableImage image, int cellsWide, int cellsHigh) {
+        return image != null && (int) image.getWidth() == cellsWide + EDGE_PAD
+                && (int) image.getHeight() == cellsHigh + EDGE_PAD;
+    }
+
+    /**
+     * Copies a box of cells into an image made by {@link #newPaddedImage}, and where the box reaches the last column or
+     * the last row of the layer repeats those cells into the pad past them. Nothing is allocated.
+     *
+     * @param image     the padded image
+     * @param cellsWide the number of cells of the layer across, which is also the stride of the pixels
+     * @param cellsHigh the number of cells of the layer down
+     * @param left      the first column of the box
+     * @param top       the first row of the box
+     * @param right     the column after the last of the box
+     * @param bottom    the row after the last of the box
+     * @param pixels    the cells of the layer as premultiplied ARGB, row by row
+     */
+    static void uploadPadded(WritableImage image, int cellsWide, int cellsHigh, int left, int top, int right,
+                             int bottom, int[] pixels) {
+        final var writer = image.getPixelWriter();
+        final var format = PixelFormat.getIntArgbPreInstance();
+        writer.setPixels(left, top, right - left, bottom - top, format, pixels, top * cellsWide + left, cellsWide);
+        final boolean lastColumn = right == cellsWide;
+        final boolean lastRow = bottom == cellsHigh;
+        if (lastColumn) {
+            writer.setPixels(cellsWide, top, EDGE_PAD, bottom - top, format, pixels, top * cellsWide + cellsWide - 1,
+                    cellsWide);
+        }
+        if (lastRow) {
+            writer.setPixels(left, cellsHigh, right - left, EDGE_PAD, format, pixels,
+                    (cellsHigh - 1) * cellsWide + left, cellsWide);
+        }
+        if (lastColumn && lastRow) {
+            writer.setPixels(cellsWide, cellsHigh, EDGE_PAD, EDGE_PAD, format, pixels,
+                    (cellsHigh - 1) * cellsWide + cellsWide - 1, cellsWide);
+        }
     }
 
     /**
@@ -418,16 +465,14 @@ public final class FxShadowPass {
             }
             castStatic.copyFrom(shadows);
         }
-        if (staticImage == null || (int) staticImage.getWidth() != windowCellsWide
-                || (int) staticImage.getHeight() != windowCellsHigh) {
-            staticImage = new WritableImage(windowCellsWide, windowCellsHigh);
+        if (!fitsPadded(staticImage, windowCellsWide, windowCellsHigh)) {
+            staticImage = newPaddedImage(windowCellsWide, windowCellsHigh);
         }
         final int[] changed = staticLayer.changedBox();
         lastStaticUploaded = changed[2] > changed[0] && changed[3] > changed[1];
         if (lastStaticUploaded) {
-            staticImage.getPixelWriter().setPixels(changed[0], changed[1], changed[2] - changed[0],
-                    changed[3] - changed[1], PixelFormat.getIntArgbPreInstance(), staticLayer.pixels(),
-                    changed[1] * windowCellsWide + changed[0], windowCellsWide);
+            uploadPadded(staticImage, windowCellsWide, windowCellsHigh, changed[0], changed[1], changed[2], changed[3],
+                    staticLayer.pixels());
         }
         staticLayer.handedOn();
         windowFresh = false;
@@ -535,14 +580,11 @@ public final class FxShadowPass {
      * @return true when cells were uploaded
      */
     private boolean uploadDynamic() {
-        if (dynamicImage == null || (int) dynamicImage.getWidth() != cellsWide
-                || (int) dynamicImage.getHeight() != cellsHigh) {
-            dynamicImage = new WritableImage(cellsWide, cellsHigh);
+        if (!fitsPadded(dynamicImage, cellsWide, cellsHigh)) {
+            dynamicImage = newPaddedImage(cellsWide, cellsHigh);
         }
         if (region[2] > region[0] && region[3] > region[1]) {
-            dynamicImage.getPixelWriter().setPixels(region[0], region[1], region[2] - region[0],
-                    region[3] - region[1], PixelFormat.getIntArgbPreInstance(), dynamicShown,
-                    region[1] * cellsWide + region[0], cellsWide);
+            uploadPadded(dynamicImage, cellsWide, cellsHigh, region[0], region[1], region[2], region[3], dynamicShown);
             System.arraycopy(region, 0, lastUpload, 0, 4);
             return true;
         }

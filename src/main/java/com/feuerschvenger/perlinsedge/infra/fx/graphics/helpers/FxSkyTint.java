@@ -7,7 +7,6 @@ import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.LightLayer;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 
@@ -110,8 +109,7 @@ public final class FxSkyTint {
             final int right = layer.regionRight(region);
             final int bottom = layer.regionBottom(region);
             // The cells have a border cell that lies outside the canvas
-            gc.drawImage(image, left + nudge, top + nudge, FxShadowPass.sourceSpan(left, right, layer.width(), nudge),
-                    FxShadowPass.sourceSpan(top, bottom, layer.height(), nudge),
+            gc.drawImage(image, left + nudge, top + nudge, right - left, bottom - top,
                     layer.phaseX() + (left - 1) * artScale, layer.phaseY() + (top - 1) * artScale,
                     (right - left) * artScale, (bottom - top) * artScale);
         }
@@ -222,20 +220,16 @@ public final class FxSkyTint {
 
     /** Copies the regions of the light layer into the image when the layer worked its cells out again. */
     private void upload() {
-        final boolean fresh = image == null || (int) image.getWidth() != layer.width()
-                || (int) image.getHeight() != layer.height();
+        final boolean fresh = !FxShadowPass.fitsPadded(image, layer.width(), layer.height());
         if (fresh) {
-            image = new WritableImage(layer.width(), layer.height());
+            image = FxShadowPass.newPaddedImage(layer.width(), layer.height());
         }
         if (!layer.changed() && !fresh) {
             return;
         }
         for (int region = 0, regions = layer.regionCount(); region < regions; region++) {
-            final int left = layer.regionLeft(region);
-            final int top = layer.regionTop(region);
-            image.getPixelWriter().setPixels(left, top, layer.regionRight(region) - left,
-                    layer.regionBottom(region) - top, PixelFormat.getIntArgbPreInstance(), layer.pixels(),
-                    top * layer.width() + left, layer.width());
+            FxShadowPass.uploadPadded(image, layer.width(), layer.height(), layer.regionLeft(region),
+                    layer.regionTop(region), layer.regionRight(region), layer.regionBottom(region), layer.pixels());
         }
     }
 
