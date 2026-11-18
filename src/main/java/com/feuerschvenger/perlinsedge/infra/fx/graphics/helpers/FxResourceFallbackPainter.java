@@ -14,7 +14,11 @@ import java.util.List;
 public final class FxResourceFallbackPainter {
 
     /** Size of one grid cell in screen pixels at zoom 1. */
-    static final double CELL = 2.0;
+    public static final double CELL = 2.0;
+    /** Narrowest outline in screen pixels, kept so the shapes stay outlined when zoomed far out. */
+    private static final double MIN_OUTLINE_WIDTH = 0.5;
+    /** Outline width in screen pixels per unit of zoom. */
+    private static final double OUTLINE_PER_ZOOM = 0.5;
     /** Distance from the top vertex of a tile to its base, matching where sprites are anchored. */
     private static final double BASE_NUDGE = 4.0;
 
@@ -108,7 +112,7 @@ public final class FxResourceFallbackPainter {
 
         gc.save();
         gc.setStroke(Color.BLACK);
-        gc.setLineWidth(Math.max(0.5, 0.5 * zoom));
+        gc.setLineWidth(Math.max(MIN_OUTLINE_WIDTH, OUTLINE_PER_ZOOM * zoom));
         for (Block block : blocksFor(type)) {
             double x = screenX + block.x() * unit;
             double y = baseY + block.y() * unit;

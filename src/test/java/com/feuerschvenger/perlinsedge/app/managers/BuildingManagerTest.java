@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuildingManagerTest {
@@ -102,7 +103,7 @@ class BuildingManagerTest {
 
         manager.deactivateBuildingMode();
 
-        assertEquals(null, manager.getSelectedBuildingType());
+        assertNull(manager.getSelectedBuildingType());
         assertFalse(manager.isBuildingModeActive());
     }
 
@@ -121,7 +122,7 @@ class BuildingManagerTest {
         manager.setSelectedBuildingType(BuildingType.CHEST);
         manager.setSelectedBuildingType(null);
 
-        assertEquals(null, manager.getSelectedBuildingType());
+        assertNull(manager.getSelectedBuildingType());
         manager.deactivateBuildingMode();
         manager.activateBuildingMode();
 

@@ -38,13 +38,27 @@ public final class BuildingSprites {
 
     private static final String FOLDER = "/assets/buildings/";
 
+    /** Number of combinations of the four fence sides, one cached layer set for each. */
+    private static final int FENCE_MASK_COUNT = 16;
+    /** Ways a fence gate faces. */
+    private static final int GATE_ROTATIONS = 2;
+    /** Ways a furnace faces. */
+    private static final int FURNACE_ROTATIONS = 4;
+    /** Positions of the half rails in {@code FENCE_RAILS}. */
+    private static final int RAIL_UPPER_LEFT = 0;
+    private static final int RAIL_UPPER_RIGHT = 1;
+    private static final int RAIL_LOWER_LEFT = 2;
+    private static final int RAIL_LOWER_RIGHT = 3;
+    /** The divisor that puts the centre of an image on a point. */
+    private static final double CENTERING_DIVISOR = 2.0;
+
     private final Function<String, Image> loader;
     private final Map<String, Image> cache = new HashMap<>();
-    private final Image[][] fenceCache = new Image[16][];
+    private final Image[][] fenceCache = new Image[FENCE_MASK_COUNT][];
 
     /** The lazily created instance that reads the classpath. */
     private static final class InstanceHolder {
-        static final BuildingSprites INSTANCE = new BuildingSprites(BuildingSprites::loadFromClasspath);
+        private static final BuildingSprites INSTANCE = new BuildingSprites(BuildingSprites::loadFromClasspath);
     }
 
     /**
@@ -73,7 +87,7 @@ public final class BuildingSprites {
         return switch (building.getType()) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
             case FENCE_GATE -> (building instanceof FenceGate gate && gate.isOpen() ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)
-                    [Math.floorMod(building.getRotation(), 2)];
+                    [Math.floorMod(building.getRotation(), GATE_ROTATIONS)];
             default -> restingName(building.getType(), building.getRotation());
         };
     }
@@ -90,7 +104,7 @@ public final class BuildingSprites {
         return switch (type) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(type)[0];
             case FENCE -> FENCE_POST;
-            case FENCE_GATE -> GATE_CLOSED_NAMES[Math.floorMod(rotation, 2)];
+            case FENCE_GATE -> GATE_CLOSED_NAMES[Math.floorMod(rotation, GATE_ROTATIONS)];
             case FURNACE -> FURNACE_NAMES[Math.floorMod(rotation, FURNACE_NAMES.length)];
             default -> {
                 final String[] names = NAMES.get(type);
@@ -102,28 +116,28 @@ public final class BuildingSprites {
     /** The names are built once, so naming a building every frame allocates nothing. */
     private static final Map<BuildingType, String[]> NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> FLAME_NAMES = new EnumMap<>(BuildingType.class);
-    private static final String[] FURNACE_NAMES = new String[4];
+    private static final String[] FURNACE_NAMES = new String[FURNACE_ROTATIONS];
     private static final String[] GATE_CLOSED_NAMES = {"fence_gate_closed_0", "fence_gate_closed_1"};
     private static final String[] GATE_OPEN_NAMES = {"fence_gate_open_0", "fence_gate_open_1"};
     /** The post of a fence and its four half rails, in the order they are drawn: the back ones, the post, the front ones. */
-    static final String FENCE_POST = "fence_post";
+    private static final String FENCE_POST = "fence_post";
     private static final String[] FENCE_RAILS = {"fence_rail_ul", "fence_rail_ur", "fence_rail_ll", "fence_rail_lr"};
 
     static {
         for (BuildingType type : BuildingType.values()) {
-            final String base = type.name().toLowerCase(Locale.ROOT);
-            final String[] names = new String[type.rotationCount()];
-            for (int i = 0; i < names.length; i++) {
+            final var base = type.name().toLowerCase(Locale.ROOT);
+            final var names = new String[type.rotationCount()];
+            for (var i = 0; i < names.length; i++) {
                 names[i] = type.isRotatable() ? base + "_" + i : base;
             }
             NAMES.put(type, names);
-            final String[] frames = new String[FLAME_FRAMES];
-            for (int i = 0; i < FLAME_FRAMES; i++) {
+            final var frames = new String[FLAME_FRAMES];
+            for (var i = 0; i < FLAME_FRAMES; i++) {
                 frames[i] = base + "_" + i;
             }
             FLAME_NAMES.put(type, frames);
         }
-        for (int i = 0; i < FURNACE_NAMES.length; i++) {
+        for (var i = 0; i < FURNACE_NAMES.length; i++) {
             FURNACE_NAMES[i] = "furnace_off_" + i;
         }
     }
@@ -179,7 +193,7 @@ public final class BuildingSprites {
      * @return the images to draw, empty when there is no art for the post, which means the procedural shape is drawn
      */
     public Image[] fenceLayers(int connections) {
-        final int mask = connections & 15;
+        final int mask = connections & (FENCE_MASK_COUNT - 1);
         Image[] layers = fenceCache[mask];
         if (layers == null) {
             layers = composeFence(mask);
@@ -189,22 +203,22 @@ public final class BuildingSprites {
     }
 
     private Image[] composeFence(int mask) {
-        final Image post = image(FENCE_POST);
+        final var post = image(FENCE_POST);
         if (post == null) {
             return NO_IMAGES;
         }
         final java.util.List<Image> layers = new java.util.ArrayList<>(5);
-        addRail(layers, mask, FenceConnections.UPPER_LEFT, 0);
-        addRail(layers, mask, FenceConnections.UPPER_RIGHT, 1);
+        addRail(layers, mask, FenceConnections.UPPER_LEFT, RAIL_UPPER_LEFT);
+        addRail(layers, mask, FenceConnections.UPPER_RIGHT, RAIL_UPPER_RIGHT);
         layers.add(post);
-        addRail(layers, mask, FenceConnections.LOWER_LEFT, 2);
-        addRail(layers, mask, FenceConnections.LOWER_RIGHT, 3);
+        addRail(layers, mask, FenceConnections.LOWER_LEFT, RAIL_LOWER_LEFT);
+        addRail(layers, mask, FenceConnections.LOWER_RIGHT, RAIL_LOWER_RIGHT);
         return layers.toArray(new Image[0]);
     }
 
     private void addRail(java.util.List<Image> layers, int mask, int bit, int rail) {
         if ((mask & bit) != 0) {
-            final Image image = image(FENCE_RAILS[rail]);
+            final var image = image(FENCE_RAILS[rail]);
             if (image != null) {
                 layers.add(image);
             }
@@ -224,7 +238,7 @@ public final class BuildingSprites {
         }
         final String name = building.getType() == BuildingType.CAMPFIRE || building.getType() == BuildingType.STANDING_TORCH
                 ? restingName(building.getType(), 0) : spriteName(building, 0);
-        final Image image = image(name);
+        final var image = image(name);
         return image != null ? new Image[]{image} : NO_IMAGES;
     }
 
@@ -234,7 +248,7 @@ public final class BuildingSprites {
         if (cache.containsKey(name)) {
             return cache.get(name);
         }
-        final Image image = loader.apply(name);
+        final var image = loader.apply(name);
         if (image == null) {
             log.debug("No building art {}, the procedural shape is drawn", name);
         }
@@ -251,7 +265,7 @@ public final class BuildingSprites {
      * @return the left edge
      */
     public static double drawX(double centerX, int widthArt, double artScale) {
-        return centerX - widthArt * artScale / 2.0;
+        return centerX - widthArt * artScale / CENTERING_DIVISOR;
     }
 
     /**
@@ -273,7 +287,7 @@ public final class BuildingSprites {
             if (is == null) {
                 return null;
             }
-            final Image image = new Image(is);
+            final var image = new Image(is);
             if (image.isError()) {
                 log.warn("Building art could not be decoded: {}", path, image.getException());
                 return null;

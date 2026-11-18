@@ -62,12 +62,13 @@ public final class GameLoop {
     private final class FixedStepTimer extends AnimationTimer {
         @Override
         public void handle(long now) {
-            boolean firstFrame = !stepper.hasStarted();
-            int steps = stepper.advance(now);
+            var firstFrame = !stepper.hasStarted();
             if (firstFrame) {
+                stepper.advance(now);
                 return;
             }
 
+            var steps = stepper.advance(now);
             for (var i = 0; i < steps; i++) {
                 updateStep.accept(FIXED_TIME_STEP);
             }

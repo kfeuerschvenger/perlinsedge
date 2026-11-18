@@ -58,7 +58,8 @@ public final class FxKeyMapper {
 
     /** E uses the item in hand only on its own, so a chord such as Ctrl+E or AltGr+E is left to the system. */
     private static GameKey useKey(boolean ctrlDown, boolean shiftDown, boolean altDown, boolean metaDown) {
-        return ctrlDown || shiftDown || altDown || metaDown ? null : GameKey.USE_ITEM;
+        final boolean anyModifier = ctrlDown || shiftDown || altDown || metaDown;
+        return anyModifier ? null : GameKey.USE_ITEM;
     }
 
     private static GameKey dropKey(boolean ctrlDown, boolean shiftDown, boolean altDown, boolean metaDown) {

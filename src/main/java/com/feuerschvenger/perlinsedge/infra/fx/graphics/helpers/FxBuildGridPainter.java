@@ -21,6 +21,16 @@ public final class FxBuildGridPainter {
 
     private static final Color LINE = Color.rgb(252, 244, 228);
     private static final double LINE_WIDTH = 1.0;
+    /** Corners of the diamond of a tile, which is the length of the coordinate arrays. */
+    private static final int DIAMOND_CORNERS = 4;
+    /** Index of the corner at the top of the diamond. */
+    private static final int TOP = 0;
+    /** Index of the corner at the right of the diamond. */
+    private static final int RIGHT = 1;
+    /** Index of the corner at the bottom of the diamond. */
+    private static final int BOTTOM = 2;
+    /** Index of the corner at the left of the diamond. */
+    private static final int LEFT = 3;
 
     /** Not instantiable: the class only holds the drawing call. */
     private FxBuildGridPainter() {
@@ -59,8 +69,8 @@ public final class FxBuildGridPainter {
         final double halfHeight = graphics.getTileHalfHeight() * zoom;
         final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom);
         final int reach = (int) Math.ceil(RADIUS_TILES);
-        final double[] xs = new double[4];
-        final double[] ys = new double[4];
+        final var xs = new double[DIAMOND_CORNERS];
+        final var ys = new double[DIAMOND_CORNERS];
 
         gc.save();
         gc.setStroke(LINE);
@@ -69,22 +79,24 @@ public final class FxBuildGridPainter {
             for (int dx = -reach; dx <= reach; dx++) {
                 final double opacity = opacity(dx, dy);
                 final Tile tile = opacity > 0 ? map.getTile(tileX + dx, tileY + dy) : null;
-                if (tile == null) continue;
+                if (tile == null) {
+                    continue;
+                }
                 final int x = tileX + dx;
                 final int y = tileY + dy;
                 final double centerX = (x - y) * halfWidth + offsetX;
                 final double centerY = (x + y) * halfHeight + offsetY + halfHeight
                         + (tile.getType().isWater() ? sheetDrop : 0.0);
-                xs[0] = centerX;
-                xs[1] = centerX + halfWidth;
-                xs[2] = centerX;
-                xs[3] = centerX - halfWidth;
-                ys[0] = centerY - halfHeight;
-                ys[1] = centerY;
-                ys[2] = centerY + halfHeight;
-                ys[3] = centerY;
+                xs[TOP] = centerX;
+                xs[RIGHT] = centerX + halfWidth;
+                xs[BOTTOM] = centerX;
+                xs[LEFT] = centerX - halfWidth;
+                ys[TOP] = centerY - halfHeight;
+                ys[RIGHT] = centerY;
+                ys[BOTTOM] = centerY + halfHeight;
+                ys[LEFT] = centerY;
                 gc.setGlobalAlpha(opacity);
-                gc.strokePolygon(xs, ys, 4);
+                gc.strokePolygon(xs, ys, DIAMOND_CORNERS);
             }
         }
         gc.restore();

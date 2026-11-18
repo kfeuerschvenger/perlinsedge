@@ -13,6 +13,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlayerMoveOrderTest {
@@ -116,7 +117,7 @@ class PlayerMoveOrderTest {
 
     @Test
     void getNextTileGivesTheHeadOfTheWalkWithoutChangingIt() {
-        assertEquals(null, player.getNextTile());
+        assertNull(player.getNextTile());
 
         player.moveTo(map, 3, 0);
 

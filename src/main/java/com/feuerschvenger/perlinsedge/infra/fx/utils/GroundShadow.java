@@ -16,6 +16,22 @@ public final class GroundShadow {
     /** Shadow width of the stand-in drawn for a player without art, relative to the width of that stand-in. */
     public static final double PLAYER_FRACTION = 0.6;
 
+    /** Shadow width of a tree, relative to the width of its stand-in. */
+    private static final double TREE_SHADOW_RATIO = 0.55;
+
+    /** Shadow width of a rock or an ore, relative to the width of its stand-in. */
+    private static final double ROCK_SHADOW_RATIO = 0.9;
+
+    /** Shadow width of a crystal cluster, relative to the width of its stand-in. */
+    private static final double CRYSTAL_SHADOW_RATIO = 0.8;
+
+    /** Ellipse shadow widths of the buildings drawn from shapes, in art pixels. */
+    private static final double TORCH_SHADOW_WIDTH = 8.0;
+    private static final double LOW_PIECE_SHADOW_WIDTH = 16.0;
+    private static final double MID_PIECE_SHADOW_WIDTH = 18.0;
+    private static final double FURNACE_SHADOW_WIDTH = 22.0;
+    private static final double WIDE_PIECE_SHADOW_WIDTH = 26.0;
+
     /** Not instantiable: the class only holds static rules. */
     private GroundShadow() {}
 
@@ -29,9 +45,9 @@ public final class GroundShadow {
      */
     public static double widthFor(ResourceType type, double spriteArtWidth) {
         return spriteArtWidth * switch (type) {
-            case TREE -> 0.55;
-            case STONE, IRON_ORE -> 0.9;
-            case CRYSTALS -> 0.8;
+            case TREE -> TREE_SHADOW_RATIO;
+            case STONE, IRON_ORE -> ROCK_SHADOW_RATIO;
+            case CRYSTALS -> CRYSTAL_SHADOW_RATIO;
         };
     }
 
@@ -44,11 +60,11 @@ public final class GroundShadow {
     public static double widthFor(BuildingType type) {
         return switch (type) {
             case BRIDGE -> 0.0;
-            case STANDING_TORCH -> 8.0;
-            case FENCE, FENCE_GATE, ANVIL -> 16.0;
-            case CHEST, CAMPFIRE -> 18.0;
-            case FURNACE -> 22.0;
-            case WORKBENCH, BED -> 26.0;
+            case STANDING_TORCH -> TORCH_SHADOW_WIDTH;
+            case FENCE, FENCE_GATE, ANVIL -> LOW_PIECE_SHADOW_WIDTH;
+            case CHEST, CAMPFIRE -> MID_PIECE_SHADOW_WIDTH;
+            case FURNACE -> FURNACE_SHADOW_WIDTH;
+            case WORKBENCH, BED -> WIDE_PIECE_SHADOW_WIDTH;
         };
     }
 }

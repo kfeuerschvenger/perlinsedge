@@ -3,6 +3,8 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 import org.junit.jupiter.api.Test;
 
 class ScreenCullingTest {
@@ -36,7 +38,7 @@ class ScreenCullingTest {
 
     @Test
     void theMarginEndsWhereTheBedCanNoLongerBeSeen() {
-        double margin = TILE_HEIGHT * 2 + ScreenCulling.MAX_SINK_ART_PIXELS * ART_SCALE;
+        double margin = TILE_HEIGHT * 2 + TileDepths.sinkPixels(TileType.DEEP_WATER) * ART_SCALE;
         assertTrue(visible(-margin + 1));
         assertFalse(visible(-margin));
         assertFalse(visible(-margin - 1));

@@ -89,7 +89,7 @@ class InventoryDragTest {
                 .map(StackPane.class::cast)
                 .filter(node -> {
                     InventoryPanel.SlotContext context = (InventoryPanel.SlotContext) node.getUserData();
-                    return context.container == container && context.index == index;
+                    return context.container() == container && context.index() == index;
                 })
                 .findFirst()
                 .orElseThrow());

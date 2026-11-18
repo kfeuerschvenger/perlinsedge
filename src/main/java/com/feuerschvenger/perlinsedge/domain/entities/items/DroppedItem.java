@@ -288,8 +288,12 @@ public class DroppedItem {
      */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
         DroppedItem other = (DroppedItem) obj;
         return id == other.id;
     }

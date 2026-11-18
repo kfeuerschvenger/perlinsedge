@@ -22,21 +22,21 @@ public final class GroundDecals {
     private static final String SECOND_PEBBLE_DECAL = "pebble-2";
 
     /** Names of the decals drawn on grass, forest, savanna, hill and swamp. */
-    static final List<String> GREEN_DECALS = List.of(
+    public static final List<String> GREEN_DECALS = List.of(
             "tuft-1", "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
             "mushroom-1");
 
     /** Names of the decals drawn on sand and beach. */
-    static final List<String> SAND_DECALS = List.of("shell-1", FIRST_PEBBLE_DECAL);
+    public static final List<String> SAND_DECALS = List.of("shell-1", FIRST_PEBBLE_DECAL);
 
     /** Names of the decals drawn on dune tiles. */
-    static final List<String> DUNE_DECALS = List.of(FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL);
+    public static final List<String> DUNE_DECALS = List.of(FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL);
 
     /** Names of the decals drawn on the sand bed under shallow water, baked in the colours of that bed seen through the water. */
-    static final List<String> UNDERWATER_DECALS = List.of("under-seaweed-1", "under-seaweed-2", "under-pebble-1");
+    public static final List<String> UNDERWATER_DECALS = List.of("under-seaweed-1", "under-seaweed-2", "under-pebble-1");
 
     /** Names of the lily pads that float on the surface of shallow water. */
-    static final List<String> LILY_PADS = List.of("lilypad-1", "lilypad-2");
+    public static final List<String> LILY_PADS = List.of("lilypad-1", "lilypad-2");
 
     /** Every decal name the ground, a water bed or a water surface can show, for the loader. */
     public static final List<String> ALL = List.of(
@@ -45,25 +45,43 @@ public final class GroundDecals {
             "under-seaweed-1", "under-seaweed-2", "under-pebble-1", "lilypad-1", "lilypad-2");
 
     /** One shallow or coast water tile in this many holds an underwater decal. */
-    static final int UNDERWATER_ONE_IN = 6;
+    private static final int UNDERWATER_ONE_IN = 6;
 
     /** One shallow water tile in this many, near land, holds a lily pad. */
-    static final int LILY_PAD_ONE_IN = 12;
+    private static final int LILY_PAD_ONE_IN = 12;
 
     /** Shallow water farther than this many tiles from land holds no lily pad. */
-    static final int LILY_PAD_LAND_RADIUS = 2;
+    public static final int LILY_PAD_LAND_RADIUS = 2;
 
     /** One tile in this many holds a decal on green ground. */
-    static final int GREEN_ONE_IN = 4;
+    private static final int GREEN_ONE_IN = 4;
 
     /** One tile in this many holds a decal on sand. */
-    static final int SAND_ONE_IN = 8;
+    private static final int SAND_ONE_IN = 8;
 
     /**
      * How far from the tile centre a decal may sit along each isometric axis, as a fraction of the tile.
      * A tile edge is at 0.5, so the margin keeps a decal of up to a quarter of the tile width inside the top diamond.
      */
-    static final double MAX_OFFSET = 0.25;
+    public static final double MAX_OFFSET = 0.25;
+
+    /** Bits the hash is shifted by before it picks from a pool, so the pick is independent of the one-in test. */
+    private static final int POOL_PICK_SHIFT = 20;
+
+    /** Low bits of a hash dropped so the rest fills the 53 bits of a double mantissa. */
+    private static final int UNIT_SHIFT = 11;
+
+    /** Width of the interval [-1, 1) a hash is mapped to. */
+    private static final double UNIT_SPAN = 2.0;
+
+    /** Multipliers that spread the tile column and row over the hash. */
+    private static final long COLUMN_HASH_PRIME = 73_856_093L;
+    private static final long ROW_HASH_PRIME = 19_349_663L;
+
+    /** Right shifts of the three mixing rounds. */
+    private static final int FIRST_ROUND_SHIFT = 30;
+    private static final int SECOND_ROUND_SHIFT = 27;
+    private static final int FINAL_ROUND_SHIFT = 31;
 
     private static final long SALT_PICK = 0x51ED_270B_1F2DL;
     private static final long SALT_UNDERWATER = 0x1F83_D9AB_FB41L;
@@ -123,7 +141,7 @@ public final class GroundDecals {
         if (Math.floorMod(h, (long) oneIn) != 0) {
             return null;
         }
-        return pool.get((int) Math.floorMod(h >>> 20, (long) pool.size()));
+        return pool.get((int) Math.floorMod(h >>> POOL_PICK_SHIFT, (long) pool.size()));
     }
 
     /**
@@ -143,7 +161,7 @@ public final class GroundDecals {
         if (Math.floorMod(h, (long) UNDERWATER_ONE_IN) != 0) {
             return null;
         }
-        return UNDERWATER_DECALS.get((int) Math.floorMod(h >>> 20, (long) UNDERWATER_DECALS.size()));
+        return UNDERWATER_DECALS.get((int) Math.floorMod(h >>> POOL_PICK_SHIFT, (long) UNDERWATER_DECALS.size()));
     }
 
     /**
@@ -167,7 +185,7 @@ public final class GroundDecals {
         if (Math.floorMod(h, (long) LILY_PAD_ONE_IN) != 0 || !isNearLand(map, x, y, LILY_PAD_LAND_RADIUS)) {
             return null;
         }
-        return LILY_PADS.get((int) Math.floorMod(h >>> 20, (long) LILY_PADS.size()));
+        return LILY_PADS.get((int) Math.floorMod(h >>> POOL_PICK_SHIFT, (long) LILY_PADS.size()));
     }
 
     /**
@@ -182,7 +200,7 @@ public final class GroundDecals {
     public static boolean isNearLand(TileMap map, int x, int y, int radius) {
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
-                final Tile tile = map.getTile(x + dx, y + dy);
+                final var tile = map.getTile(x + dx, y + dy);
                 if (tile != null && tile.getType().isLand()) {
                     return true;
                 }
@@ -217,14 +235,14 @@ public final class GroundDecals {
 
     /** Maps a hash to [-1, 1). */
     private static double unit(long hash) {
-        return ((hash >>> 11) * 0x1.0p-53) * 2.0 - 1.0;
+        return ((hash >>> UNIT_SHIFT) * 0x1.0p-53) * UNIT_SPAN - 1.0;
     }
 
     /** Mixes the tile coordinates, the world seed and a salt into well spread bits. */
     static long mix(int x, int y, long seed, long salt) {
-        long h = x * 73_856_093L ^ y * 19_349_663L ^ seed * 0x9E37_79B9_7F4A_7C15L ^ salt;
-        h = (h ^ (h >>> 30)) * 0xBF58_476D_1CE4_E5B9L;
-        h = (h ^ (h >>> 27)) * 0x94D0_49BB_1331_11EBL;
-        return h ^ (h >>> 31);
+        long h = x * COLUMN_HASH_PRIME ^ y * ROW_HASH_PRIME ^ seed * 0x9E37_79B9_7F4A_7C15L ^ salt;
+        h = (h ^ (h >>> FIRST_ROUND_SHIFT)) * 0xBF58_476D_1CE4_E5B9L;
+        h = (h ^ (h >>> SECOND_ROUND_SHIFT)) * 0x94D0_49BB_1331_11EBL;
+        return h ^ (h >>> FINAL_ROUND_SHIFT);
     }
 }

@@ -1,6 +1,17 @@
 package com.feuerschvenger.perlinsedge.app;
 
-import com.feuerschvenger.perlinsedge.app.managers.*;
+import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
+import com.feuerschvenger.perlinsedge.app.managers.CombatManager;
+import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
+import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;
+import com.feuerschvenger.perlinsedge.app.managers.InventoryManager;
+import com.feuerschvenger.perlinsedge.app.managers.ItemDropManager;
+import com.feuerschvenger.perlinsedge.app.managers.ItemHotbarManager;
+import com.feuerschvenger.perlinsedge.app.managers.ItemUseManager;
+import com.feuerschvenger.perlinsedge.app.managers.MapManager;
+import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
+import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
@@ -15,7 +26,15 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
-import com.feuerschvenger.perlinsedge.ui.view.*;
+import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
+import com.feuerschvenger.perlinsedge.ui.view.DeathOverlay;
+import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
+import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
+import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
+import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
+import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
+import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
+import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +48,14 @@ import java.util.Random;
  */
 @Slf4j
 public class GameOrchestrator {
+    /** Frame rate the configured pan speed is tuned for. */
+    private static final double PAN_REFERENCE_FRAME_RATE = 60;
+    /** Positions of the screen edges in the edge-active flags of the input handler. */
+    private static final int EDGE_UP = 0;
+    private static final int EDGE_LEFT = 1;
+    private static final int EDGE_DOWN = 2;
+    private static final int EDGE_RIGHT = 3;
+
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
@@ -82,8 +109,8 @@ public class GameOrchestrator {
         this.deathOverlay = panels.deathOverlay();
         this.itemHotbarPanel = panels.itemHotbarPanel();
         this.buildingPalettePanel = panels.buildingPalettePanel();
-        final HealthBar healthBar = panels.healthBar();
-        final HintLabel hintLabel = panels.hintLabel();
+        final var healthBar = panels.healthBar();
+        final var hintLabel = panels.hintLabel();
 
         this.gameState = gameState != null ? gameState : new GameStateManager();
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
@@ -294,7 +321,9 @@ public class GameOrchestrator {
      * hand lights the new map as soon as the next frame.
      */
     void regenerateMap() {
-        if (!isGameRunning("a map regeneration")) return;
+        if (!isGameRunning("a map regeneration")) {
+            return;
+        }
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
         rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), seedSource.nextLong()));
@@ -305,7 +334,9 @@ public class GameOrchestrator {
      * The map type the renderer reads is only changed once the new map exists, so it always matches the map on screen.
      */
     void applyMapConfig(MapGenerationContext context) {
-        if (!isGameRunning("a map configuration")) return;
+        if (!isGameRunning("a map configuration")) {
+            return;
+        }
         rebuildWorld(context);
     }
 
@@ -327,7 +358,7 @@ public class GameOrchestrator {
      * The caller has already checked that a game is running.
      */
     private void rebuildWorld(MapGenerationContext context) {
-        boolean rebuilt = false;
+        var rebuilt = false;
         final TileMap previousMap = gameState.getCurrentMap();
         try {
             leaveGame();
@@ -392,9 +423,13 @@ public class GameOrchestrator {
      * @param deltaTime Fixed timestep value (1/60 second)
      */
     void update(double deltaTime) {
-        if (gameState.isGamePaused()) return;
+        if (gameState.isGamePaused()) {
+            return;
+        }
         // A rebuild that failed halfway leaves no player or no map, and there is nothing to advance until the next one
-        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) {
+            return;
+        }
 
         if (playerManager.handleRespawn(deltaTime)) {
             centerOnPlayer();
@@ -425,12 +460,20 @@ public class GameOrchestrator {
 
     private void handleEdgePanning(double deltaTime) {
         boolean[] edgeActive = inputHandler.getEdgeActive();
-        double panSpeed = AppConfig.getInstance().core().getPanSpeed() * deltaTime * 60;
+        double panSpeed = AppConfig.getInstance().core().getPanSpeed() * deltaTime * PAN_REFERENCE_FRAME_RATE;
 
-        if (edgeActive[0]) camera.pan(0, panSpeed, mainCanvas);  // Up
-        if (edgeActive[1]) camera.pan(-panSpeed, 0, mainCanvas); // Left
-        if (edgeActive[2]) camera.pan(0, -panSpeed, mainCanvas); // Down
-        if (edgeActive[3]) camera.pan(panSpeed, 0, mainCanvas);  // Right
+        if (edgeActive[EDGE_UP]) {  // Up
+            camera.pan(0, panSpeed, mainCanvas);
+        }
+        if (edgeActive[EDGE_LEFT]) {  // Left
+            camera.pan(-panSpeed, 0, mainCanvas);
+        }
+        if (edgeActive[EDGE_DOWN]) {  // Down
+            camera.pan(0, -panSpeed, mainCanvas);
+        }
+        if (edgeActive[EDGE_RIGHT]) {  // Right
+            camera.pan(panSpeed, 0, mainCanvas);
+        }
     }
 
     /**
@@ -440,7 +483,9 @@ public class GameOrchestrator {
      * @param deltaTime Time since last render (seconds)
      */
     void render(double alpha, double deltaTime) {
-        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) {
+            return;
+        }
         lastAlpha = alpha;
         inputWiring.refreshHover();
 

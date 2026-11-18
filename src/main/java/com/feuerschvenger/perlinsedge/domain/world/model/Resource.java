@@ -19,7 +19,7 @@ public class Resource {
     private final ResourceType type;
     private final long visualSeed;  // For sprite variations
 
-    private boolean struck = false;
+    private boolean struck;
     private double hitGameTime;
     private static final double FLASH_DURATION_SECONDS = 0.2;
 
@@ -108,7 +108,9 @@ public class Resource {
      * @return true if the resource was depleted by this damage
      */
     public boolean takeDamage(int damage) {
-        if (isDepleted) return false;
+        if (isDepleted) {
+            return false;
+        }
 
         currentHealth = Math.max(0, currentHealth - damage);
         lastHitTime = System.currentTimeMillis();
@@ -126,9 +128,13 @@ public class Resource {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Resource resource = (Resource) o;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        var resource = (Resource) o;
         return id == resource.id;
     }
 

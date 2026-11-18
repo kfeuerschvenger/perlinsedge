@@ -309,7 +309,7 @@ class ShadowLayerTest {
 
         assertEquals(SIZE + 10, layer.width());
         assertEquals(SIZE + 4, layer.height());
-        assertEquals(SIZE + 10, layer.pixels().length / (SIZE + 4));
+        assertEquals(SIZE + 10, layer.pixelsCopy().length / (SIZE + 4));
         assertEquals(0, count(layer));
         assertArrayEquals(new int[]{0, 0, 0, 0}, layer.changedBox());
     }
@@ -395,8 +395,9 @@ class ShadowLayerTest {
 
     private static int[] alphas(ShadowLayer layer) {
         final int[] cells = new int[SIZE * SIZE];
+        final int[] pixels = layer.pixelsCopy();
         for (int i = 0; i < cells.length; i++) {
-            cells[i] = layer.pixels()[i] >>> 24;
+            cells[i] = pixels[i] >>> 24;
         }
         return cells;
     }

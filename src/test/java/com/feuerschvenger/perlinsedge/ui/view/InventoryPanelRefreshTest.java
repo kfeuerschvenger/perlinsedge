@@ -61,7 +61,7 @@ class InventoryPanelRefreshTest {
     private StackPane gridSlot(int index) {
         return FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.SLOT).stream()
                 .map(StackPane.class::cast)
-                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).index == index)
+                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).index() == index)
                 .findFirst()
                 .orElseThrow());
     }

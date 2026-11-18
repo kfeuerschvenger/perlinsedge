@@ -20,9 +20,9 @@ import java.util.Objects;
  * way the crafting list marks them. It is visible only while the palette is shown and a piece is selected, and it
  * redraws only when the selection or the inventory changed, so it is cheap enough to call on every frame.
  */
-public class BuildingCostPanel extends VBox {
+public final class BuildingCostPanel extends VBox {
     /** The title of the panel. */
-    static final String TITLE_TEXT = "Will consume:";
+    private static final String TITLE_TEXT = "Will consume:";
     private static final double LINE_SPACING = 2;
 
     private final RecipeManager recipeManager;
@@ -88,16 +88,16 @@ public class BuildingCostPanel extends VBox {
         final List<CraftingIngredient> ingredients = selected == null ? List.of()
                 : recipeManager.getBuildingRecipeByType(selected).map(BuildingRecipe::ingredients).orElse(List.of());
         while (lines.size() < ingredients.size()) {
-            final Label label = new Label();
+            final var label = new Label();
             label.getStyleClass().add(UiTheme.SMALL);
             lines.add(label);
         }
         getChildren().setAll(title);
-        for (int i = 0; i < ingredients.size(); i++) {
+        for (var i = 0; i < ingredients.size(); i++) {
             final CraftingIngredient ingredient = ingredients.get(i);
             final int held = held(player, ingredient);
             final boolean enough = held >= ingredient.quantity();
-            final Label label = lines.get(i);
+            final var label = lines.get(i);
             label.setText(UiTheme.caps(ingredient.itemType().getDisplayName()) + " x" + ingredient.quantity()
                     + (enough ? "" : " (HAVE " + held + ")"));
             UiTheme.setClass(label, UiTheme.TEXT_GOOD, enough);

@@ -20,10 +20,11 @@ import java.util.function.ToIntFunction;
  * Displays detailed information about selected inventory items or crafting recipes.
  * Provides a consistent UI panel for showing name, description, quantities, and ingredients.
  */
-public class ItemInfoPanel extends VBox {
+public final class ItemInfoPanel extends VBox {
     // Layout constants; the colours, fonts and background come from the theme
     private static final int PANEL_PADDING = 16;
     private static final int CONTENT_SPACING = 6;
+    private static final int INGREDIENT_LINE_SPACING = 2;
     private static final double PREF_WIDTH = 200;
     private static final double MIN_WIDTH = 150;
     private static final double MAX_WIDTH = 250;
@@ -87,8 +88,8 @@ public class ItemInfoPanel extends VBox {
         ingredientsHeader = createStyledText(UiTheme.MUTED, INGREDIENTS_HEADER);
         ingredientsHeader.setVisible(false);
         ingredientsHeader.setManaged(false);
-        ingredientsBox.setSpacing(2);
-        final VBox details = new VBox(CONTENT_SPACING, ingredientsHeader, ingredientsBox, descriptionText);
+        ingredientsBox.setSpacing(INGREDIENT_LINE_SPACING);
+        final var details = new VBox(CONTENT_SPACING, ingredientsHeader, ingredientsBox, descriptionText);
         detailsScroll = new ScrollPane(details);
         detailsScroll.setFitToWidth(true);
         detailsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -100,7 +101,7 @@ public class ItemInfoPanel extends VBox {
 
     /** The title in an area of fixed height, which keeps the title from moving what is below it. */
     private StackPane createTitleArea() {
-        final StackPane area = new StackPane(titleText);
+        final var area = new StackPane(titleText);
         StackPane.setAlignment(titleText, Pos.TOP_LEFT);
         area.setMinHeight(TITLE_AREA_HEIGHT);
         area.setPrefHeight(TITLE_AREA_HEIGHT);
@@ -115,8 +116,8 @@ public class ItemInfoPanel extends VBox {
      * @param content Initial text content
      * @return Configured Text component
      */
-    private Text createStyledText(String styleClass, String content) {
-        Text text = new Text(content);
+    private static Text createStyledText(String styleClass, String content) {
+        var text = new Text(content);
         text.getStyleClass().add(styleClass);
         return text;
     }
@@ -186,7 +187,7 @@ public class ItemInfoPanel extends VBox {
         if (shown.size() != lines.size()) {
             return false;
         }
-        for (int i = 0; i < lines.size(); i++) {
+        for (var i = 0; i < lines.size(); i++) {
             final Text current = (Text) shown.get(i);
             final IngredientLine next = lines.get(i);
             if (!current.getText().equals(next.text()) || !current.getStyleClass().contains(next.styleClass())) {
@@ -207,7 +208,7 @@ public class ItemInfoPanel extends VBox {
      * @param item Item to format
      * @return Formatted title string
      */
-    private String formatItemTitle(Item item) {
+    private static String formatItemTitle(Item item) {
         return String.format("%s (%d)", item.getDisplayName(), item.getQuantity());
     }
 
@@ -234,8 +235,8 @@ public class ItemInfoPanel extends VBox {
      * @param recipe Recipe to format
      * @return Formatted recipe details
      */
-    private String formatRecipeDetails(Recipe recipe) {
-        StringBuilder details = new StringBuilder();
+    private static String formatRecipeDetails(Recipe recipe) {
+        var details = new StringBuilder();
 
         // Recipe description
         if (recipe.getDescription() != null && !recipe.getDescription().isEmpty()) {
@@ -252,10 +253,10 @@ public class ItemInfoPanel extends VBox {
     }
 
     /** One line per ingredient, such as "Planks 2/4", coloured by whether the player has enough. */
-    private List<IngredientLine> ingredientLines(Recipe recipe, ToIntFunction<ItemType> have) {
+    private static List<IngredientLine> ingredientLines(Recipe recipe, ToIntFunction<ItemType> have) {
         List<IngredientLine> lines = new ArrayList<>();
         for (CraftingIngredient ingredient : recipe.getIngredients()) {
-            final int held = have.applyAsInt(ingredient.itemType());
+            final var held = have.applyAsInt(ingredient.itemType());
             lines.add(new IngredientLine(
                     ingredient.itemType().getDisplayName() + " " + held + "/" + ingredient.quantity(),
                     held >= ingredient.quantity() ? UiTheme.TEXT_GOOD : UiTheme.TEXT_BAD));
@@ -265,7 +266,7 @@ public class ItemInfoPanel extends VBox {
 
     /** Builds the node of one ingredient line, green when the player holds enough and red when not. */
     private Text createIngredientLine(IngredientLine line) {
-        Text node = createStyledText(line.styleClass(), line.text());
+        var node = createStyledText(line.styleClass(), line.text());
         node.setWrappingWidth(CONTENT_WIDTH - SCROLL_BAR_ROOM);
         return node;
     }

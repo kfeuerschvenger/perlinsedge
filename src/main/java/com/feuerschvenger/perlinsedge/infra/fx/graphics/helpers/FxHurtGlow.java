@@ -16,6 +16,9 @@ public final class FxHurtGlow {
     /** Share of the distance from the centre to the corner where the glow starts. */
     private static final double INNER_RADIUS_SHARE = 0.55;
 
+    /** Divisor that gives the middle of the canvas and the radius that reaches its corner. */
+    private static final double HALF = 2.0;
+
     private static final Color GLOW_COLOUR = Color.rgb(255, 30, 30, 1.0);
 
     private static RadialGradient gradient;
@@ -37,9 +40,9 @@ public final class FxHurtGlow {
         if (opacity <= 0.0) {
             return;
         }
-        if (gradient == null || gradientWidth != width || gradientHeight != height) {
-            final double radius = Math.hypot(width, height) / 2.0;
-            gradient = new RadialGradient(0, 0, width / 2.0, height / 2.0, radius, false, CycleMethod.NO_CYCLE,
+        if (gradient == null || sizeChanged(width, height)) {
+            final double radius = Math.hypot(width, height) / HALF;
+            gradient = new RadialGradient(0, 0, width / HALF, height / HALF, radius, false, CycleMethod.NO_CYCLE,
                     new Stop(0.0, Color.TRANSPARENT),
                     new Stop(INNER_RADIUS_SHARE, Color.TRANSPARENT),
                     new Stop(1.0, GLOW_COLOUR));
@@ -52,5 +55,10 @@ public final class FxHurtGlow {
         gc.setFill(gradient);
         gc.fillRect(0, 0, width, height);
         gc.restore();
+    }
+
+    /** Tells whether the canvas is not the size the cached gradient was built for. */
+    private static boolean sizeChanged(double width, double height) {
+        return Double.compare(width, gradientWidth) != 0 || Double.compare(height, gradientHeight) != 0;
     }
 }

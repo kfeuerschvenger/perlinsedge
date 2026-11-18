@@ -38,7 +38,7 @@ public final class FxPlayerDrawingHelper {
                 return;
             }
             renderPlayerSprite(gc, tileTopX, tileTopY, zoom, player, playerSprite);
-        } catch (Exception _) {
+        } catch (RuntimeException _) {
             renderFallbackPlayer(gc, tileTopX, tileTopY, zoom);
         }
     }

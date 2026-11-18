@@ -150,8 +150,8 @@ class MoveAroundEnemiesTest {
     void thePathfinderNeverEndsOrCrossesAnOccupiedTile() {
         final Set<PathNode> occupied = Set.of(new PathNode(3, 5));
 
-        assertTrue(new Pathfinder(map, occupied).findPath(0, 5, 3, 5).isEmpty());
-        final List<PathNode> around = new Pathfinder(map, occupied).findPath(0, 5, 6, 5).orElseThrow();
+        assertFalse(new Pathfinder(map, occupied).findPath(0, 5, 3, 5).reachable());
+        final List<PathNode> around = new Pathfinder(map, occupied).findPath(0, 5, 6, 5).requireNodes();
         assertNotNull(around);
         assertFalse(around.contains(new PathNode(3, 5)));
     }
@@ -160,7 +160,7 @@ class MoveAroundEnemiesTest {
     void aNextToSearchNeverEndsOnAnOccupiedTile() {
         // The target is at (5,5) and the cheapest stand tile, (4,5), is taken
         final List<PathNode> walk = new Pathfinder(map, Set.of(new PathNode(4, 5)))
-                .findPathNextTo(0, 5, 5, 5, SIZE * SIZE).orElseThrow();
+                .findPathNextTo(0, 5, 5, 5, SIZE * SIZE).requireNodes();
 
         assertNotNull(walk);
         final PathNode end = walk.get(walk.size() - 1);

@@ -41,7 +41,7 @@ public final class SilhouetteSprites {
         if (cached != null) {
             return cached;
         }
-        final PixelReader reader = source.getPixelReader();
+        final var reader = source.getPixelReader();
         if (reader == null || (int) source.getWidth() <= 0 || (int) source.getHeight() <= 0) {
             return EMPTY;
         }
@@ -54,9 +54,9 @@ public final class SilhouetteSprites {
     private static Silhouette bake(Image source, PixelReader reader) {
         final int width = (int) source.getWidth();
         final int height = (int) source.getHeight();
-        final int[] pixels = new int[width * height];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
+        final var pixels = new int[width * height];
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
                 pixels[y * width + x] = reader.getArgb(x, y);
             }
         }

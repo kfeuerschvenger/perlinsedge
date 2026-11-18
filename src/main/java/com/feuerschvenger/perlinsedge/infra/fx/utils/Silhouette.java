@@ -17,6 +17,9 @@ public final class Silhouette {
      */
     public static final int PAINTED_ALPHA = 0x80;
 
+    /** Bit position of the alpha channel in a packed ARGB value. */
+    private static final int ALPHA_SHIFT = 24;
+
     /** Width of the sprite in pixels. */
     private final int width;
     /** Height of the sprite in pixels. */
@@ -37,10 +40,10 @@ public final class Silhouette {
         this.width = width;
         this.height = height;
         this.argb = new int[width * height];
-        int bottom = 0;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if ((source[y * width + x] >>> 24) >= PAINTED_ALPHA) {
+        var bottom = 0;
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                if ((source[y * width + x] >>> ALPHA_SHIFT) >= PAINTED_ALPHA) {
                     argb[y * width + x] = SOLID;
                     bottom = y + 1;
                 }

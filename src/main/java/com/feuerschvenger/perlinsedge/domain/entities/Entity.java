@@ -48,7 +48,7 @@ public abstract class Entity {
 
     protected double health;
     protected final double maxHealth;  // Immutable max health
-    protected boolean isDead = false;
+    protected boolean isDead;
 
     // ==================================================================
     //  Constructor
@@ -77,7 +77,7 @@ public abstract class Entity {
      * @param x New X tile coordinate
      * @param y New Y tile coordinate
      */
-    public void setPosition(int x, int y) {
+    public final void setPosition(int x, int y) {
         this.currentTileX = x;
         this.currentTileY = y;
         this.targetTileX = x;
@@ -146,7 +146,9 @@ public abstract class Entity {
      * @param amount Damage amount to apply
      */
     public void takeDamage(double amount) {
-        if (isDead) return;
+        if (isDead) {
+            return;
+        }
 
         health = Math.max(0, health - amount);
 
@@ -163,7 +165,9 @@ public abstract class Entity {
      * @return the health actually restored, 0 when the entity is dead, already at full health or amount is not positive
      */
     public double heal(double amount) {
-        if (isDead || amount <= 0) return 0;
+        if (isDead || amount <= 0) {
+            return 0;
+        }
 
         final double restored = Math.min(amount, maxHealth - health);
         health += restored;
@@ -174,7 +178,9 @@ public abstract class Entity {
      * Handles death logic. Can be overridden by subclasses for custom behavior.
      */
     public void handleDeath() {
-        if (isDead) return;
+        if (isDead) {
+            return;
+        }
 
         isDead = true;
         log.info("{} has died", this.getClass().getSimpleName());

@@ -160,8 +160,8 @@ class BuildingPalettePanelTest {
             final Label name = FxToolkitSupport.onFx(() -> panel.nameOf(type));
             assertTrue(FxToolkitSupport.onFx(name::isWrapText), type.name());
             assertEquals(javafx.scene.text.TextAlignment.CENTER, FxToolkitSupport.onFx(name::getTextAlignment), type.name());
-            assertEquals(BuildingPalettePanel.NAME_HEIGHT, FxToolkitSupport.onFx(name::getMinHeight), type.name());
-            assertEquals(BuildingPalettePanel.NAME_HEIGHT, FxToolkitSupport.onFx(name::getMaxHeight), type.name());
+            assertEquals(32.0, FxToolkitSupport.onFx(name::getMinHeight), type.name());
+            assertEquals(32.0, FxToolkitSupport.onFx(name::getMaxHeight), type.name());
         }
     }
 

@@ -31,6 +31,30 @@ public final class FxItemDrawingHelper {
     private static final double TOOL_HANDLE_WIDTH_FACTOR = 0.2;
     private static final double TOOL_HANDLE_HEIGHT_FACTOR = 0.8;
     private static final double OVAL_MARGIN = 0.15;
+    /** Sides a margin or an inset is taken from, one on each side. */
+    private static final int INSET_SIDES = 2;
+    /** Fraction of a box that reaches its middle. */
+    private static final double HALF = 0.5;
+    /** Share of the box width and height a crystal cluster spans on each side of its centre. */
+    private static final double CRYSTAL_EXTENT = 0.4;
+    /** Share of the crystal width at which the two lower corners sit on each side of the centre. */
+    private static final double CRYSTAL_BASE_HALF_WIDTH = 0.5;
+
+    // Wood log and plank shapes, as fractions of the box
+    private static final double LOG_TOP = 0.2;
+    private static final double LOG_HEIGHT = 0.6;
+    private static final double PLANK_LEFT = 0.05;
+    private static final double PLANK_TOP = 0.25;
+    private static final double PLANK_WIDTH = 0.9;
+    private static final double PLANK_HEIGHT = 0.5;
+
+    // Tool handle position, as fractions of the box
+    private static final double TOOL_HANDLE_LEFT = 0.4;
+    private static final double TOOL_HANDLE_TOP = 0.1;
+
+    // Default shape, as fractions of the box
+    private static final double DEFAULT_SHAPE_INSET = 0.2;
+    private static final double DEFAULT_SHAPE_SIZE = 0.6;
 
     // Cached instances
     private static final Font QUANTITY_FONT = Font.font("Arial", FontWeight.BOLD, 10);
@@ -71,7 +95,7 @@ public final class FxItemDrawingHelper {
         double baseDrawY = tileTopY + (tileHeight * DROPPED_ITEM_BASE_VERTICAL_OFFSET);
 
         // Get sprite and render
-        final ItemType itemType = droppedItem.getItemType();
+        final var itemType = droppedItem.getItemType();
         Image sprite = getItemSprite(itemType);
 
         double finalDrawX;
@@ -85,7 +109,7 @@ public final class FxItemDrawingHelper {
             finalWidth = sprite.getWidth() * scale;
             finalHeight = sprite.getHeight() * scale;
 
-            finalDrawX = PixelSnap.round(tileTopX - (finalWidth / 2));
+            finalDrawX = PixelSnap.round(tileTopX - (finalWidth * HALF));
             // The icon floats over the tile, bobbing on whole pixels
             finalDrawY = PixelSnap.round(baseDrawY - finalHeight + floatingOffset
                     + (SPRITE_MANAGER.getItemSprite(itemType).getVerticalOffset() * zoom));
@@ -95,7 +119,7 @@ public final class FxItemDrawingHelper {
             // Si no hay sprite, dibuja la forma de fallback con el tamaño objetivo
             finalWidth = targetItemWidth;
             finalHeight = targetItemHeight;
-            finalDrawX = tileTopX - (finalWidth / 2);
+            finalDrawX = tileTopX - (finalWidth * HALF);
             finalDrawY = baseDrawY - finalHeight + floatingOffset; // Sin offset del sprite para fallback
 
             drawFallbackShape(gc, finalDrawX, finalDrawY, finalWidth, finalHeight, itemType, zoom);
@@ -137,7 +161,7 @@ public final class FxItemDrawingHelper {
             case WOOD_LOG -> drawWoodLog(gc, x, y, width, height, margin);
             case WOOD_PLANK -> drawWoodPlank(gc, x, y, width, height);
             case STONE -> drawStone(gc, x, y, width, height, margin);
-            case CRYSTALS -> drawCrystals(gc, centerX, centerY, width * 0.4, height * 0.4);
+            case CRYSTALS -> drawCrystals(gc, centerX, centerY, width * CRYSTAL_EXTENT, height * CRYSTAL_EXTENT);
             case SLIME_BALL -> drawSlimeBall(gc, x, y, width, height);
             case PICKAXE -> drawTool(gc, x, y, width, height, Tool.PICKAXE);
             case AXE -> drawTool(gc, x, y, width, height, Tool.AXE);
@@ -159,7 +183,7 @@ public final class FxItemDrawingHelper {
     }
 
     private static void renderQuantityText(GraphicsContext gc, double centerX, double baseY, double zoom, int quantity) {
-        String text = String.valueOf(quantity);
+        final var text = String.valueOf(quantity);
         double textY = baseY + (QUANTITY_TEXT_MARGIN * zoom);
 
         gc.setFont(QUANTITY_FONT);
@@ -177,9 +201,9 @@ public final class FxItemDrawingHelper {
 
     private static void drawWoodLog(GraphicsContext gc, double x, double y, double width, double height, double margin) {
         double rectX = x + margin;
-        double rectY = y + height * 0.2;
-        double rectWidth = width - (2 * margin);
-        double rectHeight = height * 0.6;
+        double rectY = y + height * LOG_TOP;
+        double rectWidth = width - (INSET_SIDES * margin);
+        double rectHeight = height * LOG_HEIGHT;
 
         gc.setFill(Color.BROWN.darker());
         gc.fillRect(rectX, rectY, rectWidth, rectHeight);
@@ -189,10 +213,10 @@ public final class FxItemDrawingHelper {
     }
 
     private static void drawWoodPlank(GraphicsContext gc, double x, double y, double width, double height) {
-        double rectX = x + width * 0.05;
-        double rectY = y + height * 0.25;
-        double rectWidth = width * 0.9;
-        double rectHeight = height * 0.5;
+        double rectX = x + width * PLANK_LEFT;
+        double rectY = y + height * PLANK_TOP;
+        double rectWidth = width * PLANK_WIDTH;
+        double rectHeight = height * PLANK_HEIGHT;
 
         gc.setFill(Color.BROWN.brighter());
         gc.fillRect(rectX, rectY, rectWidth, rectHeight);
@@ -204,8 +228,8 @@ public final class FxItemDrawingHelper {
     private static void drawStone(GraphicsContext gc, double x, double y, double width, double height, double margin) {
         double ovalX = x + margin;
         double ovalY = y + margin;
-        double ovalWidth = width - (2 * margin);
-        double ovalHeight = height - (2 * margin);
+        double ovalWidth = width - (INSET_SIDES * margin);
+        double ovalHeight = height - (INSET_SIDES * margin);
 
         gc.setFill(Color.GRAY.darker());
         gc.fillOval(ovalX, ovalY, ovalWidth, ovalHeight);
@@ -218,8 +242,8 @@ public final class FxItemDrawingHelper {
         double[] pointsX = {
                 centerX,
                 centerX + width,
-                centerX + width * 0.5,
-                centerX - width * 0.5,
+                centerX + width * CRYSTAL_BASE_HALF_WIDTH,
+                centerX - width * CRYSTAL_BASE_HALF_WIDTH,
                 centerX - width
         };
 
@@ -241,8 +265,8 @@ public final class FxItemDrawingHelper {
     private static void drawSlimeBall(GraphicsContext gc, double x, double y, double width, double height) {
         double ovalX = x + (width * OVAL_MARGIN);
         double ovalY = y + (height * OVAL_MARGIN);
-        double ovalWidth = width * (1 - (2 * OVAL_MARGIN));
-        double ovalHeight = height * (1 - (2 * OVAL_MARGIN));
+        double ovalWidth = width * (1 - (INSET_SIDES * OVAL_MARGIN));
+        double ovalHeight = height * (1 - (INSET_SIDES * OVAL_MARGIN));
 
         gc.setFill(Color.LIMEGREEN.brighter());
         gc.fillOval(ovalX, ovalY, ovalWidth, ovalHeight);
@@ -256,8 +280,8 @@ public final class FxItemDrawingHelper {
 
     private static void drawTool(GraphicsContext gc, double x, double y, double width, double height, Tool tool) {
         // Draw handle
-        double handleX = x + (width * 0.4);
-        double handleY = y + (height * 0.1);
+        double handleX = x + (width * TOOL_HANDLE_LEFT);
+        double handleY = y + (height * TOOL_HANDLE_TOP);
         double handleWidth = width * TOOL_HANDLE_WIDTH_FACTOR;
         double handleHeight = height * TOOL_HANDLE_HEIGHT_FACTOR;
 
@@ -268,7 +292,7 @@ public final class FxItemDrawingHelper {
 
         // Draw tool head
         gc.setFill(Color.GRAY.darker());
-        double headCenterX = x + (width / 2);
+        double headCenterX = x + (width * HALF);
 
         // A switch expression has to cover every constant, which a switch statement does not
         final double[][] head = switch (tool) {
@@ -290,10 +314,10 @@ public final class FxItemDrawingHelper {
     }
 
     private static void drawDefaultShape(GraphicsContext gc, double x, double y, double width, double height) {
-        double rectX = x + (width * 0.2);
-        double rectY = y + (height * 0.2);
-        double rectWidth = width * 0.6;
-        double rectHeight = height * 0.6;
+        double rectX = x + (width * DEFAULT_SHAPE_INSET);
+        double rectY = y + (height * DEFAULT_SHAPE_INSET);
+        double rectWidth = width * DEFAULT_SHAPE_SIZE;
+        double rectHeight = height * DEFAULT_SHAPE_SIZE;
 
         gc.setFill(Color.DARKGRAY);
         gc.fillRect(rectX, rectY, rectWidth, rectHeight);

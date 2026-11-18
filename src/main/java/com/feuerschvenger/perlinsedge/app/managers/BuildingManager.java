@@ -4,7 +4,11 @@ import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.*;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
@@ -514,7 +518,7 @@ public class BuildingManager {
     /**
      * Returns standardized error color for placement preview
      */
-    private Rgba errorColor() {
+    private static Rgba errorColor() {
         return Rgba.RED.withOpacityFactor(PREVIEW_OPACITY);
     }
 

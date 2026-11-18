@@ -5,7 +5,6 @@ import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.BuildingSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import javafx.scene.image.Image;
 
@@ -110,7 +109,7 @@ public final class FxObjectShadows {
                 // The sprite stands with its bottom edge on the bottom vertex of the tile, so the ground row of the
                 // shadow is the row of the tile centre
                 for (Image buildingImage : buildingImages) {
-                    final Silhouette silhouette = SilhouetteSprites.of(buildingImage);
+                    final var silhouette = SilhouetteSprites.of(buildingImage);
                     shadows.addSilhouette(screenX, groundY, silhouette,
                             (double) silhouette.height() - BuildingSprites.TILE_CENTER_ART_PIXELS, 1.0, 1.0);
                 }
@@ -125,7 +124,7 @@ public final class FxObjectShadows {
                                     boolean low) {
         if (image != null) {
             // A low sprite touches the ground at its lowest painted row, a tall one at its bottom edge
-            final Silhouette silhouette = SilhouetteSprites.of(image);
+            final var silhouette = SilhouetteSprites.of(image);
             final double groundRow = low ? silhouette.paintedBottom() : silhouette.height();
             shadows.addSilhouette(screenX, groundY, silhouette, groundRow, 1.0, 1.0);
         } else {

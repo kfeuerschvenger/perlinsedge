@@ -2,6 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
+import java.util.Locale;
+
 /**
  * Defines all building types available in the game with their properties.
  * Each building type specifies:
@@ -66,6 +68,11 @@ public enum BuildingType {
             Rgba.LIGHT_PINK
     );
 
+    /** Rotation count of a piece whose front turns through the four edges of its tile. */
+    private static final int FOUR_WAY_ROTATIONS = 4;
+    /** Rotation count of a piece that runs along one of the two diagonals of its tile. */
+    private static final int TWO_WAY_ROTATIONS = 2;
+
     // ==================================================================
     //  Instance Properties
     // ==================================================================
@@ -108,8 +115,8 @@ public enum BuildingType {
      */
     public int rotationCount() {
         return switch (this) {
-            case CHEST, FURNACE, ANVIL, WORKBENCH, BED -> 4;
-            case BRIDGE, FENCE_GATE -> 2;
+            case CHEST, FURNACE, ANVIL, WORKBENCH, BED -> FOUR_WAY_ROTATIONS;
+            case BRIDGE, FENCE_GATE -> TWO_WAY_ROTATIONS;
             default -> 1;
         };
     }
@@ -162,15 +169,17 @@ public enum BuildingType {
     private static String generateDisplayName(String enumName) {
         // Split by underscores and process each part
         String[] parts = enumName.split("_");
-        StringBuilder builder = new StringBuilder();
+        var builder = new StringBuilder();
 
-        for (int i = 0; i < parts.length; i++) {
+        for (var i = 0; i < parts.length; i++) {
             String part = parts[i];
-            if (part.isEmpty()) continue;
+            if (part.isEmpty()) {
+                continue;
+            }
 
             // Capitalize first letter, lowercase the rest
             builder.append(Character.toUpperCase(part.charAt(0)))
-                    .append(part.substring(1).toLowerCase());
+                    .append(part.substring(1).toLowerCase(Locale.ROOT));
 
             if (i < parts.length - 1) {
                 builder.append(" ");

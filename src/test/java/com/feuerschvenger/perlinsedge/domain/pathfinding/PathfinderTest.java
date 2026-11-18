@@ -8,9 +8,9 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,7 +39,7 @@ class PathfinderTest {
 
     @Test
     void findsStraightPathExcludingTheStart() {
-        List<PathNode> path = new Pathfinder(grassMap()).findPath(0, 0, 3, 0).orElseThrow();
+        List<PathNode> path = new Pathfinder(grassMap()).findPath(0, 0, 3, 0).requireNodes();
 
         assertNotNull(path);
         assertEquals(3, path.size());
@@ -50,7 +50,7 @@ class PathfinderTest {
 
     @Test
     void pathToTheStartTileIsEmpty() {
-        List<PathNode> path = new Pathfinder(grassMap()).findPath(2, 2, 2, 2).orElseThrow();
+        List<PathNode> path = new Pathfinder(grassMap()).findPath(2, 2, 2, 2).requireNodes();
 
         assertNotNull(path);
         assertTrue(path.isEmpty());
@@ -58,7 +58,7 @@ class PathfinderTest {
 
     @Test
     void usesDiagonalNeighboursWhenTheyAreShorter() {
-        List<PathNode> path = new Pathfinder(grassMap()).findPath(0, 0, 3, 3).orElseThrow();
+        List<PathNode> path = new Pathfinder(grassMap()).findPath(0, 0, 3, 3).requireNodes();
 
         assertNotNull(path);
         assertEquals(3, path.size(), "three diagonal steps beat six cardinal ones");
@@ -68,7 +68,7 @@ class PathfinderTest {
 
     @Test
     void consecutiveNodesAreNeighbours() {
-        List<PathNode> path = new Pathfinder(grassMap()).findPath(0, 0, 5, 3).orElseThrow();
+        List<PathNode> path = new Pathfinder(grassMap()).findPath(0, 0, 5, 3).requireNodes();
 
         assertNotNull(path);
         int prevX = 0;
@@ -87,7 +87,7 @@ class PathfinderTest {
             wall(map, 3, y);
         }
 
-        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 6, 0).orElseThrow();
+        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 6, 0).requireNodes();
 
         assertNotNull(path);
         assertTrue(path.stream().anyMatch(n -> n.y == SIZE - 1), "the only gap is on the last row");
@@ -99,7 +99,7 @@ class PathfinderTest {
         TileMap map = grassMap();
         map.setTile(4, 4, new Tile(4, 4, TileType.MOUNTAIN));
 
-        assertTrue(new Pathfinder(map).findPath(0, 0, 4, 4).isEmpty());
+        assertFalse(new Pathfinder(map).findPath(0, 0, 4, 4).reachable());
     }
 
     @Test
@@ -107,7 +107,7 @@ class PathfinderTest {
         TileMap map = grassMap();
         wall(map, 0, 0);
 
-        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 3, 3).orElseThrow();
+        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 3, 3).requireNodes();
 
         assertNotNull(path);
         assertEquals(3, last(path).x);
@@ -120,7 +120,7 @@ class PathfinderTest {
         TileMap map = grassMap();
         wall(map, 0, 0);
 
-        List<PathNode> path = new Pathfinder(map).findPathNextTo(0, 0, 4, 4, 100).orElseThrow();
+        List<PathNode> path = new Pathfinder(map).findPathNextTo(0, 0, 4, 4, 100).requireNodes();
 
         assertNotNull(path);
         assertEquals(3, path.size(), "three diagonal steps reach the tile next to (4, 4)");
@@ -128,15 +128,15 @@ class PathfinderTest {
 
     @Test
     void returnsNullWhenTheStartIsOffTheMap() {
-        assertTrue(new Pathfinder(grassMap()).findPath(-1, 0, 3, 3).isEmpty());
+        assertFalse(new Pathfinder(grassMap()).findPath(-1, 0, 3, 3).reachable());
     }
 
     @Test
     void aSecondSearchOnTheSameInstanceIsNotAffectedByTheFirst() {
         Pathfinder pathfinder = new Pathfinder(grassMap());
 
-        List<PathNode> nextTo = pathfinder.findPathNextTo(0, 0, 4, 0, 100).orElseThrow();
-        List<PathNode> exact = pathfinder.findPath(0, 0, 4, 0).orElseThrow();
+        List<PathNode> nextTo = pathfinder.findPathNextTo(0, 0, 4, 0, 100).requireNodes();
+        List<PathNode> exact = pathfinder.findPath(0, 0, 4, 0).requireNodes();
 
         assertEquals(3, nextTo.size(), "the next-to search stops beside the target");
         assertEquals(4, exact.size(), "the plain search that follows still ends on the target");
@@ -154,15 +154,15 @@ class PathfinderTest {
             }
         }
 
-        assertTrue(new Pathfinder(map).findPath(0, 0, 4, 4).isEmpty());
+        assertFalse(new Pathfinder(map).findPath(0, 0, 4, 4).reachable());
     }
 
     @Test
     void returnsNullForOutOfBoundsPositions() {
         Pathfinder pathfinder = new Pathfinder(grassMap());
 
-        assertTrue(pathfinder.findPath(0, 0, SIZE, SIZE).isEmpty());
-        assertTrue(pathfinder.findPath(-1, 0, 2, 2).isEmpty());
+        assertFalse(pathfinder.findPath(0, 0, SIZE, SIZE).reachable());
+        assertFalse(pathfinder.findPath(-1, 0, 2, 2).reachable());
     }
 
     @Test
@@ -171,11 +171,11 @@ class PathfinderTest {
         for (int y = 0; y < SIZE; y++) {
             map.setTile(3, y, new Tile(3, y, TileType.DEEP_WATER));
         }
-        assertTrue(new Pathfinder(map).findPath(0, 3, 6, 3).isEmpty());
+        assertFalse(new Pathfinder(map).findPath(0, 3, 6, 3).reachable());
 
         map.getTile(3, 3).setFloor(new Bridge(3, 3));
 
-        List<PathNode> path = new Pathfinder(map).findPath(0, 3, 6, 3).orElseThrow();
+        List<PathNode> path = new Pathfinder(map).findPath(0, 3, 6, 3).requireNodes();
         assertNotNull(path);
         assertTrue(path.stream().anyMatch(n -> n.x == 3 && n.y == 3));
     }
@@ -186,9 +186,9 @@ class PathfinderTest {
         wall(map, 1, 0);
         wall(map, 0, 1);
 
-        Optional<List<PathNode>> path = new Pathfinder(map).findPath(0, 0, 1, 1);
+        var path = new Pathfinder(map).findPath(0, 0, 1, 1);
 
-        assertTrue(path.isEmpty());
+        assertFalse(path.reachable());
     }
 
     @Test
@@ -196,7 +196,7 @@ class PathfinderTest {
         TileMap map = grassMap();
         wall(map, 1, 0);
 
-        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 1, 1).orElseThrow();
+        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 1, 1).requireNodes();
 
         assertNotNull(path);
         assertEquals(2, path.size(), "the corner of the wall cannot be cut, so the path goes around it");
@@ -212,7 +212,7 @@ class PathfinderTest {
         wall(map, 1, 4);
         wall(map, 4, 2);
 
-        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 6, 6).orElseThrow();
+        List<PathNode> path = new Pathfinder(map).findPath(0, 0, 6, 6).requireNodes();
 
         assertNotNull(path);
         int prevX = 0;

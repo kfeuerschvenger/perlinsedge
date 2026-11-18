@@ -11,6 +11,7 @@ import static com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConn
 import static com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.UPPER_LEFT;
 import static com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections.UPPER_RIGHT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A fence joins its four edge neighbours that are fences, and the gates that run along the line between the two.
@@ -163,7 +164,7 @@ class FenceConnectionsTest {
         gate(4, 3, 0);
 
         assertEquals(LOWER_RIGHT, mask(3, 3));
-        assertEquals(true, map.getRevision() > before, "the map knows the fence changed");
+        assertTrue(map.getRevision() > before, "the map knows the fence changed");
     }
 
     @Test

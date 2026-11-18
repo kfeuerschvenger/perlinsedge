@@ -77,7 +77,7 @@ class FxInputHandlerTest {
         List<GameKey> delivered = FxToolkitSupport.onFx(() -> {
             Rig rig = new Rig();
             rig.press(KeyCode.I);
-            rig.handler.focusListener.changed(null, false, true);
+            rig.handler.focusListener().changed(null, false, true);
             rig.press(KeyCode.I);
             return rig.delivered;
         });

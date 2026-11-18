@@ -102,7 +102,9 @@ public class GameStateTransitions {
 
     /** Toggles the player inventory. Opening it leaves building mode. */
     public void toggleInventory() {
-        if (gameState.isGamePaused() || gameState.getPlayer() == null) return;
+        if (gameState.isGamePaused() || gameState.getPlayer() == null) {
+            return;
+        }
 
         GameMode mode = gameState.getCurrentGameMode();
         if (mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN) {
@@ -119,7 +121,9 @@ public class GameStateTransitions {
      */
     public void showOpenContainer() {
         Container container = containerManager.getOpenContainer();
-        if (container == null) return;
+        if (container == null) {
+            return;
+        }
 
         palette.hidePalette();
         inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
@@ -137,7 +141,9 @@ public class GameStateTransitions {
      * @param newMode target game mode
      */
     public void setGameMode(GameMode newMode) {
-        if (gameState.getCurrentGameMode() == newMode) return;
+        if (gameState.getCurrentGameMode() == newMode) {
+            return;
+        }
         if (newMode != GameMode.EXPLORATION && gameState.getPlayer() == null) {
             log.debug("Ignoring the switch to {}: there is no player", newMode);
             return;

@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.QuickMove;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import javafx.application.Platform;
@@ -24,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -53,7 +53,7 @@ class InventoryController {
     @Setter
     private ItemDropCallback onItemDroppedCallback;
     @Setter
-    private CraftRecipeCallback onCraftRecipeCallback;
+    private Consumer<Recipe> onCraftRecipeCallback;
 
     /** Index of the selected slot, or -1 when no slot is selected. */
     @Getter
@@ -311,7 +311,7 @@ class InventoryController {
 
     private void startDrag(MouseEvent event) {
         SlotRef origin = InventoryPanel.refOf(pressedSlot);
-        Item item = origin.item();
+        var item = origin.item();
         if (item == null || item.getQuantity() <= 0) {
             pressedSlot = null;
             return;
@@ -332,7 +332,7 @@ class InventoryController {
         // The mouse button was held, so no enter or exit event told which slot the mouse ended up over
         hoveredSlot = under;
 
-        DragSession.Release outcome = finished.release(target, overPanel);
+        var outcome = finished.release(target, overPanel);
         log.debug("DRAG RELEASE: {} {}", finished.item().getDisplayName(), outcome);
         switch (outcome) {
             case TRANSFER -> transferDragged(finished, target);
@@ -427,17 +427,17 @@ class InventoryController {
             event.consume();
             return;
         }
-        log.debug("SLOT CLICK: Slot {}", context.index);
+        log.debug("SLOT CLICK: Slot {}", context.index());
 
-        handleSlotSelection(context.index, context.container == gameState.getPlayer());
+        handleSlotSelection(context.index(), context.container() == gameState.getPlayer());
         event.consume();
     }
 
     /** Ctrl+click: sends the whole stack of the slot to the other side, see {@link QuickMove#route}. */
     private void quickMove(InventoryPanel.SlotContext context) {
-        boolean moved = QuickMove.route(gameState.getPlayer(), view.getSecondaryContainer(), context.container,
-                context.index);
-        log.debug("QUICK MOVE: slot {} moved={}", context.index, moved);
+        boolean moved = QuickMove.route(gameState.getPlayer(), view.getSecondaryContainer(), context.container(),
+                context.index());
+        log.debug("QUICK MOVE: slot {} moved={}", context.index(), moved);
         if (moved) {
             Platform.runLater(view::updateInventoryDisplay);
         }
@@ -445,7 +445,7 @@ class InventoryController {
 
     private void handleSlotSelection(int clickedSlotIndex, boolean isPlayerInventorySlot) {
         Container container = isPlayerInventorySlot ? gameState.getPlayer() : view.getSecondaryContainer();
-        Item item = view.getItemInSlot(clickedSlotIndex, container);
+        var item = view.getItemInSlot(clickedSlotIndex, container);
 
         if (item != null) {
             updateSlotSelection(clickedSlotIndex, isPlayerInventorySlot);
@@ -481,7 +481,7 @@ class InventoryController {
     // ==================================================================
 
     void handleCraftButtonClick() {
-        Recipe recipe = view.getSelectedCraftingRecipe();
+        var recipe = view.getSelectedCraftingRecipe();
         if (recipe == null) {
             log.warn("Crafting failed: No recipe selected");
             return;
@@ -492,6 +492,6 @@ class InventoryController {
         }
 
         log.debug("CRAFT CLICK: {}", recipe.getName());
-        onCraftRecipeCallback.craft(recipe);
+        onCraftRecipeCallback.accept(recipe);
     }
 }

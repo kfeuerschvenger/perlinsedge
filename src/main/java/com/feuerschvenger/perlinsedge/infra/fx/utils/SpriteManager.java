@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import javafx.scene.image.Image;
-import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +27,10 @@ import java.util.Set;
 @Slf4j
 public final class SpriteManager {
     private static final int MAX_VARIANTS = 99;
+
+    /** Bit position of the alpha channel in a packed ARGB value. */
+    private static final int ALPHA_SHIFT = 24;
+
     private static final List<String> RESOURCE_FOLDERS = List.of(
             AssetPaths.DEFAULT_FOLDER, "dense_forest", "swamp", "desert", "tundra", AssetPaths.SHARED_FOLDER);
 
@@ -88,7 +91,7 @@ public final class SpriteManager {
 
     // Singleton instance holder
     private static class InstanceHolder {
-        static final SpriteManager INSTANCE = new SpriteManager();
+        private static final SpriteManager INSTANCE = new SpriteManager();
     }
 
     private final Map<MapType, Map<ResourceType, List<SpriteMetadata>>> resourceSprites = new EnumMap<>(MapType.class);
@@ -132,7 +135,7 @@ public final class SpriteManager {
             } else {
                 tileSprites.put(art, variants);
             }
-            final Image strip = loadImage(AssetPaths.faceStrip(art));
+            final var strip = loadImage(AssetPaths.faceStrip(art));
             if (strip != null) {
                 faceStrips.put(art, strip);
             }
@@ -143,7 +146,7 @@ public final class SpriteManager {
     private void loadDecalSprites() {
         List<String> missing = new ArrayList<>();
         for (String name : GroundDecals.ALL) {
-            Image image = loadImage(AssetPaths.decal(name));
+            final var image = loadImage(AssetPaths.decal(name));
             if (image == null) {
                 missing.add(name);
             } else {
@@ -165,7 +168,7 @@ public final class SpriteManager {
             }
         }
         for (String art : arts) {
-            Image image = loadImage(AssetPaths.waterTop(art));
+            final var image = loadImage(AssetPaths.waterTop(art));
             if (image == null) {
                 log.info("No water art {}, those tiles are drawn without water", art);
             } else {
@@ -173,8 +176,8 @@ public final class SpriteManager {
             }
         }
         List<Image> lines = new ArrayList<>();
-        for (int line = 0; line < WaterShimmer.MAX_LINES; line++) {
-            Image image = loadImage(AssetPaths.shimmer(line));
+        for (var line = 0; line < WaterShimmer.MAX_LINES; line++) {
+            final var image = loadImage(AssetPaths.shimmer(line));
             if (image == null) {
                 log.info("No shimmer art for line {}, the water is drawn without highlights", line);
                 return;
@@ -187,8 +190,8 @@ public final class SpriteManager {
     /** Loads the numbered variants of a tile art until a number is missing. */
     private List<Image> loadTileVariants(String art) {
         List<Image> variants = new ArrayList<>();
-        for (int variant = 1; variant <= MAX_VARIANTS; variant++) {
-            Image image = loadImage(AssetPaths.tile(art, variant));
+        for (var variant = 1; variant <= MAX_VARIANTS; variant++) {
+            final var image = loadImage(AssetPaths.tile(art, variant));
             if (image == null) {
                 break;
             }
@@ -247,8 +250,8 @@ public final class SpriteManager {
     private List<SpriteMetadata> loadResourceVariants(String folder, ResourceType type) {
         List<SpriteMetadata> variants = new ArrayList<>();
         for (String kind : AssetPaths.resourceKinds(type)) {
-            for (int variant = 1; variant <= MAX_VARIANTS; variant++) {
-                Image image = loadImage(AssetPaths.resource(folder, kind, variant));
+            for (var variant = 1; variant <= MAX_VARIANTS; variant++) {
+                final var image = loadImage(AssetPaths.resource(folder, kind, variant));
                 if (image == null) {
                     break;
                 }
@@ -261,11 +264,11 @@ public final class SpriteManager {
 
     /** Counts the rows under the lowest painted pixel of an image, a pixel being painted as a {@link Silhouette} counts it. */
     private static int bottomPadding(Image image) {
-        final PixelReader reader = image.getPixelReader();
+        final var reader = image.getPixelReader();
         final int width = (int) image.getWidth();
         return ResourceAnchor.bottomPadding((int) image.getHeight(), row -> {
-            for (int x = 0; x < width; x++) {
-                if ((reader.getArgb(x, row) >>> 24) >= Silhouette.PAINTED_ALPHA) {
+            for (var x = 0; x < width; x++) {
+                if ((reader.getArgb(x, row) >>> ALPHA_SHIFT) >= Silhouette.PAINTED_ALPHA) {
                     return false;
                 }
             }
@@ -275,7 +278,7 @@ public final class SpriteManager {
 
     /** Loads the player sheet frames and the slime strip frames, each left empty when its art is missing. */
     private void loadEntitySprites() {
-        Image sheet = loadImage(SpriteSheetConfig.PATH);
+        final var sheet = loadImage(SpriteSheetConfig.PATH);
         if (sheet == null) {
             log.info("No player sheet at {}, the stand-in circle is drawn", SpriteSheetConfig.PATH);
         } else if (sheet.getWidth() < SpriteSheetConfig.START_X + SpriteSheetConfig.COLUMNS * SpriteSheetConfig.COLUMN_OFFSET
@@ -287,14 +290,14 @@ public final class SpriteManager {
             entitySprites.put("player", extractSpritesheetFrames(sheet));
         }
 
-        Image strip = loadImage(AssetPaths.SLIME_STRIP);
+        final var strip = loadImage(AssetPaths.SLIME_STRIP);
         if (strip == null) {
             log.info("No slime strip at {}, the stand-in oval is drawn", AssetPaths.SLIME_STRIP);
             return;
         }
         int frameWidth = (int) (strip.getWidth() / SpriteLayout.SLIME_FRAMES);
         List<Image> frames = new ArrayList<>();
-        for (int i = 0; i < SpriteLayout.SLIME_FRAMES; i++) {
+        for (var i = 0; i < SpriteLayout.SLIME_FRAMES; i++) {
             frames.add(new WritableImage(strip.getPixelReader(), i * frameWidth, 0, frameWidth, (int) strip.getHeight()));
         }
         slimeFrames = List.copyOf(frames);
@@ -305,7 +308,7 @@ public final class SpriteManager {
         List<String> missing = new ArrayList<>();
         for (ItemType type : ItemType.values()) {
             String path = AssetPaths.item(type);
-            Image image = loadImage(path);
+            final var image = loadImage(path);
             itemSprites.put(type, new SpriteMetadata(image, 0.0));
             if (image == null) {
                 missing.add(type.name());
@@ -441,7 +444,7 @@ public final class SpriteManager {
      * @return the variant, or null when none of the sprites is of that kind
      */
     private static SpriteMetadata pickOfKind(List<SpriteMetadata> variants, String kind, long worldSeed, int x, int y) {
-        int matching = 0;
+        var matching = 0;
         for (int i = 0, count = variants.size(); i < count; i++) {
             if (kind.equals(variants.get(i).getKind())) {
                 matching++;
@@ -452,8 +455,11 @@ public final class SpriteManager {
         }
         int pick = SpriteVariants.forResource(worldSeed, x, y, matching);
         for (int i = 0, count = variants.size(); i < count; i++) {
-            if (kind.equals(variants.get(i).getKind()) && pick-- == 0) {
-                return variants.get(i);
+            if (kind.equals(variants.get(i).getKind())) {
+                if (pick == 0) {
+                    return variants.get(i);
+                }
+                pick--;
             }
         }
         return null;
@@ -500,14 +506,14 @@ public final class SpriteManager {
     //  SPRITE LOADING HELPERS
     // ==================================================================
 
-    private List<List<Image>> extractSpritesheetFrames(Image sheet) {
+    private static List<List<Image>> extractSpritesheetFrames(Image sheet) {
         List<List<Image>> frames = new ArrayList<>();
-        PixelReader reader = sheet.getPixelReader();
+        final var reader = sheet.getPixelReader();
 
-        for (int row = 0; row < SpriteSheetConfig.ROWS; row++) {
+        for (var row = 0; row < SpriteSheetConfig.ROWS; row++) {
             int y = SpriteSheetConfig.rowY(row);
             List<Image> rowFrames = new ArrayList<>();
-            for (int col = 0; col < SpriteSheetConfig.COLUMNS; col++) {
+            for (var col = 0; col < SpriteSheetConfig.COLUMNS; col++) {
                 int x = SpriteSheetConfig.START_X + (col * SpriteSheetConfig.COLUMN_OFFSET);
                 rowFrames.add(new WritableImage(reader, x, y, SpriteSheetConfig.SPRITE_WIDTH,
                         SpriteSheetConfig.SPRITE_HEIGHT));
@@ -528,7 +534,7 @@ public final class SpriteManager {
                 log.debug("Asset not found: {}", path);
                 return null;
             }
-            Image image = new Image(is);
+            final var image = new Image(is);
             if (image.isError()) {
                 log.warn("Asset could not be decoded: {}", path, image.getException());
                 return null;

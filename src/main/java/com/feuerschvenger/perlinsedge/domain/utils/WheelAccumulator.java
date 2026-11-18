@@ -43,13 +43,13 @@ public class WheelAccumulator {
      * @return 1 upwards or -1 downwards when the sum reached a whole step, 0 when it is still short
      */
     public int add(double deltaY) {
-        if (deltaY == 0) {
+        if (Doubles.isZero(deltaY)) {
             return 0;
         }
-        long now = nanoClock.getAsLong();
+        var now = nanoClock.getAsLong();
         boolean idle = now - lastInputNanos > IDLE_RESET_NANOS;
         lastInputNanos = now;
-        if (accumulated != 0 && (idle || Math.signum(accumulated) != Math.signum(deltaY))) {
+        if (!Doubles.isZero(accumulated) && (idle || !Doubles.areEqual(Math.signum(accumulated), Math.signum(deltaY)))) {
             accumulated = 0;
         }
         accumulated += deltaY;

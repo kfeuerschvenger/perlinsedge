@@ -44,11 +44,11 @@ public class InteractionManager {
     }
 
     /** Fewest tiles the search for the walk to an enemy may expand, whatever the size of the map. */
-    static final int ENEMY_SEARCH_MIN_NODES = 6_000;
+    public static final int ENEMY_SEARCH_MIN_NODES = 6_000;
     /** The search for the walk to an enemy may expand up to this fraction of the tiles of the map. */
     private static final int ENEMY_SEARCH_MAP_DIVISOR = 4;
     /** Most tiles the search for the walk to an enemy may expand, whatever the size of the map: a click stays cheap. */
-    static final int ENEMY_SEARCH_MAX_NODES = 60_000;
+    public static final int ENEMY_SEARCH_MAX_NODES = 60_000;
 
     /**
      * Gives the number of tiles the search for the walk to an enemy may expand, which is also its largest cost. It
@@ -184,8 +184,10 @@ public class InteractionManager {
         }
         final var player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
-        if (player == null || map == null || player.isDead()
-                || gameState.isGamePaused() || gameState.getCurrentGameMode() != GameMode.EXPLORATION) {
+        final var playerUnavailable = player == null || map == null || player.isDead();
+        final var gameNotExploring = gameState.isGamePaused()
+                || gameState.getCurrentGameMode() != GameMode.EXPLORATION;
+        if (playerUnavailable || gameNotExploring) {
             cancel();
             return;
         }

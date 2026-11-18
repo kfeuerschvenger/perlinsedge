@@ -18,7 +18,7 @@ import java.util.Random;
  * Centralized configuration hub with nested configuration classes.
  * Uses singleton pattern for global access to application settings.
  */
-public class AppConfig {
+public final class AppConfig {
     /** Classpath folder every bundled asset lives under. */
     public static final String ASSET_ROOT = "/assets";
 
@@ -106,18 +106,33 @@ public class AppConfig {
         private static final int MAX_POSITIONING_ATTEMPTS = 3000;
 
         // Noise parameters (the height noise comes from NoiseSettings.heightProfile)
-        private static final float TEMPERATURE_NOISE_FREQUENCY = 0.02f;
+        private static final float TEMPERATURE_NOISE_FREQUENCY = 0.02F;
         private static final int TEMPERATURE_NOISE_OCTAVES = 3;
-        private static final float MOISTURE_NOISE_FREQUENCY = 0.03f;
+        private static final float MOISTURE_NOISE_FREQUENCY = 0.03F;
         private static final int MOISTURE_NOISE_OCTAVES = 3;
 
         // Resource thresholds
-        private static final float STONE_PATCH_FREQUENCY = 0.06f;
-        private static final float STONE_THRESHOLD = 0.79f;
-        private static final float CRYSTALS_PATCH_FREQUENCY = 0.09f;
-        private static final float CRYSTALS_THRESHOLD = 0.80f;
-        private static final float BASE_TREE_DENSITY = 0.05f;
-        private static final float BASE_RIVER_DENSITY = 0.03f;
+        private static final float STONE_PATCH_FREQUENCY = 0.06F;
+        private static final float STONE_THRESHOLD = 0.79F;
+        private static final float CRYSTALS_PATCH_FREQUENCY = 0.09F;
+        private static final float CRYSTALS_THRESHOLD = 0.80F;
+        private static final float BASE_TREE_DENSITY = 0.05F;
+        private static final float BASE_RIVER_DENSITY = 0.03F;
+
+        // Tree density per map type
+        private static final float DENSE_FOREST_TREE_DENSITY = 0.32F;
+        private static final float SWAMP_TREE_DENSITY = 0.32F;
+        private static final float DESERT_TREE_DENSITY = 0.10F;
+        private static final float TUNDRA_TREE_DENSITY = 0.34F;
+        private static final float MEDITERRANEAN_TREE_DENSITY = 0.17F;
+        private static final float ISLANDS_TREE_DENSITY = 0.19F;
+        private static final float RIVERS_TREE_DENSITY = 0.30F;
+
+        // River density per map type
+        private static final float DENSE_FOREST_RIVER_DENSITY = 0.01F;
+        private static final float SWAMP_RIVER_DENSITY = 0.025F;
+        private static final float DESERT_RIVER_DENSITY = 0.003F;
+        private static final float RIVERS_RIVER_DENSITY = 0.04F;
 
         // Getters and setters
         public int getWidth() { return WIDTH; }
@@ -142,23 +157,23 @@ public class AppConfig {
 
         public float getTreeDensity() {
             return switch (currentMapType) {
-                case DENSE_FOREST -> 0.32f;
-                case SWAMP -> 0.32f;
-                case DESERT -> 0.10f;
-                case TUNDRA -> 0.34f;
-                case MEDITERRANEAN -> 0.17f;
-                case ISLANDS -> 0.19f;
-                case RIVERS -> 0.30f;
+                case DENSE_FOREST -> DENSE_FOREST_TREE_DENSITY;
+                case SWAMP -> SWAMP_TREE_DENSITY;
+                case DESERT -> DESERT_TREE_DENSITY;
+                case TUNDRA -> TUNDRA_TREE_DENSITY;
+                case MEDITERRANEAN -> MEDITERRANEAN_TREE_DENSITY;
+                case ISLANDS -> ISLANDS_TREE_DENSITY;
+                case RIVERS -> RIVERS_TREE_DENSITY;
                 default -> BASE_TREE_DENSITY;
             };
         }
 
         public float getRiverDensity() {
             return switch (currentMapType) {
-                case DENSE_FOREST -> 0.01f;
-                case SWAMP -> 0.025f;
-                case DESERT -> 0.003f;
-                case RIVERS -> 0.04f;
+                case DENSE_FOREST -> DENSE_FOREST_RIVER_DENSITY;
+                case SWAMP -> SWAMP_RIVER_DENSITY;
+                case DESERT -> DESERT_RIVER_DENSITY;
+                case RIVERS -> RIVERS_RIVER_DENSITY;
                 default -> BASE_RIVER_DENSITY;
             };
         }
@@ -342,15 +357,17 @@ public class AppConfig {
                 return START_Y + row * SPRITE_HEIGHT;
             }
         }
+
+        private PlayerConfig() {}
     }
 
     /**
      * Debugging and developer tools
      */
     public static class DebugConfig {
-        private boolean enabled = false;
-        private boolean grayscaleEnabled = false;
-        private boolean textEnabled = false;
+        private boolean enabled;
+        private boolean grayscaleEnabled;
+        private boolean textEnabled;
 
         // Getters and setters
         public boolean isEnabled() { return enabled; }
@@ -434,11 +451,11 @@ public class AppConfig {
      * Configuration for noise generators
      */
     public static class NoiseConfig {
-        float frequency;
-        int octaves;
-        FractalKind fractalType = FractalKind.NONE;
-        float gain;
-        float lacunarity;
+        private float frequency;
+        private int octaves;
+        private FractalKind fractalType = FractalKind.NONE;
+        private float gain;
+        private float lacunarity;
 
         public float getFrequency() {
             return frequency;
@@ -485,21 +502,30 @@ public class AppConfig {
      * Holds current generation parameters
      */
     public static class GenerationConfig {
-        MapType mapType;
-        long seed;
-        Random random;
-        float treeDensity;
-        float riverDensity;
-        float stoneThreshold;
-        float crystalsThreshold;
+        /** Tree noise frequency of the dry maps, where the trees form few and wide groves. */
+        private static final float DRY_TREE_NOISE_FREQUENCY = 0.01F;
+        /** Tree noise frequency of every other map. */
+        private static final float DEFAULT_TREE_NOISE_FREQUENCY = 0.05F;
+        /** Gain of the temperature and moisture noise. */
+        private static final float CLIMATE_NOISE_GAIN = 0.5F;
+        /** Lacunarity of the temperature and moisture noise. */
+        private static final float CLIMATE_NOISE_LACUNARITY = 2.0F;
+
+        private MapType mapType;
+        private long seed;
+        private Random random;
+        private float treeDensity;
+        private float riverDensity;
+        private float stoneThreshold;
+        private float crystalsThreshold;
 
         // Noise configurations
-        NoiseConfig heightNoiseConfig;
-        NoiseConfig temperatureNoiseConfig;
-        NoiseConfig moistureNoiseConfig;
-        NoiseConfig stoneNoiseConfig;
-        NoiseConfig crystalsNoiseConfig;
-        NoiseConfig treeNoiseConfig;
+        private NoiseConfig heightNoiseConfig;
+        private NoiseConfig temperatureNoiseConfig;
+        private NoiseConfig moistureNoiseConfig;
+        private NoiseConfig stoneNoiseConfig;
+        private NoiseConfig crystalsNoiseConfig;
+        private NoiseConfig treeNoiseConfig;
 
         public void update(MapGenerationContext context) {
             this.mapType = context.getMapType();
@@ -533,8 +559,8 @@ public class AppConfig {
          * while the fractal kind, gain and lacunarity come from the map type profile.
          */
         private NoiseConfig createHeightNoiseConfig(float frequency, int octaves) {
-            NoiseSettings profile = NoiseSettings.heightProfile(mapType);
-            NoiseConfig cfg = new NoiseConfig();
+            var profile = NoiseSettings.heightProfile(mapType);
+            var cfg = new NoiseConfig();
             cfg.frequency = frequency;
             cfg.octaves = octaves;
             cfg.fractalType = profile.fractal();
@@ -544,23 +570,24 @@ public class AppConfig {
         }
 
         private NoiseConfig createTreeNoiseConfig() {
-            NoiseConfig cfg = new NoiseConfig();
-            cfg.frequency = (mapType == MapType.DESERT || mapType == MapType.TUNDRA) ? 0.01f : 0.05f;
+            var cfg = new NoiseConfig();
+            var dryMap = mapType == MapType.DESERT || mapType == MapType.TUNDRA;
+            cfg.frequency = dryMap ? DRY_TREE_NOISE_FREQUENCY : DEFAULT_TREE_NOISE_FREQUENCY;
             return cfg;
         }
 
-        private NoiseConfig createNoiseConfig(float frequency, int octaves) {
-            NoiseConfig cfg = new NoiseConfig();
+        private static NoiseConfig createNoiseConfig(float frequency, int octaves) {
+            var cfg = new NoiseConfig();
             cfg.frequency = frequency;
             cfg.octaves = octaves;
             cfg.fractalType = FractalKind.FBM;
-            cfg.gain = 0.5f;
-            cfg.lacunarity = 2.0f;
+            cfg.gain = CLIMATE_NOISE_GAIN;
+            cfg.lacunarity = CLIMATE_NOISE_LACUNARITY;
             return cfg;
         }
 
-        private NoiseConfig createSimpleNoiseConfig(float frequency) {
-            NoiseConfig cfg = new NoiseConfig();
+        private static NoiseConfig createSimpleNoiseConfig(float frequency) {
+            var cfg = new NoiseConfig();
             cfg.frequency = frequency;
             return cfg;
         }

@@ -17,12 +17,14 @@ import java.util.Map;
  * The 16x16 icons are drawn at 2x with smoothing off, so every art pixel stays a whole square block.
  */
 @Slf4j
-public class HealthBar extends HBox {
+public final class HealthBar extends HBox {
     /** Hearts in the row. */
     public static final int HEART_COUNT = 5;
 
     private static final double HEART_SIZE = 32; // the 16x16 icon at 2x
     private static final double SPACING = 4;
+    /** Corner arc diameter of the placeholder, half the heart size. */
+    private static final double PLACEHOLDER_ARC = 16;
 
     private final ImageView[] icons = new ImageView[HEART_COUNT];
     private final Map<HeartState, Image> heartImages = new EnumMap<>(HeartState.class);
@@ -38,8 +40,8 @@ public class HealthBar extends HBox {
         for (HeartState state : HeartState.values()) {
             heartImages.put(state, loadHeart(state));
         }
-        for (int i = 0; i < HEART_COUNT; i++) {
-            ImageView icon = new ImageView();
+        for (var i = 0; i < HEART_COUNT; i++) {
+            var icon = new ImageView();
             icon.setFitWidth(HEART_SIZE);
             icon.setFitHeight(HEART_SIZE);
             icon.setSmooth(false);
@@ -56,15 +58,15 @@ public class HealthBar extends HBox {
      * @param maxHealth The maximum health value
      */
     public void updateHealth(double currentHealth, double maxHealth) {
-        if (currentHealth == shownHealth && maxHealth == shownMaxHealth) {
+        if (Double.compare(currentHealth, shownHealth) == 0 && Double.compare(maxHealth, shownMaxHealth) == 0) {
             return;
         }
         shownHealth = currentHealth;
         shownMaxHealth = maxHealth;
         double fraction = maxHealth > 0 ? currentHealth / maxHealth : 0;
         HeartState[] states = HeartState.row(fraction, HEART_COUNT);
-        for (int i = 0; i < HEART_COUNT; i++) {
-            Image image = heartImages.get(states[i]);
+        for (var i = 0; i < HEART_COUNT; i++) {
+            var image = heartImages.get(states[i]);
             if (icons[i].getImage() != image) {
                 icons[i].setImage(image);
             }
@@ -85,11 +87,11 @@ public class HealthBar extends HBox {
     }
 
     /** Draws a rounded square placeholder, grey for an empty heart and pink otherwise. */
-    private Image createFallbackHeartImage(HeartState state) {
+    private static Image createFallbackHeartImage(HeartState state) {
         Color color = state == HeartState.EMPTY ? Color.DARKGRAY : Color.PINK;
-        Rectangle placeholder = new Rectangle(HEART_SIZE, HEART_SIZE, color);
-        placeholder.setArcWidth(HEART_SIZE / 2);
-        placeholder.setArcHeight(HEART_SIZE / 2);
+        var placeholder = new Rectangle(HEART_SIZE, HEART_SIZE, color);
+        placeholder.setArcWidth(PLACEHOLDER_ARC);
+        placeholder.setArcHeight(PLACEHOLDER_ARC);
         return placeholder.snapshot(null, null);
     }
 

@@ -26,6 +26,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -184,7 +185,7 @@ class InventoryCraftingFlowTest {
                 assertTrue(effects.get(i) instanceof javafx.scene.effect.ColorAdjust adjust
                         && adjust.getSaturation() == -1.0, "greyed cell " + i + " has a greyscale icon");
             } else {
-                assertEquals(null, effects.get(i), "craftable cell " + i + " keeps its colour");
+                assertNull(effects.get(i), "craftable cell " + i + " keeps its colour");
             }
         }
         assertTrue(grey.contains(true) && grey.contains(false));

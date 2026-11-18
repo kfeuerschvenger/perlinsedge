@@ -7,8 +7,8 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TilePickerTest {
@@ -71,10 +71,6 @@ class TilePickerTest {
         assertNull(pick(map, -500, 0, 0, 0, 1));
         assertNull(pick(map, 0, -20, 0, 0, 1));
         assertNull(pick(map, 0, 5000, 0, 0, 1));
-    }
-
-    private static void assertNull(int[] value) {
-        assertEquals(null, value);
     }
 
     @Test

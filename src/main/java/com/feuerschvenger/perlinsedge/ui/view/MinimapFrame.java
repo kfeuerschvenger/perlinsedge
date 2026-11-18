@@ -9,11 +9,13 @@ import javafx.scene.shape.Rectangle;
  * taken from the same style classes. A canvas draws no background of its own, so this pane supplies it, and the canvas
  * is clipped to the rounded shape inside the outline.
  */
-public class MinimapFrame extends StackPane {
+public final class MinimapFrame extends StackPane {
     /** Width of the outline the slot style draws, which the frame needs room for around the canvas. */
     public static final double BORDER_WIDTH = 1;
-    /** Corner radius of the slot style, less the outline, which is the radius of the shape the canvas is clipped to. */
-    private static final double CLIP_RADIUS = 5;
+    /** Sides of the frame that carry the outline: the outline is taken from both sides of the canvas. */
+    private static final int BORDER_SIDES = 2;
+    /** Corner arc diameter of the shape the canvas is clipped to: twice the corner radius of the slot style, less the outline. */
+    private static final double CLIP_ARC = 10;
 
     /**
      * Wraps a canvas.
@@ -22,9 +24,9 @@ public class MinimapFrame extends StackPane {
      */
     public MinimapFrame(Canvas canvas) {
         getStyleClass().addAll(UiTheme.SLOT, UiTheme.SLOT_EMPTY);
-        final Rectangle clip = new Rectangle(canvas.getWidth(), canvas.getHeight());
-        clip.setArcWidth(CLIP_RADIUS * 2);
-        clip.setArcHeight(CLIP_RADIUS * 2);
+        final var clip = new Rectangle(canvas.getWidth(), canvas.getHeight());
+        clip.setArcWidth(CLIP_ARC);
+        clip.setArcHeight(CLIP_ARC);
         canvas.setClip(clip);
         getChildren().add(canvas);
     }
@@ -36,7 +38,7 @@ public class MinimapFrame extends StackPane {
      * @return the canvas width plus the outline on both sides
      */
     public static double outerWidth(Canvas canvas) {
-        return canvas.getWidth() + BORDER_WIDTH * 2;
+        return canvas.getWidth() + BORDER_WIDTH * BORDER_SIDES;
     }
 
     /**
@@ -46,6 +48,6 @@ public class MinimapFrame extends StackPane {
      * @return the canvas height plus the outline on both sides
      */
     public static double outerHeight(Canvas canvas) {
-        return canvas.getHeight() + BORDER_WIDTH * 2;
+        return canvas.getHeight() + BORDER_WIDTH * BORDER_SIDES;
     }
 }

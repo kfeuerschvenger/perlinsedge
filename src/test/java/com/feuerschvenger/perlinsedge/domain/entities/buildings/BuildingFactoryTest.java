@@ -3,6 +3,8 @@ package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuildingFactoryTest {
 
@@ -32,13 +34,13 @@ class BuildingFactoryTest {
         for (BuildingType type : new BuildingType[]{BuildingType.CHEST, BuildingType.FURNACE, BuildingType.ANVIL,
                 BuildingType.WORKBENCH, BuildingType.BED}) {
             assertEquals(4, type.rotationCount(), type.name());
-            assertEquals(true, type.isRotatable());
+            assertTrue(type.isRotatable());
         }
         assertEquals(2, BuildingType.BRIDGE.rotationCount());
         for (BuildingType type : new BuildingType[]{BuildingType.CAMPFIRE, BuildingType.STANDING_TORCH,
                 BuildingType.FENCE}) {
             assertEquals(1, type.rotationCount(), type.name());
-            assertEquals(false, type.isRotatable());
+            assertFalse(type.isRotatable());
         }
     }
 }

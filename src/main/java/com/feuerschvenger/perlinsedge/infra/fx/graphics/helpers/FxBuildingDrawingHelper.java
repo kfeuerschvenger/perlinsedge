@@ -21,6 +21,8 @@ public final class FxBuildingDrawingHelper {
     public static final double GHOST_OPACITY = 0.65;
     /** Opacity of the tint laid on the footprint under a ghost that has no art. */
     private static final double FOOTPRINT_TINT_OPACITY = 0.30;
+    /** Corners of the diamond of a tile. */
+    private static final int DIAMOND_CORNERS = 4;
 
     /** Not instantiable: the class only holds the drawing calls. */
     private FxBuildingDrawingHelper() {
@@ -97,7 +99,7 @@ public final class FxBuildingDrawingHelper {
             }
         } else {
             drawFootprint(gc, preview.color(), centerX, centerY, zoom);
-            final Building ghost = BuildingFactory.create(preview.type(), preview.tileX(), preview.tileY(),
+            final var ghost = BuildingFactory.create(preview.type(), preview.tileX(), preview.tileY(),
                     preview.rotation());
             if (ghost instanceof Fence fence) {
                 fence.setConnections(preview.connections());
@@ -130,6 +132,6 @@ public final class FxBuildingDrawingHelper {
         gc.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), FOOTPRINT_TINT_OPACITY / GHOST_OPACITY));
         gc.fillPolygon(
                 new double[]{centerX, centerX + halfWidth, centerX, centerX - halfWidth},
-                new double[]{centerY - halfHeight, centerY, centerY + halfHeight, centerY}, 4);
+                new double[]{centerY - halfHeight, centerY, centerY + halfHeight, centerY}, DIAMOND_CORNERS);
     }
 }

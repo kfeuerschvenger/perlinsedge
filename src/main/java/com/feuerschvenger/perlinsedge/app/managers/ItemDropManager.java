@@ -20,6 +20,9 @@ import java.util.Locale;
  */
 @Slf4j
 public class ItemDropManager {
+    /** Seconds in a minute, to report how long an item lay on the ground. */
+    private static final int SECONDS_PER_MINUTE = 60;
+
     private final GameStateManager gameState;
     private final Runnable onInventoryChanged;
 
@@ -181,7 +184,7 @@ public class ItemDropManager {
         if (log.isDebugEnabled()) {
             log.debug("Despawned {} (on the ground for {} minutes)",
                     item.getItem().getType().getDisplayName(),
-                    String.format(Locale.ROOT, "%.1f", item.ageSeconds(currentTime) / 60));
+                    String.format(Locale.ROOT, "%.1f", item.ageSeconds(currentTime) / SECONDS_PER_MINUTE));
         }
     }
 

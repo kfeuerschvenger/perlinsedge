@@ -20,6 +20,13 @@ import java.util.Arrays;
 public class FxInputHandler {
     private static final int EDGE_SIZE = 30;
 
+    // Indices into the edge flags.
+    private static final int EDGE_UP = 0;
+    private static final int EDGE_RIGHT = 1;
+    private static final int EDGE_DOWN = 2;
+    private static final int EDGE_LEFT = 3;
+    private static final int EDGE_COUNT = 4;
+
     private final boolean[] edgeActive; // [0]Up, [1]Right, [2]Down, [3]Left
 
     private final FxCamera camera;
@@ -31,8 +38,7 @@ public class FxInputHandler {
     private final KeyRepeatFilter keyRepeats = new KeyRepeatFilter();
     /** Set by the press filter for the press that the bubbling handler is about to see. */
     private boolean pressIsFirst;
-    /** Package-private so the tests can drive a focus change without a window. */
-    final ChangeListener<Boolean> focusListener = (obs, wasFocused, isFocused) -> keyRepeats.clear();
+    private final ChangeListener<Boolean> focusListener = (obs, wasFocused, isFocused) -> keyRepeats.clear();
 
     /**
      * Constructs a new FxInputHandler for handling input events in the game.
@@ -44,7 +50,7 @@ public class FxInputHandler {
     public FxInputHandler(Scene scene, Canvas mainGameCanvas, FxCamera camera) {
         this.mainGameCanvas = mainGameCanvas;
         this.camera = camera;
-        this.edgeActive = new boolean[4];
+        this.edgeActive = new boolean[EDGE_COUNT];
 
         // The tracking runs in filters, which see every event before any node can consume it: a control that consumes
         // a release would otherwise leave its key held for good. The delivery to the game stays on the bubbling
@@ -72,6 +78,15 @@ public class FxInputHandler {
      * Forgets the held keys whenever the window gains or loses focus, since the release events of a key held across
      * the change go to another window. The listener leaves the window the scene moves away from.
      */
+    /**
+     * Test seam: the listener that forgets the held keys, so the tests can drive a focus change without a window.
+     *
+     * @return the focus listener
+     */
+    ChangeListener<Boolean> focusListener() {
+        return focusListener;
+    }
+
     private void moveFocusWatch(Window oldWindow, Window newWindow) {
         if (oldWindow != null) {
             oldWindow.focusedProperty().removeListener(focusListener);
@@ -102,7 +117,7 @@ public class FxInputHandler {
      * @param event The scroll event containing the scroll delta and mouse position.
      */
     private void handleScroll(ScrollEvent event) {
-        if (scrollInterceptor != null && event.getDeltaY() != 0
+        if (scrollInterceptor != null && Double.compare(Math.abs(event.getDeltaY()), 0.0) != 0
                 && scrollInterceptor.intercept(event.getDeltaY(), event.isControlDown())) {
             return;
         }
@@ -124,10 +139,10 @@ public class FxInputHandler {
         double x = e.getX();
         double y = e.getY();
 
-        edgeActive[0] = y < EDGE_SIZE; // Up
-        edgeActive[1] = x > width - EDGE_SIZE; // Right
-        edgeActive[2] = y > height - EDGE_SIZE; // Down
-        edgeActive[3] = x < EDGE_SIZE; // Left
+        edgeActive[EDGE_UP] = y < EDGE_SIZE;
+        edgeActive[EDGE_RIGHT] = x > width - EDGE_SIZE;
+        edgeActive[EDGE_DOWN] = y > height - EDGE_SIZE;
+        edgeActive[EDGE_LEFT] = x < EDGE_SIZE;
     }
 
     /**
@@ -139,8 +154,13 @@ public class FxInputHandler {
         Arrays.fill(edgeActive, false);
     }
 
+    /**
+     * Returns a snapshot of which screen edges the mouse is on.
+     *
+     * @return a copy of the flags, in the order up, right, down, left
+     */
     public boolean[] getEdgeActive() {
-        return edgeActive;
+        return edgeActive.clone();
     }
 
 }

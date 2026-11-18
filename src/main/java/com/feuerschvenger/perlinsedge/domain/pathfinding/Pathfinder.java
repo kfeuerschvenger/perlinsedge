@@ -1,10 +1,15 @@
 package com.feuerschvenger.perlinsedge.domain.pathfinding;
 
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.PriorityQueue;
+import java.util.Set;
 
 /**
  * A* pathfinding implementation optimized for isometric grid-based worlds.
@@ -15,6 +20,8 @@ public final class Pathfinder {
     // Reuse direction constants from IsometricUtils to prevent duplication
     private static final int[][] MOVEMENT_DIRECTIONS = IsometricUtils.allDirections();
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
+    /** Farthest a tile next to the target lies from it, which is the diagonal of one tile. */
+    private static final double NEIGHBOUR_GOAL_SLACK = Math.sqrt(2);
 
     /**
      * What a single search is looking for, kept apart from the Pathfinder so the target of a search is one value that
@@ -29,7 +36,7 @@ public final class Pathfinder {
     private record Goal(int x, int y, boolean neighbour) {
         /** Farthest a goal tile lies from the target, 0 when the target is the goal. */
         double slack() {
-            return neighbour ? Math.sqrt(2) : 0;
+            return neighbour ? NEIGHBOUR_GOAL_SLACK : 0;
         }
 
         /**
@@ -116,10 +123,10 @@ public final class Pathfinder {
      * @param startY Starting Y coordinate
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
-     * @return List of nodes representing the path (excluding start position),
-     *         or empty if no valid path exists
+     * @return the nodes representing the path (excluding start position), or an unreachable outcome if no valid
+     *         path exists
      */
-    public Optional<List<PathNode>> findPath(int startX, int startY, int targetX, int targetY) {
+    public PathResult findPath(int startX, int startY, int targetX, int targetY) {
         return findPath(startX, startY, targetX, targetY, Integer.MAX_VALUE);
     }
 
@@ -133,10 +140,9 @@ public final class Pathfinder {
      * @param targetX          Target X coordinate
      * @param targetY          Target Y coordinate
      * @param maxExpandedNodes largest number of tiles the search may expand, must be positive
-     * @return the path excluding the start position, or empty if none exists within the cap
+     * @return the path excluding the start position, or an unreachable outcome if none exists within the cap
      */
-    public Optional<List<PathNode>> findPath(int startX, int startY, int targetX, int targetY,
-                                             int maxExpandedNodes) {
+    public PathResult findPath(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
         return search(startX, startY, targetX, targetY, false, maxExpandedNodes);
     }
 
@@ -151,10 +157,9 @@ public final class Pathfinder {
      * @param targetY          Y coordinate of the tile to get next to
      * @param maxExpandedNodes largest number of tiles the search may expand, must be positive
      * @return the path excluding the start position (an empty list when the start is already next to the target), or
-     *         an empty Optional if no such tile can be reached within the cap
+     *         an unreachable outcome if no such tile can be reached within the cap
      */
-    public Optional<List<PathNode>> findPathNextTo(int startX, int startY, int targetX, int targetY,
-                                                   int maxExpandedNodes) {
+    public PathResult findPathNextTo(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
         return search(startX, startY, targetX, targetY, true, maxExpandedNodes);
     }
 
@@ -163,25 +168,25 @@ public final class Pathfinder {
      * next-to search is the distance to the target minus the farthest a goal tile lies from it, which never
      * overestimates the cost of reaching the closest goal.
      */
-    private Optional<List<PathNode>> search(int startX, int startY, int targetX, int targetY,
-                                            boolean nextTo, int maxExpandedNodes) {
+    private PathResult search(int startX, int startY, int targetX, int targetY,
+                              boolean nextTo, int maxExpandedNodes) {
         if (maxExpandedNodes <= 0) {
             throw new IllegalArgumentException("maxExpandedNodes must be positive");
         }
         lastExpandedNodes = 0;
-        final Goal goal = new Goal(targetX, targetY, nextTo);
 
         // The start only has to be on the map: a player standing on a tile that became blocked must still be able to
         // walk off it
         if (!IsometricUtils.isWithinMapBounds(startX, startY, map) || (!nextTo && !isWalkable(targetX, targetY))) {
-            return Optional.empty();
+            return PathResult.unreachable();
         }
 
+        final var goal = new Goal(targetX, targetY, nextTo);
         // Initialize data structures for A* algorithm
-        final SearchState state = new SearchState();
+        final var state = new SearchState();
 
         // Configure starting node
-        final PathNode startNode = new PathNode(startX, startY);
+        final var startNode = new PathNode(startX, startY);
         initializeNode(startNode, 0, heuristic(startX, startY, goal));
         state.openSet().add(startNode);
         state.gScores().put(startNode, 0.0);
@@ -191,24 +196,25 @@ public final class Pathfinder {
             PathNode current = state.openSet().poll();
 
             // Skip outdated nodes that have been improved since being queued
-            if (current.gCost > state.gScores().getOrDefault(current, Double.POSITIVE_INFINITY)) {
+            if (current.getGCost() > state.gScores().getOrDefault(current, Double.POSITIVE_INFINITY)) {
                 continue;
             }
 
             // Check for path completion
             if (goal.isReached(current)) {
-                return Optional.of(reconstructPath(state.cameFrom(), current));
+                return PathResult.found(reconstructPath(state.cameFrom(), current));
             }
 
-            if (++lastExpandedNodes > maxExpandedNodes) {
-                return Optional.empty();
+            lastExpandedNodes++;
+            if (lastExpandedNodes > maxExpandedNodes) {
+                return PathResult.unreachable();
             }
 
             // Explore all possible neighbor directions
             exploreNeighbors(current, goal, state);
         }
 
-        return Optional.empty(); // No valid path exists
+        return PathResult.unreachable(); // No valid path exists
     }
 
     /**
@@ -229,7 +235,7 @@ public final class Pathfinder {
      * Explores all neighbor directions from current position.
      */
     private void exploreNeighbors(PathNode current, Goal goal, SearchState state) {
-        for (int i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
+        for (var i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
             int nx = current.x + MOVEMENT_DIRECTIONS[i][0];
             int ny = current.y + MOVEMENT_DIRECTIONS[i][1];
 
@@ -261,8 +267,8 @@ public final class Pathfinder {
      */
     private void processNeighbor(PathNode current, int nx, int ny, Goal goal, int directionIndex,
                                  SearchState state) {
-        PathNode neighbor = new PathNode(nx, ny);
-        double newGCost = current.gCost + DIRECTION_COSTS[directionIndex] + penalty.extraCost(nx, ny);
+        var neighbor = new PathNode(nx, ny);
+        double newGCost = current.getGCost() + DIRECTION_COSTS[directionIndex] + penalty.extraCost(nx, ny);
 
         // Update neighbor if we found a better path
         if (newGCost < state.gScores().getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
@@ -276,10 +282,8 @@ public final class Pathfinder {
     /**
      * Initializes node costs for pathfinding.
      */
-    private void initializeNode(PathNode node, double gCost, double hCost) {
-        node.gCost = gCost;
-        node.hCost = hCost;
-        node.fCost = gCost + hCost;
+    private static void initializeNode(PathNode node, double gCost, double hCost) {
+        node.setCosts(gCost, hCost);
     }
 
     /**
@@ -289,7 +293,7 @@ public final class Pathfinder {
         if (!IsometricUtils.isWithinMapBounds(x, y, map)) {
             return false;
         }
-        Tile tile = map.getTile(x, y);
+        var tile = map.getTile(x, y);
         return tile != null && tile.isWalkable() && (occupied.isEmpty() || !occupied.contains(new PathNode(x, y)));
     }
 
@@ -301,7 +305,7 @@ public final class Pathfinder {
      * Euclidean distance heuristic for 8-direction movement.
      * Consistent and admissible for A* algorithm.
      */
-    private double heuristic(int x, int y, Goal goal) {
+    private static double heuristic(int x, int y, Goal goal) {
         int dx = x - goal.x();
         int dy = y - goal.y();
         return Math.max(0, Math.sqrt((double) dx * dx + (double) dy * dy) - goal.slack());
@@ -312,7 +316,7 @@ public final class Pathfinder {
      *
      * @return Path from start to target (excluding start position)
      */
-    private List<PathNode> reconstructPath(Map<PathNode, PathNode> cameFrom, PathNode current) {
+    private static List<PathNode> reconstructPath(Map<PathNode, PathNode> cameFrom, PathNode current) {
         final LinkedList<PathNode> path = new LinkedList<>();
 
         // Backtrack from target to start
@@ -335,8 +339,8 @@ public final class Pathfinder {
      * Diagonal moves cost ≈1.414, cardinal moves cost 1.0.
      */
     private static double[] precomputeDirectionCosts() {
-        double[] costs = new double[MOVEMENT_DIRECTIONS.length];
-        for (int i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
+        var costs = new double[MOVEMENT_DIRECTIONS.length];
+        for (var i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
             int dx = MOVEMENT_DIRECTIONS[i][0];
             int dy = MOVEMENT_DIRECTIONS[i][1];
             costs[i] = Math.sqrt((double) dx * dx + (double) dy * dy);

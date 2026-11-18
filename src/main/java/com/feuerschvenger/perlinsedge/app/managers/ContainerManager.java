@@ -150,7 +150,7 @@ public class ContainerManager {
      * Checks if two items can be stacked.
      * @return true if same type and destination has stack space
      */
-    private boolean canStack(Item sourceItem, Item destItem) {
+    private static boolean canStack(Item sourceItem, Item destItem) {
         return sourceItem.getType() == destItem.getType() &&
                 destItem.getQuantity() < destItem.getMaxStackSize();
     }

@@ -9,19 +9,30 @@ import java.util.Map;
  * torch or a fence the least.
  */
 public final class BuildingStats {
+    private static final int BRIDGE_HEALTH = 80;
+    private static final int FENCE_HEALTH = 40;
+    private static final int FENCE_GATE_HEALTH = 50;
+    private static final int CHEST_HEALTH = 70;
+    private static final int FURNACE_HEALTH = 100;
+    private static final int ANVIL_HEALTH = 120;
+    private static final int WORKBENCH_HEALTH = 80;
+    private static final int STANDING_TORCH_HEALTH = 20;
+    private static final int CAMPFIRE_HEALTH = 30;
+    private static final int BED_HEALTH = 50;
+
     private static final Map<BuildingType, Integer> MAX_HEALTH = new EnumMap<>(BuildingType.class);
 
     static {
-        MAX_HEALTH.put(BuildingType.BRIDGE, 80);
-        MAX_HEALTH.put(BuildingType.FENCE, 40);
-        MAX_HEALTH.put(BuildingType.FENCE_GATE, 50);
-        MAX_HEALTH.put(BuildingType.CHEST, 70);
-        MAX_HEALTH.put(BuildingType.FURNACE, 100);
-        MAX_HEALTH.put(BuildingType.ANVIL, 120);
-        MAX_HEALTH.put(BuildingType.WORKBENCH, 80);
-        MAX_HEALTH.put(BuildingType.STANDING_TORCH, 20);
-        MAX_HEALTH.put(BuildingType.CAMPFIRE, 30);
-        MAX_HEALTH.put(BuildingType.BED, 50);
+        MAX_HEALTH.put(BuildingType.BRIDGE, BRIDGE_HEALTH);
+        MAX_HEALTH.put(BuildingType.FENCE, FENCE_HEALTH);
+        MAX_HEALTH.put(BuildingType.FENCE_GATE, FENCE_GATE_HEALTH);
+        MAX_HEALTH.put(BuildingType.CHEST, CHEST_HEALTH);
+        MAX_HEALTH.put(BuildingType.FURNACE, FURNACE_HEALTH);
+        MAX_HEALTH.put(BuildingType.ANVIL, ANVIL_HEALTH);
+        MAX_HEALTH.put(BuildingType.WORKBENCH, WORKBENCH_HEALTH);
+        MAX_HEALTH.put(BuildingType.STANDING_TORCH, STANDING_TORCH_HEALTH);
+        MAX_HEALTH.put(BuildingType.CAMPFIRE, CAMPFIRE_HEALTH);
+        MAX_HEALTH.put(BuildingType.BED, BED_HEALTH);
     }
 
     /** Not instantiable: the class only holds the table. */

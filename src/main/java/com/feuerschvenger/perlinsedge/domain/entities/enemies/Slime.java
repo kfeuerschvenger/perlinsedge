@@ -30,6 +30,22 @@ public class Slime extends Enemy {
     private static final double REST_WEIGHT_X = 0.6180339887498949;
     private static final double REST_WEIGHT_Y = 0.7548776662466927;
 
+    /** Layout and constants of the splitmix64 finalizer that turns a spawn tile into a seed. */
+    private static final int SEED_X_SHIFT = 32;
+    private static final long SEED_LOW_MASK = 0xFFFF_FFFFL;
+    private static final long SEED_GAMMA = 0x9E37_79B9_7F4A_7C15L;
+    private static final long SEED_MIX_FIRST = 0xBF58_476D_1CE4_E5B9L;
+    private static final long SEED_MIX_SECOND = 0x94D0_49BB_1331_11EBL;
+    private static final int SEED_SHIFT_FIRST = 30;
+    private static final int SEED_SHIFT_SECOND = 27;
+    private static final int SEED_SHIFT_FINAL = 31;
+
+    /** Hash primes that mix the tile coordinates into a breath phase, and the number of phases it spreads over. */
+    private static final int BREATH_HASH_PRIME_X = 73_856_093;
+    private static final int BREATH_HASH_PRIME_Y = 19_349_663;
+    private static final int BREATH_PHASE_MASK = 0xFF;
+    private static final double BREATH_PHASE_COUNT = 256.0;
+
     // Shared random generator
     private static final Random RANDOM = new Random();
 
@@ -56,7 +72,7 @@ public class Slime extends Enemy {
                 new SlimeMovementStrategy(spawnSeed(startX, startY), restFractionAt(startX, startY)),
                 new SlimeAttackStrategy()
         );
-        this.setColor(selectRandomColor());
+        setColor(selectRandomColor());
         this.breathPhase = breathPhaseAt(startX, startY);
     }
 
@@ -75,10 +91,10 @@ public class Slime extends Enemy {
      * so the same tile always gives the same seed and tiles that differ by one coordinate give unrelated seeds.
      */
     private static long spawnSeed(int tileX, int tileY) {
-        long z = (((long) tileX << 32) | (tileY & 0xFFFFFFFFL)) + 0x9E3779B97F4A7C15L;
-        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
-        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-        return z ^ (z >>> 31);
+        var z = (((long) tileX << SEED_X_SHIFT) | (tileY & SEED_LOW_MASK)) + SEED_GAMMA;
+        z = (z ^ (z >>> SEED_SHIFT_FIRST)) * SEED_MIX_FIRST;
+        z = (z ^ (z >>> SEED_SHIFT_SECOND)) * SEED_MIX_SECOND;
+        return z ^ (z >>> SEED_SHIFT_FINAL);
     }
 
     /**
@@ -94,7 +110,7 @@ public class Slime extends Enemy {
 
     /** Spreads spawn tiles over 256 phases with a hash of the coordinates. */
     private static double breathPhaseAt(int tileX, int tileY) {
-        return (((tileX * 73_856_093) ^ (tileY * 19_349_663)) & 0xFF) / 256.0;
+        return (((tileX * BREATH_HASH_PRIME_X) ^ (tileY * BREATH_HASH_PRIME_Y)) & BREATH_PHASE_MASK) / BREATH_PHASE_COUNT;
     }
 
     // ==================================================================
@@ -148,7 +164,7 @@ public class Slime extends Enemy {
     /**
      * Selects a random color variant for the slime.
      */
-    private Rgba selectRandomColor() {
+    private static Rgba selectRandomColor() {
         return COLOR_VARIANTS[RANDOM.nextInt(COLOR_VARIANTS.length)];
     }
 
@@ -159,7 +175,7 @@ public class Slime extends Enemy {
      * @param movement Active movement strategy
      * @return Current jump offset
      */
-    private double calculateJumpOffset(SlimeMovementStrategy movement) {
+    private static double calculateJumpOffset(SlimeMovementStrategy movement) {
         final double jumpPhase = movement.getJumpPhase();
         final double jumpHeight = Math.sin(jumpPhase * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR;
         return BASE_RENDER_OFFSET_Y - jumpHeight;

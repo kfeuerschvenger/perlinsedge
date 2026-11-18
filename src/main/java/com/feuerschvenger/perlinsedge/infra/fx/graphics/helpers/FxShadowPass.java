@@ -2,10 +2,11 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowLayer;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
+
+import java.util.Arrays;
 
 /**
  * The shadow pass of a frame: every shadow is cast at full black, and the result is laid over the canvas at the shadow
@@ -42,13 +43,13 @@ public final class FxShadowPass {
     private static final double SAMPLE_NUDGE = 0.25;
 
     /** The cells of pad an image has past the last column and the last row of its layer, see {@link #newPaddedImage}. */
-    static final int EDGE_PAD = 1;
+    private static final int EDGE_PAD = 1;
 
     /**
      * The fewest cells the static window reaches past the canvas on every side when it is placed. A canvas that is
      * large in cells gets a margin of {@link #WINDOW_MARGIN_SHARE} of its size instead, see {@link #marginFor}.
      */
-    static final int WINDOW_MARGIN_CELLS = 40;
+    public static final int WINDOW_MARGIN_CELLS = 40;
 
     /**
      * The share of the canvas, across or down, that the static window reaches past it on every side when it is placed.
@@ -56,7 +57,34 @@ public final class FxShadowPass {
      * pan of that distance is paid with, so a margin that grows with the canvas keeps a camera that follows the player
      * from casting again every few tiles.
      */
-    static final double WINDOW_MARGIN_SHARE = 0.25;
+    public static final double WINDOW_MARGIN_SHARE = 0.25;
+
+    /** The cells of border a canvas grid has past the cells the canvas shows. */
+    private static final int BORDER_CELLS = 2;
+    /** The sides of the canvas the window margin is added to, one on each side. */
+    private static final int MARGIN_SIDES = 2;
+    /** The margin of the window plus the distance the camera may pan before it moves, which is as far as the margin. */
+    private static final double OVERHANG_MARGIN_FACTOR = 2.0;
+    /** The cells of rounding the overhang of the window allows for, one on each side. */
+    private static final double OVERHANG_ROUNDING_CELLS = 2.0;
+
+    /** The numbers a box of cells is given by: left, top, right and bottom. */
+    private static final int BOX_VALUES = 4;
+    /** Position of the left side in a box. */
+    private static final int BOX_LEFT = 0;
+    /** Position of the top side in a box. */
+    private static final int BOX_TOP = 1;
+    /** Position of the right side in a box, which is exclusive. */
+    private static final int BOX_RIGHT = 2;
+    /** Position of the bottom side in a box, which is exclusive. */
+    private static final int BOX_BOTTOM = 3;
+
+    /** Bits the alpha is shifted up in a packed ARGB cell. */
+    private static final int ALPHA_SHIFT = 24;
+    /** The largest alpha of a cell. */
+    private static final int MAX_ALPHA = 255;
+    /** The largest alpha of a cell as a double, the factor between an alpha and a share of opacity. */
+    private static final double ALPHA_RANGE = MAX_ALPHA;
 
     /**
      * The art grid a layer is cast on.
@@ -165,9 +193,11 @@ public final class FxShadowPass {
     /** How many frames uploaded to an image, which a frame that kept both layers does not count. */
     private int uploads;
     /** The area of the last upload to the dynamic image as left, top, right and bottom, with the last two exclusive. */
-    private final int[] lastUpload = new int[4];
+    private final int[] lastUpload = new int[BOX_VALUES];
     /** The area of the dynamic layer the current frame changed, empty when right is not past left. */
-    private final int[] region = new int[4];
+    private final int[] region = new int[BOX_VALUES];
+    /** The area a layer reports as changed, kept so asking for it allocates nothing. */
+    private final int[] changedScratch = new int[BOX_VALUES];
 
     /**
      * Works out where the canvas grid of a frame lies and places the static window when the frame needs a new one. A
@@ -178,8 +208,8 @@ public final class FxShadowPass {
      */
     public void beginFrame(CanvasView view) {
         final double artScale = view.artScale();
-        cellsWide = (int) Math.ceil(view.width() / artScale) + 2;
-        cellsHigh = (int) Math.ceil(view.height() / artScale) + 2;
+        cellsWide = (int) Math.ceil(view.width() / artScale) + BORDER_CELLS;
+        cellsHigh = (int) Math.ceil(view.height() / artScale) + BORDER_CELLS;
         snappedX = Math.rint(view.originX());
         snappedY = Math.rint(view.originY());
         // The whole art pixels the camera offset spans, rounded down
@@ -192,16 +222,18 @@ public final class FxShadowPass {
         // The canvas shows the window shifted by the whole cells of the camera offset plus where the window was placed;
         // it stays valid while the canvas lies inside the window, and a window that has to move is placed again around
         // the camera of this frame
-        final boolean fits = windowPlaced && artScale == windowScale && cellsWide == windowCanvasWide
-                && cellsHigh == windowCanvasHigh && Math.abs(windowCellX + wholeCellsX + marginX) <= marginX
+        final boolean sameCanvas = windowPlaced && !differs(artScale, windowScale) && cellsWide == windowCanvasWide
+                && cellsHigh == windowCanvasHigh;
+        final boolean insideWindow = Math.abs(windowCellX + wholeCellsX + marginX) <= marginX
                 && Math.abs(windowCellY + wholeCellsY + marginY) <= marginY;
+        final boolean fits = sameCanvas && insideWindow;
         if (!fits) {
             windowMarginX = marginX;
             windowMarginY = marginY;
             windowCellX = -marginX - wholeCellsX;
             windowCellY = -marginY - wholeCellsY;
-            windowCellsWide = cellsWide + 2 * marginX;
-            windowCellsHigh = cellsHigh + 2 * marginY;
+            windowCellsWide = cellsWide + MARGIN_SIDES * marginX;
+            windowCellsHigh = cellsHigh + MARGIN_SIDES * marginY;
             windowScale = artScale;
             windowCanvasWide = cellsWide;
             windowCanvasHigh = cellsHigh;
@@ -230,7 +262,7 @@ public final class FxShadowPass {
      * @return the horizontal overhang in screen pixels
      */
     public double windowOverhangXPixels() {
-        return (2.0 * windowMarginX + 2.0) * windowScale;
+        return (OVERHANG_MARGIN_FACTOR * windowMarginX + OVERHANG_ROUNDING_CELLS) * windowScale;
     }
 
     /**
@@ -240,7 +272,7 @@ public final class FxShadowPass {
      * @return the vertical overhang in screen pixels
      */
     public double windowOverhangYPixels() {
-        return (2.0 * windowMarginY + 2.0) * windowScale;
+        return (OVERHANG_MARGIN_FACTOR * windowMarginY + OVERHANG_ROUNDING_CELLS) * windowScale;
     }
 
     /** @return the camera offset of the frame along X in whole screen pixels, which the static shadows are given relative to */
@@ -282,11 +314,11 @@ public final class FxShadowPass {
      * @param dynamicShadows the shadows of the player and the enemies, which move, in screen coordinates
      * @param view           the canvas of the frame: the art scale, the camera origin the art grid is aligned to and
      *                       the size
-     * @param sun            the direction, length and strength of the shadows
+     * @param sunShadow            the direction, length and strength of the shadows
      */
     public void draw(GraphicsContext gc, ShadowList staticShadows, ShadowList dynamicShadows, CanvasView view,
-                     SunShadow sun) {
-        draw(gc, staticShadows, NO_VERSION, dynamicShadows, view, sun);
+                     SunShadow sunShadow) {
+        draw(gc, staticShadows, NO_VERSION, dynamicShadows, view, sunShadow);
     }
 
     /**
@@ -301,29 +333,30 @@ public final class FxShadowPass {
      * @param dynamicShadows the shadows of the player and the enemies, in screen coordinates
      * @param view           the canvas of the frame: the art scale, the camera origin the art grid is aligned to and
      *                       the size
-     * @param sun            the direction, length and strength of the shadows
+     * @param sunShadow            the direction, length and strength of the shadows
      */
     public void draw(GraphicsContext gc, ShadowList staticShadows, long staticVersion, ShadowList dynamicShadows,
-                     CanvasView view, SunShadow sun) {
+                     CanvasView view, SunShadow sunShadow) {
         pendingStaticVersion = staticVersion;
         beginFrame(view);
-        final boolean visible = sun.visible();
-        final double opacity = sun.opacity();
+        final boolean visible = sunShadow.visible();
+        final double opacity = sunShadow.opacity();
 
         // What both layers share: a change in any of it casts both again. While the shadows are too faint to see nothing
         // is cast, so the lists do not matter
-        final boolean everythingChanged = everythingChanged(view, sun);
+        final boolean everythingChanged = everythingChanged(view, sunShadow);
         // The static layer does not depend on the phase of the camera grid, only the dynamic one does
         final boolean staticChanged = everythingChanged || windowFresh
                 || (visible && staticListChanged(staticShadows, staticVersion));
-        final boolean dynamicChanged = everythingChanged || phaseX != lastPhaseX || phaseY != lastPhaseY
+        final boolean phaseChanged = differs(phaseX, lastPhaseX) || differs(phaseY, lastPhaseY);
+        final boolean dynamicChanged = everythingChanged || phaseChanged
                 || (visible && !dynamicShadows.sameShadowsAs(castDynamic));
         // The dynamic cells are lowered against the static layer, so they are worked out again when it moved against
         // them or when the opacity, which the lowering depends on, changed
         final boolean loweringChanged = staticChanged || shiftX != shownShiftX || shiftY != shownShiftY
-                || opacity != shownOpacity;
+                || differs(opacity, shownOpacity);
         if (staticChanged || dynamicChanged || loweringChanged) {
-            cast(staticShadows, dynamicShadows, staticChanged, dynamicChanged, view.artScale(), sun);
+            cast(staticShadows, dynamicShadows, staticChanged, dynamicChanged, view.artScale(), sunShadow);
         }
         if (visible) {
             layOver(gc, view.artScale(), opacity);
@@ -331,10 +364,23 @@ public final class FxShadowPass {
     }
 
     /** Tells whether something that both layers share changed since the last cast. */
-    private boolean everythingChanged(CanvasView view, SunShadow sun) {
-        return !hasLastFrame || sun.visible() != castVisible || cellsWide != lastCellsWide
-                || cellsHigh != lastCellsHigh || view.artScale() != lastArtScale || sun.angle() != lastAngle
-                || sun.length() != lastLength;
+    private boolean everythingChanged(CanvasView view, SunShadow sunShadow) {
+        return !hasLastFrame || sunShadow.visible() != castVisible || gridChanged(view) || sunChanged(sunShadow);
+    }
+
+    /** Tells whether the canvas grid has another size or art scale than the last cast was made at. */
+    private boolean gridChanged(CanvasView view) {
+        return cellsWide != lastCellsWide || cellsHigh != lastCellsHigh || differs(view.artScale(), lastArtScale);
+    }
+
+    /** Tells whether the direction or the length of the shadows is not what the last cast was made at. */
+    private boolean sunChanged(SunShadow sunShadow) {
+        return differs(sunShadow.angle(), lastAngle) || differs(sunShadow.length(), lastLength);
+    }
+
+    /** Tells whether two values are not the same number, by their exact bits, which is what a cast depends on. */
+    private static boolean differs(double a, double b) {
+        return Double.compare(a, b) != 0;
     }
 
     /** Tells whether the static list differs from the one the static layer was last cast from. */
@@ -421,10 +467,10 @@ public final class FxShadowPass {
      * @param pixels    the cells of the layer as premultiplied ARGB, row by row
      */
     static void uploadPadded(WritableImage image, int cellsWide, int cellsHigh, int[] box, int[] pixels) {
-        final int left = box[0];
-        final int top = box[1];
-        final int right = box[2];
-        final int bottom = box[3];
+        final int left = box[BOX_LEFT];
+        final int top = box[BOX_TOP];
+        final int right = box[BOX_RIGHT];
+        final int bottom = box[BOX_BOTTOM];
         final var writer = image.getPixelWriter();
         final var format = PixelFormat.getIntArgbPreInstance();
         writer.setPixels(left, top, right - left, bottom - top, format, pixels, top * cellsWide + left, cellsWide);
@@ -450,32 +496,29 @@ public final class FxShadowPass {
      * @param staticChanged  whether the static layer is cast again
      * @param dynamicChanged whether the dynamic layer is cast again
      * @param artScale       the integer number of screen pixels per art pixel
-     * @param sun            the direction, length and strength of the shadows, whose opacity the lowering of the
+     * @param sunShadow            the direction, length and strength of the shadows, whose opacity the lowering of the
      *                       dynamic cells depends on
      */
     private void cast(ShadowList staticShadows, ShadowList dynamicShadows, boolean staticChanged,
-                      boolean dynamicChanged, double artScale, SunShadow sun) {
-        final double opacity = sun.opacity();
+                      boolean dynamicChanged, double artScale, SunShadow sunShadow) {
+        final double opacity = sunShadow.opacity();
         final int scale = (int) Math.round(artScale);
-        region[0] = 0;
-        region[1] = 0;
-        region[2] = 0;
-        region[3] = 0;
+        Arrays.fill(region, 0);
         if (dynamicShown.length != cellsWide * cellsHigh) {
             dynamicShown = new int[cellsWide * cellsHigh];
         }
         if (staticChanged) {
-            castStaticLayer(staticShadows, sun, artScale, scale);
+            castStaticLayer(staticShadows, sunShadow, artScale, scale);
             staticRecasts++;
         }
         if (dynamicChanged) {
-            castDynamicLayer(dynamicShadows, sun, artScale, scale);
+            castDynamicLayer(dynamicShadows, sunShadow, artScale, scale);
         } else if (dynamicLayer.hasShadows()) {
             // The cells did not change, but what the static layer lowers them by did
-            region[0] = dynamicLayer.stampedLeft();
-            region[1] = dynamicLayer.stampedTop();
-            region[2] = dynamicLayer.stampedRight();
-            region[3] = dynamicLayer.stampedBottom();
+            region[BOX_LEFT] = dynamicLayer.stampedLeft();
+            region[BOX_TOP] = dynamicLayer.stampedTop();
+            region[BOX_RIGHT] = dynamicLayer.stampedRight();
+            region[BOX_BOTTOM] = dynamicLayer.stampedBottom();
         }
         final boolean uploadedStatic = staticChanged && lastStaticUploaded;
         lowerRegion(opacity);
@@ -487,25 +530,25 @@ public final class FxShadowPass {
         shownShiftY = shiftY;
         shownOpacity = opacity;
         hasLastFrame = true;
-        castVisible = sun.visible();
+        castVisible = sunShadow.visible();
         lastCellsWide = cellsWide;
         lastCellsHigh = cellsHigh;
         lastPhaseX = phaseX;
         lastPhaseY = phaseY;
         lastArtScale = artScale;
-        lastAngle = sun.angle();
-        lastLength = sun.length();
+        lastAngle = sunShadow.angle();
+        lastLength = sunShadow.length();
         if (staticChanged || dynamicChanged) {
             recasts++;
         }
     }
 
     /** Clears the static layer, casts the static shadows into the window and uploads what changed. */
-    private void castStaticLayer(ShadowList shadows, SunShadow sun, double artScale, int scale) {
-        staticLayer.prepare(windowCellsWide, windowCellsHigh, sun.angle(), sun.length(), scale);
-        if (sun.visible()) {
+    private void castStaticLayer(ShadowList shadows, SunShadow sunShadow, double artScale, int scale) {
+        staticLayer.prepare(windowCellsWide, windowCellsHigh, sunShadow.angle(), sunShadow.length(), scale);
+        if (sunShadow.visible()) {
             // The window grid starts at the world cell of its first column, with the cell of border the layers have
-            final GridFrame grid = new GridFrame(artScale, windowCellX * artScale, windowCellY * artScale, snappedX,
+            final var grid = new GridFrame(artScale, windowCellX * artScale, windowCellY * artScale, snappedX,
                     snappedY);
             for (int i = 0, count = shadows.size(); i < count; i++) {
                 castOne(staticLayer, shadows, i, grid);
@@ -520,28 +563,29 @@ public final class FxShadowPass {
         if (!fitsPadded(staticImage, windowCellsWide, windowCellsHigh)) {
             staticImage = newPaddedImage(windowCellsWide, windowCellsHigh);
         }
-        final int[] changed = staticLayer.changedBox();
-        lastStaticUploaded = changed[2] > changed[0] && changed[3] > changed[1];
+        staticLayer.changedBoxInto(changedScratch);
+        lastStaticUploaded = hasCells(changedScratch);
         if (lastStaticUploaded) {
-            uploadPadded(staticImage, windowCellsWide, windowCellsHigh, changed, staticLayer.pixels());
+            staticLayer.readPixels(
+                    cells -> uploadPadded(staticImage, windowCellsWide, windowCellsHigh, changedScratch, cells));
         }
         staticLayer.handedOn();
         windowFresh = false;
     }
 
     /** Clears the dynamic layer, casts the dynamic shadows into it and takes the area it changed as the region. */
-    private void castDynamicLayer(ShadowList shadows, SunShadow sun, double artScale, int scale) {
-        dynamicLayer.prepare(cellsWide, cellsHigh, sun.angle(), sun.length(), scale);
-        if (sun.visible()) {
-            final GridFrame grid = new GridFrame(artScale, phaseX, phaseY, 0.0, 0.0);
+    private void castDynamicLayer(ShadowList shadows, SunShadow sunShadow, double artScale, int scale) {
+        dynamicLayer.prepare(cellsWide, cellsHigh, sunShadow.angle(), sunShadow.length(), scale);
+        if (sunShadow.visible()) {
+            final var grid = new GridFrame(artScale, phaseX, phaseY, 0.0, 0.0);
             for (int i = 0, count = shadows.size(); i < count; i++) {
                 castOne(dynamicLayer, shadows, i, grid);
             }
             castDynamic.copyFrom(shadows);
         }
-        final int[] changed = dynamicLayer.changedBox();
-        if (changed[2] > changed[0] && changed[3] > changed[1]) {
-            System.arraycopy(changed, 0, region, 0, 4);
+        dynamicLayer.changedBoxInto(changedScratch);
+        if (hasCells(changedScratch)) {
+            System.arraycopy(changedScratch, 0, region, 0, BOX_VALUES);
         }
         dynamicLayer.handedOn();
     }
@@ -553,21 +597,19 @@ public final class FxShadowPass {
      * otherwise the difference, scaled for the way the two layers blend at the opacity they are drawn at.
      */
     private void lowerRegion(double opacity) {
-        if (!(region[2] > region[0] && region[3] > region[1])) {
+        if (!hasCells(region)) {
             return;
         }
-        final int[] moving = dynamicLayer.pixels();
-        final int[] fixed = staticLayer.pixels();
-        for (int y = region[1]; y < region[3]; y++) {
-            for (int x = region[0]; x < region[2]; x++) {
+        for (int y = region[BOX_TOP]; y < region[BOX_BOTTOM]; y++) {
+            for (int x = region[BOX_LEFT]; x < region[BOX_RIGHT]; x++) {
                 final int i = y * cellsWide + x;
-                dynamicShown[i] = shownAlpha(moving[i] >>> 24, x, y, fixed, opacity) << 24;
+                dynamicShown[i] = shownAlpha(dynamicLayer.alphaAt(x, y), x, y, opacity) << ALPHA_SHIFT;
             }
         }
     }
 
     /** Returns the alpha a dynamic cell is drawn with, lowered by the static cell under it when there is one. */
-    private int shownAlpha(int dynamicAlpha, int x, int y, int[] fixed, double opacity) {
+    private int shownAlpha(int dynamicAlpha, int x, int y, double opacity) {
         final int staticColumn = x - shiftX;
         final int staticRow = y - shiftY;
         final boolean inWindow = staticColumn >= 0 && staticColumn < windowCellsWide && staticRow >= 0
@@ -575,7 +617,7 @@ public final class FxShadowPass {
         if (dynamicAlpha == 0 || !inWindow) {
             return dynamicAlpha;
         }
-        final int staticAlpha = fixed[staticRow * windowCellsWide + staticColumn] >>> 24;
+        final int staticAlpha = staticLayer.alphaAt(staticColumn, staticRow);
         if (staticAlpha == 0) {
             return dynamicAlpha;
         }
@@ -588,9 +630,9 @@ public final class FxShadowPass {
      * stronger of the two when {@code d' = (d - s) / (1 - o * s)}.
      */
     private static int lowered(int dynamicAlpha, int staticAlpha, double opacity) {
-        final double s = staticAlpha / 255.0;
-        final double d = dynamicAlpha / 255.0;
-        return (int) Math.min(255, Math.round(255.0 * (d - s) / (1.0 - opacity * s)));
+        final double s = staticAlpha / ALPHA_RANGE;
+        final double d = dynamicAlpha / ALPHA_RANGE;
+        return (int) Math.min(MAX_ALPHA, Math.round(ALPHA_RANGE * (d - s) / (1.0 - opacity * s)));
     }
 
     /**
@@ -602,14 +644,14 @@ public final class FxShadowPass {
      *
      * @param grid the art grid the layer is cast on and the offset its list is given relative to
      */
-    private void castOne(ShadowLayer layer, ShadowList shadows, int i, GridFrame grid) {
+    private static void castOne(ShadowLayer layer, ShadowList shadows, int i, GridFrame grid) {
         final double artScale = grid.artScale();
         final double gridPhaseX = grid.phaseX();
         final double gridPhaseY = grid.phaseY();
         final double offsetX = grid.offsetX();
         final double offsetY = grid.offsetY();
-        final int alpha = (int) Math.round(shadows.fade(i) * 255.0);
-        final Silhouette sprite = shadows.silhouette(i);
+        final int alpha = (int) Math.round(shadows.fade(i) * ALPHA_RANGE);
+        final var sprite = shadows.silhouette(i);
         if (sprite != null) {
             if (sprite.width() <= 0) {
                 return;
@@ -641,12 +683,17 @@ public final class FxShadowPass {
         if (!fitsPadded(dynamicImage, cellsWide, cellsHigh)) {
             dynamicImage = newPaddedImage(cellsWide, cellsHigh);
         }
-        if (region[2] > region[0] && region[3] > region[1]) {
+        if (hasCells(region)) {
             uploadPadded(dynamicImage, cellsWide, cellsHigh, region, dynamicShown);
-            System.arraycopy(region, 0, lastUpload, 0, 4);
+            System.arraycopy(region, 0, lastUpload, 0, BOX_VALUES);
             return true;
         }
         return false;
+    }
+
+    /** Tells whether a box of cells holds at least one cell. */
+    private static boolean hasCells(int[] box) {
+        return box[BOX_RIGHT] > box[BOX_LEFT] && box[BOX_BOTTOM] > box[BOX_TOP];
     }
 
     /** @return how many frames cast shadows into a layer so far */

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,7 +25,7 @@ class TileOwnershipTest {
 
         assertThrows(IllegalStateException.class, () -> second.setTile(0, 0, tile));
 
-        assertEquals(null, second.getTile(0, 0), "the grid was not touched");
+        assertNull(second.getTile(0, 0), "the grid was not touched");
         assertEquals(revision, second.getRevision());
         assertTrue(tile.isOwnedBy(first));
     }

@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.time;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
@@ -47,6 +48,13 @@ public final class DayCycle {
      * it. It is the sky's own threshold, independent of the one the shadows use.
      */
     public static final double MIN_VISIBLE_TINT_STRENGTH = 0.004;
+    /** Minutes in an hour of the 24 hour clock. */
+    private static final int MINUTES_PER_HOUR = 60;
+    /** Where in a step of the shadow sun the shadow sits: the middle of it. */
+    private static final double STEP_MIDDLE = 0.5;
+    /** The coefficients of the smooth step curve, 3x^2 - 2x^3. */
+    private static final double EASE_QUADRATIC_WEIGHT = 3.0;
+    private static final double EASE_CUBIC_WEIGHT = 2.0;
 
     /** The durations and the shadow rules the cycle runs on. */
     private final DayCycleSettings settings;
@@ -128,8 +136,8 @@ public final class DayCycle {
     /** @return the minutes since midnight on the 24 hour clock, 0 up to 1439, so 06:00 is 360 */
     public int clockMinuteOfDay() {
         // A hair above the exact minute keeps a time that lies on a minute from rounding down to the one before
-        final int minutes = (int) Math.floor(clockHours() * 60.0 + 1e-6);
-        return Math.min(minutes, (int) (DayCycleSettings.HOURS_PER_DAY * 60) - 1);
+        final int minutes = (int) Math.floor(clockHours() * MINUTES_PER_HOUR + 1e-6);
+        return Math.min(minutes, (int) (DayCycleSettings.HOURS_PER_DAY * MINUTES_PER_HOUR) - 1);
     }
 
     /** @return the time of day from 0, the beginning of the dawn, up to but excluding 1, which is the next dawn */
@@ -201,7 +209,7 @@ public final class DayCycle {
     public double shadowSunProgress() {
         final int steps = settings.shadowSteps();
         final int step = Math.min(steps - 1, (int) Math.floor(sunProgress() * steps));
-        return (step + 0.5) / steps;
+        return (step + STEP_MIDDLE) / steps;
     }
 
     /**
@@ -249,7 +257,7 @@ public final class DayCycle {
      * @return neutral with no strength at midday, warm orange at dawn and dusk and a cool moonlit blue at night
      */
     public SkyTint tint() {
-        if (tintAt != elapsed) {
+        if (!Doubles.areEqual(tintAt, elapsed)) {
             computeTint();
             tintAt = elapsed;
         }
@@ -334,6 +342,6 @@ public final class DayCycle {
     /** A smooth step: zero at zero, one at one, with no jump in the slope at either end. */
     private static double ease(double t) {
         final double x = Math.clamp(t, 0.0, 1.0);
-        return x * x * (3.0 - 2.0 * x);
+        return x * x * (EASE_QUADRATIC_WEIGHT - EASE_CUBIC_WEIGHT * x);
     }
 }

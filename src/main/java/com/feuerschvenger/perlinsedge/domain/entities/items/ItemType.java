@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
+import java.util.Locale;
+
 /**
  * Defines all item types available in the game with their properties.
  * Each item type specifies:
@@ -189,10 +191,10 @@ public enum ItemType {
         // Generate display name from enum constant
         String name = name();
         this.displayName = name.charAt(0) +
-                name.substring(1).toLowerCase().replace("_", " ");
+                name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
 
         // Generate sprite path from enum constant
-        this.spritePath = name.toLowerCase();
+        this.spritePath = name.toLowerCase(Locale.ROOT);
     }
 
     // ==================================================================

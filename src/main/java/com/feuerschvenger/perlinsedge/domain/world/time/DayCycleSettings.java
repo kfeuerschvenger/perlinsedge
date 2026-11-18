@@ -39,7 +39,7 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
         if (!Double.isFinite(startSeconds) || startSeconds < 0) {
             throw new IllegalArgumentException("The start must be a finite number that is not negative");
         }
-        if (shadowSteps < 1 || shadowSteps % 2 == 0) {
+        if (shadowSteps < 1 || (shadowSteps & 1) == 0) {
             throw new IllegalArgumentException("The shadow steps must be an odd number so one is centred on noon");
         }
         if (!isPositive(minShadowLength) || !Double.isFinite(maxShadowLength) || maxShadowLength < minShadowLength) {

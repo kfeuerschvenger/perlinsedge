@@ -29,6 +29,7 @@ public class PlayerManager {
     private static final int MIN_ENEMY_DISTANCE = 5; // Minimum tiles from enemies for safe position
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Required adjacent walkable tiles
     private static final int FALLBACK_SEARCH_RADIUS = 30; // Max radius for fallback position search
+    private static final int CENTER_DIVISOR = 2; // Divides a map span to find its centre
     private static final double RESPAWN_TIMER = 5.0; // Player respawn delay in seconds
 
     /** Stands for "no position found", so a search never returns null. */
@@ -165,8 +166,8 @@ public class PlayerManager {
      * Respawns player at a safe location and resets state.
      */
     public void respawnPlayer() {
-        Player player = getPlayer();
-        TileMap map = gameState.getCurrentMap();
+        var player = getPlayer();
+        var map = gameState.getCurrentMap();
         if (player == null || map == null) {
             log.warn("Respawn failed: Player or map missing");
             return;
@@ -194,7 +195,7 @@ public class PlayerManager {
      *         tile an enemy occupies: the walk goes around enemies and never ends on one
      */
     public boolean movePlayer(TileMap map, int targetX, int targetY) {
-        Player player = getPlayer();
+        var player = getPlayer();
         return player != null
                 && player.moveTo(map, targetX, targetY, OccupiedTiles.of(gameState.getEnemies()));
     }
@@ -268,23 +269,35 @@ public class PlayerManager {
      * Finds fallback position around map center when no safe position is found.
      */
     private int[] getFallbackPosition(TileMap map) {
-        int centerX = map.getWidth() / 2;
-        int centerY = map.getHeight() / 2;
+        int centerX = map.getWidth() / CENTER_DIVISOR;
+        int centerY = map.getHeight() / CENTER_DIVISOR;
         log.debug("Searching fallback position around center");
 
         for (var radius = 0; radius < FALLBACK_SEARCH_RADIUS; radius++) {
-            for (int x = centerX - radius; x <= centerX + radius; x++) {
-                for (int y = centerY - radius; y <= centerY + radius; y++) {
-                    // Check perimeter only for efficiency
-                    if (isPerimeterPosition(centerX, centerY, radius, x, y) &&
-                            isValidRespawnPosition(map, x, y)) {
-                        return new int[]{x, y};
-                    }
-                }
+            var found = searchPerimeter(map, centerX, centerY, radius);
+            if (found != NO_POSITION) {
+                return found;
             }
         }
         log.debug("Fallback search failed, using map center");
         return new int[]{centerX, centerY};
+    }
+
+    /**
+     * Searches the square ring at the given radius around the center for a valid respawn position.
+     * Only the perimeter is checked, because the inner rings were covered by the smaller radii.
+     *
+     * @return the first valid position, or {@link #NO_POSITION} when the ring has none
+     */
+    private int[] searchPerimeter(TileMap map, int centerX, int centerY, int radius) {
+        for (int x = centerX - radius; x <= centerX + radius; x++) {
+            for (int y = centerY - radius; y <= centerY + radius; y++) {
+                if (isPerimeterPosition(centerX, centerY, radius, x, y) && isValidRespawnPosition(map, x, y)) {
+                    return new int[]{x, y};
+                }
+            }
+        }
+        return NO_POSITION;
     }
 
     /**
@@ -333,7 +346,7 @@ public class PlayerManager {
     /**
      * Checks if position has insufficient walkable neighbors.
      */
-    private boolean isPositionSurrounded(int x, int y, TileMap map) {
+    private static boolean isPositionSurrounded(int x, int y, TileMap map) {
         return IsometricUtils.isPositionSurrounded(
                 x, y, map,
                 WALKABLE_CLEAR_VALIDATOR,
@@ -359,14 +372,14 @@ public class PlayerManager {
     /**
      * Checks if coordinates are within map boundaries.
      */
-    private boolean isWithinMapBounds(int x, int y, TileMap map) {
+    private static boolean isWithinMapBounds(int x, int y, TileMap map) {
         return x >= 0 && x < map.getWidth() && y >= 0 && y < map.getHeight();
     }
 
     /**
      * Checks if position is on the perimeter of a search radius.
      */
-    private boolean isPerimeterPosition(int centerX, int centerY, int radius, int x, int y) {
+    private static boolean isPerimeterPosition(int centerX, int centerY, int radius, int x, int y) {
         return x == centerX - radius || x == centerX + radius ||
                 y == centerY - radius || y == centerY + radius;
     }

@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -41,9 +40,9 @@ public final class FenceConnections {
      * @return the mask of the joined sides, 0 for a lone post
      */
     public static int maskAt(TileMap map, int x, int y) {
-        int mask = 0;
-        for (int i = 0; i < OFFSETS.length; i++) {
-            final Tile neighbour = map.getTile(x + OFFSETS[i][0], y + OFFSETS[i][1]);
+        var mask = 0;
+        for (var i = 0; i < OFFSETS.length; i++) {
+            final var neighbour = map.getTile(x + OFFSETS[i][0], y + OFFSETS[i][1]);
             if (neighbour != null && joins(neighbour.getBuilding(), OFFSETS[i][0], OFFSETS[i][1])) {
                 mask |= BITS[i];
             }
@@ -82,7 +81,7 @@ public final class FenceConnections {
     }
 
     private static void refreshOne(TileMap map, int x, int y) {
-        final Tile tile = map.getTile(x, y);
+        final var tile = map.getTile(x, y);
         if (tile != null && tile.getBuilding() instanceof Fence fence) {
             final int mask = maskAt(map, x, y);
             if (mask != fence.getConnections()) {

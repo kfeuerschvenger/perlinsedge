@@ -16,11 +16,11 @@ import javafx.scene.text.TextAlignment;
 public final class FxDamageNumbersPainter {
 
     /** The family the GUI font registers under, which the world text shares. */
-    static final String FONT_FAMILY = "Pixelify Sans";
+    private static final String FONT_FAMILY = "Pixelify Sans";
     /** Font size in art pixels: the pixel font is designed on an 8 pixel grid. */
-    static final double FONT_ART_PIXELS = 8.0;
+    private static final double FONT_ART_PIXELS = 8.0;
     /** Colour of the outline. */
-    static final Color OUTLINE = Color.web("#1d1830");
+    public static final Color OUTLINE = Color.web("#1d1830");
 
     private static final Color WHITE = Color.web("#fcf4e4");
     private static final Color YELLOW = Color.web("#ffd84a");
@@ -36,6 +36,8 @@ public final class FxDamageNumbersPainter {
     private static final double RESOURCE_LIFT_ART_PIXELS = 26.0;
     /** Margin outside the canvas within which a number is still drawn, in screen pixels. */
     private static final double SCREEN_MARGIN = 64.0;
+    /** Distance of the foot of a tile below its top vertex, in half tile heights, where entities stand. */
+    private static final double FOOT_HALF_TILES = 1.5;
 
     private static Font cachedFont;
     private static double cachedFontSize = -1;
@@ -82,18 +84,20 @@ public final class FxDamageNumbersPainter {
         final double scale = ZoomSteps.integerArtScale(projection.zoom());
         boolean prepared = false;
         for (int i = 0, count = numbers.size(); i < count; i++) {
-            final DamageNumbers.Entry entry = numbers.get(i);
-            if (entry.isActive(gameTime)) {
-                final double x = screenX(entry, projection, scale);
-                final double y = screenY(entry, projection, scale, gameTime);
-                if (isOnScreen(x, y, canvasWidth, canvasHeight)) {
-                    if (!prepared) {
-                        prepare(gc, scale);
-                        prepared = true;
-                    }
-                    drawNumber(gc, entry, x, y, scale, gameTime);
-                }
+            final var entry = numbers.get(i);
+            if (!entry.isActive(gameTime)) {
+                continue;
             }
+            final var x = screenX(entry, projection, scale);
+            final var y = screenY(entry, projection, scale, gameTime);
+            if (!isOnScreen(x, y, canvasWidth, canvasHeight)) {
+                continue;
+            }
+            if (!prepared) {
+                prepare(gc, scale);
+                prepared = true;
+            }
+            drawNumber(gc, entry, x, y, scale, gameTime);
         }
         if (prepared) {
             gc.setGlobalAlpha(1.0);
@@ -121,7 +125,7 @@ public final class FxDamageNumbersPainter {
                                   double gameTime) {
         final double halfTileH = projection.halfTileHeight();
         // The foot of the tile is one and a half half-tiles below its top vertex, where entities stand
-        return Math.rint((entry.getTileX() + entry.getTileY()) * halfTileH + projection.offsetY() + halfTileH * 1.5
+        return Math.rint((entry.getTileX() + entry.getTileY()) * halfTileH + projection.offsetY() + halfTileH * FOOT_HALF_TILES
                 - (lift(entry.getKind()) + entry.rise(gameTime)) * scale);
     }
 
@@ -143,7 +147,7 @@ public final class FxDamageNumbersPainter {
 
     private static void prepare(GraphicsContext gc, double scale) {
         final double size = FONT_ART_PIXELS * scale;
-        if (cachedFont == null || cachedFontSize != size) {
+        if (cachedFont == null || Double.compare(cachedFontSize, size) != 0) {
             cachedFont = Font.font(FONT_FAMILY, size);
             cachedFontSize = size;
         }

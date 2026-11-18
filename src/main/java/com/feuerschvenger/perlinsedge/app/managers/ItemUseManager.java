@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 @Slf4j
 public class ItemUseManager {
     /** Hint shown when the player tries to heal at full health. */
-    static final String FULL_HEALTH_HINT = "Already at full health";
+    private static final String FULL_HEALTH_HINT = "Already at full health";
 
     private final GameStateManager gameState;
     private final Runnable onInventoryChanged;

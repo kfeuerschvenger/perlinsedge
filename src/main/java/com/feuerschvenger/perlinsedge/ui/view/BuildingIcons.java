@@ -23,6 +23,12 @@ import java.util.Map;
 final class BuildingIcons {
     /** Edge of the scratch canvas the procedural shape is drawn on, larger than any shape at zoom 1. */
     private static final int SCRATCH_SIZE = 160;
+    /** Where the shape is anchored on the scratch canvas, as a fraction of its edge: centred horizontally. */
+    private static final double ANCHOR_X_FRACTION = 0.5;
+    /** Where the shape is anchored on the scratch canvas, as a fraction of its edge: a little below the middle. */
+    private static final double ANCHOR_Y_FRACTION = 0.6;
+    /** Bits the alpha channel is shifted by in an ARGB pixel. */
+    private static final int ALPHA_SHIFT = 24;
     private static final Map<BuildingType, Image> CACHE = new EnumMap<>(BuildingType.class);
 
     /** Not instantiable: the class only builds icons. */
@@ -49,7 +55,7 @@ final class BuildingIcons {
      * @return the icon with its aspect kept
      */
     static ImageView view(BuildingType type, int rotation, int size) {
-        final ImageView view = new ImageView();
+        final var view = new ImageView();
         view.setFitWidth(size);
         view.setFitHeight(size);
         view.setPreserveRatio(true);
@@ -78,7 +84,7 @@ final class BuildingIcons {
      * @return the image, never null
      */
     static synchronized Image image(BuildingType type, int rotation) {
-        final Image sprite = BuildingSprites.getInstance().restingImage(type, rotation);
+        final var sprite = BuildingSprites.getInstance().restingImage(type, rotation);
         if (sprite != null) {
             return sprite;
         }
@@ -100,10 +106,10 @@ final class BuildingIcons {
     }
 
     private static Image renderProcedural(BuildingType type) {
-        final Canvas canvas = new Canvas(SCRATCH_SIZE, SCRATCH_SIZE);
-        final GraphicsContext gc = canvas.getGraphicsContext2D();
-        FxBuildingPainter.draw(gc, BuildingFactory.create(type, 0, 0), SCRATCH_SIZE / 2.0, SCRATCH_SIZE * 0.6, 1.0);
-        final SnapshotParameters parameters = new SnapshotParameters();
+        final var canvas = new Canvas(SCRATCH_SIZE, SCRATCH_SIZE);
+        final var gc = canvas.getGraphicsContext2D();
+        FxBuildingPainter.draw(gc, BuildingFactory.create(type, 0, 0), SCRATCH_SIZE * ANCHOR_X_FRACTION, SCRATCH_SIZE * ANCHOR_Y_FRACTION, 1.0);
+        final var parameters = new SnapshotParameters();
         parameters.setFill(Color.TRANSPARENT);
         final WritableImage full = canvas.snapshot(parameters, null);
         return crop(full);
@@ -111,16 +117,16 @@ final class BuildingIcons {
 
     /** Cuts an image down to the box that holds its non-transparent pixels. */
     private static Image crop(WritableImage image) {
-        final PixelReader reader = image.getPixelReader();
+        final var reader = image.getPixelReader();
         final int width = (int) image.getWidth();
         final int height = (int) image.getHeight();
         int minX = width;
         int minY = height;
         int maxX = -1;
         int maxY = -1;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if (((reader.getArgb(x, y) >>> 24) & 0xFF) > 0) {
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                if (((reader.getArgb(x, y) >>> ALPHA_SHIFT) & 0xFF) > 0) {
                     minX = Math.min(minX, x);
                     maxX = Math.max(maxX, x);
                     minY = Math.min(minY, y);

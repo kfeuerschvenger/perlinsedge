@@ -6,7 +6,8 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,6 +26,9 @@ public class CraftingListPanel extends VBox {
     private static final int LIST_SPACING = 5;
     private static final int SCROLL_PANE_HEIGHT = 130;
     private static final int ITEM_IMAGE_SIZE = 32;
+    private static final int PANEL_PREF_WIDTH = 200;
+    private static final int PANEL_MIN_WIDTH = 150;
+    private static final int PANEL_MAX_WIDTH = 250;
 
     private static final String TITLE_TEXT = "Crafting Recipes";
     private static final String EMPTY_LIST_TEXT = "No crafting recipes available";
@@ -60,9 +64,9 @@ public class CraftingListPanel extends VBox {
         setAlignment(Pos.TOP_LEFT);
         getStyleClass().add(UiTheme.PANEL);
         setSpacing(PANEL_SPACING);
-        setPrefWidth(200);
-        setMinWidth(150);
-        setMaxWidth(250);
+        setPrefWidth(PANEL_PREF_WIDTH);
+        setMinWidth(PANEL_MIN_WIDTH);
+        setMaxWidth(PANEL_MAX_WIDTH);
     }
 
     /**
@@ -77,8 +81,8 @@ public class CraftingListPanel extends VBox {
      * Assembles all components into the main panel.
      */
     private void assemblePanel() {
-        Label title = createTitleLabel();
-        ScrollPane scrollPane = createScrollPane();
+        var title = createTitleLabel();
+        var scrollPane = createScrollPane();
 
         getChildren().addAll(title, scrollPane, craftButton);
     }
@@ -86,8 +90,8 @@ public class CraftingListPanel extends VBox {
     /**
      * Creates the recipes container with consistent styling.
      */
-    private VBox createRecipesContainer() {
-        VBox container = new VBox(LIST_SPACING);
+    private static VBox createRecipesContainer() {
+        var container = new VBox(LIST_SPACING);
         container.setAlignment(Pos.TOP_LEFT);
         container.getStyleClass().add(UiTheme.LIST);
         return container;
@@ -97,7 +101,7 @@ public class CraftingListPanel extends VBox {
      * Creates the scroll pane for the recipes list.
      */
     private ScrollPane createScrollPane() {
-        ScrollPane scrollPane = new ScrollPane(recipesContainer);
+        var scrollPane = new ScrollPane(recipesContainer);
         scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -108,8 +112,8 @@ public class CraftingListPanel extends VBox {
     /**
      * Creates the title label with consistent styling.
      */
-    private Label createTitleLabel() {
-        Label title = new Label(UiTheme.caps(TITLE_TEXT));
+    private static Label createTitleLabel() {
+        var title = new Label(UiTheme.caps(TITLE_TEXT));
         title.getStyleClass().add(UiTheme.PILL);
         return title;
     }
@@ -118,7 +122,7 @@ public class CraftingListPanel extends VBox {
      * Creates the craft button with consistent styling and behavior.
      */
     private Button createCraftButton() {
-        Button button = new Button(UiTheme.caps(CRAFT_BUTTON_TEXT));
+        var button = new Button(UiTheme.caps(CRAFT_BUTTON_TEXT));
         button.setPrefWidth(Double.MAX_VALUE);
         button.setDisable(true);
         // A focused button would take SPACE and craft again instead of centring the camera
@@ -171,7 +175,7 @@ public class CraftingListPanel extends VBox {
     private void arrange() {
         // Each recipe is asked once per refresh, and the order is worked out only when an answer changed
         boolean changed = recipesContainer.getChildren().size() != cells.size();
-        boolean selectedIsCraftable = false;
+        var selectedIsCraftable = false;
         for (CraftableItemCell cell : cells) {
             final boolean craftable = canCraft.test(cell.getRecipe());
             changed |= craftable != cell.isCraftable();
@@ -209,7 +213,7 @@ public class CraftingListPanel extends VBox {
      * Displays an indicator when no recipes are available.
      */
     private void showEmptyListIndicator() {
-        Label emptyLabel = new Label(UiTheme.caps(EMPTY_LIST_TEXT));
+        var emptyLabel = new Label(UiTheme.caps(EMPTY_LIST_TEXT));
         emptyLabel.getStyleClass().add(UiTheme.MUTED);
         recipesContainer.getChildren().add(emptyLabel);
     }
@@ -219,7 +223,7 @@ public class CraftingListPanel extends VBox {
      */
     private void populateRecipeList(List<Recipe> recipes) {
         for (Recipe recipe : recipes) {
-            CraftableItemCell cell = new CraftableItemCell(recipe);
+            var cell = new CraftableItemCell(recipe);
             cell.setOnMouseClicked(e -> handleRecipeSelection(recipe));
             cells.add(cell);
         }
@@ -292,7 +296,7 @@ public class CraftingListPanel extends VBox {
     /**
      * Represents a single craftable recipe item in the list.
      */
-    private class CraftableItemCell extends HBox {
+    private static final class CraftableItemCell extends HBox {
         private final Recipe recipe;
         private ImageView icon;
         private boolean craftable = true;
@@ -326,7 +330,7 @@ public class CraftingListPanel extends VBox {
          */
         private void initializeCellComponents() {
             icon = createItemImageView();
-            Label nameLabel = createNameLabel();
+            var nameLabel = createNameLabel();
             getChildren().addAll(icon, nameLabel);
         }
 
@@ -341,7 +345,7 @@ public class CraftingListPanel extends VBox {
          * Creates the recipe name label.
          */
         private Label createNameLabel() {
-            Label label = new Label(UiTheme.caps(recipe.getName()));
+            var label = new Label(UiTheme.caps(recipe.getName()));
             label.setPickOnBounds(true);
             return label;
         }

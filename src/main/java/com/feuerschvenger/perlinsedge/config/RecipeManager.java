@@ -17,6 +17,38 @@ import java.util.Optional;
  * Provides access to recipes through a well-defined API with immutable return types.
  */
 public class RecipeManager {
+    // Ingredient counts of the item recipes
+    private static final int AXE_STONE_COST = 3;
+    private static final int AXE_STICK_COST = 2;
+    private static final int PICKAXE_STONE_COST = 3;
+    private static final int PICKAXE_STICK_COST = 2;
+    private static final int SWORD_STONE_COST = 2;
+    private static final int HAMMER_STICK_COST = 2;
+    private static final int HAMMER_STONE_COST = 2;
+    private static final int FLINT_STONE_COST = 2;
+    private static final int POTION_FIBER_COST = 2;
+
+    // Items produced per craft
+    private static final int TORCH_OUTPUT = 4;
+    private static final int WOOD_PLANK_OUTPUT = 4;
+    private static final int STONE_BRICK_OUTPUT = 4;
+    private static final int STICK_OUTPUT = 4;
+
+    // Ingredient counts of the building recipes
+    private static final int BRIDGE_PLANK_COST = 10;
+    private static final int FENCE_LOG_COST = 2;
+    private static final int FENCE_GATE_PLANK_COST = 2;
+    private static final int FENCE_GATE_STICK_COST = 4;
+    private static final int CHEST_PLANK_COST = 6;
+    private static final int FURNACE_STONE_COST = 8;
+    private static final int FURNACE_COAL_COST = 2;
+    private static final int CAMPFIRE_LOG_COST = 3;
+    private static final int ANVIL_IRON_COST = 5;
+    private static final int ANVIL_STONE_COST = 3;
+    private static final int WORKBENCH_PLANK_COST = 4;
+    private static final int BED_PLANK_COST = 3;
+    private static final int BED_FIBER_COST = 5;
+
     // Recipe collections
     private final List<Recipe> itemRecipes = new ArrayList<>();
     private final List<BuildingRecipe> buildingRecipes = new ArrayList<>();
@@ -71,30 +103,30 @@ public class RecipeManager {
     private void initializeItemRecipes() {
         // Basic tools
         itemRecipes.add(createToolRecipe(ItemType.AXE,
-                new CraftingIngredient(ItemType.STONE, 3),
-                new CraftingIngredient(ItemType.STICK, 2))
+                new CraftingIngredient(ItemType.STONE, AXE_STONE_COST),
+                new CraftingIngredient(ItemType.STICK, AXE_STICK_COST))
         );
 
         itemRecipes.add(createToolRecipe(ItemType.PICKAXE,
-                new CraftingIngredient(ItemType.STONE, 3),
-                new CraftingIngredient(ItemType.STICK, 2))
+                new CraftingIngredient(ItemType.STONE, PICKAXE_STONE_COST),
+                new CraftingIngredient(ItemType.STICK, PICKAXE_STICK_COST))
         );
 
         itemRecipes.add(createToolRecipe(ItemType.SWORD,
-                new CraftingIngredient(ItemType.STONE, 2),
+                new CraftingIngredient(ItemType.STONE, SWORD_STONE_COST),
                 new CraftingIngredient(ItemType.STICK, 1))
         );
 
         // The tool that puts the player in build mode while it is held
         itemRecipes.add(createToolRecipe(ItemType.HAMMER,
-                new CraftingIngredient(ItemType.STICK, 2),
-                new CraftingIngredient(ItemType.STONE, 2))
+                new CraftingIngredient(ItemType.STICK, HAMMER_STICK_COST),
+                new CraftingIngredient(ItemType.STONE, HAMMER_STONE_COST))
         );
 
         // Light sources
         itemRecipes.add(new Recipe(
                 ItemType.TORCH,
-                4,
+                TORCH_OUTPUT,
                 List.of(
                         new CraftingIngredient(ItemType.STICK, 1),
                         new CraftingIngredient(ItemType.COAL, 1)
@@ -102,20 +134,20 @@ public class RecipeManager {
 
         // Material processing
         itemRecipes.add(createMaterialRecipe(ItemType.WOOD_PLANK,
-                4,
+                WOOD_PLANK_OUTPUT,
                 new CraftingIngredient(ItemType.WOOD_LOG, 1)));
 
         itemRecipes.add(createMaterialRecipe(ItemType.STONE_BRICK,
-                4,
+                STONE_BRICK_OUTPUT,
                 new CraftingIngredient(ItemType.STONE, 1)));
 
         itemRecipes.add(createMaterialRecipe(ItemType.STICK,
-                4,
+                STICK_OUTPUT,
                 new CraftingIngredient(ItemType.WOOD_LOG, 1)));
 
         itemRecipes.add(createMaterialRecipe(ItemType.FLINT,
                 1,
-                new CraftingIngredient(ItemType.STONE, 2)));
+                new CraftingIngredient(ItemType.STONE, FLINT_STONE_COST)));
 
         // Consumables
         itemRecipes.add(new Recipe(
@@ -123,7 +155,7 @@ public class RecipeManager {
                 1,
                 List.of(
                         new CraftingIngredient(ItemType.CRYSTALS, 1),
-                        new CraftingIngredient(ItemType.FIBER, 2),
+                        new CraftingIngredient(ItemType.FIBER, POTION_FIBER_COST),
                         new CraftingIngredient(ItemType.SLIME_BALL, 1)
                 )));
     }
@@ -131,14 +163,14 @@ public class RecipeManager {
     /**
      * Creates a tool recipe with standard naming convention.
      */
-    private Recipe createToolRecipe(ItemType toolType, CraftingIngredient... ingredients) {
+    private static Recipe createToolRecipe(ItemType toolType, CraftingIngredient... ingredients) {
         return new Recipe(toolType, 1, List.of(ingredients));
     }
 
     /**
      * Creates a material processing recipe with standard naming convention.
      */
-    private Recipe createMaterialRecipe(ItemType materialType, int outputCount, CraftingIngredient... ingredient) {
+    private static Recipe createMaterialRecipe(ItemType materialType, int outputCount, CraftingIngredient... ingredient) {
         return new Recipe(materialType, outputCount, List.of(ingredient));
     }
 
@@ -148,34 +180,34 @@ public class RecipeManager {
     private void initializeBuildingRecipes() {
         // Structural buildings
         buildingRecipes.add(createBuildingRecipe(BuildingType.BRIDGE,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 10)));
+                new CraftingIngredient(ItemType.WOOD_PLANK, BRIDGE_PLANK_COST)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE,
-                new CraftingIngredient(ItemType.WOOD_LOG, 2)));
+                new CraftingIngredient(ItemType.WOOD_LOG, FENCE_LOG_COST)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE_GATE,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 2),
-                new CraftingIngredient(ItemType.STICK, 4)));
+                new CraftingIngredient(ItemType.WOOD_PLANK, FENCE_GATE_PLANK_COST),
+                new CraftingIngredient(ItemType.STICK, FENCE_GATE_STICK_COST)));
 
         // Containers
         buildingRecipes.add(createBuildingRecipe(BuildingType.CHEST,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 6)));
+                new CraftingIngredient(ItemType.WOOD_PLANK, CHEST_PLANK_COST)));
 
         // Crafting stations
         buildingRecipes.add(createBuildingRecipe(BuildingType.FURNACE,
-                new CraftingIngredient(ItemType.STONE, 8),
-                new CraftingIngredient(ItemType.COAL, 2)));
+                new CraftingIngredient(ItemType.STONE, FURNACE_STONE_COST),
+                new CraftingIngredient(ItemType.COAL, FURNACE_COAL_COST)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.CAMPFIRE,
-                new CraftingIngredient(ItemType.WOOD_LOG, 3),
+                new CraftingIngredient(ItemType.WOOD_LOG, CAMPFIRE_LOG_COST),
                 new CraftingIngredient(ItemType.FLINT, 1)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.ANVIL,
-                new CraftingIngredient(ItemType.IRON_INGOT, 5),
-                new CraftingIngredient(ItemType.STONE, 3)));
+                new CraftingIngredient(ItemType.IRON_INGOT, ANVIL_IRON_COST),
+                new CraftingIngredient(ItemType.STONE, ANVIL_STONE_COST)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.WORKBENCH,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 4)));
+                new CraftingIngredient(ItemType.WOOD_PLANK, WORKBENCH_PLANK_COST)));
 
         // Utility
         buildingRecipes.add(createBuildingRecipe(BuildingType.STANDING_TORCH,
@@ -183,14 +215,14 @@ public class RecipeManager {
                 new CraftingIngredient(ItemType.COAL, 1)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.BED,
-                new CraftingIngredient(ItemType.WOOD_PLANK, 3),
-                new CraftingIngredient(ItemType.FIBER, 5)));
+                new CraftingIngredient(ItemType.WOOD_PLANK, BED_PLANK_COST),
+                new CraftingIngredient(ItemType.FIBER, BED_FIBER_COST)));
     }
 
     /**
      * Creates a building recipe with consistent formatting.
      */
-    private BuildingRecipe createBuildingRecipe(BuildingType type, CraftingIngredient... ingredients) {
+    private static BuildingRecipe createBuildingRecipe(BuildingType type, CraftingIngredient... ingredients) {
         return new BuildingRecipe(type, List.of(ingredients));
     }
 

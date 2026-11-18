@@ -110,9 +110,9 @@ public enum TileType {
     // ==================================================================
     private static class TerrainProperties {
         // Predefined property configurations
-        static final TerrainProperties WATER =
+        private static final TerrainProperties WATER =
                 new TerrainProperties(false, true, false, false);
-        static final TerrainProperties LAND =
+        private static final TerrainProperties LAND =
                 new TerrainProperties(true, false, true, false);
 
         private final boolean solidGround;

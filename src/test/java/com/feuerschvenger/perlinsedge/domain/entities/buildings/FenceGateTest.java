@@ -78,7 +78,7 @@ class FenceGateTest {
     void aClosedGateBlocksTheWayLikeAFence() {
         fenceWithGate();
 
-        assertTrue(new Pathfinder(map).findPath(1, 4, 7, 4).isEmpty(), "the whole line is closed");
+        assertFalse(new Pathfinder(map).findPath(1, 4, 7, 4).reachable(), "the whole line is closed");
     }
 
     @Test
@@ -86,12 +86,12 @@ class FenceGateTest {
         FenceGate gate = fenceWithGate();
         gate.toggleOpen();
 
-        var path = new Pathfinder(map).findPath(1, 4, 7, 4).orElseThrow();
+        var path = new Pathfinder(map).findPath(1, 4, 7, 4).requireNodes();
         assertNotNull(path);
         assertTrue(path.stream().anyMatch(n -> n.x == 4 && n.y == 4), "the path goes through the gate");
 
         gate.toggleOpen();
-        assertTrue(new Pathfinder(map).findPath(1, 4, 7, 4).isEmpty());
+        assertFalse(new Pathfinder(map).findPath(1, 4, 7, 4).reachable());
     }
 
     @Test
@@ -100,7 +100,7 @@ class FenceGateTest {
         fenceWithGate();
         Pathfinder enemy = new Pathfinder(map);
 
-        assertTrue(enemy.findPath(1, 4, 7, 4, 5000).isEmpty());
+        assertFalse(enemy.findPath(1, 4, 7, 4, 5000).reachable());
     }
 
     @Test

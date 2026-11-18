@@ -35,8 +35,8 @@ class InventoryGridTest {
     private List<StackPane> slots() {
         return FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.SLOT).stream()
                 .map(StackPane.class::cast)
-                .sorted((a, b) -> Integer.compare(((InventoryPanel.SlotContext) a.getUserData()).index,
-                        ((InventoryPanel.SlotContext) b.getUserData()).index))
+                .sorted((a, b) -> Integer.compare(((InventoryPanel.SlotContext) a.getUserData()).index(),
+                        ((InventoryPanel.SlotContext) b.getUserData()).index()))
                 .toList());
     }
 
@@ -46,7 +46,7 @@ class InventoryGridTest {
 
         assertEquals(Player.INVENTORY_SIZE, slots.size());
         for (int i = 0; i < slots.size(); i++) {
-            assertEquals(Player.HOTBAR_SIZE + i, ((InventoryPanel.SlotContext) slots.get(i).getUserData()).index);
+            assertEquals(Player.HOTBAR_SIZE + i, ((InventoryPanel.SlotContext) slots.get(i).getUserData()).index());
         }
     }
 

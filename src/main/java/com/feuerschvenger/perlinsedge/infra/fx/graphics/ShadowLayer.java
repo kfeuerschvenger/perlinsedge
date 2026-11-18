@@ -37,6 +37,24 @@ public final class ShadowLayer {
 
     /** The most masks kept at once by default, after which the least recently used one is dropped. */
     private static final int MAX_MASKS = 2048;
+    /** The masks the cache has room for before it first grows. */
+    private static final int INITIAL_MASK_CAPACITY = 64;
+    /** How full the cache gets before it grows. */
+    private static final float MASK_LOAD_FACTOR = 0.75F;
+    /** The sub-cells per screen pixel on each axis, which puts an anchor on a whole or a half screen pixel. */
+    private static final int SUB_STEPS_PER_PIXEL = 2;
+    /** The numbers a box is given by: left, top, right and bottom. */
+    private static final int BOX_VALUES = 4;
+    /** Position of the left side in a box. */
+    private static final int BOX_LEFT = 0;
+    /** Position of the top side in a box. */
+    private static final int BOX_TOP = 1;
+    /** Position of the right side in a box. */
+    private static final int BOX_RIGHT = 2;
+    /** Position of the bottom side in a box. */
+    private static final int BOX_BOTTOM = 3;
+    /** Bits the alpha is shifted up in a packed ARGB cell. */
+    private static final int ALPHA_SHIFT = 24;
 
     /** The number of cells across. */
     private int width;
@@ -63,14 +81,11 @@ public final class ShadowLayer {
     /** Row after the last of the box of the cells the previous frame stamped, see {@link #clearedLeft}. */
     private int clearedBottom;
 
-    /** The area handed out by {@link #changedBox()}, reused by every call. */
-    private final int[] changed = new int[4];
-
     /** Scratch for the box of a projected shape: left, top, right and bottom as screen offsets, reused each build. */
-    private final double[] box = new double[4];
+    private final double[] box = new double[BOX_VALUES];
 
     /** Horizontal part of the direction of the shadow. */
-    private double cosine = 0.0;
+    private double cosine;
     /** Vertical part of the direction of the shadow. */
     private double sine = 1.0;
     /** How long a shadow is as a multiple of the height of what casts it. */
@@ -80,7 +95,7 @@ public final class ShadowLayer {
      * The sub-cells per cell on each axis: two for every screen pixel, so an anchor can lie on the middle of a screen
      * pixel, which is where the middle of a sprite drawn an odd number of screen pixels wide falls.
      */
-    private int subSteps = 2;
+    private int subSteps = SUB_STEPS_PER_PIXEL;
 
     /** The masks of the sun of the moment, least recently used first, which are dropped when the sun moves. */
     private final Map<MaskKey, Mask> masks;
@@ -100,7 +115,7 @@ public final class ShadowLayer {
      * @param maxMasks the most masks kept at once, above zero, past which the least recently used one is dropped
      */
     ShadowLayer(int maxMasks) {
-        masks = new LinkedHashMap<>(64, 0.75f, true) {
+        masks = new LinkedHashMap<>(INITIAL_MASK_CAPACITY, MASK_LOAD_FACTOR, true) {
             /**
              * Tells the map to drop its least recently used mask once it holds more than the capacity.
              *
@@ -154,13 +169,13 @@ public final class ShadowLayer {
         stampedBottom = 0;
         final double newCosine = Math.cos(angle);
         final double newSine = Math.sin(angle);
-        if (newCosine != cosine || newSine != sine || length != this.length) {
+        if (differs(newCosine, cosine) || differs(newSine, sine) || differs(length, this.length)) {
             masks.clear();
         }
         this.cosine = newCosine;
         this.sine = newSine;
         this.length = length;
-        this.subSteps = Math.max(1, artScale) * 2;
+        this.subSteps = Math.max(1, artScale) * SUB_STEPS_PER_PIXEL;
     }
 
     /** Zeroes the cells of the last frame's box. */
@@ -203,7 +218,7 @@ public final class ShadowLayer {
      */
     public void castSprite(Silhouette sprite, double anchorX, double anchorY, double groundRow, double widthFactor,
                            double heightFactor, int alpha) {
-        if (alpha <= 0 || widthFactor <= 0 || heightFactor <= 0 || groundRow <= 0 || !isFinite(anchorX, anchorY)) {
+        if (alpha <= 0 || isEmptySize(widthFactor, heightFactor, groundRow) || !isFinite(anchorX, anchorY)) {
             return;
         }
         final long subX = Math.round(anchorX * subSteps);
@@ -236,6 +251,16 @@ public final class ShadowLayer {
                 alpha);
     }
 
+    /** Tells whether the width factor, the height factor or the ground row leaves nothing to cast. */
+    private static boolean isEmptySize(double widthFactor, double heightFactor, double groundRow) {
+        return widthFactor <= 0 || heightFactor <= 0 || groundRow <= 0;
+    }
+
+    /** Tells whether two values are not the same number, by their exact bits, which is what a mask depends on. */
+    private static boolean differs(double a, double b) {
+        return Double.compare(a, b) != 0;
+    }
+
     /** Tells whether both coordinates of an anchor are finite numbers, which rules out NaN and the infinities. */
     private static boolean isFinite(double anchorX, double anchorY) {
         return Double.isFinite(anchorX) && Double.isFinite(anchorY);
@@ -246,7 +271,7 @@ public final class ShadowLayer {
      * most recently used, and storing a new one drops the least recently used when the cache is full.
      */
     private Mask maskFor(MaskKey key) {
-        Mask mask = masks.get(key);
+        var mask = masks.get(key);
         if (mask == null) {
             final double fractionX = (double) key.subX / key.subSteps;
             final double fractionY = (double) key.subY / key.subSteps;
@@ -275,11 +300,11 @@ public final class ShadowLayer {
         include(0, halfWidth);
         include(reach, -halfWidth);
         include(reach, halfWidth);
-        final int left = (int) Math.floor(fractionX + box[0]);
-        final int top = (int) Math.floor(fractionY + box[1]);
-        final int right = (int) Math.ceil(fractionX + box[2]);
-        final int bottom = (int) Math.ceil(fractionY + box[3]);
-        final boolean[] covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
+        final int left = (int) Math.floor(fractionX + box[BOX_LEFT]);
+        final int top = (int) Math.floor(fractionY + box[BOX_TOP]);
+        final int right = (int) Math.ceil(fractionX + box[BOX_RIGHT]);
+        final int bottom = (int) Math.ceil(fractionY + box[BOX_BOTTOM]);
+        final var covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
         for (int y = top; y < bottom; y++) {
             final double dy = y + 0.5 - fractionY;
             for (int x = left; x < right; x++) {
@@ -303,8 +328,8 @@ public final class ShadowLayer {
         }
         final int row = (int) Math.ceil(groundRow - along / drawnLength) - 1;
         final int column = (int) Math.floor((sine * dx - 2.0 * cosine * dy) / widthFactor + sprite.width() / 2.0);
-        return row >= 0 && row < sprite.height() && column >= 0 && column < sprite.width()
-                && sprite.isSolid(column, row);
+        final boolean inside = row >= 0 && row < sprite.height() && column >= 0 && column < sprite.width();
+        return inside && sprite.isSolid(column, row);
     }
 
     /** Works out the cells an ellipse covers around an anchor that lies a fraction into its cell. */
@@ -317,11 +342,11 @@ public final class ShadowLayer {
         include(alongCentre - alongRadius, radius);
         include(alongCentre + alongRadius, -radius);
         include(alongCentre + alongRadius, radius);
-        final int left = (int) Math.floor(fractionX + box[0]);
-        final int top = (int) Math.floor(fractionY + box[1]);
-        final int right = (int) Math.ceil(fractionX + box[2]);
-        final int bottom = (int) Math.ceil(fractionY + box[3]);
-        final boolean[] covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
+        final int left = (int) Math.floor(fractionX + box[BOX_LEFT]);
+        final int top = (int) Math.floor(fractionY + box[BOX_TOP]);
+        final int right = (int) Math.ceil(fractionX + box[BOX_RIGHT]);
+        final int bottom = (int) Math.ceil(fractionY + box[BOX_BOTTOM]);
+        final var covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
         for (int y = top; y < bottom; y++) {
             final double dy = y + 0.5 - fractionY;
             for (int x = left; x < right; x++) {
@@ -374,26 +399,26 @@ public final class ShadowLayer {
 
     /** Empties the scratch box, ready to take in points. */
     private void resetBox() {
-        box[0] = Double.MAX_VALUE;
-        box[1] = Double.MAX_VALUE;
-        box[2] = -Double.MAX_VALUE;
-        box[3] = -Double.MAX_VALUE;
+        box[BOX_LEFT] = Double.MAX_VALUE;
+        box[BOX_TOP] = Double.MAX_VALUE;
+        box[BOX_RIGHT] = -Double.MAX_VALUE;
+        box[BOX_BOTTOM] = -Double.MAX_VALUE;
     }
 
     /** Widens the scratch box to take in the screen offset of a ground point. */
     private void include(double along, double across) {
         final double x = along * cosine + across * sine;
         final double y = (along * sine - across * cosine) / 2.0;
-        box[0] = Math.min(box[0], x);
-        box[1] = Math.min(box[1], y);
-        box[2] = Math.max(box[2], x);
-        box[3] = Math.max(box[3], y);
+        box[BOX_LEFT] = Math.min(box[BOX_LEFT], x);
+        box[BOX_TOP] = Math.min(box[BOX_TOP], y);
+        box[BOX_RIGHT] = Math.max(box[BOX_RIGHT], x);
+        box[BOX_BOTTOM] = Math.max(box[BOX_BOTTOM], y);
     }
 
     /** Gives a cell the stronger of its alpha and the new one. */
     private void put(int index, int alpha) {
-        if ((pixels[index] >>> 24) < alpha) {
-            pixels[index] = alpha << 24;
+        if ((pixels[index] >>> ALPHA_SHIFT) < alpha) {
+            pixels[index] = alpha << ALPHA_SHIFT;
         }
     }
 
@@ -422,9 +447,19 @@ public final class ShadowLayer {
         return height;
     }
 
-    /** @return the cells as ARGB, black with the alpha of the shadow, row by row, which the caller must not change */
-    public int[] pixels() {
-        return pixels;
+    /**
+     * Lends the cells to a sink, as ARGB, black with the alpha of the shadow, row by row. The layer never hands its
+     * array out, so nothing outside it can keep or change the cells.
+     *
+     * @param sink what takes a look at the cells for the length of the call
+     */
+    public void readPixels(PixelSink sink) {
+        sink.accept(pixels);
+    }
+
+    /** @return a copy of the cells as ARGB, row by row, for tests */
+    int[] pixelsCopy() {
+        return pixels.clone();
     }
 
     /**
@@ -435,7 +470,7 @@ public final class ShadowLayer {
      * @return 0 to 255
      */
     public int alphaAt(int x, int y) {
-        return pixels[y * width + x] >>> 24;
+        return pixels[y * width + x] >>> ALPHA_SHIFT;
     }
 
     /** @return true when this frame has stamped at least one cell, so there is something to lay over the world */
@@ -482,33 +517,39 @@ public final class ShadowLayer {
     }
 
     /**
-     * Returns the area whose cells differ from what was last handed on: the cells this frame stamped together with the
+     * Writes the area whose cells differ from what was last handed on: the cells this frame stamped together with the
      * cells the previous frame stamped and this frame cleared. A caller that mirrors the layer into an image uploads
-     * exactly this area.
+     * exactly this area. The caller supplies the array, so asking for the area allocates nothing.
      *
-     * @return left, top, right and bottom with the last two exclusive, an empty area when right is not past left; the
-     *         array is reused by the next call
+     * @param out receives left, top, right and bottom with the last two exclusive, an empty area when right is not
+     *            past left; at least four elements
      */
-    public int[] changedBox() {
+    public void changedBoxInto(int[] out) {
         final boolean cleared = clearedRight > clearedLeft && clearedBottom > clearedTop;
         final boolean stamped = hasShadows();
         if (cleared && stamped) {
-            changed[0] = Math.min(clearedLeft, stampedLeft);
-            changed[1] = Math.min(clearedTop, stampedTop);
-            changed[2] = Math.max(clearedRight, stampedRight);
-            changed[3] = Math.max(clearedBottom, stampedBottom);
+            out[BOX_LEFT] = Math.min(clearedLeft, stampedLeft);
+            out[BOX_TOP] = Math.min(clearedTop, stampedTop);
+            out[BOX_RIGHT] = Math.max(clearedRight, stampedRight);
+            out[BOX_BOTTOM] = Math.max(clearedBottom, stampedBottom);
         } else if (cleared) {
-            changed[0] = clearedLeft;
-            changed[1] = clearedTop;
-            changed[2] = clearedRight;
-            changed[3] = clearedBottom;
+            out[BOX_LEFT] = clearedLeft;
+            out[BOX_TOP] = clearedTop;
+            out[BOX_RIGHT] = clearedRight;
+            out[BOX_BOTTOM] = clearedBottom;
         } else {
-            changed[0] = stampedLeft;
-            changed[1] = stampedTop;
-            changed[2] = stamped ? stampedRight : stampedLeft;
-            changed[3] = stamped ? stampedBottom : stampedTop;
+            out[BOX_LEFT] = stampedLeft;
+            out[BOX_TOP] = stampedTop;
+            out[BOX_RIGHT] = stamped ? stampedRight : stampedLeft;
+            out[BOX_BOTTOM] = stamped ? stampedBottom : stampedTop;
         }
-        return changed;
+    }
+
+    /** @return a new array with the area {@link #changedBoxInto(int[])} gives, for tests */
+    int[] changedBox() {
+        final var out = new int[BOX_VALUES];
+        changedBoxInto(out);
+        return out;
     }
 
     /**
@@ -551,8 +592,8 @@ public final class ShadowLayer {
             int minY = Integer.MAX_VALUE;
             int maxX = Integer.MIN_VALUE;
             int maxY = Integer.MIN_VALUE;
-            for (int y = 0; y < high; y++) {
-                for (int x = 0; x < wide; x++) {
+            for (var y = 0; y < high; y++) {
+                for (var x = 0; x < wide; x++) {
                     if (cells[y * wide + x]) {
                         minX = Math.min(minX, x);
                         maxX = Math.max(maxX, x);
@@ -566,8 +607,8 @@ public final class ShadowLayer {
             }
             final int croppedWide = maxX - minX + 1;
             final int croppedHigh = maxY - minY + 1;
-            final boolean[] cropped = new boolean[croppedWide * croppedHigh];
-            for (int y = 0; y < croppedHigh; y++) {
+            final var cropped = new boolean[croppedWide * croppedHigh];
+            for (var y = 0; y < croppedHigh; y++) {
                 System.arraycopy(cells, (y + minY) * wide + minX, cropped, y * croppedWide, croppedWide);
             }
             return new Mask(left + minX, top + minY, croppedWide, croppedHigh, cropped);
@@ -609,7 +650,7 @@ public final class ShadowLayer {
 
         /** Returns an independent key with the same parts, for storing. */
         private MaskKey copy() {
-            final MaskKey key = new MaskKey();
+            final var key = new MaskKey();
             key.set(sprite, size, heightFactor, groundRow, subSteps, subX, subY);
             return key;
         }
@@ -620,8 +661,10 @@ public final class ShadowLayer {
             if (!(other instanceof MaskKey key)) {
                 return false;
             }
-            return sprite == key.sprite && size == key.size && heightFactor == key.heightFactor
-                    && groundRow == key.groundRow && subSteps == key.subSteps && subX == key.subX && subY == key.subY;
+            return sprite == key.sprite && Double.compare(size, key.size) == 0
+                    && Double.compare(heightFactor, key.heightFactor) == 0
+                    && Double.compare(groundRow, key.groundRow) == 0 && subSteps == key.subSteps && subX == key.subX
+                    && subY == key.subY;
         }
 
         /** Hashes every part the equality looks at, the silhouette by identity. */

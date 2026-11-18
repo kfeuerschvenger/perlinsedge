@@ -5,24 +5,29 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
-public class MainMenuPanel extends VBox {
+public final class MainMenuPanel extends VBox {
+    private static final double SPACING = 20;
+    private static final double PREF_WIDTH = 400;
+    private static final double PREF_HEIGHT = 300;
+    private static final double BUTTON_WIDTH = 240;
+    private static final double BUTTON_HEIGHT = 40;
 
     private Runnable onNewGameAction;
     private Runnable onLoadGameAction;
     private Runnable onExitAction;
 
     public MainMenuPanel() {
-        setSpacing(20);
+        setSpacing(SPACING);
         setAlignment(Pos.CENTER);
-        setPrefSize(400, 300);
+        setPrefSize(PREF_WIDTH, PREF_HEIGHT);
         getStyleClass().add(UiTheme.PANEL);
 
-        Label title = new Label(UiTheme.caps("Perlin's Edge"));
+        var title = new Label(UiTheme.caps("Perlin's Edge"));
         title.getStyleClass().add(UiTheme.TITLE);
 
-        Button newGameButton = createMenuButton("New Game");
-        Button loadGameButton = createMenuButton("Load Game");
-        Button exitButton = createMenuButton("Exit");
+        var newGameButton = createMenuButton("New Game");
+        var loadGameButton = createMenuButton("Load Game");
+        var exitButton = createMenuButton("Exit");
 
         loadGameButton.setDisable(true);
 
@@ -47,10 +52,10 @@ public class MainMenuPanel extends VBox {
         getChildren().addAll(title, newGameButton, loadGameButton, exitButton);
     }
 
-    private Button createMenuButton(String text) {
-        Button button = new Button(UiTheme.caps(text));
-        button.setPrefWidth(240);
-        button.setPrefHeight(40);
+    private static Button createMenuButton(String text) {
+        var button = new Button(UiTheme.caps(text));
+        button.setPrefWidth(BUTTON_WIDTH);
+        button.setPrefHeight(BUTTON_HEIGHT);
         return button;
     }
 

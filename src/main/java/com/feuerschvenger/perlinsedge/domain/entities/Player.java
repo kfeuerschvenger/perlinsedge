@@ -8,11 +8,17 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ToolStats;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.Pathfinder;
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Represents the player character with movement, inventory, and combat capabilities.
@@ -35,6 +41,8 @@ public class Player extends Entity implements Container {
     // Combat configuration
     private static final double DEFAULT_ATTACK_COOLDOWN = 0.8;  // Time between attacks
     private static final double ATTACK_ANIMATION_DURATION = 0.3;
+    /** How far a diagonal attack reaches along each axis, so its distance from the player is about one tile. */
+    private static final double DIAGONAL_ATTACK_REACH = 0.7;
 
     // Movement configuration
     private static final double MOVE_SPEED = 5.0;
@@ -52,21 +60,20 @@ public class Player extends Entity implements Container {
     // ==================================================================
 
     // Combat state
-    private final double attackCooldown =DEFAULT_ATTACK_COOLDOWN;
-    private double attackTimer = 0;
-    private boolean isAttacking = false;
-    private double attackAnimationTime = 0;
+    private double attackTimer;
+    private boolean isAttacking;
+    private double attackAnimationTime;
     private int attackDirection = -1;
     private double secondsSinceHurt = Double.POSITIVE_INFINITY;
     /** Health lost since {@link #drainDamageTaken()} was last called. */
-    private double damageTaken = 0;
+    private double damageTaken;
 
     // Inventory
     private final List<Item> inventory = new ArrayList<>(Collections.nCopies(INVENTORY_CAPACITY, null));
     /** The hotbar slot held in hand. It is a position, so it stays put while the items in the slots change. */
-    private int selectedHotbarIndex = 0;
+    private int selectedHotbarIndex;
     /** Grows on every change to the content of a slot, see {@link #getInventoryVersion()}. */
-    private long inventoryVersion = 0;
+    private long inventoryVersion;
 
     // Movement and pathfinding
     private final LinkedList<PathNode> currentPath = new LinkedList<>();
@@ -74,8 +81,8 @@ public class Player extends Entity implements Container {
     // Animation state
     private int direction = DIR_UP;
     private int animationFrame = IDLE_FRAME;
-    private int animationStep = 0;
-    private double animationTimer = 0;
+    private int animationStep;
+    private double animationTimer;
 
     // ==================================================================
     //  Constructor
@@ -100,7 +107,7 @@ public class Player extends Entity implements Container {
             return false;
         }
         isAttacking = true;
-        attackTimer = attackCooldown;
+        attackTimer = DEFAULT_ATTACK_COOLDOWN;
         attackAnimationTime = 0;
         attackDirection = direction;
         return true;
@@ -124,17 +131,17 @@ public class Player extends Entity implements Container {
         double y = pos[1];
 
         // Calculate attack position based on direction
-        switch (attackDirection) {
-            case DIR_UP:         return new double[]{x, y - 1};
-            case DIR_UP_RIGHT:   return new double[]{x + 0.7, y - 0.7};
-            case DIR_RIGHT:      return new double[]{x + 1, y};
-            case DIR_DOWN_RIGHT: return new double[]{x + 0.7, y + 0.7};
-            case DIR_DOWN:       return new double[]{x, y + 1};
-            case DIR_DOWN_LEFT:  return new double[]{x - 0.7, y + 0.7};
-            case DIR_LEFT:       return new double[]{x - 1, y};
-            case DIR_UP_LEFT:    return new double[]{x - 0.7, y - 0.7};
-            default:             return new double[]{x, y};
-        }
+        return switch (attackDirection) {
+            case DIR_UP -> new double[]{x, y - 1};
+            case DIR_UP_RIGHT -> new double[]{x + DIAGONAL_ATTACK_REACH, y - DIAGONAL_ATTACK_REACH};
+            case DIR_RIGHT -> new double[]{x + 1, y};
+            case DIR_DOWN_RIGHT -> new double[]{x + DIAGONAL_ATTACK_REACH, y + DIAGONAL_ATTACK_REACH};
+            case DIR_DOWN -> new double[]{x, y + 1};
+            case DIR_DOWN_LEFT -> new double[]{x - DIAGONAL_ATTACK_REACH, y + DIAGONAL_ATTACK_REACH};
+            case DIR_LEFT -> new double[]{x - 1, y};
+            case DIR_UP_LEFT -> new double[]{x - DIAGONAL_ATTACK_REACH, y - DIAGONAL_ATTACK_REACH};
+            default -> new double[]{x, y};
+        };
     }
 
     // ==================================================================
@@ -168,7 +175,9 @@ public class Player extends Entity implements Container {
      */
     public boolean moveTo(TileMap map, int targetX, int targetY, Set<PathNode> occupied) {
         // A dead player stays where it fell until the respawn
-        if (isDead) return false;
+        if (isDead) {
+            return false;
+        }
         final PathNode step = stepInProgress();
         // Already at the target position: nothing to walk to, and no walk left over from an earlier order
         if (step == null && isAtPosition(targetX, targetY)) {
@@ -185,8 +194,8 @@ public class Player extends Entity implements Container {
             return true;
         }
 
-        Pathfinder pathfinder = new Pathfinder(map, occupied);
-        List<PathNode> path = pathfinder.findPath(fromX, fromY, targetX, targetY).orElse(List.of());
+        var pathfinder = new Pathfinder(map, occupied);
+        var path = pathfinder.findPath(fromX, fromY, targetX, targetY).nodes();
 
         if (path.isEmpty()) {
             // A refused order ends the walk the way any stop does: a player between two tiles finishes its step
@@ -218,7 +227,9 @@ public class Player extends Entity implements Container {
      * @return true when the player started walking
      */
     public boolean walkAlong(List<PathNode> path) {
-        if (isDead || path == null || path.isEmpty()) return false;
+        if (isDead || path == null || path.isEmpty()) {
+            return false;
+        }
         startNewPath(path);
         return true;
     }
@@ -229,7 +240,7 @@ public class Player extends Entity implements Container {
      */
     public void stop() {
         final PathNode head = currentPath.peek();
-        if (head != null && (posX != currentTileX || posY != currentTileY)) {
+        if (head != null && !isOnTileCentre()) {
             currentPath.clear();
             currentPath.add(head);
             return;
@@ -260,7 +271,7 @@ public class Player extends Entity implements Container {
         if (head == null || !occupied.contains(head)) {
             return false;
         }
-        if (posX == currentTileX && posY == currentTileY) {
+        if (isOnTileCentre()) {
             clearPath();
         } else {
             currentPath.clear();
@@ -334,7 +345,7 @@ public class Player extends Entity implements Container {
 
     public void clearInventory() {
         inventoryVersion++;
-        for (int i = 0; i < INVENTORY_CAPACITY; i++) {
+        for (var i = 0; i < INVENTORY_CAPACITY; i++) {
             inventory.set(i, null);
         }
     }
@@ -370,7 +381,9 @@ public class Player extends Entity implements Container {
      * @return The quantity actually picked up
      */
     public int pickUpItem(Item item) {
-        if (item == null || item.getQuantity() <= 0) return 0;
+        if (item == null || item.getQuantity() <= 0) {
+            return 0;
+        }
 
         int quantityBeforePickup = item.getQuantity();
         boolean added = addItem(item);
@@ -395,14 +408,14 @@ public class Player extends Entity implements Container {
         }
 
         // Find source slot of dragged item
-        int sourceSlot = findItemSlot(draggedItem);
+        var sourceSlot = findItemSlot(draggedItem);
         if (sourceSlot == -1) {
             log.warn("Item not found in inventory");
             return;
         }
         inventoryVersion++;
 
-        Item targetItem = inventory.get(targetSlotIndex);
+        var targetItem = inventory.get(targetSlotIndex);
 
         // Case 1: Target slot is empty
         if (targetItem == null) {
@@ -413,7 +426,7 @@ public class Player extends Entity implements Container {
 
         // Case 2: Same item type - try to stack
         if (canStack(targetItem, draggedItem)) {
-            int spaceInTarget = targetItem.getType().getMaxStackSize() - targetItem.getQuantity();
+            var spaceInTarget = targetItem.getType().getMaxStackSize() - targetItem.getQuantity();
             int transferAmount = Math.min(spaceInTarget, draggedItem.getQuantity());
 
             if (transferAmount > 0) {
@@ -484,7 +497,7 @@ public class Player extends Entity implements Container {
      * @return the type, or null for a bare hand
      */
     public ItemType getActiveItemType() {
-        final Item active = getActiveItem();
+        final var active = getActiveItem();
         return active != null ? active.getType() : null;
     }
 
@@ -494,7 +507,7 @@ public class Player extends Entity implements Container {
      * @return true when an item was removed, false when the hand is empty
      */
     public boolean consumeActiveItem() {
-        final Item active = getActiveItem();
+        final var active = getActiveItem();
         if (active == null) {
             return false;
         }
@@ -553,10 +566,10 @@ public class Player extends Entity implements Container {
      * Simulates consuming the ingredients and then adding the output, without touching the inventory.
      */
     private boolean outputFitsAfterConsuming(Recipe recipe) {
-        ItemType[] types = new ItemType[INVENTORY_CAPACITY];
-        int[] quantities = new int[INVENTORY_CAPACITY];
-        for (int i = 0; i < INVENTORY_CAPACITY; i++) {
-            Item item = inventory.get(i);
+        var types = new ItemType[INVENTORY_CAPACITY];
+        var quantities = new int[INVENTORY_CAPACITY];
+        for (var i = 0; i < INVENTORY_CAPACITY; i++) {
+            var item = inventory.get(i);
             if (item != null) {
                 types[i] = item.getType();
                 quantities[i] = item.getQuantity();
@@ -575,7 +588,7 @@ public class Player extends Entity implements Container {
      */
     private static void consumeFromSimulation(ItemType[] types, int[] quantities, CraftingIngredient ingredient) {
         int remaining = ingredient.quantity();
-        for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
+        for (var i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             if (types[i] == ingredient.itemType()) {
                 int taken = Math.min(quantities[i], remaining);
                 quantities[i] -= taken;
@@ -592,8 +605,8 @@ public class Player extends Entity implements Container {
      */
     private static int simulatedRoomFor(ItemType[] types, int[] quantities, ItemType outputType) {
         int maxStack = outputType.getMaxStackSize();
-        int room = 0;
-        for (int i = 0; i < INVENTORY_CAPACITY; i++) {
+        var room = 0;
+        for (var i = 0; i < INVENTORY_CAPACITY; i++) {
             if (types[i] == null) {
                 room += maxStack;
             } else if (types[i] == outputType) {
@@ -614,13 +627,17 @@ public class Player extends Entity implements Container {
 
     @Override
     public Item getItemAt(int slotIndex) {
-        if (!isValidSlot(slotIndex)) return null;
+        if (!isValidSlot(slotIndex)) {
+            return null;
+        }
         return inventory.get(slotIndex);
     }
 
     @Override
     public void setItemAt(int slotIndex, Item item) {
-        if (!isValidSlot(slotIndex)) return;
+        if (!isValidSlot(slotIndex)) {
+            return;
+        }
         inventoryVersion++;
         inventory.set(slotIndex, item);
     }
@@ -644,7 +661,7 @@ public class Player extends Entity implements Container {
         int originalQuantity = item.getQuantity();
         int remaining = originalQuantity;
         // Try stacking with existing items
-        for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
+        for (var i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             Item existing = inventory.get(i);
             if (existing != null && canStack(existing, item)) {
                 int availableSpace = existing.getType().getMaxStackSize() - existing.getQuantity();
@@ -656,7 +673,7 @@ public class Player extends Entity implements Container {
         }
 
         // Add to empty slots
-        for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
+        for (var i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             Item existing = inventory.get(i);
             if (existing == null) {
                 int stackSize = Math.min(remaining, item.getType().getMaxStackSize());
@@ -683,7 +700,7 @@ public class Player extends Entity implements Container {
 
         inventoryVersion++;
         int remaining = quantity;
-        for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
+        for (var i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
             Item current = inventory.get(i);
             if (current != null && current.getType() == itemToRemove.getType()) {
                 int toRemove = Math.min(current.getQuantity(), remaining);
@@ -701,7 +718,9 @@ public class Player extends Entity implements Container {
 
     @Override
     public int getItemCount(Item item) {
-        if (item == null) return 0;
+        if (item == null) {
+            return 0;
+        }
         return inventory.stream()
                 .filter(Objects::nonNull)
                 .filter(i -> i.getType() == item.getType())
@@ -716,7 +735,9 @@ public class Player extends Entity implements Container {
 
     @Override
     public boolean hasSpace(Item item) {
-        if (item == null) return false;
+        if (item == null) {
+            return false;
+        }
 
         // Check for stacking space
         boolean hasStackSpace = inventory.stream()
@@ -724,7 +745,9 @@ public class Player extends Entity implements Container {
                 .filter(i -> i.getType() == item.getType())
                 .anyMatch(i -> i.getQuantity() < i.getType().getMaxStackSize());
 
-        if (hasStackSpace) return true;
+        if (hasStackSpace) {
+            return true;
+        }
 
         // Check for empty slots
         return inventory.stream().anyMatch(Objects::isNull);
@@ -739,8 +762,8 @@ public class Player extends Entity implements Container {
     public void setItems(List<Item> items) {
         // clearInventory counts the change
         clearInventory();
-        for (int i = 0; i < items.size() && i < INVENTORY_CAPACITY; i++) {
-            Item source = items.get(i);
+        for (var i = 0; i < items.size() && i < INVENTORY_CAPACITY; i++) {
+            var source = items.get(i);
             if (source != null && source.getQuantity() > 0) {
                 inventory.set(i, new Item(source.getType(), Math.min(source.getQuantity(), source.getMaxStackSize())));
             }
@@ -866,7 +889,9 @@ public class Player extends Entity implements Container {
      * @return that tile, or null when the player stands on a tile
      */
     private PathNode stepInProgress() {
-        if (posX == currentTileX && posY == currentTileY) return null;
+        if (isOnTileCentre()) {
+            return null;
+        }
         final PathNode head = currentPath.peek();
         return head != null ? head : new PathNode(currentTileX, currentTileY);
     }
@@ -877,26 +902,42 @@ public class Player extends Entity implements Container {
         targetTileY = currentTileY;
     }
 
+    /** Tells whether the player stands exactly on the centre of its tile, which is how every step of a walk ends. */
+    private boolean isOnTileCentre() {
+        return Doubles.areEqual(posX, currentTileX) && Doubles.areEqual(posY, currentTileY);
+    }
+
     private boolean isAtPosition(int x, int y) {
         return currentTileX == x && currentTileY == y;
     }
 
     private void updateDirection() {
-        if (currentPath.isEmpty()) return;
+        if (currentPath.isEmpty()) {
+            return;
+        }
 
         PathNode next = currentPath.peek();
         double dx = next.x - posX;
         double dy = next.y - posY;
 
         // Calculate movement direction
-        if (dx > 0 && dy < 0) direction = DIR_UP_RIGHT;
-        else if (dx > 0 && dy > 0) direction = DIR_DOWN_RIGHT;
-        else if (dx < 0 && dy > 0) direction = DIR_DOWN_LEFT;
-        else if (dx < 0 && dy < 0) direction = DIR_UP_LEFT;
-        else if (dx > 0) direction = DIR_RIGHT;
-        else if (dx < 0) direction = DIR_LEFT;
-        else if (dy < 0) direction = DIR_UP;
-        else if (dy > 0) direction = DIR_DOWN;
+        if (dx > 0 && dy < 0) {
+            direction = DIR_UP_RIGHT;
+        } else if (dx > 0 && dy > 0) {
+            direction = DIR_DOWN_RIGHT;
+        } else if (dx < 0 && dy > 0) {
+            direction = DIR_DOWN_LEFT;
+        } else if (dx < 0 && dy < 0) {
+            direction = DIR_UP_LEFT;
+        } else if (dx > 0) {
+            direction = DIR_RIGHT;
+        } else if (dx < 0) {
+            direction = DIR_LEFT;
+        } else if (dy < 0) {
+            direction = DIR_UP;
+        } else if (dy > 0) {
+            direction = DIR_DOWN;
+        }
     }
 
     // --- Animation Helpers ---
@@ -937,22 +978,27 @@ public class Player extends Entity implements Container {
     // --- Inventory Helpers ---
 
     private int findItemSlot(Item item) {
-        for (int i = 0; i < INVENTORY_CAPACITY; i++) {
-            if (inventory.get(i) == item) {
+        for (var i = 0; i < INVENTORY_CAPACITY; i++) {
+            if (isSameInstance(inventory.get(i), item)) {
                 return i;
             }
         }
         return -1;
     }
 
-    private boolean canStack(Item existing, Item newItem) {
+    /** Tells whether two references are the very same stack: items compare equal by type, so equals cannot tell them apart. */
+    private static boolean isSameInstance(Object first, Object second) {
+        return first == second;
+    }
+
+    private static boolean canStack(Item existing, Item newItem) {
         return existing != null &&
                 newItem != null &&
                 existing.getType() == newItem.getType() &&
                 existing.getQuantity() < existing.getType().getMaxStackSize();
     }
 
-    private boolean isValidSlot(int slotIndex) {
+    private static boolean isValidSlot(int slotIndex) {
         return slotIndex >= 0 && slotIndex < INVENTORY_CAPACITY;
     }
 

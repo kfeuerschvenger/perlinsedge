@@ -184,7 +184,7 @@ public class MapManager implements IMapGenerationListener {
     /**
      * Creates an enemy instance based on type.
      */
-    private Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
+    private static Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
         if (type == Slime.class) {
             return new Slime(x, y);
         }
@@ -244,7 +244,7 @@ public class MapManager implements IMapGenerationListener {
     /**
      * Checks if position has sufficient walkable neighbors.
      */
-    private boolean isPositionSurrounded(int x, int y, TileMap map) {
+    private static boolean isPositionSurrounded(int x, int y, TileMap map) {
         return IsometricUtils.isPositionSurrounded(
                 x, y, map,
                 SPAWN_VALIDATOR,

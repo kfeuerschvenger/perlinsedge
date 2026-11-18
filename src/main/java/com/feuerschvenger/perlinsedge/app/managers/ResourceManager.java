@@ -122,7 +122,7 @@ public class ResourceManager {
      * Checks that the item in hand is the tool a resource needs, such as the pickaxe for iron ore. A tool in the bag
      * outside the hotbar slot held in hand does not count.
      */
-    private boolean hasRequiredTool(Player player, Resource resource) {
+    private static boolean hasRequiredTool(Player player, Resource resource) {
         ItemType tool = resource.getType().getRequiredTool();
         return tool == null || player.getActiveItemType() == tool;
     }
@@ -194,7 +194,7 @@ public class ResourceManager {
     /**
      * Checks if player is adjacent to resource tile.
      */
-    private boolean isWithinInteractionDistance(Player player, Tile tile) {
+    private static boolean isWithinInteractionDistance(Player player, Tile tile) {
         int dx = Math.abs(player.getCurrentTileX() - tile.getX());
         int dy = Math.abs(player.getCurrentTileY() - tile.getY());
         return dx <= MAX_INTERACTION_DISTANCE &&

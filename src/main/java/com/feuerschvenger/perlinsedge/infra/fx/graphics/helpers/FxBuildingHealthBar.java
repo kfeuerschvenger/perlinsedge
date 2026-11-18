@@ -23,6 +23,8 @@ public final class FxBuildingHealthBar {
     private static final Color BAD = Color.rgb(212, 112, 92);
     private static final double WARN_BELOW = 0.6;
     private static final double BAD_BELOW = 0.3;
+    /** Number of sides the inset is taken from, one on each side. */
+    private static final int INSET_SIDES = 2;
 
     /** Not instantiable: the class only holds the rule and the drawing call. */
     private FxBuildingHealthBar() {
@@ -47,8 +49,12 @@ public final class FxBuildingHealthBar {
      * @return the fill colour
      */
     static Color fillFor(double fraction) {
-        if (fraction < BAD_BELOW) return BAD;
-        if (fraction < WARN_BELOW) return WARN;
+        if (fraction < BAD_BELOW) {
+            return BAD;
+        }
+        if (fraction < WARN_BELOW) {
+            return WARN;
+        }
         return GOOD;
     }
 
@@ -65,13 +71,14 @@ public final class FxBuildingHealthBar {
         final double x = PixelSnap.round(mark.centerX() - width / 2);
         final double y = PixelSnap.round(mark.topY() - (GAP_ART + HEIGHT_ART) * artScale);
         final double inset = artScale;
-        final double fill = Math.clamp(mark.fraction(), 0.0, 1.0) * (width - 2 * inset);
+        final double fill = Math.clamp(mark.fraction(), 0.0, 1.0) * (width - INSET_SIDES * inset);
 
         gc.setFill(BACK);
         gc.fillRoundRect(x, y, width, height, height, height);
         if (fill > 0) {
+            final double innerHeight = height - INSET_SIDES * inset;
             gc.setFill(fillFor(mark.fraction()));
-            gc.fillRoundRect(x + inset, y + inset, fill, height - 2 * inset, height - 2 * inset, height - 2 * inset);
+            gc.fillRoundRect(x + inset, y + inset, fill, innerHeight, innerHeight, innerHeight);
         }
     }
 }

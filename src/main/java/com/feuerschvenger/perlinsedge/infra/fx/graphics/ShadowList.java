@@ -172,14 +172,33 @@ public final class ShadowList {
         if (size != other.size) {
             return false;
         }
-        for (int i = 0; i < size; i++) {
-            if (x[i] != other.x[i] || y[i] != other.y[i] || width[i] != other.width[i] || fade[i] != other.fade[i]
-                    || silhouette[i] != other.silhouette[i] || groundRow[i] != other.groundRow[i]
-                    || drawnWidth[i] != other.drawnWidth[i] || drawnHeight[i] != other.drawnHeight[i]) {
+        for (var i = 0; i < size; i++) {
+            if (!sameShadowAt(other, i)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** Tells whether the shadow at an index matches the one at the same index of another list, in every field. */
+    private boolean sameShadowAt(ShadowList other, int i) {
+        return samePlacement(other, i) && sameShape(other, i) && silhouette[i] == other.silhouette[i];
+    }
+
+    /** Tells whether two shadows sit at the same point with the same opacity share. */
+    private boolean samePlacement(ShadowList other, int i) {
+        return same(x[i], other.x[i]) && same(y[i], other.y[i]) && same(fade[i], other.fade[i]);
+    }
+
+    /** Tells whether two shadows have the same width, ground row and drawn size. */
+    private boolean sameShape(ShadowList other, int i) {
+        return same(width[i], other.width[i]) && same(groundRow[i], other.groundRow[i])
+                && same(drawnWidth[i], other.drawnWidth[i]) && same(drawnHeight[i], other.drawnHeight[i]);
+    }
+
+    /** Compares two stored values by their exact bits, which is what makes two casts give the same layer. */
+    private static boolean same(double a, double b) {
+        return Double.compare(a, b) == 0;
     }
 
     /** @return the number of shadows in the list */

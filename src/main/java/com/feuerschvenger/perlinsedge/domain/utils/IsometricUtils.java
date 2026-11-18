@@ -13,6 +13,8 @@ import java.util.function.Predicate;
 public final class IsometricUtils {
 
     // Direction constants for cardinal and diagonal movements
+    /** Divisor of the isometric projection: a screen offset splits into the two tile axes, each taking half of the sum or the difference. */
+    private static final double ISO_AXIS_DIVISOR = 2;
     private static final int[][] CARDINAL_DIRECTIONS = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
     private static final int[][] ALL_DIRECTIONS = {
             {0, 1}, {1, 0}, {0, -1}, {-1, 0},
@@ -41,8 +43,8 @@ public final class IsometricUtils {
     }
 
     private static int[][] copyOf(int[][] directions) {
-        final int[][] copy = new int[directions.length][];
-        for (int i = 0; i < directions.length; i++) {
+        final var copy = new int[directions.length][];
+        for (var i = 0; i < directions.length; i++) {
             copy[i] = directions[i].clone();
         }
         return copy;
@@ -78,8 +80,8 @@ public final class IsometricUtils {
         double scaledHalfHeight = halfTileHeight * zoom;
 
         // Perform precise isometric transformation
-        double tileX = (worldX / scaledHalfWidth + worldY / scaledHalfHeight) / 2;
-        double tileY = (worldY / scaledHalfHeight - worldX / scaledHalfWidth) / 2;
+        double tileX = (worldX / scaledHalfWidth + worldY / scaledHalfHeight) / ISO_AXIS_DIVISOR;
+        double tileY = (worldY / scaledHalfHeight - worldX / scaledHalfWidth) / ISO_AXIS_DIVISOR;
 
         return new double[]{tileX, tileY};
     }
@@ -134,7 +136,7 @@ public final class IsometricUtils {
             int newY = y + direction[1];
 
             if (isWithinMapBounds(newX, newY, map)) {
-                Tile tile = map.getTile(newX, newY);
+                var tile = map.getTile(newX, newY);
                 if (validator.test(tile)) {
                     return new int[]{newX, newY};
                 }
@@ -160,22 +162,20 @@ public final class IsometricUtils {
                                                Predicate<Tile> validator,
                                                int minNeighbors,
                                                int[][] directions) {
-        int validCount = 0;
+        var validCount = 0;
 
         for (int[] direction : directions) {
             int neighborX = x + direction[0];
             int neighborY = y + direction[1];
 
-            if (isWithinMapBounds(neighborX, neighborY, map)) {
-                Tile neighbor = map.getTile(neighborX, neighborY);
-                if (validator.test(neighbor)) {
-                    validCount++;
+            if (!isWithinMapBounds(neighborX, neighborY, map) || !validator.test(map.getTile(neighborX, neighborY))) {
+                continue;
+            }
+            validCount++;
 
-                    // Early exit if minimum neighbors reached
-                    if (validCount >= minNeighbors) {
-                        return false;
-                    }
-                }
+            // Early exit if minimum neighbors reached
+            if (validCount >= minNeighbors) {
+                return false;
             }
         }
 

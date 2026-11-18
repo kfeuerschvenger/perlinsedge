@@ -21,13 +21,13 @@ public final class HurtReaction {
     public static final double FLASH_SECONDS = 0.18;
 
     /** Seconds each colour of the flash lasts before the other takes over. */
-    static final double PHASE_SECONDS = 0.045;
+    public static final double PHASE_SECONDS = 0.045;
 
     /** Largest swing of the shake to either side, in art pixels. */
     public static final double SHAKE_AMPLITUDE_ART_PIXELS = 1.0;
 
     /** Full left and right swings of the shake within its duration. */
-    static final double SWINGS = 3.0;
+    public static final double SWINGS = 3.0;
 
     /** Seconds the red glow at the screen edges takes to fade out. */
     public static final double GLOW_SECONDS = 0.35;
@@ -36,7 +36,15 @@ public final class HurtReaction {
     public static final double GLOW_MAX_OPACITY = 0.30;
 
     /** Share of the flash colour mixed into each painted pixel of the sprite. */
-    static final double TINT_SHARE = 0.7;
+    public static final double TINT_SHARE = 0.7;
+
+    /** Number of colours the flash alternates between. */
+    private static final int FLASH_COLOURS = 2;
+
+    /** Bit positions of the alpha, red and green channels in a packed ARGB value, the blue channel sits at zero. */
+    private static final int ALPHA_SHIFT = 24;
+    private static final int RED_SHIFT = 16;
+    private static final int GREEN_SHIFT = 8;
 
     private static final int RED_TARGET = 0xFFFF2828;
     private static final int WHITE_TARGET = 0xFFFFFFFF;
@@ -54,7 +62,7 @@ public final class HurtReaction {
         if (secondsSinceHurt < 0 || secondsSinceHurt >= FLASH_SECONDS) {
             return NO_FLASH;
         }
-        return ((int) (secondsSinceHurt / PHASE_SECONDS)) % 2 == 0 ? RED : WHITE;
+        return ((int) (secondsSinceHurt / PHASE_SECONDS)) % FLASH_COLOURS == 0 ? RED : WHITE;
     }
 
     /**
@@ -100,15 +108,15 @@ public final class HurtReaction {
      * @return the packed pixel, unchanged when it is fully transparent
      */
     public static int tint(int argb, int phase) {
-        final int alpha = argb >>> 24;
+        final var alpha = argb >>> ALPHA_SHIFT;
         if (alpha == 0 || phase != RED && phase != WHITE) {
             return argb;
         }
         final int target = phase == RED ? RED_TARGET : WHITE_TARGET;
-        final int r = mix((argb >> 16) & 0xFF, (target >> 16) & 0xFF);
-        final int g = mix((argb >> 8) & 0xFF, (target >> 8) & 0xFF);
+        final int r = mix((argb >> RED_SHIFT) & 0xFF, (target >> RED_SHIFT) & 0xFF);
+        final int g = mix((argb >> GREEN_SHIFT) & 0xFF, (target >> GREEN_SHIFT) & 0xFF);
         final int b = mix(argb & 0xFF, target & 0xFF);
-        return alpha << 24 | r << 16 | g << 8 | b;
+        return alpha << ALPHA_SHIFT | r << RED_SHIFT | g << GREEN_SHIFT | b;
     }
 
     /** Moves a colour channel toward the flash colour by the tint share. */

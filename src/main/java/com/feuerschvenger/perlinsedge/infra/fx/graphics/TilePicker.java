@@ -26,6 +26,9 @@ public final class TilePicker {
      */
     public record View(double cameraX, double cameraY, double zoom, double halfTileWidth, double halfTileHeight) {}
 
+    /** Half-cell steps in one grid cell, because a diamond cell spans two half widths and two half heights. */
+    private static final int HALF_STEPS_PER_CELL = 2;
+
     /** Not instantiable: the class only holds static rules. */
     private TilePicker() {}
 
@@ -51,8 +54,7 @@ public final class TilePicker {
         final int waterX = cellX(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
         final int waterY = cellY(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
 
-        final Tile land = map.getTile(landX, landY);
-        final Tile water = map.getTile(waterX, waterY);
+        final var land = map.getTile(landX, landY);
         final boolean landShowsTop = land != null && !land.getType().isWater();
 
         // Land wins whenever its top covers the point, also when the water sheet shows there too. The water sheet
@@ -61,6 +63,7 @@ public final class TilePicker {
         if (landShowsTop) {
             return write(out, landX, landY);
         }
+        final var water = map.getTile(waterX, waterY);
         if (water != null) {
             // The water diamond, or the side face of the land tile above lower water
             return write(out, waterX, waterY);
@@ -82,11 +85,11 @@ public final class TilePicker {
 
     /** Column of the exact diamond cell that holds a point given relative to the camera. */
     private static int cellX(double worldX, double worldY, double halfWidth, double halfHeight) {
-        return (int) Math.floor((worldX / halfWidth + worldY / halfHeight) / 2);
+        return (int) Math.floor((worldX / halfWidth + worldY / halfHeight) / HALF_STEPS_PER_CELL);
     }
 
     /** Row of the exact diamond cell that holds a point given relative to the camera. */
     private static int cellY(double worldX, double worldY, double halfWidth, double halfHeight) {
-        return (int) Math.floor((worldY / halfHeight - worldX / halfWidth) / 2);
+        return (int) Math.floor((worldY / halfHeight - worldX / halfWidth) / HALF_STEPS_PER_CELL);
     }
 }

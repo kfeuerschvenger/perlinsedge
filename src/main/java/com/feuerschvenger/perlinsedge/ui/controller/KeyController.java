@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 @Slf4j
 public class KeyController implements IKeyListener {
 
-    AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+    private final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
 
     private final Runnable togglePauseMenuAction;
     private final Runnable centerCameraAction;

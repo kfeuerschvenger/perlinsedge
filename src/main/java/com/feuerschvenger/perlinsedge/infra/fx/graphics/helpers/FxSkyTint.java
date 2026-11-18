@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.domain.world.time.SkyTint;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.LightLayer;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.PixelSink;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
@@ -36,6 +37,29 @@ public final class FxSkyTint {
      */
     private static final double SAMPLE_NUDGE = 0.25;
 
+    /** Numbers kept for each region box: left, top, right and bottom. */
+    private static final int BOX_FIELDS = 4;
+    /** Position of the left side in a box. */
+    private static final int BOX_LEFT = 0;
+    /** Position of the top side in a box. */
+    private static final int BOX_TOP = 1;
+    /** Position of the right side in a box. */
+    private static final int BOX_RIGHT = 2;
+    /** Position of the bottom side in a box. */
+    private static final int BOX_BOTTOM = 3;
+    /** Rows where a band starts that each box adds: its top and its bottom. */
+    private static final int EDGES_PER_BOX = 2;
+    /** Rows where a band starts that the canvas adds: its top and its bottom. */
+    private static final int CANVAS_EDGES = 2;
+    /** Regions the buffers hold before they first grow. */
+    private static final int INITIAL_REGIONS = 4;
+    /** Bits the red channel is shifted up in a packed colour. */
+    private static final int RED_SHIFT = 16;
+    /** Bits the green channel is shifted up in a packed colour. */
+    private static final int GREEN_SHIFT = 8;
+    /** Largest value of an 8 bit channel, as a double. */
+    private static final double CHANNEL_MAX = 255.0;
+
     /** How every light is drawn. */
     private final LightStyle style;
     /** The cells of the lit regions: the sky tint with a warm wash toward the light, the plain tint where none reaches. */
@@ -47,13 +71,15 @@ public final class FxSkyTint {
     /** The colour of the plain tint, the same tint the unlit cells of the layer hold, rebuilt only when it changes. */
     private Color plainColour = Color.TRANSPARENT;
     /** The regions held to the canvas as left, top, right and bottom in screen pixels, four numbers for each. */
-    private double[] clipped = new double[16];
+    private double[] clipped = new double[INITIAL_REGIONS * BOX_FIELDS];
     /** The rows where a band of the canvas around the regions starts, sorted. */
-    private double[] edges = new double[10];
+    private double[] edges = new double[INITIAL_REGIONS * EDGES_PER_BOX + CANVAS_EDGES];
     /** The regions that cover the band being filled, in the order of their left side. */
-    private int[] order = new int[4];
+    private int[] order = new int[INITIAL_REGIONS];
     /** The region being uploaded as left, top, right and bottom, kept so an upload allocates nothing. */
-    private final int[] uploadBox = new int[4];
+    private final int[] uploadBox = new int[BOX_FIELDS];
+    /** Takes the cells the layer lends and uploads the regions from them, made once so an upload allocates nothing. */
+    private final PixelSink regionUploader = this::uploadRegions;
 
     /** Creates a sky tint that draws lights the way the configuration says. */
     public FxSkyTint() {
@@ -89,9 +115,6 @@ public final class FxSkyTint {
     }
 
     private void layTint(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, CanvasView view) {
-        final double artScale = view.artScale();
-        final double width = view.width();
-        final double height = view.height();
         // The tint of the frame is read once and passed on to everything that needs it
         final SkyTint tint = sky.tint();
         final double strength = Math.min(1.0, tint.strength());
@@ -100,9 +123,12 @@ public final class FxSkyTint {
         }
         useTint(tint, strength);
         gc.setFill(plainColour);
+        final double artScale = view.artScale();
+        final double width = view.width();
+        final double height = view.height();
         final int wide = (int) Math.ceil(width / artScale) + 2;
         final int high = (int) Math.ceil(height / artScale) + 2;
-        final LightLayer.GridView grid = new LightLayer.GridView(artScale, view.originX(), view.originY(), wide, high);
+        final var grid = new LightLayer.GridView(artScale, view.originX(), view.originY(), wide, high);
         if (lights.isEmpty() || !layer.compose(lights, style, gameTime, tint, strength, grid)) {
             gc.fillRect(0, 0, width, height);
             return;
@@ -114,7 +140,7 @@ public final class FxSkyTint {
         final int boxes = clipRegions(regions, artScale, width, height);
         fillAround(gc, boxes, width, height);
         final double nudge = SAMPLE_NUDGE / artScale;
-        for (int region = 0; region < regions; region++) {
+        for (var region = 0; region < regions; region++) {
             final int left = layer.regionLeft(region);
             final int top = layer.regionTop(region);
             final int right = layer.regionRight(region);
@@ -134,13 +160,13 @@ public final class FxSkyTint {
      * @return how many regions have a part inside the canvas, the first that many of the clipped boxes
      */
     private int clipRegions(int regions, double artScale, double width, double height) {
-        if (clipped.length < regions * 4) {
-            clipped = new double[regions * 4];
-            edges = new double[regions * 2 + 2];
+        if (clipped.length < regions * BOX_FIELDS) {
+            clipped = new double[regions * BOX_FIELDS];
+            edges = new double[regions * EDGES_PER_BOX + CANVAS_EDGES];
             order = new int[regions];
         }
-        int boxes = 0;
-        for (int region = 0; region < regions; region++) {
+        var boxes = 0;
+        for (var region = 0; region < regions; region++) {
             final double screenLeft = layer.phaseX() + (layer.regionLeft(region) - 1) * artScale;
             final double screenTop = layer.phaseY() + (layer.regionTop(region) - 1) * artScale;
             final double screenRight = layer.phaseX() + (layer.regionRight(region) - 1) * artScale;
@@ -150,10 +176,11 @@ public final class FxSkyTint {
             final double clipRight = Math.clamp(screenRight, 0.0, width);
             final double clipBottom = Math.clamp(screenBottom, 0.0, height);
             if (clipRight > clipLeft && clipBottom > clipTop) {
-                clipped[boxes * 4] = clipLeft;
-                clipped[boxes * 4 + 1] = clipTop;
-                clipped[boxes * 4 + 2] = clipRight;
-                clipped[boxes * 4 + 3] = clipBottom;
+                final int base = boxes * BOX_FIELDS;
+                clipped[base + BOX_LEFT] = clipLeft;
+                clipped[base + BOX_TOP] = clipTop;
+                clipped[base + BOX_RIGHT] = clipRight;
+                clipped[base + BOX_BOTTOM] = clipBottom;
                 boxes++;
             }
         }
@@ -166,15 +193,16 @@ public final class FxSkyTint {
      * that cross it are filled, which is the four rectangles around a single box.
      */
     private void fillAround(GraphicsContext gc, int boxes, double width, double height) {
-        int edgeCount = 0;
-        edges[edgeCount++] = 0.0;
-        edges[edgeCount++] = height;
-        for (int box = 0; box < boxes; box++) {
-            edges[edgeCount++] = clipped[box * 4 + 1];
-            edges[edgeCount++] = clipped[box * 4 + 3];
+        edges[0] = 0.0;
+        edges[1] = height;
+        var edgeCount = CANVAS_EDGES;
+        for (var box = 0; box < boxes; box++) {
+            edges[edgeCount] = clipped[box * BOX_FIELDS + BOX_TOP];
+            edges[edgeCount + 1] = clipped[box * BOX_FIELDS + BOX_BOTTOM];
+            edgeCount += EDGES_PER_BOX;
         }
         Arrays.sort(edges, 0, edgeCount);
-        for (int edge = 0; edge + 1 < edgeCount; edge++) {
+        for (var edge = 0; edge + 1 < edgeCount; edge++) {
             final double bandTop = edges[edge];
             final double bandBottom = edges[edge + 1];
             if (bandBottom > bandTop) {
@@ -186,13 +214,14 @@ public final class FxSkyTint {
     /** Fills the stretches of one band of the canvas that the boxes crossing it leave out. */
     private void fillBand(GraphicsContext gc, int boxes, double bandTop, double bandBottom, double width) {
         final int across = orderCrossing(boxes, bandTop, bandBottom);
-        double cursor = 0.0;
-        for (int k = 0; k < across; k++) {
+        var cursor = 0.0;
+        for (var k = 0; k < across; k++) {
             final int box = order[k];
-            if (clipped[box * 4] > cursor) {
-                gc.fillRect(cursor, bandTop, clipped[box * 4] - cursor, bandBottom - bandTop);
+            final double boxLeft = clipped[box * BOX_FIELDS + BOX_LEFT];
+            if (boxLeft > cursor) {
+                gc.fillRect(cursor, bandTop, boxLeft - cursor, bandBottom - bandTop);
             }
-            cursor = Math.max(cursor, clipped[box * 4 + 2]);
+            cursor = Math.max(cursor, clipped[box * BOX_FIELDS + BOX_RIGHT]);
         }
         if (width > cursor) {
             gc.fillRect(cursor, bandTop, width - cursor, bandBottom - bandTop);
@@ -205,11 +234,12 @@ public final class FxSkyTint {
      * @return how many boxes cover the band, the first that many of the order
      */
     private int orderCrossing(int boxes, double bandTop, double bandBottom) {
-        int across = 0;
-        for (int box = 0; box < boxes; box++) {
-            if (clipped[box * 4 + 1] <= bandTop && clipped[box * 4 + 3] >= bandBottom) {
-                int at = across++;
-                while (at > 0 && clipped[order[at - 1] * 4] > clipped[box * 4]) {
+        var across = 0;
+        for (var box = 0; box < boxes; box++) {
+            if (clipped[box * BOX_FIELDS + BOX_TOP] <= bandTop && clipped[box * BOX_FIELDS + BOX_BOTTOM] >= bandBottom) {
+                var at = across;
+                across++;
+                while (at > 0 && clipped[order[at - 1] * BOX_FIELDS + BOX_LEFT] > clipped[box * BOX_FIELDS + BOX_LEFT]) {
                     order[at] = order[at - 1];
                     at--;
                 }
@@ -225,9 +255,9 @@ public final class FxSkyTint {
         if (alpha == 0) {
             return Color.TRANSPARENT;
         }
-        return Color.color(Math.min(1.0, ((premultiplied >> 16) & 0xFF) / (double) alpha),
-                Math.min(1.0, ((premultiplied >> 8) & 0xFF) / (double) alpha),
-                Math.min(1.0, (premultiplied & 0xFF) / (double) alpha), alpha / 255.0);
+        return Color.color(Math.min(1.0, ((premultiplied >> RED_SHIFT) & 0xFF) / (double) alpha),
+                Math.min(1.0, ((premultiplied >> GREEN_SHIFT) & 0xFF) / (double) alpha),
+                Math.min(1.0, (premultiplied & 0xFF) / (double) alpha), alpha / CHANNEL_MAX);
     }
 
     /**
@@ -254,12 +284,17 @@ public final class FxSkyTint {
         if (!layer.changed() && !fresh) {
             return;
         }
+        layer.readPixels(regionUploader);
+    }
+
+    /** Copies every region of the layer, whose cells it lends, into the image. */
+    private void uploadRegions(int[] cells) {
         for (int region = 0, regions = layer.regionCount(); region < regions; region++) {
-            uploadBox[0] = layer.regionLeft(region);
-            uploadBox[1] = layer.regionTop(region);
-            uploadBox[2] = layer.regionRight(region);
-            uploadBox[3] = layer.regionBottom(region);
-            FxShadowPass.uploadPadded(image, layer.width(), layer.height(), uploadBox, layer.pixels());
+            uploadBox[BOX_LEFT] = layer.regionLeft(region);
+            uploadBox[BOX_TOP] = layer.regionTop(region);
+            uploadBox[BOX_RIGHT] = layer.regionRight(region);
+            uploadBox[BOX_BOTTOM] = layer.regionBottom(region);
+            FxShadowPass.uploadPadded(image, layer.width(), layer.height(), uploadBox, cells);
         }
     }
 

@@ -118,7 +118,7 @@ class LightLayerTest {
 
         assertEquals(1, among.lightCount(), "only the light in view is kept");
         assertEquals(1, among.regionCount());
-        assertTrue(Arrays.equals(alone.pixels(), among.pixels()), "the far lights change no cell");
+        assertTrue(Arrays.equals(alone.pixelsCopy(), among.pixelsCopy()), "the far lights change no cell");
     }
 
     @Test
@@ -389,7 +389,7 @@ class LightLayerTest {
         compose(cracklingLayer, crackling, 0.0, NIGHT_STRENGTH);
         final int steadyFirst = steadyLayer.composes();
         final int cracklingFirst = cracklingLayer.composes();
-        final int[] first = cracklingLayer.pixels().clone();
+        final int[] first = cracklingLayer.pixelsCopy();
         for (double time = 0.1; time < 1.0; time += 0.1) {
             compose(steadyLayer, steady, time, NIGHT_STRENGTH);
             compose(cracklingLayer, crackling, time, NIGHT_STRENGTH);
@@ -397,7 +397,7 @@ class LightLayerTest {
 
         assertEquals(steadyFirst, steadyLayer.composes(), "a steady light is not worked out again");
         assertTrue(cracklingLayer.composes() > cracklingFirst + 3, "the light moved: " + cracklingLayer.composes());
-        assertNotEquals(Arrays.hashCode(first), Arrays.hashCode(cracklingLayer.pixels()));
+        assertNotEquals(Arrays.hashCode(first), Arrays.hashCode(cracklingLayer.pixelsCopy()));
     }
 
     @Test
@@ -507,16 +507,16 @@ class LightLayerTest {
         assertTrue(compose(layer, many, 2.0, NIGHT_STRENGTH));
         assertEquals(7, layer.lightCount());
         assertTrue(layer.changed());
-        final int[] first = layer.pixels().clone();
+        final int[] first = layer.pixelsCopy();
         assertTrue(compose(layer, many, 2.0, NIGHT_STRENGTH));
 
         assertFalse(layer.changed(), "the same lights at the same moment are kept");
         assertEquals(1, layer.composes());
-        assertTrue(Arrays.equals(first, layer.pixels()));
+        assertTrue(Arrays.equals(first, layer.pixelsCopy()));
         // The cells do not depend on the order the regions were found in: a layer of its own gives the same cells
         final LightLayer fresh = new LightLayer();
         compose(fresh, many, 2.0, NIGHT_STRENGTH);
-        assertTrue(Arrays.equals(first, fresh.pixels()));
+        assertTrue(Arrays.equals(first, fresh.pixelsCopy()));
     }
 
     @Test

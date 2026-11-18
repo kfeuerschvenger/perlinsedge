@@ -29,17 +29,19 @@ import java.util.function.ToIntFunction;
  * chosen until another is. The click is consumed here, so it never reaches the world. The panel keeps no selection of its own: the selected
  * piece is given to {@link #update(Player, BuildingType)}, which redraws only what changed.
  */
-public class BuildingPalettePanel extends HBox {
+public final class BuildingPalettePanel extends HBox {
     /** Width of a card in whole pixels; the UI layer never scales with the world zoom. */
-    static final double CARD_WIDTH = 88;
+    private static final double CARD_WIDTH = 88;
     /** Edge of the icon of a card. */
-    static final int ICON_SIZE = 40;
+    private static final int ICON_SIZE = 40;
     private static final double CARD_PADDING = 4;
+    /** The padding is taken from both sides of a card. */
+    private static final int PADDED_SIDES = 2;
     private static final double CARD_GAP = 4;
     /** Height of the name of a card: two lines of the small font, which is 12 px. */
-    static final double NAME_HEIGHT = 32;
+    private static final double NAME_HEIGHT = 32;
     /** What the selected card of a piece that can turn tells about the rotation key. */
-    static final String ROTATE_HINT = "R rotate";
+    private static final String ROTATE_HINT = "R rotate";
 
     private final Map<BuildingType, Card> cards = new EnumMap<>(BuildingType.class);
     private Consumer<BuildingType> onBuildingSelected;
@@ -51,16 +53,16 @@ public class BuildingPalettePanel extends HBox {
 
     /** One piece of the palette: its card and what the piece costs, which the card uses only to tell if it is affordable. */
     private static final class Card {
-        final VBox node = new VBox(2);
-        final List<CraftingIngredient> cost = new ArrayList<>();
-        ImageView icon;
+        private final VBox node = new VBox(2);
+        private final List<CraftingIngredient> cost = new ArrayList<>();
+        private ImageView icon;
         /** The name of the piece, wrapped to at most two lines. */
-        Label name;
+        private Label name;
         /** True when the player holds everything the piece costs, null until the first inventory read. */
-        Boolean affordable;
+        private Boolean affordable;
         /** The line that tells the rotation key, shown only on the selected card of a piece that can turn. */
-        Label rotateHint;
-        int shownRotation = -1;
+        private Label rotateHint;
+        private int shownRotation = -1;
     }
 
     /**
@@ -73,7 +75,7 @@ public class BuildingPalettePanel extends HBox {
         setAlignment(Pos.BOTTOM_CENTER);
         setSpacing(CARD_GAP);
         for (BuildingRecipe recipe : recipeManager.getAllBuildingRecipes()) {
-            final Card card = createCard(recipe);
+            final var card = createCard(recipe);
             cards.put(recipe.buildingType(), card);
             getChildren().add(card.node);
         }
@@ -82,8 +84,8 @@ public class BuildingPalettePanel extends HBox {
     }
 
     private Card createCard(BuildingRecipe recipe) {
-        final BuildingType type = recipe.buildingType();
-        final Card card = new Card();
+        final var type = recipe.buildingType();
+        final var card = new Card();
         card.node.getStyleClass().add(UiTheme.SLOT);
         card.node.setAlignment(Pos.TOP_CENTER);
         card.node.setPadding(new Insets(CARD_PADDING));
@@ -93,13 +95,13 @@ public class BuildingPalettePanel extends HBox {
 
         // The name wraps to a second line instead of cutting off, and takes the height of two lines whether it needs
         // them or not, so the cards stay aligned
-        final Label name = new Label(UiTheme.caps(type.getDisplayName()));
+        final var name = new Label(UiTheme.caps(type.getDisplayName()));
         name.getStyleClass().add(UiTheme.SMALL);
         name.setMouseTransparent(true);
         name.setWrapText(true);
         name.setTextAlignment(TextAlignment.CENTER);
         name.setAlignment(Pos.TOP_CENTER);
-        name.setPrefWidth(CARD_WIDTH - 2 * CARD_PADDING);
+        name.setPrefWidth(CARD_WIDTH - PADDED_SIDES * CARD_PADDING);
         name.setMinHeight(NAME_HEIGHT);
         name.setPrefHeight(NAME_HEIGHT);
         name.setMaxHeight(NAME_HEIGHT);
@@ -198,8 +200,8 @@ public class BuildingPalettePanel extends HBox {
      */
     public void update(Player player, BuildingType selected, ToIntFunction<BuildingType> rotationOf) {
         for (Map.Entry<BuildingType, Card> entry : cards.entrySet()) {
-            final Card card = entry.getValue();
-            final int rotation = rotationOf.applyAsInt(entry.getKey());
+            final var card = entry.getValue();
+            final var rotation = rotationOf.applyAsInt(entry.getKey());
             if (rotation != card.shownRotation) {
                 card.shownRotation = rotation;
                 BuildingIcons.show(card.icon, entry.getKey(), rotation);
@@ -210,7 +212,7 @@ public class BuildingPalettePanel extends HBox {
             shownPlayer = player;
             shownInventoryVersion = version;
             for (Card card : cards.values()) {
-                boolean affordable = true;
+                var affordable = true;
                 for (CraftingIngredient ingredient : card.cost) {
                     affordable &= BuildingCostPanel.held(player, ingredient) >= ingredient.quantity();
                 }

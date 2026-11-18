@@ -30,6 +30,8 @@ public final class DamageNumbers {
     public static final double MAX_OFFSET_ART_PIXELS = 6.0;
     /** The number of slots, which is the most numbers on screen at once. */
     public static final int CAPACITY = 48;
+    /** Width of the range from minus one to one, which a random number from zero to one is stretched over. */
+    private static final double SIGNED_UNIT_SPAN = 2.0;
 
     /** One slot of the pool. A slot is reused, never replaced. */
     public static final class Entry {
@@ -120,7 +122,7 @@ public final class DamageNumbers {
      */
     public DamageNumbers(Random random) {
         this.random = random;
-        for (int i = 0; i < slots.length; i++) {
+        for (var i = 0; i < slots.length; i++) {
             slots[i] = new Entry();
         }
     }
@@ -139,7 +141,7 @@ public final class DamageNumbers {
         if (value <= 0) {
             return;
         }
-        final Entry entry = slotFor(gameTime);
+        final var entry = slotFor(gameTime);
         entry.kind = kind;
         entry.value = value;
         entry.text = kind == Kind.HEAL ? "+" + value : Integer.toString(value);
@@ -147,7 +149,7 @@ public final class DamageNumbers {
         entry.tileY = tileY;
         entry.startTime = gameTime;
         // A little to either side, so numbers that appear one after the other on the same spot do not overlap
-        entry.offsetX = (random.nextDouble() * 2.0 - 1.0) * MAX_OFFSET_ART_PIXELS;
+        entry.offsetX = (random.nextDouble() * SIGNED_UNIT_SPAN - 1.0) * MAX_OFFSET_ART_PIXELS;
     }
 
     /** The first slot that is not in use, or the oldest when all are. */
@@ -190,7 +192,7 @@ public final class DamageNumbers {
      * @return how many slots are in use at that time
      */
     public int countActive(double gameTime) {
-        int count = 0;
+        var count = 0;
         for (Entry slot : slots) {
             if (slot.isActive(gameTime)) {
                 count++;

@@ -62,7 +62,7 @@ public final class QuickMove {
         final int end = Math.min(to, target.getCapacity());
         final int start = Math.max(from, 0);
         final int original = stack.getQuantity();
-        int remaining = mergeIntoMatchingStacks(source, sourceSlot, target, start, end, original);
+        var remaining = mergeIntoMatchingStacks(source, sourceSlot, target, start, end, original);
         remaining = fillFreeSlots(source, sourceSlot, target, start, end, remaining);
 
         if (remaining == original) {
@@ -84,11 +84,11 @@ public final class QuickMove {
      */
     private static int mergeIntoMatchingStacks(Container source, int sourceSlot, Container target,
                                                int start, int end, int quantity) {
-        final Item stack = source.getItemAt(sourceSlot);
+        final var stack = source.getItemAt(sourceSlot);
         final int maxStack = stack.getMaxStackSize();
         int remaining = quantity;
         for (int i = start; i < end && remaining > 0; i++) {
-            final Item existing = target.getItemAt(i);
+            final var existing = target.getItemAt(i);
             if (isSource(source, sourceSlot, target, i) || existing == null || existing.getType() != stack.getType()) {
                 continue;
             }
@@ -109,7 +109,7 @@ public final class QuickMove {
      */
     private static int fillFreeSlots(Container source, int sourceSlot, Container target,
                                      int start, int end, int quantity) {
-        final Item stack = source.getItemAt(sourceSlot);
+        final var stack = source.getItemAt(sourceSlot);
         final int maxStack = stack.getMaxStackSize();
         int remaining = quantity;
         for (int i = start; i < end && remaining > 0; i++) {

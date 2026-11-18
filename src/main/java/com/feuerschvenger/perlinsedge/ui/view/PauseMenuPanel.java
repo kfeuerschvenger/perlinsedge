@@ -9,8 +9,9 @@ import javafx.scene.layout.VBox;
  * Panel for displaying the pause menu in the game.
  * Contains buttons for resuming, saving, loading, and exiting the game.
  */
-public class PauseMenuPanel extends VBox {
+public final class PauseMenuPanel extends VBox {
     private static final double BUTTON_WIDTH = 240;
+    private static final double SPACING = 16;
 
     private final Button resumeButton;
     private final Button saveButton;
@@ -27,11 +28,11 @@ public class PauseMenuPanel extends VBox {
     public PauseMenuPanel() {
         // Set panel layout properties
         setAlignment(Pos.CENTER);
-        setSpacing(16);
+        setSpacing(SPACING);
         getStyleClass().add(UiTheme.PANEL);
 
         // Create title text
-        Label title = new Label(UiTheme.caps("Game Paused"));
+        var title = new Label(UiTheme.caps("Game Paused"));
         title.getStyleClass().add(UiTheme.HEADING);
 
         // Create buttons
@@ -60,7 +61,7 @@ public class PauseMenuPanel extends VBox {
 
     /** Creates a menu button with the shared width and an upper case label. */
     private static Button createButton(String text) {
-        Button button = new Button(UiTheme.caps(text));
+        var button = new Button(UiTheme.caps(text));
         button.setPrefWidth(BUTTON_WIDTH);
         return button;
     }

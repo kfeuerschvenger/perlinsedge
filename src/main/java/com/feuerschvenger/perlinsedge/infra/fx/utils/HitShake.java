@@ -13,7 +13,7 @@ public final class HitShake {
     public static final double AMPLITUDE_ART_PIXELS = 1.0;
 
     /** Full left and right swings within the duration. */
-    static final double SWINGS = 3.0;
+    public static final double SWINGS = 3.0;
 
     /** Not instantiable: the class only holds static rules. */
     private HitShake() {}

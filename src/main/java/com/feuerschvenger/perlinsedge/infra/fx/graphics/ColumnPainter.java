@@ -91,7 +91,7 @@ final class ColumnPainter {
         final double height = strip.getHeight();
         final double left = PixelSnap.round(screenX - halfWidth * scale) + (rightHalf ? halfWidth * scale : 0);
         final double top = PixelSnap.round(screenY);
-        for (int i = 0; i < count; i++) {
+        for (var i = 0; i < count; i++) {
             gc.drawImage(strip, rightHalf ? halfWidth : 0, 0, halfWidth, height,
                     left, top + i * TileDepths.FACE_PIXELS * scale, halfWidth * scale, height * scale);
         }

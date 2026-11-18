@@ -69,9 +69,13 @@ public record CraftingIngredient(ItemType itemType, int quantity) {
      */
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        CraftingIngredient that = (CraftingIngredient) o;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        var that = (CraftingIngredient) o;
         return quantity == that.quantity && itemType == that.itemType;
     }
 

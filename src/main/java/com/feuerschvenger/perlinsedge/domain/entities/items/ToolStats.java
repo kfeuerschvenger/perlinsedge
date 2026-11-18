@@ -44,15 +44,25 @@ public final class ToolStats {
      */
     private record Profile(Map<ResourceType, Integer> resourceDamage, double combatDamage) { }
 
+    /** Damage per hit of each tool on the resources it suits. */
+    private static final int AXE_TREE_DAMAGE = 10;
+    private static final int PICKAXE_STONE_DAMAGE = 10;
+    private static final int PICKAXE_IRON_ORE_DAMAGE = 12;
+    private static final int PICKAXE_CRYSTALS_DAMAGE = 9;
+    /** Damage per hit of an axe on an enemy. */
+    private static final double AXE_COMBAT_DAMAGE = 12.0;
+    /** How many times a hand a sword hits harder on an enemy. */
+    private static final double SWORD_COMBAT_DAMAGE_FACTOR = 2.0;
+
     private static final Map<ItemType, Profile> PROFILES = new EnumMap<>(ItemType.class);
 
     static {
-        PROFILES.put(ItemType.AXE, new Profile(Map.of(ResourceType.TREE, 10), 12.0));
+        PROFILES.put(ItemType.AXE, new Profile(Map.of(ResourceType.TREE, AXE_TREE_DAMAGE), AXE_COMBAT_DAMAGE));
         PROFILES.put(ItemType.PICKAXE, new Profile(Map.of(
-                ResourceType.STONE, 10,
-                ResourceType.IRON_ORE, 12,
-                ResourceType.CRYSTALS, 9), HAND_COMBAT_DAMAGE));
-        PROFILES.put(ItemType.SWORD, new Profile(Map.of(), HAND_COMBAT_DAMAGE * 2));
+                ResourceType.STONE, PICKAXE_STONE_DAMAGE,
+                ResourceType.IRON_ORE, PICKAXE_IRON_ORE_DAMAGE,
+                ResourceType.CRYSTALS, PICKAXE_CRYSTALS_DAMAGE), HAND_COMBAT_DAMAGE));
+        PROFILES.put(ItemType.SWORD, new Profile(Map.of(), HAND_COMBAT_DAMAGE * SWORD_COMBAT_DAMAGE_FACTOR));
         // The hammer builds, it does not harvest or fight: it suits no resource and hits like a hand
         PROFILES.put(ItemType.HAMMER, new Profile(Map.of(), HAND_COMBAT_DAMAGE));
     }

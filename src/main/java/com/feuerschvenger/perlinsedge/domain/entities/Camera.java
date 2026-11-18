@@ -73,7 +73,7 @@ public class Camera {
      * @param zoom New zoom level, between MIN_ZOOM and MAX_ZOOM before snapping
      * @throws IllegalArgumentException if zoom is not within valid range
      */
-    public void setZoom(double zoom) {
+    public final void setZoom(double zoom) {
         if (zoom < MIN_ZOOM || zoom > MAX_ZOOM) {
             throw new IllegalArgumentException(
                     "Zoom must be between " + MIN_ZOOM + " and " + MAX_ZOOM

@@ -10,6 +10,9 @@ public enum HeartState {
     HALF(AssetPaths.HEART_HALF),
     EMPTY(AssetPaths.HEART_EMPTY);
 
+    /** Halves that fill one heart. */
+    private static final int HALVES_PER_HEART = 2;
+
     private final String path;
 
     /** Creates a heart state with the classpath location of its icon. */
@@ -33,20 +36,20 @@ public enum HeartState {
      */
     public static HeartState[] row(double fraction, int count) {
         double clamped = Math.clamp(fraction, 0.0, 1.0);
-        int halves = (int) Math.round(clamped * count * 2);
+        int halves = (int) Math.round(clamped * count * HALVES_PER_HEART);
         if (clamped > 0 && halves == 0) {
             halves = 1;
         }
-        HeartState[] states = new HeartState[count];
-        for (int i = 0; i < count; i++) {
-            states[i] = heartOf(halves - 2 * i);
+        var states = new HeartState[count];
+        for (var i = 0; i < count; i++) {
+            states[i] = heartOf(halves - HALVES_PER_HEART * i);
         }
         return states;
     }
 
     /** @return the state of a heart that has the given number of halves left to fill, from this heart on */
     private static HeartState heartOf(int halvesLeft) {
-        if (halvesLeft >= 2) {
+        if (halvesLeft >= HALVES_PER_HEART) {
             return FULL;
         }
         return halvesLeft == 1 ? HALF : EMPTY;

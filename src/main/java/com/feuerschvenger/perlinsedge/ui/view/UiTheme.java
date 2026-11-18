@@ -27,6 +27,8 @@ public final class UiTheme {
     public static final String FONT_PATH = AppConfig.ASSET_ROOT + "/fonts/PixelifySans.ttf";
     /** Family name of the bundled font, as the stylesheet refers to it. */
     public static final String FONT_FAMILY = "Pixelify Sans";
+    /** Size the font is loaded at; the style sheet sets the sizes the labels use. */
+    private static final double LOADED_FONT_SIZE = 16;
 
     /** Dark translucent rounded panel. */
     public static final String PANEL = "pe-panel";
@@ -117,7 +119,7 @@ public final class UiTheme {
         }
         fontLoaded = true;
         try (InputStream in = UiTheme.class.getResourceAsStream(FONT_PATH)) {
-            Font font = in == null ? null : Font.loadFont(in, 16);
+            Font font = in == null ? null : Font.loadFont(in, LOADED_FONT_SIZE);
             if (font == null) {
                 log.warn("Font {} could not be loaded, the default font is used", FONT_PATH);
             } else {

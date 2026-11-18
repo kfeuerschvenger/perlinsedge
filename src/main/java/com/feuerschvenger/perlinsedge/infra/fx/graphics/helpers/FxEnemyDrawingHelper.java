@@ -7,7 +7,6 @@ import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
@@ -53,7 +52,6 @@ public final class FxEnemyDrawingHelper {
         final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
         // Use slime.getRenderOffsetY() to correctly position based on its internal jump state
         final double baseDrawY = tileTopY + (halfTileHeight * 1.5) + slime.getRenderOffsetY();
-        final double slimeSize = BASE_SLIME_SIZE * zoom;
 
         final SlimeMovementStrategy slimeMove = movementOf(slime);
         final boolean jumping = slimeMove != null && slimeMove.isJumping();
@@ -66,11 +64,12 @@ public final class FxEnemyDrawingHelper {
             final double width = drawnSize(frame.getWidth(), scale, jumping ? 1.0 : restingWidthFactor(slime, gameTime));
             final double height = drawnSize(frame.getHeight(), scale,
                     jumping ? 1.0 : restingHeightFactor(slime, gameTime));
-            gc.drawImage(frame, PixelSnap.round(tileTopX - width / 2), PixelSnap.round(baseDrawY - height),
+            gc.drawImage(frame, PixelSnap.round(tileTopX - width * HALF), PixelSnap.round(baseDrawY - height),
                     width, height);
             return;
         }
 
+        final double slimeSize = BASE_SLIME_SIZE * zoom;
         drawSlimeBody(gc, tileTopX, baseDrawY, slimeSize, slime, slimeMove);
     }
 
@@ -128,7 +127,7 @@ public final class FxEnemyDrawingHelper {
             final double narrowing = SlimeShadow.quantiseFactor(
                     SlimeShadow.width(size, jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR)
                             / SlimeShadow.width(size, 0.0, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
-            final Silhouette silhouette = SilhouetteSprites.of(frame);
+            final var silhouette = SilhouetteSprites.of(frame);
             shadows.addSilhouette(tileTopX, baseDrawY + jumpHeight, silhouette, silhouette.height(),
                     narrowing * drawnWidth / size, new ShadowList.SpriteSize(drawnWidth / scale, drawnHeight / scale),
                     fade);
@@ -149,7 +148,7 @@ public final class FxEnemyDrawingHelper {
      */
     public static void addGenericShadow(ShadowList shadows, double screenX, double screenY, double zoom) {
         final double size = GENERIC_ENEMY_SIZE * zoom;
-        shadows.add(screenX, screenY + size / 2, size * GENERIC_SHADOW_FRACTION / ZoomSteps.integerArtScale(zoom), 1.0);
+        shadows.add(screenX, screenY + size * HALF, size * GENERIC_SHADOW_FRACTION / ZoomSteps.integerArtScale(zoom), 1.0);
     }
 
     /**
@@ -213,7 +212,6 @@ public final class FxEnemyDrawingHelper {
 
     /**
      * Draws a generic enemy as a fallback or for unhandled enemy types.
-     * This method was assumed to exist in a previous turn.
      * @param gc GraphicsContext to render on.
      * @param screenX Screen X coordinate for drawing.
      * @param screenY Screen Y coordinate for drawing.
@@ -225,8 +223,8 @@ public final class FxEnemyDrawingHelper {
         gc.setFill(FxColors.toFx(enemy.getColor()));
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1 * zoom);
-        gc.fillOval(screenX - size / 2, screenY - size / 2, size, size);
-        gc.strokeOval(screenX - size / 2, screenY - size / 2, size, size);
+        gc.fillOval(screenX - size * HALF, screenY - size * HALF, size, size);
+        gc.strokeOval(screenX - size * HALF, screenY - size * HALF, size, size);
     }
 
 }

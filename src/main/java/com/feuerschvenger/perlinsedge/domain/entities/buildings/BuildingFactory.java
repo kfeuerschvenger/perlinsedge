@@ -34,7 +34,7 @@ public final class BuildingFactory {
      * @return a new building of the type
      */
     public static Building create(BuildingType type, int x, int y, int rotation) {
-        final Building building = createUnrotated(type, x, y);
+        final var building = createUnrotated(type, x, y);
         building.setRotation(rotation);
         return building;
     }

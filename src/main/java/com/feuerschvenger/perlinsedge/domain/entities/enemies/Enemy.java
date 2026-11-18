@@ -171,7 +171,7 @@ public abstract class Enemy extends Entity {
      *
      * @param color New color value
      */
-    public void setColor(Rgba color) {
+    public final void setColor(Rgba color) {
         this.color = color;
     }
 

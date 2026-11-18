@@ -27,7 +27,7 @@ final class ItemIcons {
      * @return the icon, drawn without smoothing
      */
     static ImageView view(ItemType type, int size) {
-        ImageView imageView = new ImageView(image(type, size));
+        var imageView = new ImageView(image(type, size));
         imageView.setFitWidth(size);
         imageView.setFitHeight(size);
         imageView.setPreserveRatio(true);
@@ -51,8 +51,8 @@ final class ItemIcons {
     }
 
     private static Image fallback(ItemType type, int size) {
-        Canvas canvas = new Canvas(size, size);
-        GraphicsContext gc = canvas.getGraphicsContext2D();
+        var canvas = new Canvas(size, size);
+        var gc = canvas.getGraphicsContext2D();
         gc.clearRect(0, 0, size, size);
         FxItemDrawingHelper.drawFallbackShape(gc, 0, 0, size, size, type, 1.0);
         return canvas.snapshot(null, null);

@@ -10,6 +10,9 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
  */
 public final class PixelSnap {
 
+    /** The fraction at which a tie, and everything above it, rounds up to the next whole pixel. */
+    private static final double TIE = 0.5;
+
     /** Not instantiable: the class only holds a static rule. */
     private PixelSnap() {}
 
@@ -23,6 +26,6 @@ public final class PixelSnap {
         // The fraction is exact, where value + 0.5 is not: the one value just under a half, 0.49999999999999994,
         // gets 1.0 from the sum, which rounds up to the next whole number, and so the nearest whole pixel is 1 instead of 0
         final double whole = Math.floor(value);
-        return value - whole >= 0.5 ? whole + 1.0 : whole;
+        return value - whole >= TIE ? whole + 1.0 : whole;
     }
 }

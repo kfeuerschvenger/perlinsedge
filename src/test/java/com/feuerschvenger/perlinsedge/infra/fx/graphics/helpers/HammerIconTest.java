@@ -13,6 +13,7 @@ import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Pixel checks of the two hammer icons: the sprite the panels show and the drawn stand-in used when there is no sprite. */
@@ -50,7 +51,7 @@ class HammerIconTest {
         final int[] head = span(reader, 10, SIZE);
         assertNotNull(handle, "the handle shows above the head");
         assertNotNull(head);
-        assertEquals(null, span(reader, 1, SIZE), "nothing above the handle");
+        assertNull(span(reader, 1, SIZE), "nothing above the handle");
         assertTrue(Math.abs((handle[0] + handle[1]) - (head[0] + head[1])) <= 2,
                 "the handle is centred on the head: handle " + handle[0] + ".." + handle[1] + ", head " + head[0] + ".." + head[1]);
         assertTrue(handle[1] - handle[0] < head[1] - head[0], "the handle is narrower than the head");

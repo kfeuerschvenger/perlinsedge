@@ -13,16 +13,31 @@ public final class WaterShimmer {
     public static final int MAX_LINES = 3;
 
     /** Seconds one line takes to fade in and out. */
-    static final double PERIOD_SECONDS = 2.0;
+    private static final double PERIOD_SECONDS = 2.0;
 
     /** The opacity of a line at its brightest. */
-    static final double PEAK_ALPHA = 0.35;
+    public static final double PEAK_ALPHA = 0.35;
 
     /** How far from the tile centre a line may sit along each isometric axis, as a fraction of the tile. */
-    static final double MAX_OFFSET = 0.3;
+    public static final double MAX_OFFSET = 0.3;
 
     /** Phase distance between two lines of the same tile, in cycles. */
     private static final double LINE_STAGGER = 0.31;
+
+    /** The fewest lines a tile shows. */
+    private static final int MIN_LINES = 2;
+
+    /** Slope of the fade, which rises and falls over one cycle: the triangle wave runs from -1 to 1 across it. */
+    private static final double FADE_SLOPE = 2.0;
+
+    /** Low bits of a hash dropped so the rest fills the 53 bits of a double mantissa. */
+    private static final int UNIT_SHIFT = 11;
+
+    /** Width of the interval [-1, 1) a hash is mapped to. */
+    private static final double UNIT_SPAN = 2.0;
+
+    /** Multiplier that separates the fade numbers of one tile in the line hash. */
+    private static final long FADE_HASH_STRIDE = 31L;
 
     private static final long SALT_COUNT = 0x1B87_3593_A5C1L;
     private static final long SALT_PHASE = 0x6A09_E667_F3BCL;
@@ -50,7 +65,7 @@ public final class WaterShimmer {
      * @return two or three
      */
     public static int lineCount(int x, int y) {
-        return 2 + (int) (GroundDecals.mix(x, y, 0L, SALT_COUNT) & 1L);
+        return MIN_LINES + (int) (GroundDecals.mix(x, y, 0L, SALT_COUNT) & 1L);
     }
 
     /**
@@ -68,7 +83,7 @@ public final class WaterShimmer {
         }
         double s = linePhase(cycles, x, y, line);
         double t = s - Math.floor(s);
-        return (1.0 - Math.abs(2.0 * t - 1.0)) * PEAK_ALPHA;
+        return (1.0 - Math.abs(FADE_SLOPE * t - 1.0)) * PEAK_ALPHA;
     }
 
     /**
@@ -99,7 +114,7 @@ public final class WaterShimmer {
 
     /** The tile's own phase in [0, 1), so neighbouring tiles are out of step. */
     static double tileOffset(int x, int y) {
-        return (GroundDecals.mix(x, y, 0L, SALT_PHASE) >>> 11) * 0x1.0p-53;
+        return (GroundDecals.mix(x, y, 0L, SALT_PHASE) >>> UNIT_SHIFT) * 0x1.0p-53;
     }
 
     /** Returns the phase of a line in cycles: its fade is over each time the whole part grows by one. */
@@ -110,11 +125,11 @@ public final class WaterShimmer {
     /** Hashes the tile, the line and the fade the line is in, so a line moves only between two fades. */
     private static long lineHash(double cycles, int x, int y, int line, long salt) {
         long fade = (long) Math.floor(linePhase(cycles, x, y, line));
-        return GroundDecals.mix(x, y, fade * 31L + line, salt);
+        return GroundDecals.mix(x, y, fade * FADE_HASH_STRIDE + line, salt);
     }
 
     /** Maps a hash to a value in [-1, 1). */
     private static double unit(long hash) {
-        return ((hash >>> 11) * 0x1.0p-53) * 2.0 - 1.0;
+        return ((hash >>> UNIT_SHIFT) * 0x1.0p-53) * UNIT_SPAN - 1.0;
     }
 }

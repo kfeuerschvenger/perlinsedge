@@ -5,12 +5,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 
 /**
@@ -42,6 +39,8 @@ final class WalkingChaser {
     private static final double HELD_WAIT_MAX_SECONDS = 0.45;
     /** Longest wait for a held tile: the wait doubles while the same tile stays held, up to this. */
     private static final double MAX_HELD_WAIT_SECONDS = 1.5;
+    /** How much longer each repeated wait for the same held tile is. */
+    private static final double HELD_WAIT_GROWTH_FACTOR = 2.0;
     /** Marks that no step of the path is blocked. */
     private static final int NO_STEP = Integer.MIN_VALUE;
 
@@ -156,7 +155,7 @@ final class WalkingChaser {
     private boolean waitForHeldStep(PathNode step) {
         final boolean repeated = step.x == blockedStepX && step.y == blockedStepY;
         if (repeated) {
-            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * 2);
+            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * HELD_WAIT_GROWTH_FACTOR);
         } else {
             blockedStepX = step.x;
             blockedStepY = step.y;
@@ -174,12 +173,12 @@ final class WalkingChaser {
         final boolean midStep = isMidStep(enemy);
         final int originX = midStep ? enemy.getTargetTileX() : enemy.getCurrentTileX();
         final int originY = midStep ? enemy.getTargetTileY() : enemy.getCurrentTileY();
-        final Optional<List<PathNode>> result = pathPlanner.findPath(map, originX, originY, plannedPlayerX,
+        final var result = pathPlanner.findPath(map, originX, originY, plannedPlayerX,
                 plannedPlayerY, occupancy.penaltyFor(enemy, HELD_TILE_PENALTY));
-        if (result.isEmpty()) {
+        if (!result.reachable()) {
             return;
         }
-        final List<PathNode> found = result.get();
+        final var found = result.nodes();
         path.clear();
         if (midStep) {
             // The search leaves its start out: the tile being walked to stays the first step
@@ -329,7 +328,7 @@ final class WalkingChaser {
         if (node.x < 0 || node.y < 0 || node.x >= map.getWidth() || node.y >= map.getHeight()) {
             return false;
         }
-        final Tile tile = map.getTile(node.x, node.y);
+        final var tile = map.getTile(node.x, node.y);
         return tile != null && tile.isWalkable();
     }
 

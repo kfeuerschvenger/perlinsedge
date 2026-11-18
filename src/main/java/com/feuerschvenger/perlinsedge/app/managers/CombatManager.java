@@ -125,7 +125,7 @@ public class CombatManager {
      * Divides the circle into 8 directional sectors (45° each).
      * @return Direction index (0-7) corresponding to compass directions
      */
-    private int calculateAttackDirection(int dx, int dy) {
+    private static int calculateAttackDirection(int dx, int dy) {
         double angle = Math.atan2(dy, dx);
         double normalizedAngle = (angle < 0) ? angle + FULL_CIRCLE_RADIANS : angle;
         double adjustedAngle = (normalizedAngle + HALF_SECTOR_ADJUSTMENT) % FULL_CIRCLE_RADIANS;

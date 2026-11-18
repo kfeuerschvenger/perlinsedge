@@ -6,30 +6,41 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
-import com.feuerschvenger.perlinsedge.domain.world.model.*;
+import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.domain.world.time.SunScreenMapping;
-import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.*;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.BuildingPreview;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.CameraView;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.CanvasView;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxBuildGridPainter;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxBuildingHealthBar;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxDamageNumbersPainter;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxDebugDrawingHelper;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxEnemyDrawingHelper;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxHurtGlow;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxObjectShadows;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxShadowHelper;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxShadowPass;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxSkyTint;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.HealthBarMark;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.SunShadow;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.TileHighlight;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.BuildingSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.CursorStyle;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.DebugTileSprites;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.FlatTileSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HurtReaction;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.TintedSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.ResourceKindCache;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
@@ -37,11 +48,10 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
-import java.util.List;
+import java.util.Objects;
 
 /**
  * Renders an isometric tile map with frustum culling optimization.
@@ -51,14 +61,11 @@ import java.util.List;
  */
 public class FxRenderer {
 
-    /** Shimmer lines fainter than this are skipped, since they are not visible. */
-    private static final double MIN_SHIMMER_ALPHA = 0.02;
-
     /** Height in art pixels of the tallest sprite that casts a shadow, which bounds how far a shadow can reach. */
-    static final double MAX_CASTER_ART_HEIGHT = 48.0;
+    public static final double MAX_CASTER_ART_HEIGHT = 48.0;
 
     /** Half the width in art pixels of the widest sprite that casts a shadow. */
-    static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
+    public static final double MAX_CASTER_ART_HALF_WIDTH = 16.0;
 
     /** Width in art pixels the shadow is sized from for a player drawn without art. */
     private static final double FALLBACK_PLAYER_ART_WIDTH = 12.0;
@@ -68,17 +75,30 @@ public class FxRenderer {
     /** Height in art pixels the bar floats above a procedural building, which has no sprite to measure. */
     private static final double PROCEDURAL_BUILDING_HEIGHT_ART = 24.0;
 
-    /** The resting crosshair, dark over light ground and light over dark ground, each over an outline of the other. */
-    private static final Color CURSOR_DARK = Color.rgb(40, 40, 40);
-    private static final Color CURSOR_LIGHT = Color.rgb(235, 235, 235);
-    private static final Color CURSOR_DARK_OUTLINE = Color.rgb(0, 0, 0, 0.6);
-    private static final Color CURSOR_LIGHT_OUTLINE = Color.rgb(255, 255, 255, 0.6);
-    private static final double CURSOR_LINE_WIDTH = 2.0;
+    /** Number of values that describe the window of the static casters: left, top, width and height. */
+    private static final int WINDOW_VALUES = 4;
+    /** Position of the left edge in the window of the static casters. */
+    private static final int WINDOW_LEFT = 0;
+    /** Position of the top edge in the window of the static casters. */
+    private static final int WINDOW_TOP = 1;
+    /** Position of the width in the window of the static casters. */
+    private static final int WINDOW_WIDTH = 2;
+    /** Position of the height in the window of the static casters. */
+    private static final int WINDOW_HEIGHT = 3;
 
-    /** The answer to a click order: green when it was accepted, red when it was refused. */
-    private static final Color CURSOR_ACCEPTED = Color.rgb(60, 220, 90);
-    private static final Color CURSOR_REJECTED = Color.rgb(235, 60, 60);
-    private static final double FLASH_LINE_WIDTH = 3.0;
+    /** Position of the first visible column in the visible tile bounds the camera gives. */
+    private static final int BOUNDS_MIN_X = 0;
+    /** Position of the last visible column in the visible tile bounds. */
+    private static final int BOUNDS_MAX_X = 1;
+    /** Position of the first visible row in the visible tile bounds. */
+    private static final int BOUNDS_MIN_Y = 2;
+    /** Position of the last visible row in the visible tile bounds. */
+    private static final int BOUNDS_MAX_Y = 3;
+
+    /** Share of the height of a tile below its top vertex at which a resource is depth sorted. */
+    private static final double RESOURCE_DEPTH_SHARE = 0.5;
+    /** How far past the tile the ghost is depth sorted, so it stands over the ground of its tile. */
+    private static final double GHOST_DEPTH_NUDGE = 0.5;
 
     private final GraphicsContext gc;
     private final Canvas canvas;
@@ -115,7 +135,7 @@ public class FxRenderer {
     /** The reach below the window the static list was built with. */
     private double staticCastersBottomReach;
     /** The window of the world the static list covers as left, top, width and height, in world coordinates. */
-    private final double[] staticCastersWindow = new double[4];
+    private final double[] staticCastersWindow = new double[WINDOW_VALUES];
     /** Whether the grey height view was on when the static list was built, which casts nothing. */
     private boolean staticCastersGrayscale;
     /** The map type the static list was built for, which picks the art the shadows follow. */
@@ -128,13 +148,13 @@ public class FxRenderer {
     private final FxShadowPass shadowPass = new FxShadowPass();
     /** Lays the tint of the time of day over the world. */
     private final FxSkyTint skyTint = new FxSkyTint();
-    private final ColumnPainter columns;
+    /** Draws what the queues hold. */
+    private final FxRenderableDrawer drawer;
     /** The values of the frame being drawn, written at the start of every frame. */
     private final FrameState frame = new FrameState();
     /** The palm or cactus choice of the desert trees, worked out once per tree instead of once per frame. */
     private final ResourceKindCache resourceKinds = new ResourceKindCache();
     private final FrameStats frameStats = new FrameStats();
-    private final ColorAdjust flashEffect = createFlashEffect();
     private double currentFrameGameTime;
     /** How far above or beside the canvas, in pixels, a caster can stand and still cast a shadow into it this frame. */
     private double shadowReach;
@@ -154,11 +174,8 @@ public class FxRenderer {
     private double shadowCameraY;
     /** The map type of the frame, which picks the biome art of the ground and its decals. */
     private MapType activeMapType;
-    /** The shimmer animation clock of the frame, computed once from the game time. */
-    private double waterCycles;
     /** Whether the frame draws the grey height view, read once per frame from the debug settings. */
     private boolean grayscaleView;
-    private boolean debugTextEnabled;
     private int previewTileX = -1;
     private int previewTileY = -1;
     private BuildingType previewBuildingType;
@@ -183,13 +200,7 @@ public class FxRenderer {
         this.camera = camera;
         this.gameState = gameState;
         this.spriteManager = SpriteManager.getInstance();
-        this.columns = new ColumnPainter(gc, spriteManager);
-    }
-
-    private static ColorAdjust createFlashEffect() {
-        ColorAdjust effect = new ColorAdjust();
-        effect.setBrightness(0.7);
-        return effect;
+        this.drawer = new FxRenderableDrawer(gc, camera, gameState, spriteManager);
     }
 
     /**
@@ -262,10 +273,10 @@ public class FxRenderer {
         // The light of the held torch is placed where the sprite of the player is drawn this frame, and is in the
         // registry only while a torch is the selected item, which can change between two updates
         gameState.syncLights(alpha);
-        this.waterCycles = WaterShimmer.cycles(currentFrameGameTime);
-        final DayCycle sky = gameState.getDayCycle();
+        final double waterCycles = WaterShimmer.cycles(currentFrameGameTime);
+        final var sky = gameState.getDayCycle();
         final FrameState f = frame;
-        prepareFrame(f, sky);
+        prepareFrame(f, sky, waterCycles);
         prepareShadows(f);
 
         walkTiles(f);
@@ -294,67 +305,67 @@ public class FxRenderer {
      */
     private static final class FrameState {
         /** The map drawn this frame. */
-        TileMap map;
+        private TileMap map;
         /** The camera zoom. */
-        double zoom;
+        private double zoom;
         /** The camera offset along X. */
-        double offsetX;
+        private double offsetX;
         /** The camera offset along Y. */
-        double offsetY;
+        private double offsetY;
         /** The zoomed width of a tile. */
-        double tileWidth;
+        private double tileWidth;
         /** The zoomed height of a tile. */
-        double tileHeight;
+        private double tileHeight;
         /** Half the zoomed width of a tile. */
-        double halfTileWidth;
+        private double halfTileWidth;
         /** Half the zoomed height of a tile. */
-        double halfTileHeight;
+        private double halfTileHeight;
         /** The integer art scale, which the shadow and light passes and the sprites are drawn at. */
-        double artScale;
+        private double artScale;
         /** The seed of the world. */
-        long worldSeed;
+        private long worldSeed;
         /** The map type, which picks the biome art. */
-        MapType mapType;
+        private MapType mapType;
         /** Whether the grey height view was asked for. */
-        boolean grayscaleEnabled;
+        private boolean grayscaleEnabled;
         /** Whether the game is paused, which stops the hit effects of the resources. */
-        boolean paused;
+        private boolean paused;
         /** Whether the shadows are strong enough to be cast. */
-        boolean castShadows;
+        private boolean castShadows;
         /** Whether the static shadow list is rebuilt this frame. */
-        boolean rebuildStatic;
+        private boolean rebuildStatic;
         /** The first visible tile column. */
-        int minTileX;
+        private int minTileX;
         /** The column after the last visible tile column. */
-        int maxTileX;
+        private int maxTileX;
         /** The first visible tile row. */
-        int minTileY;
+        private int minTileY;
         /** The row after the last visible tile row. */
-        int maxTileY;
+        private int maxTileY;
         /** How far the near ring of the static walk reaches, in screen pixels. */
-        double overhang;
+        private double overhang;
         /** The horizontal overhang of the static window, in screen pixels. */
-        double overhangX;
+        private double overhangX;
         /** The vertical overhang of the static window, in screen pixels. */
-        double overhangY;
+        private double overhangY;
         /** The tile column under the mouse, -1 for none. */
-        int mouseTileX;
+        private int mouseTileX;
         /** The tile row under the mouse, -1 for none. */
-        int mouseTileY;
+        private int mouseTileY;
         /** The player, or null when there is none. */
-        Player player;
+        private Player player;
         /** The canvas as the shadow and light passes see it. */
-        CanvasView view;
+        private CanvasView view;
         /** The camera as the building painter sees it. */
-        CameraView cameraView;
+        private CameraView cameraView;
         /** The tile projection the damage numbers are placed with. */
-        FxDamageNumbersPainter.TileProjection projection;
+        private FxDamageNumbersPainter.TileProjection projection;
         /** The direction, length and strength of the shadows. */
-        SunShadow sun;
+        private SunShadow sun;
     }
 
     /** Reads what the frame needs from the camera, the configuration and the game state into the frame values. */
-    private void prepareFrame(FrameState f, DayCycle sky) {
+    private void prepareFrame(FrameState f, DayCycle sky, double waterCycles) {
         f.paused = gameState.isGamePaused();
         // Nothing is cast, and nothing is read from the sprites, while the shadows are too faint to see
         final double shadowStrength = sky.shadowStrength();
@@ -367,13 +378,13 @@ public class FxRenderer {
         f.zoom = camera.getZoom();
         f.offsetX = camera.getX();
         f.offsetY = camera.getY();
-        final AppConfig config = AppConfig.getInstance();
+        final var config = AppConfig.getInstance();
         f.mapType = config.world().getCurrentMapType();
         this.activeMapType = f.mapType;
         f.grayscaleEnabled = config.debug().isGrayscaleEnabled();
         // The height view is a debug tool: with debug off, grayscale only hides the art and the procedural tiles show
         this.grayscaleView = f.grayscaleEnabled && config.debug().isEnabled();
-        this.debugTextEnabled = grayscaleView && config.debug().isTextEnabled();
+        final boolean debugTextEnabled = grayscaleView && config.debug().isTextEnabled();
 
         // Tile dimensions calculations
         f.tileWidth = config.graphics().getTileWidth() * f.zoom;
@@ -384,10 +395,10 @@ public class FxRenderer {
         // Get visible tile bounds
         final int[] bounds = camera.getVisibleTileBounds(canvas.getWidth(), canvas.getHeight(), f.map.getWidth(),
                 f.map.getHeight());
-        f.minTileX = bounds[0];
-        f.maxTileX = bounds[1];
-        f.minTileY = bounds[2];
-        f.maxTileY = bounds[3];
+        f.minTileX = bounds[BOUNDS_MIN_X];
+        f.maxTileX = bounds[BOUNDS_MAX_X];
+        f.minTileY = bounds[BOUNDS_MIN_Y];
+        f.maxTileY = bounds[BOUNDS_MAX_Y];
 
         f.worldSeed = gameState.getWorldSeed();
         // The art scale is snapped to a whole number once here, and the shadow and light passes take this value, so the
@@ -400,6 +411,7 @@ public class FxRenderer {
         f.mouseTileX = gameState.getMouseOverTileX();
         f.mouseTileY = gameState.getMouseOverTileY();
         f.player = gameState.getPlayer();
+        drawer.beginFrame(f.mapType, grayscaleView, debugTextEnabled, waterCycles, currentFrameGameTime, f.cameraView);
     }
 
     /**
@@ -459,9 +471,9 @@ public class FxRenderer {
         final int walkMaxX = Math.min(f.map.getWidth(), f.maxTileX + farTiles);
         final int walkMinY = Math.max(0, f.minTileY - nearTiles);
         final int walkMaxY = Math.min(f.map.getHeight(), f.maxTileY + farTiles);
-        for (int y = walkMinY; y < walkMaxY; y++) {
-            for (int x = walkMinX; x < walkMaxX; x++) {
-                final Tile tile = f.map.getTile(x, y);
+        for (var y = walkMinY; y < walkMaxY; y++) {
+            for (var x = walkMinX; x < walkMaxX; x++) {
+                final var tile = f.map.getTile(x, y);
                 if (tile != null) {
                     visitTile(f, tile, x, y);
                 }
@@ -525,7 +537,7 @@ public class FxRenderer {
 
     /** Queues the resource of a tile, if it has one, and adds its shadow to the static list when that is rebuilt. */
     private void queueResource(FrameState f, Tile tile, int x, int y, double screenX, double screenY) {
-        final Resource resource = tile.getWorldResource();
+        final var resource = tile.getWorldResource();
         if (!tile.hasResource() || resource == null) {
             return;
         }
@@ -535,7 +547,7 @@ public class FxRenderer {
         // A desert tree is a palm near water and a cactus in the dry sand; the look-around only runs for it
         final String preferredKind = resourceKinds.preferredKind(f.map, f.mapType, resource.getType(), x, y,
                 f.worldSeed);
-        final SpriteManager.SpriteMetadata spriteMetadata = spriteManager.getResourceSprite(
+        final var spriteMetadata = spriteManager.getResourceSprite(
                 f.mapType, resource.getType(), x, y, f.worldSeed, preferredKind
         );
         // A resource blocks movement whether or not its image exists, so it is always queued;
@@ -547,7 +559,7 @@ public class FxRenderer {
         final double shakeX = HitShake.screenOffset(secondsSinceHit, f.artScale);
         // A low sprite is drawn lower so its foot touches the ground, and its shadow follows that contact point
         final double drop = spriteMetadata != null ? spriteMetadata.getDropArtPixels() * f.artScale : 0.0;
-        renderQueue.add(screenX + shakeX, screenY + drop, screenY + f.tileHeight * 0.5,
+        renderQueue.add(screenX + shakeX, screenY + drop, screenY + f.tileHeight * RESOURCE_DEPTH_SHARE,
                 resource.getType(), resourceImage, isFlashing, tile);
         if (f.rebuildStatic) {
             FxObjectShadows.addForTile(staticShadows, resource.getType(), resourceImage,
@@ -558,13 +570,13 @@ public class FxRenderer {
 
     /** Queues the building of a tile, if it has one, and adds its shadow to the static list when that is rebuilt. */
     private void queueBuilding(FrameState f, Tile tile, double screenX, double screenY) {
-        final Building building = tile.getBuilding();
+        final var building = tile.getBuilding();
         if (!tile.hasBuilding() || building == null) {
             return;
         }
         // A piece with art is drawn from its sprite, in its present state and frame, the others from
         // their procedural shape
-        final Image buildingArt = buildingSprites.imageFor(building,
+        final var buildingArt = buildingSprites.imageFor(building,
                 BuildingSprites.flameFrame(currentFrameGameTime));
         renderQueue.add(screenX, screenY, screenY + f.halfTileHeight, building, buildingArt, false, tile);
         if (f.rebuildStatic) {
@@ -585,19 +597,19 @@ public class FxRenderer {
      */
     private void queueHover(FrameState f) {
         // The tile of the last click order flashes green or red, on the hovered tile or wherever the click was
-        final ClickFeedback feedback = gameState.getClickFeedback();
-        final ClickFeedback.Kind flashKind = feedback.kind(currentFrameGameTime);
+        final var feedback = gameState.getClickFeedback();
+        final var flashKind = feedback.kind(currentFrameGameTime);
         final boolean flashOnHover = flashKind != ClickFeedback.Kind.NONE
                 && feedback.getTileX() == f.mouseTileX && feedback.getTileY() == f.mouseTileY;
 
         if (f.mouseTileX != -1 && f.mouseTileY != -1) {
-            final Tile highlightTile = f.map.getTile(f.mouseTileX, f.mouseTileY);
+            final var highlightTile = f.map.getTile(f.mouseTileX, f.mouseTileY);
             if (highlightTile != null) {
                 queueHoveredTile(f, highlightTile, flashKind, flashOnHover);
             }
         }
         if (flashKind != ClickFeedback.Kind.NONE && !flashOnHover) {
-            final Tile flashTile = f.map.getTile(feedback.getTileX(), feedback.getTileY());
+            final var flashTile = f.map.getTile(feedback.getTileX(), feedback.getTileY());
             if (flashTile != null) {
                 queueCursor(f, flashTile, feedback.getTileX(), feedback.getTileY(), flashKind, true);
             }
@@ -628,12 +640,12 @@ public class FxRenderer {
                 + FxObjectShadows.waterDrop(tile.getType().isWater(),
                 spriteManager.getTileSprite(f.mapType, tile.getType(), f.mouseTileX, f.mouseTileY) != null,
                 f.halfTileHeight);
-        renderQueue.add(screenX, topY, topY + f.halfTileHeight + 0.5, previewFor(), null, false, null);
+        renderQueue.add(screenX, topY, topY + f.halfTileHeight + GHOST_DEPTH_NUDGE, previewFor(), null, false, null);
     }
 
     /** Adds the player to the render queue, and the shadow of the player to the dynamic list. */
     private void queuePlayer(FrameState f, double alpha) {
-        final Player player = f.player;
+        final var player = f.player;
         if (player == null) {
             return;
         }
@@ -658,7 +670,7 @@ public class FxRenderer {
     /** Adds the shadow of the player, cast from its sprite or an ellipse when it is drawn without art. */
     private void addPlayerShadow(double playerX, double playerFeetY, Image playerSprite) {
         if (playerSprite != null) {
-            final Silhouette silhouette = SilhouetteSprites.of(playerSprite);
+            final var silhouette = SilhouetteSprites.of(playerSprite);
             dynamicShadows.addSilhouette(playerX, playerFeetY, silhouette, silhouette.height(), 1.0, 1.0);
         } else {
             dynamicShadows.add(playerX, playerFeetY, FALLBACK_PLAYER_ART_WIDTH * GroundShadow.PLAYER_FRACTION, 1.0);
@@ -667,12 +679,12 @@ public class FxRenderer {
 
     /** Adds the enemies that are alive to the render queue, and their shadows to the dynamic list. */
     private void queueEnemies(FrameState f, double alpha) {
-        final List<Enemy> enemies = gameState.getEnemies();
+        final var enemies = gameState.getEnemies();
         if (enemies == null) {
             return;
         }
         for (int i = 0, count = enemies.size(); i < count; i++) {
-            final Enemy enemy = enemies.get(i);
+            final var enemy = enemies.get(i);
             if (!enemy.isDead()) {
                 queueEnemy(f, enemy, alpha);
             }
@@ -703,12 +715,12 @@ public class FxRenderer {
 
     /** Adds the dropped items to the render queue. */
     private void queueDroppedItems(FrameState f) {
-        final List<DroppedItem> droppedItems = gameState.getDroppedItems();
+        final var droppedItems = gameState.getDroppedItems();
         if (droppedItems == null) {
             return;
         }
         for (int i = 0, count = droppedItems.size(); i < count; i++) {
-            final DroppedItem droppedItem = droppedItems.get(i);
+            final var droppedItem = droppedItems.get(i);
             // A thrown item slides from the thrower to its landing tile, a landed one rests on its tile
             final double itemTileX = droppedItem.flightX(currentFrameGameTime);
             final double itemTileY = droppedItem.flightY(currentFrameGameTime);
@@ -726,7 +738,7 @@ public class FxRenderer {
         // Tiles are queued row by row, which already is back to front for blocks of one size.
         gc.save();
         for (int i = 0, count = tileQueue.size(); i < count; i++) {
-            drawRenderable(tileQueue.get(i));
+            drawer.draw(tileQueue.get(i));
         }
         // The grid of the build mode lies on the ground, under the shadows and the objects
         if (buildModeActive && f.mouseTileX != -1 && f.mouseTileY != -1) {
@@ -735,10 +747,10 @@ public class FxRenderer {
         shadowPass.draw(gc, staticShadows, staticShadowVersion, dynamicShadows, f.view, f.sun);
         renderQueue.sortByDepth();
         for (int i = 0, count = renderQueue.size(); i < count; i++) {
-            drawRenderable(renderQueue.get(i));
+            drawer.draw(renderQueue.get(i));
         }
         if (f.player != null) {
-            renderPlayerAttack(gc, f.player, f.halfTileWidth, f.halfTileHeight, f.offsetX, f.offsetY);
+            drawer.drawPlayerAttack(f.player, f.halfTileWidth, f.halfTileHeight, f.offsetX, f.offsetY);
         }
         // The sky tint covers the whole world, tiles, shadows and objects alike, and is pushed back around the lights
         // by the same pass, in the slot the plain tint always had. It is laid on before the damage
@@ -784,13 +796,37 @@ public class FxRenderer {
      * map: another map, or one whose tiles changed since the list was built.
      */
     private boolean staticCastersStale(TileMap map, double zoom, double artScale, boolean grayscale, MapType type) {
-        return !staticCastersValid || staticCastersMap != map || staticCastersRevision != map.getRevision()
-                || staticCastersZoom != zoom || staticCastersArtScale != artScale
-                || staticCastersReach != shadowReach || staticCastersBottomReach != shadowBottomReach
-                || staticCastersWindow[0] != shadowWindowLeft - shadowCameraX
-                || staticCastersWindow[1] != shadowWindowTop - shadowCameraY
-                || staticCastersWindow[2] != shadowWindowWidth || staticCastersWindow[3] != shadowWindowHeight
+        return !staticCastersValid || sourceChanged(map, grayscale, type) || scaleChanged(zoom, artScale)
+                || reachChanged() || windowChanged();
+    }
+
+    /** Tells whether the list was built from another map, or from the same one as it was, or for another look. */
+    private boolean sourceChanged(TileMap map, boolean grayscale, MapType type) {
+        return staticCastersMap != map || staticCastersRevision != map.getRevision()
                 || staticCastersGrayscale != grayscale || staticCastersType != type;
+    }
+
+    /** Tells whether the list was built at another zoom or art scale. */
+    private boolean scaleChanged(double zoom, double artScale) {
+        return differs(staticCastersZoom, zoom) || differs(staticCastersArtScale, artScale);
+    }
+
+    /** Tells whether the list was built for another reach of the shadows. */
+    private boolean reachChanged() {
+        return differs(staticCastersReach, shadowReach) || differs(staticCastersBottomReach, shadowBottomReach);
+    }
+
+    /** Tells whether the list was built for another window of the world. */
+    private boolean windowChanged() {
+        return differs(staticCastersWindow[WINDOW_LEFT], shadowWindowLeft - shadowCameraX)
+                || differs(staticCastersWindow[WINDOW_TOP], shadowWindowTop - shadowCameraY)
+                || differs(staticCastersWindow[WINDOW_WIDTH], shadowWindowWidth)
+                || differs(staticCastersWindow[WINDOW_HEIGHT], shadowWindowHeight);
+    }
+
+    /** Tells whether two values are not the same number, by their exact bits, which is what the list depends on. */
+    private static boolean differs(double a, double b) {
+        return Double.compare(a, b) != 0;
     }
 
     /** Remembers what the static shadow list was just built from, see {@link #staticCastersStale}. */
@@ -802,10 +838,10 @@ public class FxRenderer {
         staticCastersArtScale = artScale;
         staticCastersReach = shadowReach;
         staticCastersBottomReach = shadowBottomReach;
-        staticCastersWindow[0] = shadowWindowLeft - shadowCameraX;
-        staticCastersWindow[1] = shadowWindowTop - shadowCameraY;
-        staticCastersWindow[2] = shadowWindowWidth;
-        staticCastersWindow[3] = shadowWindowHeight;
+        staticCastersWindow[WINDOW_LEFT] = shadowWindowLeft - shadowCameraX;
+        staticCastersWindow[WINDOW_TOP] = shadowWindowTop - shadowCameraY;
+        staticCastersWindow[WINDOW_WIDTH] = shadowWindowWidth;
+        staticCastersWindow[WINDOW_HEIGHT] = shadowWindowHeight;
         staticCastersGrayscale = grayscale;
         staticCastersType = type;
         staticListRebuilds++;
@@ -818,9 +854,9 @@ public class FxRenderer {
      * object throws its shadow from the same point either way.
      */
     private void castOffscreenShadows(FrameState f, Tile tile, int x, int y, double screenX, double screenY) {
-        final Resource resource = tile.getWorldResource();
+        final var resource = tile.getWorldResource();
         final boolean hasResource = tile.hasResource() && resource != null;
-        final Building building = tile.getBuilding();
+        final var building = tile.getBuilding();
         final boolean hasBuilding = tile.hasBuilding() && building != null;
         if (!hasResource && !hasBuilding) {
             return;
@@ -834,11 +870,11 @@ public class FxRenderer {
         final double drop = FxObjectShadows.waterDrop(water,
                 water && spriteManager.getTileSprite(f.mapType, tile.getType(), x, y) != null, f.halfTileHeight);
         Image image = null;
-        int contactArt = 0;
+        var contactArt = 0;
         if (hasResource) {
             final String preferredKind = resourceKinds.preferredKind(f.map, f.mapType, resource.getType(), x, y,
                     f.worldSeed);
-            final SpriteManager.SpriteMetadata metadata = spriteManager.getResourceSprite(
+            final var metadata = spriteManager.getResourceSprite(
                     f.mapType, resource.getType(), x, y, f.worldSeed, preferredKind);
             image = metadata != null ? metadata.getImage() : null;
             contactArt = metadata != null ? metadata.getContactArtPixels() : 0;
@@ -860,10 +896,8 @@ public class FxRenderer {
         final TileMap map = gameState.getCurrentMap();
         final int connections = previewBuildingType == BuildingType.FENCE && map != null
                 ? FenceConnections.maskAt(map, previewTileX, previewTileY) : 0;
-        BuildingPreview preview = cachedPreview;
-        if (preview == null || preview.tileX() != previewTileX || preview.tileY() != previewTileY
-                || preview.type() != previewBuildingType || preview.rotation() != previewRotation
-                || preview.connections() != connections || preview.color() != previewColor) {
+        var preview = cachedPreview;
+        if (preview == null || !isCurrent(preview, connections)) {
             preview = new BuildingPreview(previewTileX, previewTileY, previewBuildingType, previewRotation,
                     connections, previewRgba, previewColor);
             cachedPreview = preview;
@@ -871,16 +905,24 @@ public class FxRenderer {
         return preview;
     }
 
+    /** Tells whether the cached ghost stands on the hovered tile, is of the selected piece and has its tint. */
+    private boolean isCurrent(BuildingPreview preview, int connections) {
+        final boolean sameTile = preview.tileX() == previewTileX && preview.tileY() == previewTileY;
+        final boolean samePiece = preview.type() == previewBuildingType && preview.rotation() == previewRotation
+                && preview.connections() == connections;
+        return sameTile && samePiece && Objects.equals(preview.color(), previewColor);
+    }
+
     /**
      * Queues the health bar over the building of the hovered tile, drawn after everything else so nothing covers it,
      * when the hammer is in hand and the building lost some health.
      */
     private void queueHealthBar(Tile tile, double artScale, double zoom) {
-        final Building building = tile.hasBuilding() ? tile.getBuilding() : tile.getFloor();
+        final var building = tile.hasBuilding() ? tile.getBuilding() : tile.getFloor();
         if (!FxBuildingHealthBar.isShown(buildModeActive, building)) {
             return;
         }
-        final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
+        final var graphics = AppConfig.getInstance().graphics();
         final double halfTileWidth = graphics.getTileHalfWidth() * zoom;
         final double halfTileHeight = graphics.getTileHalfHeight() * zoom;
         final int x = building.getTileX();
@@ -890,7 +932,7 @@ public class FxRenderer {
                 + FxObjectShadows.waterDrop(tile.getType().isWater(),
                 spriteManager.getTileSprite(activeMapType, tile.getType(), x, y) != null, halfTileHeight);
         final double centerY = topVertexY + halfTileHeight;
-        final Image art = buildingSprites.imageFor(building, 0);
+        final var art = buildingSprites.imageFor(building, 0);
         final double buildingTopY = art != null
                 ? BuildingSprites.drawY(centerY, (int) art.getHeight(), artScale)
                 : centerY - PROCEDURAL_BUILDING_HEIGHT_ART * zoom;
@@ -902,7 +944,7 @@ public class FxRenderer {
      * Y of the centre of the top of a tile as the player sees it.
      * A water tile shows its sheet below the land tops, so the cursor sits on the sheet.
      */
-    private double cursorCenterY(Tile tile, int tileX, int tileY, double zoom, double offsetY) {
+    private static double cursorCenterY(Tile tile, int tileX, int tileY, double zoom, double offsetY) {
         final double halfTileHeight = AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
         final double sheetDrop = tile.getType().isWater()
                 ? TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom) : 0;
@@ -925,10 +967,9 @@ public class FxRenderer {
     /** The tile highlight, recreated only when the tile, the zoom, the ground or the answer to a click changes it. */
     private TileHighlight highlightFor(boolean flashSlot, double centerX, double centerY, double tileWidth,
                                        double tileHeight, boolean lightGround, ClickFeedback.Kind tone) {
-        TileHighlight highlight = flashSlot ? cachedFlashHighlight : cachedHighlight;
-        if (highlight == null || highlight.centerX() != centerX || highlight.centerY() != centerY
-                || highlight.tileWidth() != tileWidth || highlight.tileHeight() != tileHeight
-                || highlight.lightGround() != lightGround || highlight.tone() != tone) {
+        var highlight = flashSlot ? cachedFlashHighlight : cachedHighlight;
+        if (highlight == null
+                || !showsSameCursor(highlight, centerX, centerY, tileWidth, tileHeight, lightGround, tone)) {
             highlight = new TileHighlight(centerX, centerY, tileWidth, tileHeight, lightGround, tone);
             if (flashSlot) {
                 cachedFlashHighlight = highlight;
@@ -937,6 +978,15 @@ public class FxRenderer {
             }
         }
         return highlight;
+    }
+
+    /** Tells whether a highlight is the crosshair that the given values would make. */
+    private static boolean showsSameCursor(TileHighlight highlight, double centerX, double centerY, double tileWidth,
+                                           double tileHeight, boolean lightGround, ClickFeedback.Kind tone) {
+        final boolean sameSpot = !differs(highlight.centerX(), centerX) && !differs(highlight.centerY(), centerY);
+        final boolean sameSize = !differs(highlight.tileWidth(), tileWidth)
+                && !differs(highlight.tileHeight(), tileHeight);
+        return sameSpot && sameSize && highlight.lightGround() == lightGround && highlight.tone() == tone;
     }
 
     /**
@@ -953,303 +1003,6 @@ public class FxRenderer {
     private boolean isTileVisible(double screenX, double screenY, double tileWidth, double tileHeight) {
         return ScreenCulling.isTileVisible(screenX, screenY, tileWidth, tileHeight,
                 canvas.getWidth(), canvas.getHeight(), ZoomSteps.integerArtScale(camera.getZoom()));
-    }
-
-    /**
-     * Dispatches the drawing call based on the type of the renderable object.
-     *
-     * @param r The Renderable object to draw.
-     */
-    private void drawRenderable(Renderable r) {
-        final Object object = r.object();
-        if (object instanceof Tile tile) {
-            drawTile(tile, r);
-        } else if (object instanceof ResourceType) {
-            drawResource(r);
-        } else if (object instanceof Building building) {
-            drawBuilding(building, r);
-        } else if (object instanceof Player) {
-            drawPlayer(r);
-        } else if (object instanceof Enemy) {
-            drawEnemy(r);
-        } else if (object instanceof DroppedItem) {
-            drawDroppedItem(r);
-        } else if (object instanceof TileHighlight h) {
-            drawHighlightTile(h);
-        } else if (object instanceof BuildingPreview bp) {
-            drawBuildingGhost(bp, r);
-        } else if (object instanceof HealthBarMark mark) {
-            FxBuildingHealthBar.draw(gc, mark, ZoomSteps.integerArtScale(camera.getZoom()));
-        }
-    }
-
-    private static Image[] singleton(Image image) {
-        return image != null ? new Image[]{image} : null;
-    }
-
-    /** Draws the ghost of the selected piece on the hovered tile, from its sprite when it has one. */
-    private void drawBuildingGhost(BuildingPreview preview, Renderable r) {
-        final double zoom = camera.getZoom();
-        final Image[] art = preview.type() == BuildingType.FENCE
-                ? buildingSprites.fenceLayers(preview.connections())
-                : singleton(buildingSprites.restingImage(preview.type(), preview.rotation()));
-        FxBuildingDrawingHelper.drawGhost(gc, preview, art, r.screenX(),
-                r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom, zoom);
-    }
-
-    /**
-     * Draws a building from its sprite when it has one, from its procedural shape otherwise.
-     *
-     * @param building The building to draw.
-     * @param r        The queued entry, which holds the tile position on screen and the sprite
-     */
-    private void drawBuilding(Building building, Renderable r) {
-        final double zoom = camera.getZoom();
-        final double centerY = r.screenY() + AppConfig.getInstance().graphics().getTileHalfHeight() * zoom;
-        if (building instanceof Fence fence && r.sprite() != null) {
-            final Image[] layers = buildingSprites.fenceLayers(fence.getConnections());
-            if (layers.length > 0) {
-                FxBuildingDrawingHelper.drawLayers(gc, layers, r.screenX(), centerY, zoom);
-                return;
-            }
-        }
-        FxBuildingDrawingHelper.drawBuilding(gc, building, r.sprite(), r.screenX(), centerY, frame.cameraView);
-    }
-
-    /**
-     * Draws highlight lines for the tile currently under the mouse.
-     *
-     * @param highlight The TileHighlight object containing the highlight information.
-     */
-    private void drawHighlightTile(TileHighlight highlight) {
-        final Color line;
-        final Color outline;
-        final double lineWidth;
-        final double alpha;
-        switch (highlight.tone()) {
-            case ACCEPTED, REJECTED -> {
-                line = highlight.tone() == ClickFeedback.Kind.ACCEPTED ? CURSOR_ACCEPTED : CURSOR_REJECTED;
-                outline = CURSOR_DARK_OUTLINE;
-                lineWidth = FLASH_LINE_WIDTH;
-                alpha = CursorStyle.flashAlpha(gameState.getClickFeedback().strength(currentFrameGameTime));
-            }
-            default -> {
-                // The crosshair is dark over light ground and light over dark ground, each with an outline of the
-                // opposite brightness, and it breathes slowly on the game clock
-                line = highlight.lightGround() ? CURSOR_DARK : CURSOR_LIGHT;
-                outline = highlight.lightGround() ? CURSOR_LIGHT_OUTLINE : CURSOR_DARK_OUTLINE;
-                lineWidth = CURSOR_LINE_WIDTH;
-                alpha = CursorStyle.breathAlpha(currentFrameGameTime);
-            }
-        }
-        FxTileDrawingHelper.drawTileHighlight(gc, highlight, camera.getZoom(), line, outline, lineWidth, alpha);
-    }
-
-    /**
-     * Draws the player entity on the canvas.
-     *
-     * @param r The Renderable object containing player information.
-     */
-    private void drawPlayer(Renderable r) {
-        Player player = (Player) r.object();
-        // A hit flashes the sprite red and white and shakes it sideways for a moment
-        final double sinceHurt = player.getSecondsSinceHurt();
-        final int flash = HurtReaction.flashPhase(sinceHurt);
-        final Image sprite = r.sprite() != null && flash != HurtReaction.NO_FLASH
-                ? TintedSprites.of(r.sprite(), flash) : r.sprite();
-        final double shakeX = HurtReaction.shakeScreenOffset(sinceHurt, ZoomSteps.integerArtScale(camera.getZoom()));
-        FxPlayerDrawingHelper.drawPlayer(
-                gc, r.screenX() + shakeX, r.screenY(),
-                camera.getZoom(), player, sprite
-        );
-    }
-
-    /**
-     * Draws an enemy entity on the canvas.
-     *
-     * @param r The Renderable object containing enemy information.
-     */
-    private void drawEnemy(Renderable r) {
-        final Enemy enemy = (Enemy) r.object();
-        final double zoom = camera.getZoom();
-
-        if (enemy instanceof Slime slime) {
-            FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, slime, currentFrameGameTime);
-        } else {
-            FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, enemy);
-        }
-    }
-
-    /**
-     * Draws a single tile on the canvas. Applies debug effects if enabled.
-     *
-     * @param tile The Tile object to draw.
-     * @param r    The Renderable object containing screen coordinates and flashing status.
-     */
-    private void drawTile(Tile tile, Renderable r) {
-        if (grayscaleView) {
-            FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
-            if (debugTextEnabled) {
-                FxTileDrawingHelper.drawDebugTileText(gc, r.screenX(), r.screenY(), camera.getZoom(), tile);
-            }
-            return;
-        }
-
-        int saveCount = 0;
-        if (r.isFlashing()) {
-            gc.save();
-            saveCount++;
-            gc.setEffect(flashEffect);
-        }
-
-        if (r.sprite() != null) {
-            if (tile.getType().isWater()) {
-                drawWater(tile, r);
-            } else {
-                FxTileDrawingHelper.drawTileSprite(gc, r.sprite(), r.screenX(), r.screenY(), camera.getZoom());
-                columns.drawExposedFaces(gameState.getCurrentMap(), tile, AssetPaths.tileArt(activeMapType, tile.getType()),
-                        r.screenX(), r.screenY(), camera.getZoom());
-                drawGroundDecal(tile, r);
-            }
-        } else {
-            FxTileDrawingHelper.drawTileSprite(gc, FlatTileSprites.get(tile.getType()), r.screenX(), r.screenY(), camera.getZoom());
-        }
-        if (saveCount > 0) {
-            gc.restore();
-        }
-    }
-
-    /**
-     * Draws a water tile as a column: its sunk sand bed with the faces its deeper neighbours expose and the decal on
-     * it, then the one translucent water sheet half a step below the land tops, the shimmer lines and the lily pad.
-     * The sheet is drawn right after its own bed, so a land tile drawn later in front of the water covers it, and the
-     * sprite of the sheet is narrower than a land diamond so neighbouring sheets never overlap. Every value comes from
-     * pure functions of the tile, the world seed and the animation clock computed once per frame, and the sprites are
-     * shared, so nothing is allocated.
-     */
-    private void drawWater(Tile tile, Renderable r) {
-        final int x = tile.getX();
-        final int y = tile.getY();
-        final long seed = gameState.getWorldSeed();
-        final double zoom = camera.getZoom();
-        final TileMap map = gameState.getCurrentMap();
-
-        columns.drawBed(map, tile, r.sprite(), r.screenX(), r.screenY(), zoom, seed);
-
-        final double surfaceY = r.screenY() + TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom);
-        final Image sheet = spriteManager.getWaterSprite(AssetPaths.waterArt(tile.getType()));
-        if (sheet != null) {
-            FxTileDrawingHelper.drawTileSprite(gc, sheet, r.screenX(), surfaceY, zoom);
-        }
-
-        final int lines = WaterShimmer.lineCount(x, y);
-        for (int line = 0; line < lines; line++) {
-            final double alpha = WaterShimmer.alpha(waterCycles, x, y, line);
-            final Image shimmer = spriteManager.getShimmerSprite(line);
-            if (alpha < MIN_SHIMMER_ALPHA || shimmer == null) {
-                continue;
-            }
-            gc.setGlobalAlpha(alpha);
-            FxTileDrawingHelper.drawDecal(gc, shimmer, r.screenX(), surfaceY, zoom,
-                    WaterShimmer.offsetU(waterCycles, x, y, line), WaterShimmer.offsetV(waterCycles, x, y, line));
-        }
-        gc.setGlobalAlpha(1.0);
-
-        final Image lilyPad = spriteManager.getDecalSprite(GroundDecals.lilyPadFor(map, tile.getType(), x, y, seed));
-        if (lilyPad != null) {
-            FxTileDrawingHelper.drawDecal(gc, lilyPad, r.screenX(), surfaceY, zoom,
-                    GroundDecals.offsetU(x, y, seed), GroundDecals.offsetV(x, y, seed));
-        }
-    }
-
-    /**
-     * Draws the decal of a tile on its top face, when the tile has one and holds no resource or building.
-     * The choice and the offset are pure functions of the tile and the world seed, so nothing is allocated.
-     */
-    private void drawGroundDecal(Tile tile, Renderable r) {
-        if (!tile.isBuildable()) {
-            return;
-        }
-        final long seed = gameState.getWorldSeed();
-        final Image decal = spriteManager.getDecalSprite(GroundDecals.decalFor(activeMapType, tile.getType(), tile.getX(), tile.getY(), seed));
-        if (decal == null) {
-            return;
-        }
-        FxTileDrawingHelper.drawDecal(gc, decal, r.screenX(), r.screenY(), camera.getZoom(),
-                GroundDecals.offsetU(tile.getX(), tile.getY(), seed), GroundDecals.offsetV(tile.getX(), tile.getY(), seed));
-    }
-
-    /**
-     * Draws a resource sprite on the canvas. Applies a flash effect if the resource is flashing.
-     *
-     * @param r The Renderable object containing resource information and screen coordinates.
-     */
-    private void drawResource(Renderable r) {
-        int saveCount = 0;
-        if (r.isFlashing()) {
-            gc.save();
-            saveCount++;
-            gc.setEffect(flashEffect);
-        }
-
-        if (r.sprite() != null) {
-            FxTileDrawingHelper.drawResourceSprite(
-                    gc, r.screenX(), r.screenY(),
-                    camera.getZoom(), r.sprite()
-            );
-        } else {
-            FxResourceFallbackPainter.draw(
-                    gc, r.screenX(), r.screenY(), camera.getZoom(),
-                    (ResourceType) r.object(),
-                    AppConfig.getInstance().graphics().getTileHalfHeight() * camera.getZoom()
-            );
-        }
-        if (saveCount > 0) {
-            gc.restore();
-        }
-    }
-
-    /**
-     * Draws a dropped item on the canvas with a floating animation.
-     *
-     * @param r The Renderable object containing dropped item information and screen coordinates.
-     */
-    private void drawDroppedItem(Renderable r) {
-        DroppedItem droppedItem = (DroppedItem) r.object();
-        FxItemDrawingHelper.drawDroppedItem(
-                gc, r.screenX(), r.screenY(), camera.getZoom(), droppedItem, currentFrameGameTime
-        );
-    }
-
-    /**
-     * Renders the visual effect of a player attack.
-     *
-     * @param gc The GraphicsContext for drawing.
-     * @param player The player entity.
-     * @param halfTileWidth Half the width of a zoomed tile.
-     * @param halfTileHeight Half the height of a zoomed tile.
-     * @param offsetX Camera X offset.
-     * @param offsetY Camera Y offset.
-     */
-    private void renderPlayerAttack(GraphicsContext gc, Player player,
-                                    double halfTileWidth, double halfTileHeight,
-                                    double offsetX, double offsetY) {
-        if (!player.isAttacking()) return;
-        double progress = player.getAttackAnimationProgress();
-        double[] attackPos = player.getAttackPosition();
-        double x = attackPos[0];
-        double y = attackPos[1];
-        // Convert tile coordinates to screen coordinates
-        double screenX = (x - y) * halfTileWidth + offsetX;
-        double screenY = (x + y) * halfTileHeight + offsetY;
-        // Draw the attack effect (a pulsing circle)
-        gc.setFill(Color.rgb(255, 0, 0, 0.5 * (1 - progress)));
-        gc.fillOval(
-                screenX - 10 * progress,
-                screenY - 10 * progress,
-                20 * progress,
-                20 * progress
-        );
     }
 
 }
