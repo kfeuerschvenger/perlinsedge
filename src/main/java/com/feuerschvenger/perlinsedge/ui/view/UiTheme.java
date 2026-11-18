@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.effect.ColorAdjust;
@@ -23,7 +24,7 @@ public final class UiTheme {
     /** Classpath location of the stylesheet. */
     public static final String STYLESHEET_PATH = "/ui/theme.css";
     /** Classpath location of the bundled font. */
-    public static final String FONT_PATH = "/assets/fonts/PixelifySans.ttf";
+    public static final String FONT_PATH = AppConfig.ASSET_ROOT + "/fonts/PixelifySans.ttf";
     /** Family name of the bundled font, as the stylesheet refers to it. */
     public static final String FONT_FAMILY = "Pixelify Sans";
 

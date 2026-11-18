@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class RecipeManagerTest {
 
@@ -26,6 +26,6 @@ class RecipeManagerTest {
 
     @Test
     void theHammerHasItsIconFile() {
-        assertTrue(getClass().getResource("/assets/items/" + ItemType.HAMMER.getSpritePath() + ".png") != null);
+        assertNotNull(getClass().getResource("/assets/items/" + ItemType.HAMMER.getSpritePath() + ".png"));
     }
 }

@@ -21,7 +21,7 @@ public record LightStyle(double warmStrength, double referenceDarkness) {
         if (!(warmStrength >= 0.0 && warmStrength <= 1.0)) {
             throw new IllegalArgumentException("The warm strength of a light must be from 0 to 1");
         }
-        if (!(referenceDarkness > 0.0)) {
+        if (Double.isNaN(referenceDarkness) || referenceDarkness <= 0.0) {
             throw new IllegalArgumentException("The reference darkness must be above zero");
         }
     }

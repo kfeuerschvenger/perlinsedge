@@ -100,11 +100,11 @@ public final class HurtReaction {
      * @return the packed pixel, unchanged when it is fully transparent
      */
     public static int tint(int argb, int phase) {
-        final int target = phase == RED ? RED_TARGET : phase == WHITE ? WHITE_TARGET : argb;
         final int alpha = argb >>> 24;
         if (alpha == 0 || phase != RED && phase != WHITE) {
             return argb;
         }
+        final int target = phase == RED ? RED_TARGET : WHITE_TARGET;
         final int r = mix((argb >> 16) & 0xFF, (target >> 16) & 0xFF);
         final int g = mix((argb >> 8) & 0xFF, (target >> 8) & 0xFF);
         final int b = mix(argb & 0xFF, target & 0xFF);

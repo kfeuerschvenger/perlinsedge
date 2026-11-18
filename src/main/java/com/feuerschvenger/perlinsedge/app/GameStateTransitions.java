@@ -148,8 +148,7 @@ public class GameStateTransitions {
                 buildingManager.deactivateBuildingMode();
                 palette.hidePalette();
                 break;
-            case INVENTORY_OPEN:
-            case CRAFTING_OPEN:
+            case INVENTORY_OPEN, CRAFTING_OPEN:
                 containerManager.closeContainer();
                 inventoryPanel.closeInventory();
                 gameState.setInventoryOpen(false);

@@ -98,7 +98,7 @@ public final class DayCycle {
     public double secondsIntoCycle() {
         final double cycle = settings.cycleSeconds();
         final double seconds = elapsed - Math.floor(elapsed / cycle) * cycle;
-        return Math.max(0.0, Math.min(Math.nextDown(cycle), seconds));
+        return Math.clamp(seconds, 0.0, Math.nextDown(cycle));
     }
 
     /**
@@ -112,7 +112,7 @@ public final class DayCycle {
         final double hours = unwrappedClockHours();
         final double wrapped = hours - Math.floor(hours / DayCycleSettings.HOURS_PER_DAY)
                 * DayCycleSettings.HOURS_PER_DAY;
-        return Math.max(0.0, Math.min(Math.nextDown(DayCycleSettings.HOURS_PER_DAY), wrapped));
+        return Math.clamp(wrapped, 0.0, Math.nextDown(DayCycleSettings.HOURS_PER_DAY));
     }
 
     /**
@@ -176,7 +176,7 @@ public final class DayCycle {
         if (arc <= 0.0) {
             return 1.0;
         }
-        return Math.max(0.0, Math.min(1.0, (unwrappedClockHours() - sunrise) / arc));
+        return Math.clamp((unwrappedClockHours() - sunrise) / arc, 0.0, 1.0);
     }
 
     /** @return true while the sun is above the horizon, from the sunrise up to but excluding the sunset */
@@ -323,7 +323,7 @@ public final class DayCycle {
 
     /** Keeps a mixed colour channel inside 0 to 1, so rounding at the ends of a mix can never leave the range. */
     private static double channel(double value) {
-        return Math.max(0.0, Math.min(1.0, value));
+        return Math.clamp(value, 0.0, 1.0);
     }
 
     /** Returns the point a share of the way from one value to another, {@code from} at zero and {@code to} at one. */
@@ -333,7 +333,7 @@ public final class DayCycle {
 
     /** A smooth step: zero at zero, one at one, with no jump in the slope at either end. */
     private static double ease(double t) {
-        final double x = Math.max(0.0, Math.min(1.0, t));
+        final double x = Math.clamp(t, 0.0, 1.0);
         return x * x * (3.0 - 2.0 * x);
     }
 }

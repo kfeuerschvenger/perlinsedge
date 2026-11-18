@@ -13,7 +13,9 @@ import java.util.Objects;
 public class Tile {
     // Coordinate Properties (Immutable)
     @Getter
-    private final int x, y;
+    private final int x;
+    @Getter
+    private final int y;
 
     // Terrain Properties
     @Getter

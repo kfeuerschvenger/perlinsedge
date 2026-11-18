@@ -41,7 +41,6 @@ public final class BuildingSprites {
     private final Function<String, Image> loader;
     private final Map<String, Image> cache = new HashMap<>();
     private final Image[][] fenceCache = new Image[16][];
-    private final boolean[] fenceCacheFilled = new boolean[16];
 
     /** The lazily created instance that reads the classpath. */
     private static final class InstanceHolder {
@@ -177,13 +176,12 @@ public final class BuildingSprites {
      * are laid on top of each other as they are.
      *
      * @param connections the joined sides of the fence, a mask of {@link FenceConnections}
-     * @return the images to draw, or null when there is no art for the post, which means the procedural shape is drawn
+     * @return the images to draw, empty when there is no art for the post, which means the procedural shape is drawn
      */
     public Image[] fenceLayers(int connections) {
         final int mask = connections & 15;
         Image[] layers = fenceCache[mask];
-        if (layers == null && !fenceCacheFilled[mask]) {
-            fenceCacheFilled[mask] = true;
+        if (layers == null) {
             layers = composeFence(mask);
             fenceCache[mask] = layers;
         }
@@ -193,7 +191,7 @@ public final class BuildingSprites {
     private Image[] composeFence(int mask) {
         final Image post = image(FENCE_POST);
         if (post == null) {
-            return null;
+            return NO_IMAGES;
         }
         final java.util.List<Image> layers = new java.util.ArrayList<>(5);
         addRail(layers, mask, FenceConnections.UPPER_LEFT, 0);
@@ -222,8 +220,7 @@ public final class BuildingSprites {
      */
     public Image[] shadowImages(Building building) {
         if (building instanceof Fence fence) {
-            final Image[] layers = fenceLayers(fence.getConnections());
-            return layers != null ? layers : NO_IMAGES;
+            return fenceLayers(fence.getConnections());
         }
         final String name = building.getType() == BuildingType.CAMPFIRE || building.getType() == BuildingType.STANDING_TORCH
                 ? restingName(building.getType(), 0) : spriteName(building, 0);

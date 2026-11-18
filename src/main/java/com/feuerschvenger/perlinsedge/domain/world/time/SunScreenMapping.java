@@ -18,7 +18,7 @@ public final class SunScreenMapping {
      * @return the angle in radians: pi for left, pi / 2 for down, zero for right
      */
     public static double shadowAngle(double sunProgress) {
-        return Math.PI * (1.0 - Math.max(0.0, Math.min(1.0, sunProgress)));
+        return Math.PI * (1.0 - Math.clamp(sunProgress, 0.0, 1.0));
     }
 
     /**

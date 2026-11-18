@@ -130,7 +130,8 @@ public final class FxEnemyDrawingHelper {
                             / SlimeShadow.width(size, 0.0, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR));
             final Silhouette silhouette = SilhouetteSprites.of(frame);
             shadows.addSilhouette(tileTopX, baseDrawY + jumpHeight, silhouette, silhouette.height(),
-                    narrowing * drawnWidth / size, drawnWidth / scale, drawnHeight / scale, fade);
+                    narrowing * drawnWidth / size, new ShadowList.SpriteSize(drawnWidth / scale, drawnHeight / scale),
+                    fade);
             return;
         }
         shadows.add(tileTopX, baseDrawY + jumpHeight,
@@ -185,7 +186,8 @@ public final class FxEnemyDrawingHelper {
      */
     private static void drawSlimeBody(GraphicsContext gc, double centerX, double centerY,
                                       double size, Slime slime, SlimeMovementStrategy slimeMove) {
-        double width, height;
+        double width;
+        double height;
 
         // Check if movement strategy is available and jumping
         if (slimeMove != null && slimeMove.isJumping()) {

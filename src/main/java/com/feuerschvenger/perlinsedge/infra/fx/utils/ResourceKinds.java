@@ -76,6 +76,6 @@ public final class ResourceKinds {
             return null;
         }
         final boolean odd = SpriteVariants.forResource(seed ^ SALT_ODD, x, y, ODD_ONE_IN) == 0;
-        return nearWater != odd ? PALM : CACTUS;
+        return nearWater == odd ? CACTUS : PALM;
     }
 }

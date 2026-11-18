@@ -53,7 +53,7 @@ public class WheelAccumulator {
             accumulated = 0;
         }
         accumulated += deltaY;
-        int steps = Math.max(-1, Math.min(1, (int) (accumulated / STEP_THRESHOLD)));
+        int steps = Math.clamp((int) (accumulated / STEP_THRESHOLD), -1, 1);
         accumulated -= steps * STEP_THRESHOLD;
         // An oversized delta must not bank more steps for the events that follow, only a part of one
         accumulated %= STEP_THRESHOLD;

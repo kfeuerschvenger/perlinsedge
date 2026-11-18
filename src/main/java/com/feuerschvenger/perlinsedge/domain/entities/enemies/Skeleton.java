@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonAttackStrategy;
@@ -71,17 +70,6 @@ public class Skeleton extends Enemy {
     // ==================================================================
 
     /**
-     * Runs the ranged behaviour at the end of every update.
-     * Skeletons attempt to maintain distance while attacking with arrows.
-     *
-     * @param player Player instance
-     */
-    @Override
-    protected void afterUpdate(Player player) {
-        rangedBehavior(player);
-    }
-
-    /**
      * A hit makes the skeleton chase the attacker even from outside its aggro range. A skeleton built with another
      * movement strategy has no chase to start and only takes the damage.
      *
@@ -102,23 +90,5 @@ public class Skeleton extends Enemy {
     @Override
     public double getRenderOffsetY() {
         return 0; // Skeletons render at standard height
-    }
-
-    // ==================================================================
-    //  Combat Behavior Methods
-    // ==================================================================
-
-    /**
-     * Implements skeleton-specific ranged combat behavior.
-     * Skeletons will attempt to maintain optimal archery distance.
-     *
-     * @param player Player instance to target
-     */
-    private void rangedBehavior(Player player) {
-        // TODO: Implement ranged combat logic
-        // 1. Calculate distance to player
-        // 2. If too close, retreat to optimal archery range
-        // 3. If in range, fire arrow projectiles
-        // 4. Implement arrow cooldown mechanics
     }
 }

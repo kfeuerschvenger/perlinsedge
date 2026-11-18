@@ -17,7 +17,6 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** A move order never walks into an enemy: it is refused onto an enemy's tile and the walk goes around enemies. */
@@ -151,8 +150,8 @@ class MoveAroundEnemiesTest {
     void thePathfinderNeverEndsOrCrossesAnOccupiedTile() {
         final Set<PathNode> occupied = Set.of(new PathNode(3, 5));
 
-        assertNull(new Pathfinder(map, occupied).findPath(0, 5, 3, 5));
-        final List<PathNode> around = new Pathfinder(map, occupied).findPath(0, 5, 6, 5);
+        assertTrue(new Pathfinder(map, occupied).findPath(0, 5, 3, 5).isEmpty());
+        final List<PathNode> around = new Pathfinder(map, occupied).findPath(0, 5, 6, 5).orElseThrow();
         assertNotNull(around);
         assertFalse(around.contains(new PathNode(3, 5)));
     }
@@ -161,7 +160,7 @@ class MoveAroundEnemiesTest {
     void aNextToSearchNeverEndsOnAnOccupiedTile() {
         // The target is at (5,5) and the cheapest stand tile, (4,5), is taken
         final List<PathNode> walk = new Pathfinder(map, Set.of(new PathNode(4, 5)))
-                .findPathNextTo(0, 5, 5, 5, SIZE * SIZE);
+                .findPathNextTo(0, 5, 5, 5, SIZE * SIZE).orElseThrow();
 
         assertNotNull(walk);
         final PathNode end = walk.get(walk.size() - 1);

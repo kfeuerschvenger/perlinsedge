@@ -112,19 +112,19 @@ public final class FxTileDrawingHelper {
      * given colour over a wider outline of the opposite brightness, so it reads on light and dark ground alike.
      *
      * @param gc         graphics context to draw on
-     * @param centerX    X of the centre of the tile top
-     * @param centerY    Y of the centre of the tile top
-     * @param tileWidth  the zoomed width of the tile
-     * @param tileHeight the zoomed height of the tile
+     * @param highlight  the tile cursor: the centre of the tile top and the zoomed size of the tile
      * @param zoom       current zoom level
      * @param line       colour of the crosshair
      * @param outline    colour of the outline under it
      * @param lineWidth  stroke width of the crosshair, the outline is wider
      * @param alpha      opacity of the whole crosshair
      */
-    public static void drawTileHighlight(GraphicsContext gc, double centerX, double centerY,
-                                         double tileWidth, double tileHeight, double zoom,
+    public static void drawTileHighlight(GraphicsContext gc, TileHighlight highlight, double zoom,
                                          Color line, Color outline, double lineWidth, double alpha) {
+        final double centerX = highlight.centerX();
+        final double centerY = highlight.centerY();
+        final double tileWidth = highlight.tileWidth();
+        final double tileHeight = highlight.tileHeight();
         gc.setGlobalAlpha(alpha);
         gc.setStroke(outline);
         gc.setLineWidth(lineWidth + 2);

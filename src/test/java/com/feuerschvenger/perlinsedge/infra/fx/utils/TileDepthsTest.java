@@ -11,7 +11,10 @@ class TileDepthsTest {
     @Test
     void landIsAtTheTopAndShallowCoastAndRiverWaterOneStepDownAndDeepWaterTwo() {
         for (TileType type : TileType.values()) {
-            int expected = !type.isWater() ? 0 : type == TileType.DEEP_WATER ? 2 : 1;
+            int expected = 0;
+            if (type.isWater()) {
+                expected = type == TileType.DEEP_WATER ? 2 : 1;
+            }
             assertEquals(expected, TileDepths.level(type), type.name());
             assertEquals(expected * 10, TileDepths.sinkPixels(type), type.name());
         }

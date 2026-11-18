@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.event.Event;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
@@ -19,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -101,8 +103,9 @@ class InventoryPanelRefreshTest {
             panel.openPlayerInventory();
             return null;
         });
-        assertFalse(before.equals(drawn(slot)), "opening draws the current stack");
-        assertEquals("9", FxToolkitSupport.onFx(() -> ((javafx.scene.control.Label) slot.getChildren().get(1)).getText()));
+        assertNotEquals(before, drawn(slot), "opening draws the current stack");
+        Label count = FxToolkitSupport.onFx(() -> (Label) slot.getChildren().get(1));
+        assertEquals("9", FxToolkitSupport.onFx(count::getText));
     }
 
     @Test
@@ -123,7 +126,7 @@ class InventoryPanelRefreshTest {
         player.setItemAt(GRID_SLOT + 1, new Item(ItemType.STONE, 5));
         refresh();
 
-        assertFalse(untouchedAfterFill.equals(drawn(untouched)));
+        assertNotEquals(untouchedAfterFill, drawn(untouched));
         assertEquals(changingBefore, drawn(changing));
     }
 

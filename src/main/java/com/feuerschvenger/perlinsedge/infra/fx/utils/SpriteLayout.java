@@ -38,7 +38,7 @@ public final class SpriteLayout {
         if (!jumping) {
             return 0;
         }
-        double clamped = Math.max(0.0, Math.min(1.0, phase));
+        double clamped = Math.clamp(phase, 0.0, 1.0);
         return 1 + Math.min(SLIME_FRAMES - 2, (int) (clamped * (SLIME_FRAMES - 1)));
     }
 }

@@ -73,48 +73,72 @@ public final class FxDamageNumbersPainter {
      * @param gc           the graphics context of the world canvas, with no transform applied
      * @param numbers      the pool of numbers
      * @param gameTime     the game clock in seconds
-     * @param halfTileW    half the tile width in screen pixels
-     * @param halfTileH    half the tile height in screen pixels
-     * @param offsetX      camera offset X
-     * @param offsetY      camera offset Y
-     * @param zoom         camera zoom
+     * @param projection   how a tile maps to the screen: half tile size, camera offset and zoom
      * @param canvasWidth  canvas width in pixels
      * @param canvasHeight canvas height in pixels
      */
-    public static void draw(GraphicsContext gc, DamageNumbers numbers, double gameTime, double halfTileW,
-                            double halfTileH, double offsetX, double offsetY, double zoom, double canvasWidth,
-                            double canvasHeight) {
-        final double scale = ZoomSteps.integerArtScale(zoom);
+    public static void draw(GraphicsContext gc, DamageNumbers numbers, double gameTime, TileProjection projection,
+                            double canvasWidth, double canvasHeight) {
+        final double scale = ZoomSteps.integerArtScale(projection.zoom());
         boolean prepared = false;
         for (int i = 0, count = numbers.size(); i < count; i++) {
             final DamageNumbers.Entry entry = numbers.get(i);
-            if (!entry.isActive(gameTime)) {
-                continue;
+            if (entry.isActive(gameTime)) {
+                final double x = screenX(entry, projection, scale);
+                final double y = screenY(entry, projection, scale, gameTime);
+                if (isOnScreen(x, y, canvasWidth, canvasHeight)) {
+                    if (!prepared) {
+                        prepare(gc, scale);
+                        prepared = true;
+                    }
+                    drawNumber(gc, entry, x, y, scale, gameTime);
+                }
             }
-            // The foot of the tile is one and a half half-tiles below its top vertex, where entities stand
-            final double x = Math.rint((entry.getTileX() - entry.getTileY()) * halfTileW + offsetX
-                    + entry.getOffsetX() * scale);
-            final double y = Math.rint((entry.getTileX() + entry.getTileY()) * halfTileH + offsetY + halfTileH * 1.5
-                    - (lift(entry.getKind()) + entry.rise(gameTime)) * scale);
-            if (x < -SCREEN_MARGIN || x > canvasWidth + SCREEN_MARGIN
-                    || y < -SCREEN_MARGIN || y > canvasHeight + SCREEN_MARGIN) {
-                continue;
-            }
-            if (!prepared) {
-                prepare(gc, scale);
-                prepared = true;
-            }
-            gc.setGlobalAlpha(entry.opacity(gameTime));
-            gc.setFill(OUTLINE);
-            for (int[] offset : OUTLINE_OFFSETS) {
-                gc.fillText(entry.getText(), x + offset[0] * scale, y + offset[1] * scale);
-            }
-            gc.setFill(color(entry.getKind()));
-            gc.fillText(entry.getText(), x, y);
         }
         if (prepared) {
             gc.setGlobalAlpha(1.0);
         }
+    }
+
+    /**
+     * How a tile maps to the screen.
+     *
+     * @param halfTileWidth  half the tile width in screen pixels
+     * @param halfTileHeight half the tile height in screen pixels
+     * @param offsetX        camera offset X
+     * @param offsetY        camera offset Y
+     * @param zoom           camera zoom
+     */
+    public record TileProjection(double halfTileWidth, double halfTileHeight, double offsetX, double offsetY,
+                                 double zoom) {}
+
+    private static double screenX(DamageNumbers.Entry entry, TileProjection projection, double scale) {
+        return Math.rint((entry.getTileX() - entry.getTileY()) * projection.halfTileWidth() + projection.offsetX()
+                + entry.getOffsetX() * scale);
+    }
+
+    private static double screenY(DamageNumbers.Entry entry, TileProjection projection, double scale,
+                                  double gameTime) {
+        final double halfTileH = projection.halfTileHeight();
+        // The foot of the tile is one and a half half-tiles below its top vertex, where entities stand
+        return Math.rint((entry.getTileX() + entry.getTileY()) * halfTileH + projection.offsetY() + halfTileH * 1.5
+                - (lift(entry.getKind()) + entry.rise(gameTime)) * scale);
+    }
+
+    private static boolean isOnScreen(double x, double y, double canvasWidth, double canvasHeight) {
+        return x >= -SCREEN_MARGIN && x <= canvasWidth + SCREEN_MARGIN
+                && y >= -SCREEN_MARGIN && y <= canvasHeight + SCREEN_MARGIN;
+    }
+
+    private static void drawNumber(GraphicsContext gc, DamageNumbers.Entry entry, double x, double y, double scale,
+                                   double gameTime) {
+        gc.setGlobalAlpha(entry.opacity(gameTime));
+        gc.setFill(OUTLINE);
+        for (int[] offset : OUTLINE_OFFSETS) {
+            gc.fillText(entry.getText(), x + offset[0] * scale, y + offset[1] * scale);
+        }
+        gc.setFill(color(entry.getKind()));
+        gc.fillText(entry.getText(), x, y);
     }
 
     private static void prepare(GraphicsContext gc, double scale) {

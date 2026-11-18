@@ -152,7 +152,7 @@ public class ResourceManager {
         // The number shows what the hit took off, so the last hit on a nearly broken resource shows what was left
         final int healthBefore = resource.getHealth();
         boolean depleted = resource.takeDamage(ToolStats.resourceDamage(tool, resource.getType()));
-        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, healthBefore - resource.getHealth(),
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, (double) healthBefore - resource.getHealth(),
                 tileX, tileY, currentTime);
         if (depleted) {
             processResourceDepletion(resource, tileX, tileY);

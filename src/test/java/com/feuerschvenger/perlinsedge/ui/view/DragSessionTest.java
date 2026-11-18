@@ -37,7 +37,8 @@ class DragSessionTest {
 
     @Test
     void anEmptySlotCannotBeDragged() {
-        assertThrows(IllegalArgumentException.class, () -> new DragSession(new SlotRef(player, 7)));
+        SlotRef emptySlot = new SlotRef(player, 7);
+        assertThrows(IllegalArgumentException.class, () -> new DragSession(emptySlot));
     }
 
     @Test

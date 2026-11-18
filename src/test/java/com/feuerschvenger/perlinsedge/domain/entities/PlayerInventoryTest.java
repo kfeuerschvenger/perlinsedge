@@ -254,9 +254,11 @@ class PlayerInventoryTest {
 
     @Test
     void itemRejectsNonPositiveQuantityAndNegativeChanges() {
+        final Item stone = new Item(ItemType.STONE, 1);
+
         assertThrows(IllegalArgumentException.class, () -> new Item(ItemType.STONE, 0));
-        assertThrows(IllegalArgumentException.class, () -> new Item(ItemType.STONE, 1).addQuantity(-1));
-        assertThrows(IllegalArgumentException.class, () -> new Item(ItemType.STONE, 1).removeQuantity(-1));
+        assertThrows(IllegalArgumentException.class, () -> stone.addQuantity(-1));
+        assertThrows(IllegalArgumentException.class, () -> stone.removeQuantity(-1));
         assertThrows(NullPointerException.class, () -> new Item(null, 1));
     }
 

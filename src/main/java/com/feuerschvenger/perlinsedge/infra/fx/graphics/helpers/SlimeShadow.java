@@ -61,6 +61,6 @@ public final class SlimeShadow {
 
     /** Returns how far into the jump the slime is, from zero on the ground to one at the top. */
     private static double lift(double height, double maxHeight) {
-        return Math.max(0.0, Math.min(1.0, maxHeight > 0 ? height / maxHeight : 0.0));
+        return Math.clamp(maxHeight > 0 ? height / maxHeight : 0.0, 0.0, 1.0);
     }
 }

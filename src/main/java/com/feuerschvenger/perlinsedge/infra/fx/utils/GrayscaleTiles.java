@@ -29,7 +29,7 @@ public final class GrayscaleTiles {
      * @return zero for the lowest tile and one for the highest
      */
     public static double normalized(double height) {
-        return Math.max(0.0, Math.min(1.0, (height + 1.0) / HEIGHT_NORMALIZATION));
+        return Math.clamp((height + 1.0) / HEIGHT_NORMALIZATION, 0.0, 1.0);
     }
 
     /**

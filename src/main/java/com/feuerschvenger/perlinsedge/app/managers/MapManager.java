@@ -35,6 +35,9 @@ public class MapManager implements IMapGenerationListener {
     private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
 
+    /** Stands for "no position found", so a search never returns null. */
+    private static final int[] NO_POSITION = new int[0];
+
     // Tile validator predicate
     private static final Predicate<Tile> SPAWN_VALIDATOR =
             tile -> tile != null && tile.isWalkable();
@@ -43,6 +46,8 @@ public class MapManager implements IMapGenerationListener {
     private final GameStateManager gameState;
     private final MapConfigPanel mapConfigPanel;
     private final MapGeneratorFactory mapGeneratorFactory;
+    /** Draws the candidate tiles of the enemy spawn search. */
+    private final Random random = new Random();
 
     // State
     @Getter
@@ -166,7 +171,7 @@ public class MapManager implements IMapGenerationListener {
 
         for (var i = 0; i < count; i++) {
             int[] position = findSafePosition(playerPosition, map, taken);
-            if (position != null) {
+            if (position.length > 0) {
                 final var enemy = createEnemy(type, position[0], position[1]);
                 taken.sync(enemy);
                 enemies.add(enemy);
@@ -198,9 +203,10 @@ public class MapManager implements IMapGenerationListener {
      * - Distance from player
      * - Sufficient adjacent walkable tiles
      * - A tile no other enemy holds
+     *
+     * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
     private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
-        var random = new Random();
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
 
         for (var attempt = 0; attempt < maxAttempts; attempt++) {
@@ -211,7 +217,7 @@ public class MapManager implements IMapGenerationListener {
                 return new int[]{x, y};
             }
         }
-        return null;
+        return NO_POSITION;
     }
 
     /**
@@ -228,8 +234,8 @@ public class MapManager implements IMapGenerationListener {
         }
 
         if (playerPosition != null) {
-            double distance = Math.hypot(x - playerPosition[0], y - playerPosition[1]);
-            return !(distance < MIN_SPAWN_DISTANCE);
+            double distance = Math.hypot((double) x - playerPosition[0], (double) y - playerPosition[1]);
+            return distance >= MIN_SPAWN_DISTANCE;
         }
 
         return true;
@@ -243,7 +249,7 @@ public class MapManager implements IMapGenerationListener {
                 x, y, map,
                 SPAWN_VALIDATOR,
                 MIN_WALKABLE_NEIGHBORS,
-                IsometricUtils.CARDINAL_DIRECTIONS
+                IsometricUtils.cardinalDirections()
         );
     }
 

@@ -335,18 +335,26 @@ class InventoryController {
         DragSession.Release outcome = finished.release(target, overPanel);
         log.debug("DRAG RELEASE: {} {}", finished.item().getDisplayName(), outcome);
         switch (outcome) {
-            case TRANSFER -> {
-                if (onItemDroppedInsideCallback != null) {
-                    onItemDroppedInsideCallback.transfer(finished.origin().slot(), finished.origin().container(),
-                            target.slot(), target.container(), finished.item());
-                }
+            case TRANSFER -> transferDragged(finished, target);
+            case DROP_STACK -> dropDraggedStack(finished);
+            case CANCEL -> {
+                // Nothing moves: the drag has ended and the item stays where it was
             }
-            case DROP_STACK -> {
-                if (onItemDroppedCallback != null) {
-                    onItemDroppedCallback.drop(finished.origin(), true);
-                }
-            }
-            case CANCEL -> { }
+        }
+    }
+
+    /** Hands the dragged stack to the transfer callback, when one is set. */
+    private void transferDragged(DragSession finished, SlotRef target) {
+        if (onItemDroppedInsideCallback != null) {
+            onItemDroppedInsideCallback.transfer(finished.origin().slot(), finished.origin().container(),
+                    target.slot(), target.container(), finished.item());
+        }
+    }
+
+    /** Throws the whole dragged stack through the drop callback, when one is set. */
+    private void dropDraggedStack(DragSession finished) {
+        if (onItemDroppedCallback != null) {
+            onItemDroppedCallback.drop(finished.origin(), true);
         }
     }
 

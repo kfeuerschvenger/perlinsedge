@@ -13,14 +13,40 @@ import java.util.function.Predicate;
 public final class IsometricUtils {
 
     // Direction constants for cardinal and diagonal movements
-    public static final int[][] CARDINAL_DIRECTIONS = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
-    public static final int[][] ALL_DIRECTIONS = {
+    private static final int[][] CARDINAL_DIRECTIONS = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
+    private static final int[][] ALL_DIRECTIONS = {
             {0, 1}, {1, 0}, {0, -1}, {-1, 0},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
 
     // Private constructor to prevent instantiation
     private IsometricUtils() {}
+
+    /**
+     * Gives the four cardinal offsets as [dx, dy] pairs.
+     *
+     * @return a fresh copy, so a caller cannot change the shared table
+     */
+    public static int[][] cardinalDirections() {
+        return copyOf(CARDINAL_DIRECTIONS);
+    }
+
+    /**
+     * Gives the eight offsets around a tile, cardinal first and then diagonal, as [dx, dy] pairs.
+     *
+     * @return a fresh copy, so a caller cannot change the shared table
+     */
+    public static int[][] allDirections() {
+        return copyOf(ALL_DIRECTIONS);
+    }
+
+    private static int[][] copyOf(int[][] directions) {
+        final int[][] copy = new int[directions.length][];
+        for (int i = 0; i < directions.length; i++) {
+            copy[i] = directions[i].clone();
+        }
+        return copy;
+    }
 
     // ==================================================================
     //  Coordinate Transformation Methods

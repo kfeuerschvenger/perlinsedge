@@ -12,6 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FxDamageNumbersPainterTest {
 
+    /** The dark text colour of the GUI, which the outline of the numbers shares. */
+    private static final Color GUI_DARK_TEXT = Color.web("#1d1830");
+
     @Test
     void everyKindHasItsOwnColour() {
         Set<Color> colours = new HashSet<>();
@@ -45,6 +48,6 @@ class FxDamageNumbersPainterTest {
 
     @Test
     void theOutlineIsTheDarkTextColourOfTheGui() {
-        assertEquals(Color.web("#1d1830"), FxDamageNumbersPainter.OUTLINE);
+        assertEquals(GUI_DARK_TEXT, FxDamageNumbersPainter.OUTLINE);
     }
 }

@@ -192,8 +192,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** @return the distance in tiles between the tile of the enemy and the tile of the player */
     private static double distanceToPlayer(Enemy enemy, Player player) {
-        return Math.hypot(player.getCurrentTileX() - enemy.getCurrentTileX(),
-                player.getCurrentTileY() - enemy.getCurrentTileY());
+        return Math.hypot((double) player.getCurrentTileX() - enemy.getCurrentTileX(),
+                (double) player.getCurrentTileY() - enemy.getCurrentTileY());
     }
 
     /**
@@ -208,9 +208,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
                     enemy.getCurrentTileX(), enemy.getCurrentTileY(),
                     player.getCurrentTileX(), player.getCurrentTileY(),
                     occupancy.penaltyFor(enemy, HELD_TILE_PENALTY)
-            );
+            ).orElse(List.of());
 
-            if (pathToPlayer != null && !pathToPlayer.isEmpty()) {
+            if (!pathToPlayer.isEmpty()) {
                 currentPath = new LinkedList<>(pathToPlayer);
                 removeCurrentPositionFromPath(enemy);
                 forgetBlockedStepUnlessAhead();
@@ -411,8 +411,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         hoverRetrySeconds = 0;
         enemy.setTargetTileX(bestX);
         enemy.setTargetTileY(bestY);
-        final double duration = Math.max(MIN_BEND_FRACTION * hopDuration,
-                Math.min(MAX_BEND_FRACTION * hopDuration, hopDuration * bestDistance));
+        final double duration = Math.clamp(hopDuration * bestDistance,
+                MIN_BEND_FRACTION * hopDuration, MAX_BEND_FRACTION * hopDuration);
         beginSegment(enemy, duration, jumpPhase);
     }
 

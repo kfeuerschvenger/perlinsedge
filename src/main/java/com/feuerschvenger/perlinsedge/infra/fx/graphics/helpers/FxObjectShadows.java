@@ -22,6 +22,16 @@ public final class FxObjectShadows {
     /** Share of the half height of a tile that a flat water tile drawn without art is lowered by. */
     private static final double WATER_DEPTH_SHARE = 0.5;
 
+    /**
+     * Where a tile stands and the scale it is drawn at.
+     *
+     * @param screenX        screen X of the tile centre
+     * @param screenY        screen Y of the top vertex of the tile, already lowered by {@link #waterDrop}
+     * @param halfTileHeight half the height of a tile in screen pixels
+     * @param artScale       screen pixels per art pixel
+     */
+    public record TileAnchor(double screenX, double screenY, double halfTileHeight, double artScale) {}
+
     /** Not instantiable: the class only holds static rules. */
     private FxObjectShadows() {}
 
@@ -47,15 +57,11 @@ public final class FxObjectShadows {
      * @param contactArt     how far below the tile centre the lowest painted pixel of the sprite lies, in art pixels,
      *                       zero for a sprite that stands on its bottom edge
      * @param building       the type of the building on the tile, or null for none
-     * @param screenX        screen X of the tile centre
-     * @param screenY        screen Y of the top vertex of the tile, already lowered by {@link #waterDrop}
-     * @param halfTileHeight half the height of a tile in screen pixels
-     * @param artScale       screen pixels per art pixel
+     * @param anchor         where the tile stands and the scale it is drawn at
      */
     public static void addForTile(ShadowList shadows, ResourceType resource, Image image, int contactArt,
-                                  BuildingType building, double screenX, double screenY, double halfTileHeight,
-                                  double artScale) {
-        addForTile(shadows, resource, image, contactArt, building, (Image) null, screenX, screenY, halfTileHeight, artScale);
+                                  BuildingType building, TileAnchor anchor) {
+        addForTile(shadows, resource, image, contactArt, building, (Image) null, anchor);
     }
 
     /**
@@ -68,16 +74,12 @@ public final class FxObjectShadows {
      * @param contactArt     how far below the tile centre the lowest painted pixel of the resource sprite lies, in art pixels
      * @param building       the type of the building on the tile, or null for none
      * @param buildingImage  the sprite of the building, or null when it is drawn from its procedural shape
-     * @param screenX        screen X of the tile centre
-     * @param screenY        screen Y of the top vertex of the tile, already lowered by {@link #waterDrop}
-     * @param halfTileHeight half the height of a tile in screen pixels
-     * @param artScale       screen pixels per art pixel
+     * @param anchor         where the tile stands and the scale it is drawn at
      */
     public static void addForTile(ShadowList shadows, ResourceType resource, Image image, int contactArt,
-                                  BuildingType building, Image buildingImage, double screenX, double screenY,
-                                  double halfTileHeight, double artScale) {
+                                  BuildingType building, Image buildingImage, TileAnchor anchor) {
         addForTile(shadows, resource, image, contactArt, building,
-                buildingImage != null ? new Image[]{buildingImage} : null, screenX, screenY, halfTileHeight, artScale);
+                buildingImage != null ? new Image[]{buildingImage} : null, anchor);
     }
 
     /**
@@ -90,17 +92,14 @@ public final class FxObjectShadows {
      * @param contactArt     how far below the tile centre the lowest painted pixel of the resource sprite lies
      * @param building       the type of the building on the tile, or null for none
      * @param buildingImages the sprites of the building, or null or none when it is drawn from its procedural shape
-     * @param screenX        screen X of the tile centre
-     * @param screenY        screen Y of the top vertex of the tile, already lowered by {@link #waterDrop}
-     * @param halfTileHeight half the height of a tile in screen pixels
-     * @param artScale       screen pixels per art pixel
+     * @param anchor         where the tile stands and the scale it is drawn at
      */
     public static void addForTile(ShadowList shadows, ResourceType resource, Image image, int contactArt,
-                                  BuildingType building, Image[] buildingImages, double screenX, double screenY,
-                                  double halfTileHeight, double artScale) {
-        final double groundY = screenY + halfTileHeight;
+                                  BuildingType building, Image[] buildingImages, TileAnchor anchor) {
+        final double screenX = anchor.screenX();
+        final double groundY = anchor.screenY() + anchor.halfTileHeight();
         if (resource != null) {
-            addResource(shadows, resource, image, screenX, groundY + contactArt * artScale, contactArt > 0);
+            addResource(shadows, resource, image, screenX, groundY + contactArt * anchor.artScale(), contactArt > 0);
         }
         if (building != null) {
             final double width = GroundShadow.widthFor(building);
@@ -113,7 +112,7 @@ public final class FxObjectShadows {
                 for (Image buildingImage : buildingImages) {
                     final Silhouette silhouette = SilhouetteSprites.of(buildingImage);
                     shadows.addSilhouette(screenX, groundY, silhouette,
-                            silhouette.height() - BuildingSprites.TILE_CENTER_ART_PIXELS, 1.0, 1.0);
+                            (double) silhouette.height() - BuildingSprites.TILE_CENTER_ART_PIXELS, 1.0, 1.0);
                 }
             } else {
                 shadows.add(screenX, groundY, width, 1.0);

@@ -15,15 +15,22 @@ import java.util.List;
  */
 public final class GroundDecals {
 
+    /** Name of the first of the two pebble decals, the one shared by green ground, sand and dunes. */
+    private static final String FIRST_PEBBLE_DECAL = "pebble-1";
+
+    /** Name of the second pebble decal, shared by green ground and dunes. */
+    private static final String SECOND_PEBBLE_DECAL = "pebble-2";
+
     /** Names of the decals drawn on grass, forest, savanna, hill and swamp. */
     static final List<String> GREEN_DECALS = List.of(
-            "tuft-1", "tuft-2", "tuft-3", "pebble-1", "pebble-2", "flower-1", "flower-2", "mushroom-1");
+            "tuft-1", "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
+            "mushroom-1");
 
     /** Names of the decals drawn on sand and beach. */
-    static final List<String> SAND_DECALS = List.of("shell-1", "pebble-1");
+    static final List<String> SAND_DECALS = List.of("shell-1", FIRST_PEBBLE_DECAL);
 
     /** Names of the decals drawn on dune tiles. */
-    static final List<String> DUNE_DECALS = List.of("pebble-1", "pebble-2");
+    static final List<String> DUNE_DECALS = List.of(FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL);
 
     /** Names of the decals drawn on the sand bed under shallow water, baked in the colours of that bed seen through the water. */
     static final List<String> UNDERWATER_DECALS = List.of("under-seaweed-1", "under-seaweed-2", "under-pebble-1");
@@ -33,7 +40,8 @@ public final class GroundDecals {
 
     /** Every decal name the ground, a water bed or a water surface can show, for the loader. */
     public static final List<String> ALL = List.of(
-            "tuft-1", "tuft-2", "tuft-3", "pebble-1", "pebble-2", "flower-1", "flower-2", "mushroom-1", "shell-1",
+            "tuft-1", "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
+            "mushroom-1", "shell-1",
             "under-seaweed-1", "under-seaweed-2", "under-pebble-1", "lilypad-1", "lilypad-2");
 
     /** One shallow or coast water tile in this many holds an underwater decal. */

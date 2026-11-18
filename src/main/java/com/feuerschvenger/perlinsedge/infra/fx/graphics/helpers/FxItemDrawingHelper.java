@@ -74,7 +74,10 @@ public final class FxItemDrawingHelper {
         final ItemType itemType = droppedItem.getItemType();
         Image sprite = getItemSprite(itemType);
 
-        double finalDrawX, finalDrawY, finalWidth, finalHeight;
+        double finalDrawX;
+        double finalDrawY;
+        double finalWidth;
+        double finalHeight;
 
         if (sprite != null) {
             // The icon is drawn at the integer art scale on whole pixels, so its pixels stay crisp

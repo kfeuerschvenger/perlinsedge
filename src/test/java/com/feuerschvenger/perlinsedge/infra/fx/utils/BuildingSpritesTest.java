@@ -19,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuildingSpritesTest {
 
@@ -120,7 +119,7 @@ class BuildingSpritesTest {
         // The shipped art may be absent: the answer is null then, and the caller draws the procedural shape
         final Image image = BuildingSprites.getInstance().restingImage(BuildingType.WORKBENCH);
         final boolean shipped = BuildingSpritesTest.class.getResource("/assets/buildings/workbench_0.png") != null;
-        assertTrue(shipped == (image != null));
+        assertEquals(shipped, image != null);
     }
 
     @Test
@@ -202,7 +201,7 @@ class BuildingSpritesTest {
     void aFenceWithoutPostArtFallsBackToTheProceduralShape() {
         final BuildingSprites sprites = fenceSprites(new ArrayList<>(), false);
 
-        assertNull(sprites.fenceLayers(15));
+        assertEquals(0, sprites.fenceLayers(15).length);
         assertEquals(0, sprites.shadowImages(BuildingFactory.create(BuildingType.FENCE, 1, 1)).length);
     }
 

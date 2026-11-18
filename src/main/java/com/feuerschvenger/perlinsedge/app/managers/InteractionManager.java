@@ -61,7 +61,7 @@ public class InteractionManager {
      */
     static int enemySearchBudget(TileMap map) {
         final long quarter = (long) map.getWidth() * map.getHeight() / ENEMY_SEARCH_MAP_DIVISOR;
-        return (int) Math.min(ENEMY_SEARCH_MAX_NODES, Math.max(ENEMY_SEARCH_MIN_NODES, quarter));
+        return Math.clamp(quarter, ENEMY_SEARCH_MIN_NODES, ENEMY_SEARCH_MAX_NODES);
     }
 
     /** What a click on a tile does. */
@@ -343,11 +343,10 @@ public class InteractionManager {
             }
             return;
         }
-        if (enemyX != pending.tileX() || enemyY != pending.tileY() || !player.isMoving()) {
-            if (!chase(player, map, enemy)) {
-                cancel();
-                gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
-            }
+        final boolean needsNewWalk = enemyX != pending.tileX() || enemyY != pending.tileY() || !player.isMoving();
+        if (needsNewWalk && !chase(player, map, enemy)) {
+            cancel();
+            gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
         }
     }
 
@@ -360,12 +359,7 @@ public class InteractionManager {
         Enemy best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Enemy enemy : gameState.getEnemies()) {
-            if (enemy.isDead()) {
-                continue;
-            }
-            final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
-            final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
-            if (!standsThere && !drawnThere) {
+            if (enemy.isDead() || !isOnOrDrawnOver(enemy, tileX, tileY)) {
                 continue;
             }
             final double distance = Math.hypot(enemy.getPosX() - tileX, enemy.getPosY() - tileY);
@@ -375,6 +369,13 @@ public class InteractionManager {
             }
         }
         return best;
+    }
+
+    /** @return true when the enemy stands on the tile or its sprite is drawn over it */
+    private static boolean isOnOrDrawnOver(Enemy enemy, int tileX, int tileY) {
+        final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
+        final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
+        return standsThere || drawnThere;
     }
 
     private Outcome perform(Player player, Tile tile, Kind kind) {

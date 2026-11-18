@@ -122,7 +122,7 @@ class RenderQueueTest {
         fill(queue, 20);
 
         assertEquals(20, queue.allocatedInstances());
-        assertTrue(queue.size() == 20);
+        assertEquals(20, queue.size());
         for (int i = 0; i < 20; i++) {
             assertEquals("object" + i, queue.get(i).object());
         }

@@ -36,7 +36,7 @@ public final class HeldTorch implements LightSource {
      *                                  or the flicker is missing
      */
     public HeldTorch(double radius, Rgba colour, double intensity, Flicker flicker) {
-        if (!(radius > 0.0)) {
+        if (Double.isNaN(radius) || radius <= 0.0) {
             throw new IllegalArgumentException("A light needs a radius above zero");
         }
         if (!(intensity >= 0.0 && intensity <= 1.0)) {

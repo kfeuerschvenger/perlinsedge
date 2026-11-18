@@ -19,6 +19,9 @@ import java.util.Random;
  * Uses singleton pattern for global access to application settings.
  */
 public class AppConfig {
+    /** Classpath folder every bundled asset lives under. */
+    public static final String ASSET_ROOT = "/assets";
+
     private static AppConfig instance;
 
     // Configuration sections
@@ -62,25 +65,25 @@ public class AppConfig {
      * Core application settings (window, zoom, navigation)
      */
     public static class CoreConfig {
-        private static final boolean fullscreen = true;
-        private static final int windowWidth = 1024;
-        private static final int windowHeight = 768;
-        private static final double initialZoom = 1.0;
-        private static final double minZoom = 1.0;
-        private static final double maxZoom = 2.0;
-        private static final double zoomStep = 0.5;
-        private static final double panSpeed = 30.0;
+        private static final boolean FULLSCREEN = true;
+        private static final int WINDOW_WIDTH = 1024;
+        private static final int WINDOW_HEIGHT = 768;
+        private static final double INITIAL_ZOOM = 1.0;
+        private static final double MIN_ZOOM = 1.0;
+        private static final double MAX_ZOOM = 2.0;
+        private static final double ZOOM_STEP = 0.5;
+        private static final double PAN_SPEED = 30.0;
 
         // Getters
-        public boolean isFullscreen() { return fullscreen; }
-        public int getWindowWidth() { return windowWidth; }
-        public int getWindowHeight() { return windowHeight; }
-        public double getInitialZoom() { return initialZoom; }
-        public double getMinZoom() { return minZoom; }
-        public double getMaxZoom() { return maxZoom; }
+        public boolean isFullscreen() { return FULLSCREEN; }
+        public int getWindowWidth() { return WINDOW_WIDTH; }
+        public int getWindowHeight() { return WINDOW_HEIGHT; }
+        public double getInitialZoom() { return INITIAL_ZOOM; }
+        public double getMinZoom() { return MIN_ZOOM; }
+        public double getMaxZoom() { return MAX_ZOOM; }
         /** @return the distance between two zoom levels */
-        public double getZoomStep() { return zoomStep; }
-        public double getPanSpeed() { return panSpeed; }
+        public double getZoomStep() { return ZOOM_STEP; }
+        public double getPanSpeed() { return PAN_SPEED; }
     }
 
     /**
@@ -88,54 +91,54 @@ public class AppConfig {
      */
     public static class WorldConfig {
         // Dimensions
-        private static final int width = 150;
-        private static final int height = 150;
+        private static final int WIDTH = 150;
+        private static final int HEIGHT = 150;
 
         // Map properties
         private long defaultSeed = System.currentTimeMillis();
         private MapType currentMapType = MapType.DENSE_FOREST;
 
         // Enemy settings
-        private static final int baseSlimesCount = 30;
-        private static final int baseMimicsCount = 3;
-        private static final int baseSkeletonsCount = 6;
-        private static final int minEnemyDistance = 30;
-        private static final int maxPositioningAttempts = 3000;
+        private static final int BASE_SLIMES_COUNT = 30;
+        private static final int BASE_MIMICS_COUNT = 3;
+        private static final int BASE_SKELETONS_COUNT = 6;
+        private static final int MIN_ENEMY_DISTANCE = 30;
+        private static final int MAX_POSITIONING_ATTEMPTS = 3000;
 
         // Noise parameters (the height noise comes from NoiseSettings.heightProfile)
-        private static final float temperatureNoiseFrequency = 0.02f;
-        private static final int temperatureNoiseOctaves = 3;
-        private static final float moistureNoiseFrequency = 0.03f;
-        private static final int moistureNoiseOctaves = 3;
+        private static final float TEMPERATURE_NOISE_FREQUENCY = 0.02f;
+        private static final int TEMPERATURE_NOISE_OCTAVES = 3;
+        private static final float MOISTURE_NOISE_FREQUENCY = 0.03f;
+        private static final int MOISTURE_NOISE_OCTAVES = 3;
 
         // Resource thresholds
-        private static final float stonePatchFrequency = 0.06f;
-        private static final float stoneThreshold = 0.79f;
-        private static final float crystalsPatchFrequency = 0.09f;
-        private static final float crystalsThreshold = 0.80f;
-        private static final float baseTreeDensity = 0.05f;
-        private static final float baseRiverDensity = 0.03f;
+        private static final float STONE_PATCH_FREQUENCY = 0.06f;
+        private static final float STONE_THRESHOLD = 0.79f;
+        private static final float CRYSTALS_PATCH_FREQUENCY = 0.09f;
+        private static final float CRYSTALS_THRESHOLD = 0.80f;
+        private static final float BASE_TREE_DENSITY = 0.05f;
+        private static final float BASE_RIVER_DENSITY = 0.03f;
 
         // Getters and setters
-        public int getWidth() { return width; }
-        public int getHeight() { return height; }
+        public int getWidth() { return WIDTH; }
+        public int getHeight() { return HEIGHT; }
         public long getDefaultSeed() { return defaultSeed; }
         public void setDefaultSeed(long seed) { this.defaultSeed = seed; }
         public MapType getCurrentMapType() { return currentMapType; }
         public void setCurrentMapType(MapType mapType) { this.currentMapType = mapType; }
-        public int getBaseSlimesCount() { return baseSlimesCount; }
-        public int getBaseMimicsCount() { return baseMimicsCount; }
-        public int getBaseSkeletonsCount() { return baseSkeletonsCount; }
-        public int getMinEnemyDistance() { return minEnemyDistance; }
-        public int getMaxPositioningAttempts() { return maxPositioningAttempts; }
-        public float getTemperatureNoiseFrequency() { return temperatureNoiseFrequency; }
-        public int getTemperatureNoiseOctaves() { return temperatureNoiseOctaves; }
-        public float getMoistureNoiseFrequency() { return moistureNoiseFrequency; }
-        public int getMoistureNoiseOctaves() { return moistureNoiseOctaves; }
-        public float getStonePatchFrequency() { return stonePatchFrequency; }
-        public float getStoneThreshold() { return stoneThreshold; }
-        public float getCrystalsPatchFrequency() { return crystalsPatchFrequency; }
-        public float getCrystalsThreshold() { return crystalsThreshold; }
+        public int getBaseSlimesCount() { return BASE_SLIMES_COUNT; }
+        public int getBaseMimicsCount() { return BASE_MIMICS_COUNT; }
+        public int getBaseSkeletonsCount() { return BASE_SKELETONS_COUNT; }
+        public int getMinEnemyDistance() { return MIN_ENEMY_DISTANCE; }
+        public int getMaxPositioningAttempts() { return MAX_POSITIONING_ATTEMPTS; }
+        public float getTemperatureNoiseFrequency() { return TEMPERATURE_NOISE_FREQUENCY; }
+        public int getTemperatureNoiseOctaves() { return TEMPERATURE_NOISE_OCTAVES; }
+        public float getMoistureNoiseFrequency() { return MOISTURE_NOISE_FREQUENCY; }
+        public int getMoistureNoiseOctaves() { return MOISTURE_NOISE_OCTAVES; }
+        public float getStonePatchFrequency() { return STONE_PATCH_FREQUENCY; }
+        public float getStoneThreshold() { return STONE_THRESHOLD; }
+        public float getCrystalsPatchFrequency() { return CRYSTALS_PATCH_FREQUENCY; }
+        public float getCrystalsThreshold() { return CRYSTALS_THRESHOLD; }
 
         public float getTreeDensity() {
             return switch (currentMapType) {
@@ -146,7 +149,7 @@ public class AppConfig {
                 case MEDITERRANEAN -> 0.17f;
                 case ISLANDS -> 0.19f;
                 case RIVERS -> 0.30f;
-                default -> baseTreeDensity;
+                default -> BASE_TREE_DENSITY;
             };
         }
 
@@ -156,7 +159,7 @@ public class AppConfig {
                 case SWAMP -> 0.025f;
                 case DESERT -> 0.003f;
                 case RIVERS -> 0.04f;
-                default -> baseRiverDensity;
+                default -> BASE_RIVER_DENSITY;
             };
         }
     }
@@ -166,24 +169,24 @@ public class AppConfig {
      */
     public static class GraphicsConfig {
         // Tile dimensions
-        private static final int tileWidth = 64;
-        private static final int tileHeight = 32;
-        private static final int tileHalfWidth = tileWidth / 2;
-        private static final int tileHalfHeight = tileHeight / 2;
+        private static final int TILE_WIDTH = 64;
+        private static final int TILE_HEIGHT = 32;
+        private static final int TILE_HALF_WIDTH = TILE_WIDTH / 2;
+        private static final int TILE_HALF_HEIGHT = TILE_HEIGHT / 2;
 
         // Visual properties
-        private static final double tileVisualBaseHeight = 8;
-        private static final double minimapWidth = 300;
-        private static final double minimapHeight = 180;
+        private static final double TILE_VISUAL_BASE_HEIGHT = 8;
+        private static final double MINIMAP_WIDTH = 300;
+        private static final double MINIMAP_HEIGHT = 180;
 
         // Getters
-        public int getTileWidth() { return tileWidth; }
-        public int getTileHeight() { return tileHeight; }
-        public int getTileHalfWidth() { return tileHalfWidth; }
-        public int getTileHalfHeight() { return tileHalfHeight; }
-        public double getTileVisualBaseHeight() { return tileVisualBaseHeight; }
-        public double getMinimapWidth() { return minimapWidth; }
-        public double getMinimapHeight() { return minimapHeight; }
+        public int getTileWidth() { return TILE_WIDTH; }
+        public int getTileHeight() { return TILE_HEIGHT; }
+        public int getTileHalfWidth() { return TILE_HALF_WIDTH; }
+        public int getTileHalfHeight() { return TILE_HALF_HEIGHT; }
+        public double getTileVisualBaseHeight() { return TILE_VISUAL_BASE_HEIGHT; }
+        public double getMinimapWidth() { return MINIMAP_WIDTH; }
+        public double getMinimapHeight() { return MINIMAP_HEIGHT; }
     }
 
     /**
@@ -308,19 +311,36 @@ public class AppConfig {
      * Player-specific settings (sprite configuration)
      */
     public static class PlayerConfig {
-        public final SpriteSheetConfig spriteSheet = new SpriteSheetConfig();
+        /**
+         * The player sprite sheet: 8 direction columns by 3 frame rows of 16x24 cells.
+         */
+        public static final class SpriteSheetConfig {
+            /** Classpath location of the sheet. */
+            public static final String PATH = ASSET_ROOT + "/entities/player.png";
+            /** Width of one cell in pixels. */
+            public static final int SPRITE_WIDTH = 16;
+            /** Height of one cell in pixels. */
+            public static final int SPRITE_HEIGHT = 24;
+            /** Direction columns in the sheet. */
+            public static final int COLUMNS = 8;
+            /** Frame rows in the sheet. */
+            public static final int ROWS = 3;
+            /** Pixel column of the first cell. */
+            public static final int START_X = 0;
+            /** Pixel row of the first cell. */
+            public static final int START_Y = 0;
+            /** Horizontal distance in pixels between the left edges of two neighbouring cells. */
+            public static final int COLUMN_OFFSET = 16;
 
-        public static class SpriteSheetConfig {
-            // Sprite sheet properties: 8 direction columns by 3 frame rows of 16x24 cells
-            public final String path = "/assets/entities/player.png";
-            public final int spriteWidth = 16;
-            public final int spriteHeight = 24;
-            public final int columns = 8;
-            public final int rows = 3;
-            public final int startX = 0;
-            public final int startY = 0;
-            public final int columnOffset = 16;
-            public final int[] rowYCoordinates = {0, 24, 48};
+            private SpriteSheetConfig() {}
+
+            /**
+             * @param row the frame row, from 0 to {@link #ROWS} minus one
+             * @return the pixel row of the top edge of that frame row
+             */
+            public static int rowY(int row) {
+                return START_Y + row * SPRITE_HEIGHT;
+            }
         }
     }
 

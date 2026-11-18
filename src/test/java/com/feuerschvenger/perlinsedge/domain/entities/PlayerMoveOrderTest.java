@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlayerMoveOrderTest {
@@ -159,7 +160,7 @@ class PlayerMoveOrderTest {
         for (int i = 0; i < 4; i++) {
             player.update(1.0 / 60.0);
         }
-        assertTrue(player.getPosX() != Math.rint(player.getPosX()), "the player is between two tiles");
+        assertNotEquals(Math.rint(player.getPosX()), player.getPosX(), "the player is between two tiles");
 
         player.stop();
         for (int i = 0; i < 120; i++) {

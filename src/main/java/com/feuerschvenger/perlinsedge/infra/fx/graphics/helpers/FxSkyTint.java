@@ -52,6 +52,8 @@ public final class FxSkyTint {
     private double[] edges = new double[10];
     /** The regions that cover the band being filled, in the order of their left side. */
     private int[] order = new int[4];
+    /** The region being uploaded as left, top, right and bottom, kept so an upload allocates nothing. */
+    private final int[] uploadBox = new int[4];
 
     /** Creates a sky tint that draws lights the way the configuration says. */
     public FxSkyTint() {
@@ -74,25 +76,22 @@ public final class FxSkyTint {
      * @param sky      the clock of the sky
      * @param lights   the lights of the world
      * @param gameTime the game time in seconds, which the flicker of the lights runs on
-     * @param artScale the integer number of screen pixels per art pixel
-     * @param originX  screen X of the camera origin, which the art grid is aligned to
-     * @param originY  screen Y of the camera origin
-     * @param width    canvas width
-     * @param height   canvas height
+     * @param view     the canvas of the frame: the art scale, the camera origin the art grid is aligned to and the size
      */
-    public void draw(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, double artScale,
-                     double originX, double originY, double width, double height) {
+    public void draw(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, CanvasView view) {
         // The fill and the alpha the tint sets are the tint's own, so what is drawn after it starts from the state it had
         gc.save();
         try {
-            layTint(gc, sky, lights, gameTime, artScale, originX, originY, width, height);
+            layTint(gc, sky, lights, gameTime, view);
         } finally {
             gc.restore();
         }
     }
 
-    private void layTint(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, double artScale,
-                         double originX, double originY, double width, double height) {
+    private void layTint(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, CanvasView view) {
+        final double artScale = view.artScale();
+        final double width = view.width();
+        final double height = view.height();
         // The tint of the frame is read once and passed on to everything that needs it
         final SkyTint tint = sky.tint();
         final double strength = Math.min(1.0, tint.strength());
@@ -103,8 +102,8 @@ public final class FxSkyTint {
         gc.setFill(plainColour);
         final int wide = (int) Math.ceil(width / artScale) + 2;
         final int high = (int) Math.ceil(height / artScale) + 2;
-        if (lights.isEmpty() || !layer.compose(lights, style, gameTime, tint, strength, artScale, originX, originY, wide,
-                high)) {
+        final LightLayer.GridView grid = new LightLayer.GridView(artScale, view.originX(), view.originY(), wide, high);
+        if (lights.isEmpty() || !layer.compose(lights, style, gameTime, tint, strength, grid)) {
             gc.fillRect(0, 0, width, height);
             return;
         }
@@ -121,9 +120,11 @@ public final class FxSkyTint {
             final int right = layer.regionRight(region);
             final int bottom = layer.regionBottom(region);
             // The cells have a border cell that lies outside the canvas
-            gc.drawImage(image, left + nudge, top + nudge, right - left, bottom - top,
+            final double cellsWide = (double) right - left;
+            final double cellsHigh = (double) bottom - top;
+            gc.drawImage(image, left + nudge, top + nudge, cellsWide, cellsHigh,
                     layer.phaseX() + (left - 1) * artScale, layer.phaseY() + (top - 1) * artScale,
-                    (right - left) * artScale, (bottom - top) * artScale);
+                    cellsWide * artScale, cellsHigh * artScale);
         }
     }
 
@@ -144,10 +145,10 @@ public final class FxSkyTint {
             final double screenTop = layer.phaseY() + (layer.regionTop(region) - 1) * artScale;
             final double screenRight = layer.phaseX() + (layer.regionRight(region) - 1) * artScale;
             final double screenBottom = layer.phaseY() + (layer.regionBottom(region) - 1) * artScale;
-            final double clipLeft = Math.max(0.0, Math.min(width, screenLeft));
-            final double clipTop = Math.max(0.0, Math.min(height, screenTop));
-            final double clipRight = Math.max(0.0, Math.min(width, screenRight));
-            final double clipBottom = Math.max(0.0, Math.min(height, screenBottom));
+            final double clipLeft = Math.clamp(screenLeft, 0.0, width);
+            final double clipTop = Math.clamp(screenTop, 0.0, height);
+            final double clipRight = Math.clamp(screenRight, 0.0, width);
+            final double clipBottom = Math.clamp(screenBottom, 0.0, height);
             if (clipRight > clipLeft && clipBottom > clipTop) {
                 clipped[boxes * 4] = clipLeft;
                 clipped[boxes * 4 + 1] = clipTop;
@@ -176,32 +177,46 @@ public final class FxSkyTint {
         for (int edge = 0; edge + 1 < edgeCount; edge++) {
             final double bandTop = edges[edge];
             final double bandBottom = edges[edge + 1];
-            if (!(bandBottom > bandTop)) {
-                continue;
-            }
-            int across = 0;
-            for (int box = 0; box < boxes; box++) {
-                if (clipped[box * 4 + 1] <= bandTop && clipped[box * 4 + 3] >= bandBottom) {
-                    int at = across++;
-                    while (at > 0 && clipped[order[at - 1] * 4] > clipped[box * 4]) {
-                        order[at] = order[at - 1];
-                        at--;
-                    }
-                    order[at] = box;
-                }
-            }
-            double cursor = 0.0;
-            for (int k = 0; k < across; k++) {
-                final int box = order[k];
-                if (clipped[box * 4] > cursor) {
-                    gc.fillRect(cursor, bandTop, clipped[box * 4] - cursor, bandBottom - bandTop);
-                }
-                cursor = Math.max(cursor, clipped[box * 4 + 2]);
-            }
-            if (width > cursor) {
-                gc.fillRect(cursor, bandTop, width - cursor, bandBottom - bandTop);
+            if (bandBottom > bandTop) {
+                fillBand(gc, boxes, bandTop, bandBottom, width);
             }
         }
+    }
+
+    /** Fills the stretches of one band of the canvas that the boxes crossing it leave out. */
+    private void fillBand(GraphicsContext gc, int boxes, double bandTop, double bandBottom, double width) {
+        final int across = orderCrossing(boxes, bandTop, bandBottom);
+        double cursor = 0.0;
+        for (int k = 0; k < across; k++) {
+            final int box = order[k];
+            if (clipped[box * 4] > cursor) {
+                gc.fillRect(cursor, bandTop, clipped[box * 4] - cursor, bandBottom - bandTop);
+            }
+            cursor = Math.max(cursor, clipped[box * 4 + 2]);
+        }
+        if (width > cursor) {
+            gc.fillRect(cursor, bandTop, width - cursor, bandBottom - bandTop);
+        }
+    }
+
+    /**
+     * Puts the boxes that cover a band in the order of their left side.
+     *
+     * @return how many boxes cover the band, the first that many of the order
+     */
+    private int orderCrossing(int boxes, double bandTop, double bandBottom) {
+        int across = 0;
+        for (int box = 0; box < boxes; box++) {
+            if (clipped[box * 4 + 1] <= bandTop && clipped[box * 4 + 3] >= bandBottom) {
+                int at = across++;
+                while (at > 0 && clipped[order[at - 1] * 4] > clipped[box * 4]) {
+                    order[at] = order[at - 1];
+                    at--;
+                }
+                order[at] = box;
+            }
+        }
+        return across;
     }
 
     /** Returns the straight colour that, laid over the canvas, gives what a premultiplied cell gives when it is drawn. */
@@ -240,8 +255,11 @@ public final class FxSkyTint {
             return;
         }
         for (int region = 0, regions = layer.regionCount(); region < regions; region++) {
-            FxShadowPass.uploadPadded(image, layer.width(), layer.height(), layer.regionLeft(region),
-                    layer.regionTop(region), layer.regionRight(region), layer.regionBottom(region), layer.pixels());
+            uploadBox[0] = layer.regionLeft(region);
+            uploadBox[1] = layer.regionTop(region);
+            uploadBox[2] = layer.regionRight(region);
+            uploadBox[3] = layer.regionBottom(region);
+            FxShadowPass.uploadPadded(image, layer.width(), layer.height(), uploadBox, layer.pixels());
         }
     }
 

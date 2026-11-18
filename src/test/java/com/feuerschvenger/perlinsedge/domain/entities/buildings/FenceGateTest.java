@@ -12,7 +12,6 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FenceGateTest {
@@ -79,7 +78,7 @@ class FenceGateTest {
     void aClosedGateBlocksTheWayLikeAFence() {
         fenceWithGate();
 
-        assertNull(new Pathfinder(map).findPath(1, 4, 7, 4), "the whole line is closed");
+        assertTrue(new Pathfinder(map).findPath(1, 4, 7, 4).isEmpty(), "the whole line is closed");
     }
 
     @Test
@@ -87,12 +86,12 @@ class FenceGateTest {
         FenceGate gate = fenceWithGate();
         gate.toggleOpen();
 
-        var path = new Pathfinder(map).findPath(1, 4, 7, 4);
+        var path = new Pathfinder(map).findPath(1, 4, 7, 4).orElseThrow();
         assertNotNull(path);
         assertTrue(path.stream().anyMatch(n -> n.x == 4 && n.y == 4), "the path goes through the gate");
 
         gate.toggleOpen();
-        assertNull(new Pathfinder(map).findPath(1, 4, 7, 4));
+        assertTrue(new Pathfinder(map).findPath(1, 4, 7, 4).isEmpty());
     }
 
     @Test
@@ -101,7 +100,7 @@ class FenceGateTest {
         fenceWithGate();
         Pathfinder enemy = new Pathfinder(map);
 
-        assertNull(enemy.findPath(1, 4, 7, 4, 5000));
+        assertTrue(enemy.findPath(1, 4, 7, 4, 5000).isEmpty());
     }
 
     @Test

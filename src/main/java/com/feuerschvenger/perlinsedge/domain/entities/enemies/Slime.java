@@ -109,10 +109,8 @@ public class Slime extends Enemy {
      */
     @Override
     public double getRenderOffsetY() {
-        if (getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement) {
-            if (slimeMovement.isJumping()) {
-                return calculateJumpOffset(slimeMovement);
-            }
+        if (getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement && slimeMovement.isJumping()) {
+            return calculateJumpOffset(slimeMovement);
         }
         return BASE_RENDER_OFFSET_Y;
     }

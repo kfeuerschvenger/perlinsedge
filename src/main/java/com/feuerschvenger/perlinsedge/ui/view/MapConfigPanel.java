@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import javafx.collections.FXCollections;
 import javafx.geometry.Orientation;
@@ -20,6 +21,8 @@ public class MapConfigPanel extends VBox {
     private ComboBox<MapType> mapTypeComboBox;
     private TextField seedInputField;
     private long currentSeed;
+    /** Draws the seed of every randomly generated map. */
+    private final Random seedSource = new Random();
 
     private Slider heightFreqSlider;
     private Label heightFreqValueLabel;
@@ -162,26 +165,12 @@ public class MapConfigPanel extends VBox {
     private void setupListeners() {
         mapTypeComboBox.setOnAction(event -> notifyConfigChanged());
 
-        seedInputField.focusedProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue) {
-                try {
-                    long newSeed = Long.parseLong(seedInputField.getText());
-                    updateSeedAndNotify(newSeed, false);
-                } catch (NumberFormatException e) {
-                    log.warn("Invalid seed input: '{}'. Restoring previous seed.", seedInputField.getText());
-                    seedInputField.setText(String.valueOf(currentSeed));
-                }
+        seedInputField.focusedProperty().addListener((observable, oldValue, focused) -> {
+            if (Boolean.FALSE.equals(focused)) {
+                commitSeedInput();
             }
         });
-        seedInputField.setOnAction(event -> {
-            try {
-                long newSeed = Long.parseLong(seedInputField.getText());
-                updateSeedAndNotify(newSeed, false);
-            } catch (NumberFormatException e) {
-                log.warn("Invalid seed input: '{}'. Restoring previous seed.", seedInputField.getText());
-                seedInputField.setText(String.valueOf(currentSeed));
-            }
-        });
+        seedInputField.setOnAction(event -> commitSeedInput());
 
         heightFreqSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(heightFreqValueLabel, newVal.doubleValue()));
         heightFreqSlider.setOnMouseReleased(event -> notifyConfigChanged());
@@ -225,6 +214,17 @@ public class MapConfigPanel extends VBox {
         }
     }
 
+    /** Applies the seed typed in the field, or puts the previous seed back when the text is not a number. */
+    private void commitSeedInput() {
+        try {
+            long newSeed = Long.parseLong(seedInputField.getText());
+            updateSeedAndNotify(newSeed, false);
+        } catch (NumberFormatException _) {
+            log.warn("Invalid seed input: '{}'. Restoring previous seed.", seedInputField.getText());
+            seedInputField.setText(String.valueOf(currentSeed));
+        }
+    }
+
     private void updateSeedAndNotify(long newSeed, boolean forceNotify) {
         if (newSeed != currentSeed || forceNotify) {
             currentSeed = newSeed;
@@ -234,14 +234,13 @@ public class MapConfigPanel extends VBox {
     }
 
     public void generateNewRandomMap() {
-        Random random = new Random();
-        long newSeed = random.nextLong();
+        long newSeed = seedSource.nextLong();
         updateSeedAndNotify(newSeed, true);
     }
 
     private void notifyConfigChanged() {
         if (listener != null) {
-            listener.onMapConfigChanged(
+            listener.onMapConfigChanged(new MapGenerationContext(
                     mapTypeComboBox.getValue(),
                     currentSeed,
                     (float) heightFreqSlider.getValue(),
@@ -256,7 +255,7 @@ public class MapConfigPanel extends VBox {
                     (float) crystalsThresholdSlider.getValue(),
                     (float) treeDensitySlider.getValue(),
                     (float) riverDensitySlider.getValue()
-            );
+            ));
         }
     }
 
@@ -324,7 +323,7 @@ public class MapConfigPanel extends VBox {
             public MapType fromString(String string) {
                 try {
                     return MapType.valueOf(string.toUpperCase().replace(' ', '_'));
-                } catch (IllegalArgumentException e) {
+                } catch (IllegalArgumentException _) {
                     return null;
                 }
             }

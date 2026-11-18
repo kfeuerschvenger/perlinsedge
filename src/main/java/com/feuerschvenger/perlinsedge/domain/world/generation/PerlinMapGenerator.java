@@ -32,11 +32,21 @@ public class PerlinMapGenerator implements IMapGenerator {
             {0, -1}, {1, -1}, {1, 0}, {1, 1},
             {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}
     };
+    private static final int[] NO_RIVER_POINT = new int[0];
     private static final int MAX_RIVER_LENGTH = 300;
     private static final int MIN_RIVER_LENGTH = 100;
     private static final int LAKE_RADIUS_MIN = 2;
     private static final int LAKE_RADIUS_MAX = 5;
+    // How much higher than the river endpoint a land tile may be and still be flooded by the lake
+    private static final float LAKE_DEPTH_TOLERANCE = 0.05f;
     private static final float ISLAND_FALLOFF_POWER = 2.0f;
+
+    // Multiplier of the tree density of the map panel, per map type
+    private static final float TREE_FACTOR_DEFAULT = 1.0f;
+    private static final float TREE_FACTOR_MEDITERRANEAN = 1.8f;
+    private static final float TREE_FACTOR_TUNDRA = 1.5f;
+    private static final float TREE_FACTOR_DESERT = 1.3f;
+    private static final float TREE_FACTOR_ISLANDS = 1.6f;
 
     // Iron ore: hills and mountains only, in a thin contour of the normalised stone noise just under the stone veins,
     // so it appears as a rim of ore around the rock. The band is absolute and ends below the lowest stone threshold
@@ -75,7 +85,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         initializeNoiseGenerators();
 
         if (config.getMapType() == MapType.ISLANDS) {
-            initializeIslandCenters(width, height);
+            initializeIslandCenters();
         }
 
         generateTerrain(map);
@@ -139,9 +149,9 @@ public class PerlinMapGenerator implements IMapGenerator {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                float heightValue = heightNoise.getNoise(x, y);
-                float tempValue = normalizeNoise(temperatureNoise.getNoise(x, y));
-                float moistureValue = normalizeNoise(moistureNoise.getNoise(x, y));
+                float heightValue = heightNoise.getNoise((float) x, (float) y);
+                float tempValue = normalizeNoise(temperatureNoise.getNoise((float) x, (float) y));
+                float moistureValue = normalizeNoise(moistureNoise.getNoise((float) x, (float) y));
 
                 // Apply island shaping for island maps
                 if (config.getMapType() == MapType.ISLANDS) {
@@ -169,7 +179,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         return (value + 1) / 2;
     }
 
-    private void initializeIslandCenters(int width, int height) {
+    private void initializeIslandCenters() {
         Random rand = config.getRandom();
         islandCenters = new float[NUM_ISLANDS][2];
 
@@ -203,31 +213,23 @@ public class PerlinMapGenerator implements IMapGenerator {
     private void assignTileResource(Tile tile, int x, int y) {
         if (!tile.getType().isLand()) return;
 
-        float treeDensityFactor = 1.0f;
-        switch (config.getMapType()) {
-            case MEDITERRANEAN:
-                treeDensityFactor = 1.8f;  // More trees in Mediterranean
-                break;
-            case TUNDRA:
-                treeDensityFactor = 1.5f;  // More trees in Tundra
-                break;
-            case DESERT:
-                treeDensityFactor = 1.3f;  // More trees in Desert
-                break;
-            case ISLANDS:
-                treeDensityFactor = 1.6f;  // More trees on Islands
-                break;
-        }
+        float treeDensityFactor = switch (config.getMapType()) {
+            case MEDITERRANEAN -> TREE_FACTOR_MEDITERRANEAN;
+            case TUNDRA -> TREE_FACTOR_TUNDRA;
+            case DESERT -> TREE_FACTOR_DESERT;
+            case ISLANDS -> TREE_FACTOR_ISLANDS;
+            default -> TREE_FACTOR_DEFAULT;
+        };
 
         // Resource assignment priority: Crystals > Stone > Trees
-        float crystalsValue = normalizeNoise(crystalsNoise.getNoise(x, y));
+        float crystalsValue = normalizeNoise(crystalsNoise.getNoise((float) x, (float) y));
         if (crystalsValue > config.getCrystalsThreshold()) {
             tile.setWorldResource(new Resource(ResourceType.CRYSTALS, config.getRandom().nextLong()));
             return;
         }
 
         // Iron only ever sits on rocky ground, in its own absolute noise band that ignores the stone threshold.
-        float stoneValue = normalizeNoise(stoneNoise.getNoise(x, y));
+        float stoneValue = normalizeNoise(stoneNoise.getNoise((float) x, (float) y));
         if (stoneValue > config.getStoneThreshold()) {
             tile.setWorldResource(new Resource(ResourceType.STONE, config.getRandom().nextLong()));
             return;
@@ -239,7 +241,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         }
 
         if (tile.getType().isFertile()) {
-            float treeValue = normalizeNoise(treeNoise.getNoise(x, y));
+            float treeValue = normalizeNoise(treeNoise.getNoise((float) x, (float) y));
             float threshold = 1.0f - (config.getTreeDensity() * treeDensityFactor);
 
             // Desert: the palms and cacti are placed after the water, by plantDesertTrees
@@ -424,7 +426,7 @@ public class PerlinMapGenerator implements IMapGenerator {
             for (int x = 0; x < width; x++) {
                 Tile tile = map.getTile(x, y);
                 float tileHeight = tile.getHeight();
-                float tempValue = normalizeNoise(temperatureNoise.getNoise(x, y));
+                float tempValue = normalizeNoise(temperatureNoise.getNoise((float) x, (float) y));
 
                 if (tileHeight < -0.4f) {
                     tile.setType(TileType.DEEP_WATER);
@@ -485,7 +487,8 @@ public class PerlinMapGenerator implements IMapGenerator {
     }
 
     private void createRiverPath(TileMap map, int startX, int startY, Set<String> riverTiles) {
-        int x = startX, y = startY;
+        int x = startX;
+        int y = startY;
         int length = 0;
         int maxLength = MIN_RIVER_LENGTH + config.getRandom().nextInt(MAX_RIVER_LENGTH - MIN_RIVER_LENGTH);
         List<int[]> riverSegment = new ArrayList<>();
@@ -507,7 +510,7 @@ public class PerlinMapGenerator implements IMapGenerator {
             riverSegment.add(new int[]{x, y});
 
             int[] nextCoord = findNextRiverPoint(map, x, y, currentHeight, riverTiles);
-            if (nextCoord == null) {
+            if (nextCoord.length == 0) {
                 createLakeAtEndpoint(map, riverSegment, x, y);
                 break;
             }
@@ -531,6 +534,7 @@ public class PerlinMapGenerator implements IMapGenerator {
                 tile.getType() == TileType.DEEP_WATER;
     }
 
+    /** @return the next tile of a river as [x, y], or an empty array when no neighbour lies lower */
     private int[] findNextRiverPoint(TileMap map, int x, int y, float currentHeight, Set<String> riverTiles) {
         float minHeight = currentHeight;
         List<int[]> candidates = new ArrayList<>();
@@ -538,7 +542,8 @@ public class PerlinMapGenerator implements IMapGenerator {
         int height = map.getHeight();
 
         for (int[] dir : RIVER_DIRECTIONS) {
-            int nx = x + dir[0], ny = y + dir[1];
+            int nx = x + dir[0];
+            int ny = y + dir[1];
             if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
 
             Tile neighbor = map.getTile(nx, ny);
@@ -553,7 +558,7 @@ public class PerlinMapGenerator implements IMapGenerator {
             }
         }
 
-        if (candidates.isEmpty()) return null;
+        if (candidates.isEmpty()) return NO_RIVER_POINT;
         return selectLowestCandidate(map, candidates, minHeight);
     }
 
@@ -584,21 +589,23 @@ public class PerlinMapGenerator implements IMapGenerator {
         int radius = LAKE_RADIUS_MIN + config.getRandom().nextInt(LAKE_RADIUS_MAX - LAKE_RADIUS_MIN);
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
-                int lx = x + dx, ly = y + dy;
-                if (map.isValidCoordinate(lx, ly)) {
-                    Tile tile = map.getTile(lx, ly);
-                    if (tile.getType().isLand() && tile.getHeight() < endpoint.getHeight() + 0.05f) {
-                        if (config.getMapType() == MapType.TUNDRA) {
-                            tile.setType(TileType.ICE); // Frozen lakes in tundra
-                        } else {
-                            tile.setType(TileType.SHALLOW_WATER);
-                        }
-                        tile.setWorldResource(null);
-                    }
-                }
+                flood(map, x + dx, y + dy, endpoint.getHeight() + LAKE_DEPTH_TOLERANCE);
             }
         }
         applyRiverSegment(map, segment);
+    }
+
+    /** Turns a land tile lower than the limit into shallow water, or into ice on a tundra map. */
+    private void flood(TileMap map, int x, int y, float heightLimit) {
+        if (!map.isValidCoordinate(x, y)) {
+            return;
+        }
+        Tile tile = map.getTile(x, y);
+        if (tile.getType().isLand() && tile.getHeight() < heightLimit) {
+            // Frozen lakes in tundra
+            tile.setType(config.getMapType() == MapType.TUNDRA ? TileType.ICE : TileType.SHALLOW_WATER);
+            tile.setWorldResource(null);
+        }
     }
 
     private void createTributary(TileMap map, int x, int y, Set<String> riverTiles) {
@@ -619,7 +626,7 @@ public class PerlinMapGenerator implements IMapGenerator {
             tributary.add(new int[]{x, y});
 
             int[] next = findNextRiverPoint(map, x, y, currentHeight, riverTiles);
-            if (next == null) break;
+            if (next.length == 0) break;
 
             x = next[0];
             y = next[1];
@@ -631,7 +638,8 @@ public class PerlinMapGenerator implements IMapGenerator {
     private void clearResourcesFromRivers(TileMap map, Set<String> riverTiles) {
         for (String key : riverTiles) {
             String[] coords = key.split(",");
-            int x = Integer.parseInt(coords[0]), y = Integer.parseInt(coords[1]);
+            int x = Integer.parseInt(coords[0]);
+            int y = Integer.parseInt(coords[1]);
             Tile tile = map.getTile(x, y);
             if (tile.getType() == TileType.RIVER) {
                 tile.setWorldResource(null);

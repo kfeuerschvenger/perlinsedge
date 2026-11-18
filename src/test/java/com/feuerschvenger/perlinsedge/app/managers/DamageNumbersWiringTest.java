@@ -18,6 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Every hit or heal that lands starts one floating number, of the kind and the amount it reports. */
@@ -38,11 +40,11 @@ class DamageNumbersWiringTest {
         DamageNumbers.Entry found = null;
         for (int i = 0; i < numbers.size(); i++) {
             if (numbers.get(i).isActive(state.getGameTime())) {
-                assertTrue(found == null, "more than one number is shown");
+                assertNull(found, "more than one number is shown");
                 found = numbers.get(i);
             }
         }
-        assertTrue(found != null, "no number is shown");
+        assertNotNull(found, "no number is shown");
         return found;
     }
 

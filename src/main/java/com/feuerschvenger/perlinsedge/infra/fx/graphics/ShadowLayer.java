@@ -76,9 +76,6 @@ public final class ShadowLayer {
     /** How long a shadow is as a multiple of the height of what casts it. */
     private double length = 1.0;
 
-    /** The screen pixels per cell, which is the art scale of the layer. */
-    private int artScale = 1;
-
     /**
      * The sub-cells per cell on each axis: two for every screen pixel, so an anchor can lie on the middle of a screen
      * pixel, which is where the middle of a sprite drawn an odd number of screen pixels wide falls.
@@ -163,8 +160,7 @@ public final class ShadowLayer {
         this.cosine = newCosine;
         this.sine = newSine;
         this.length = length;
-        this.artScale = Math.max(1, artScale);
-        this.subSteps = this.artScale * 2;
+        this.subSteps = Math.max(1, artScale) * 2;
     }
 
     /** Zeroes the cells of the last frame's box. */
@@ -283,27 +279,32 @@ public final class ShadowLayer {
         final int top = (int) Math.floor(fractionY + box[1]);
         final int right = (int) Math.ceil(fractionX + box[2]);
         final int bottom = (int) Math.ceil(fractionY + box[3]);
-        final int spriteWidth = sprite.width();
-        final int spriteHeight = sprite.height();
         final boolean[] covered = new boolean[Math.max(0, right - left) * Math.max(0, bottom - top)];
         for (int y = top; y < bottom; y++) {
             final double dy = y + 0.5 - fractionY;
             for (int x = left; x < right; x++) {
                 final double dx = x + 0.5 - fractionX;
-                final double along = cosine * dx + 2.0 * sine * dy;
-                if (along < 0.0) {
-                    continue;
-                }
-                final int row = (int) Math.ceil(groundRow - along / drawnLength) - 1;
-                final int column = (int) Math.floor((sine * dx - 2.0 * cosine * dy) / widthFactor + spriteWidth / 2.0);
-                if (row < 0 || row >= spriteHeight || column < 0 || column >= spriteWidth
-                        || !sprite.isSolid(column, row)) {
-                    continue;
-                }
-                covered[(y - top) * (right - left) + (x - left)] = true;
+                covered[(y - top) * (right - left) + (x - left)] = isShaded(sprite, widthFactor, drawnLength,
+                        groundRow, dx, dy);
             }
         }
         return Mask.of(covered, left, top, right - left, bottom - top);
+    }
+
+    /**
+     * Tells whether the centre of a cell, given by its offset from the anchor, lies in the shadow of a solid pixel of
+     * the sprite.
+     */
+    private boolean isShaded(Silhouette sprite, double widthFactor, double drawnLength, double groundRow, double dx,
+                             double dy) {
+        final double along = cosine * dx + 2.0 * sine * dy;
+        if (along < 0.0) {
+            return false;
+        }
+        final int row = (int) Math.ceil(groundRow - along / drawnLength) - 1;
+        final int column = (int) Math.floor((sine * dx - 2.0 * cosine * dy) / widthFactor + sprite.width() / 2.0);
+        return row >= 0 && row < sprite.height() && column >= 0 && column < sprite.width()
+                && sprite.isSolid(column, row);
     }
 
     /** Works out the cells an ellipse covers around an anchor that lies a fraction into its cell. */

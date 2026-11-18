@@ -10,6 +10,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 /**
@@ -173,11 +174,12 @@ final class WalkingChaser {
         final boolean midStep = isMidStep(enemy);
         final int originX = midStep ? enemy.getTargetTileX() : enemy.getCurrentTileX();
         final int originY = midStep ? enemy.getTargetTileY() : enemy.getCurrentTileY();
-        final List<PathNode> found = pathPlanner.findPath(map, originX, originY, plannedPlayerX, plannedPlayerY,
-                occupancy.penaltyFor(enemy, HELD_TILE_PENALTY));
-        if (found == null) {
+        final Optional<List<PathNode>> result = pathPlanner.findPath(map, originX, originY, plannedPlayerX,
+                plannedPlayerY, occupancy.penaltyFor(enemy, HELD_TILE_PENALTY));
+        if (result.isEmpty()) {
             return;
         }
+        final List<PathNode> found = result.get();
         path.clear();
         if (midStep) {
             // The search leaves its start out: the tile being walked to stays the first step
@@ -199,67 +201,93 @@ final class WalkingChaser {
         double remaining = speedTilesPerSecond * deltaTime;
         while (remaining > 0 && !path.isEmpty()) {
             final PathNode next = path.peek();
-            if (isPlayerTile(next, player)) {
-                // The player stands on or is stepping to the tile the enemy is walking to: go back to the tile it left
-                // and wait, without a new search on every update meanwhile
-                turnBackToTileCentre(enemy);
-                secondsOfPlayerBlockWait = PLAYER_BLOCK_WAIT_SECONDS;
+            if (mustStopBeforeStep(enemy, next, map, player)) {
                 return;
             }
-            if (!isWalkable(map, next)) {
-                // Something was built on the path after it was searched: go back to the tile centre the enemy left,
-                // or stay on the one it stands on, and search again from there
-                turnBackToTileCentre(enemy);
-                secondsUntilRepath = 0;
-                return;
-            }
-            if (!isStepHeldBy(enemy, next)) {
-                if (secondsOfStepWait > 0) {
-                    // Another enemy held this tile a moment ago: stand still until the wait is over
-                    return;
-                }
-                if (!occupancy.tryReserve(enemy, next.x, next.y)) {
-                    if (isMidStep(enemy)) {
-                        // The tile being walked to was taken by another enemy: go back to the tile centre instead of
-                        // standing between two tiles, and search from there
-                        turnBackToTileCentre(enemy);
-                        return;
-                    }
-                    // Another enemy holds the tile: stand still with the path kept and try again after a wait that
-                    // grows while the tile stays held
-                    if (waitForHeldStep(next)) {
-                        // Still held after a wait: the holder stays, so the path is dropped and searched again once
-                        // the longer wait is over, priced to go around the held tiles when a detour is cheap
-                        path.clear();
-                        secondsOfPlayerBlockWait = secondsOfStepWait;
-                        secondsUntilRepath = Math.max(secondsUntilRepath, secondsOfStepWait);
-                    }
-                    return;
-                }
-                clearBlockedStep();
-            }
-
-            final double dx = next.x - enemy.getPosX();
-            final double dy = next.y - enemy.getPosY();
-            final double distance = Math.hypot(dx, dy);
-
-            if (distance <= remaining) {
-                enemy.setPosX(next.x);
-                enemy.setPosY(next.y);
-                enemy.setCurrentTileX(next.x);
-                enemy.setCurrentTileY(next.y);
-                enemy.setTargetTileX(next.x);
-                enemy.setTargetTileY(next.y);
-                path.poll();
-                remaining -= distance;
-            } else {
-                enemy.setPosX(enemy.getPosX() + dx / distance * remaining);
-                enemy.setPosY(enemy.getPosY() + dy / distance * remaining);
-                enemy.setTargetTileX(next.x);
-                enemy.setTargetTileY(next.y);
-                remaining = 0;
-            }
+            remaining = advanceTowards(enemy, next, remaining);
         }
+    }
+
+    /**
+     * Checks the next step of the path before the enemy walks it, and reacts when it cannot be walked.
+     *
+     * @return true when the enemy must stop for this update, with the path already adjusted to the reason
+     */
+    private boolean mustStopBeforeStep(Enemy enemy, PathNode next, TileMap map, Player player) {
+        if (isPlayerTile(next, player)) {
+            // The player stands on or is stepping to the tile the enemy is walking to: go back to the tile it left
+            // and wait, without a new search on every update meanwhile
+            turnBackToTileCentre(enemy);
+            secondsOfPlayerBlockWait = PLAYER_BLOCK_WAIT_SECONDS;
+            return true;
+        }
+        if (!isWalkable(map, next)) {
+            // Something was built on the path after it was searched: go back to the tile centre the enemy left,
+            // or stay on the one it stands on, and search again from there
+            turnBackToTileCentre(enemy);
+            secondsUntilRepath = 0;
+            return true;
+        }
+        return !isStepHeldBy(enemy, next) && !claimStep(enemy, next);
+    }
+
+    /**
+     * Asks for a tile that is not held by this enemy yet.
+     *
+     * @return true when the tile was reserved and can be walked, false when the enemy has to stand still
+     */
+    private boolean claimStep(Enemy enemy, PathNode next) {
+        if (secondsOfStepWait > 0) {
+            // Another enemy held this tile a moment ago: stand still until the wait is over
+            return false;
+        }
+        if (occupancy.tryReserve(enemy, next.x, next.y)) {
+            clearBlockedStep();
+            return true;
+        }
+        if (isMidStep(enemy)) {
+            // The tile being walked to was taken by another enemy: go back to the tile centre instead of
+            // standing between two tiles, and search from there
+            turnBackToTileCentre(enemy);
+            return false;
+        }
+        // Another enemy holds the tile: stand still with the path kept and try again after a wait that
+        // grows while the tile stays held
+        if (waitForHeldStep(next)) {
+            // Still held after a wait: the holder stays, so the path is dropped and searched again once
+            // the longer wait is over, priced to go around the held tiles when a detour is cheap
+            path.clear();
+            secondsOfPlayerBlockWait = secondsOfStepWait;
+            secondsUntilRepath = Math.max(secondsUntilRepath, secondsOfStepWait);
+        }
+        return false;
+    }
+
+    /**
+     * Moves the enemy towards the next tile of the path, as far as the distance left allows.
+     *
+     * @return the distance still left to walk after this step
+     */
+    private double advanceTowards(Enemy enemy, PathNode next, double remaining) {
+        final double dx = next.x - enemy.getPosX();
+        final double dy = next.y - enemy.getPosY();
+        final double distance = Math.hypot(dx, dy);
+
+        if (distance <= remaining) {
+            enemy.setPosX(next.x);
+            enemy.setPosY(next.y);
+            enemy.setCurrentTileX(next.x);
+            enemy.setCurrentTileY(next.y);
+            enemy.setTargetTileX(next.x);
+            enemy.setTargetTileY(next.y);
+            path.poll();
+            return remaining - distance;
+        }
+        enemy.setPosX(enemy.getPosX() + dx / distance * remaining);
+        enemy.setPosY(enemy.getPosY() + dy / distance * remaining);
+        enemy.setTargetTileX(next.x);
+        enemy.setTargetTileY(next.y);
+        return 0;
     }
 
     /** Drops the rest of the path but keeps the step in progress, so the enemy never stops between two tiles. */
@@ -323,7 +351,7 @@ final class WalkingChaser {
     }
 
     private static double distanceToPlayer(Enemy enemy, Player player) {
-        return Math.hypot(player.getCurrentTileX() - enemy.getCurrentTileX(),
-                player.getCurrentTileY() - enemy.getCurrentTileY());
+        return Math.hypot((double) player.getCurrentTileX() - enemy.getCurrentTileX(),
+                (double) player.getCurrentTileY() - enemy.getCurrentTileY());
     }
 }

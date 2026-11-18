@@ -114,7 +114,10 @@ final class BuildingIcons {
         final PixelReader reader = image.getPixelReader();
         final int width = (int) image.getWidth();
         final int height = (int) image.getHeight();
-        int minX = width, minY = height, maxX = -1, maxY = -1;
+        int minX = width;
+        int minY = height;
+        int maxX = -1;
+        int maxY = -1;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 if (((reader.getArgb(x, y) >>> 24) & 0xFF) > 0) {

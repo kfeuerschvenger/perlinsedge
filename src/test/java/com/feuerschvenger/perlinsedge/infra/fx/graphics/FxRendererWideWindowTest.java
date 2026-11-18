@@ -91,8 +91,8 @@ class FxRendererWideWindowTest {
         // of the far strip stand
         final Set<Long> planted = new HashSet<>();
         for (int k = 0; k <= 8; k++) {
-            plantAtGround(placed, placed[0] + placed[2] - 1, placed[1] + placed[3] * k / 8.0 - (k == 8 ? 1 : 0), planted);
-            plantAtGround(placed, placed[0] + placed[2] * k / 8.0 - (k == 8 ? 1 : 0), placed[1] + placed[3] - 1, planted);
+            plantAtGround(placed[0] + placed[2] - 1, placed[1] + placed[3] * k / 8.0 - (k == 8 ? 1 : 0), planted);
+            plantAtGround(placed[0] + placed[2] * k / 8.0 - (k == 8 ? 1 : 0), placed[1] + placed[3] - 1, planted);
         }
         assumeTrue(!planted.isEmpty(), "the edges of the window are on the map");
         plantedCount = planted.size();
@@ -103,7 +103,7 @@ class FxRendererWideWindowTest {
     private int plantedCount;
 
     /** Plants a tree on the tile whose ground point is the given screen point of the last frame. */
-    private void plantAtGround(double[] window, double groundX, double groundY, Set<Long> planted) {
+    private void plantAtGround(double groundX, double groundY, Set<Long> planted) {
         final AppConfig.GraphicsConfig graphics = AppConfig.getInstance().graphics();
         final double zoom = camera.getZoom();
         final double halfWidth = graphics.getTileHalfWidth() * zoom;

@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FxResourceFallbackPainterTest {
@@ -33,7 +34,7 @@ class FxResourceFallbackPainterTest {
         for (ResourceType a : ResourceType.values()) {
             for (ResourceType b : ResourceType.values()) {
                 if (a != b) {
-                    assertFalse(FxResourceFallbackPainter.blocksFor(a).equals(FxResourceFallbackPainter.blocksFor(b)));
+                    assertNotEquals(FxResourceFallbackPainter.blocksFor(a), FxResourceFallbackPainter.blocksFor(b));
                 }
             }
         }

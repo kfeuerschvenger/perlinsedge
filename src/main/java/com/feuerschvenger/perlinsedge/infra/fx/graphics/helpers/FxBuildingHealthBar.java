@@ -65,7 +65,7 @@ public final class FxBuildingHealthBar {
         final double x = PixelSnap.round(mark.centerX() - width / 2);
         final double y = PixelSnap.round(mark.topY() - (GAP_ART + HEIGHT_ART) * artScale);
         final double inset = artScale;
-        final double fill = Math.max(0.0, Math.min(1.0, mark.fraction())) * (width - 2 * inset);
+        final double fill = Math.clamp(mark.fraction(), 0.0, 1.0) * (width - 2 * inset);
 
         gc.setFill(BACK);
         gc.fillRoundRect(x, y, width, height, height, height);

@@ -6,6 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.pathfinding.TilePenalty;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Bounds the cost of an enemy chasing the player.
@@ -53,9 +54,9 @@ final class PathPlanner {
      * @param startY  start tile Y
      * @param targetX target tile X
      * @param targetY target tile Y
-     * @return the path, or null when none was found or the planner is backing off
+     * @return the path, or empty when none was found or the planner is backing off
      */
-    List<PathNode> findPath(TileMap map, int startX, int startY, int targetX, int targetY) {
+    Optional<List<PathNode>> findPath(TileMap map, int startX, int startY, int targetX, int targetY) {
         return findPath(map, startX, startY, targetX, targetY, TilePenalty.NONE);
     }
 
@@ -68,17 +69,18 @@ final class PathPlanner {
      * @param targetX target tile X
      * @param targetY target tile Y
      * @param penalty extra cost of entering a tile, such as one another enemy holds
-     * @return the path, or null when none was found or the planner is backing off
+     * @return the path, or empty when none was found or the planner is backing off
      */
-    List<PathNode> findPath(TileMap map, int startX, int startY, int targetX, int targetY, TilePenalty penalty) {
+    Optional<List<PathNode>> findPath(TileMap map, int startX, int startY, int targetX, int targetY,
+                                      TilePenalty penalty) {
         if (isBackingOff()) {
-            return null;
+            return Optional.empty();
         }
 
         searches++;
-        List<PathNode> path = new Pathfinder(map, null, penalty)
+        Optional<List<PathNode>> path = new Pathfinder(map, null, penalty)
                 .findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES);
-        if (path == null) {
+        if (path.isEmpty()) {
             backoffSeconds = backoffSeconds == 0
                     ? INITIAL_BACKOFF_SECONDS
                     : Math.min(MAX_BACKOFF_SECONDS, backoffSeconds * 2);

@@ -122,10 +122,11 @@ class FlickerTest {
         assertThrows(IllegalArgumentException.class, () -> Flicker.crackling(0.0, 1.0, 3.0, 1));
         assertThrows(IllegalArgumentException.class, () -> Flicker.crackling(0.1, 0.1, 0.0, 1));
         assertThrows(IllegalArgumentException.class, () -> Flicker.crackling(Double.NaN, 0.1, 3.0, 1));
-        assertThrows(IllegalArgumentException.class, () -> crackling(1).withShape(0.5, 0.2));
-        assertThrows(IllegalArgumentException.class, () -> crackling(1).withShape(0.1, 0.0));
-        assertThrows(IllegalArgumentException.class, () -> crackling(1).withColourDrift(null, ORANGE, 0.7));
-        assertThrows(IllegalArgumentException.class, () -> crackling(1).withColourDrift(ORANGE, YELLOW, 0.0));
+        final Flicker base = crackling(1);
+        assertThrows(IllegalArgumentException.class, () -> base.withShape(0.5, 0.2));
+        assertThrows(IllegalArgumentException.class, () -> base.withShape(0.1, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> base.withColourDrift(null, ORANGE, 0.7));
+        assertThrows(IllegalArgumentException.class, () -> base.withColourDrift(ORANGE, YELLOW, 0.0));
     }
 
     private static final Rgba ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
@@ -152,7 +153,6 @@ class FlickerTest {
         final double dt = 1.0 / 60.0;
         double lowest = 1.0;
         double highest = 0.0;
-        double slowestStep = 0.0;
         double biggestStep = 0.0;
         for (double time = 0.0; time < 600.0; time += dt) {
             final double share = flicker.colourShare(time);

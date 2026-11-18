@@ -13,13 +13,14 @@ import java.util.*;
  */
 public final class Pathfinder {
     // Reuse direction constants from IsometricUtils to prevent duplication
-    private static final int[][] MOVEMENT_DIRECTIONS = IsometricUtils.ALL_DIRECTIONS;
+    private static final int[][] MOVEMENT_DIRECTIONS = IsometricUtils.allDirections();
     private static final double[] DIRECTION_COSTS = precomputeDirectionCosts();
 
     /**
      * What a single search is looking for, kept apart from the Pathfinder so the target of a search is one value that
-     * the heuristic and the goal test both read. The search itself keeps the open set and the scores in locals; the
-     * only state an instance carries between searches is the expansion count behind {@link #getLastExpandedNodes()}.
+     * the heuristic and the goal test both read. The open set and the scores live in a {@link SearchState} of one
+     * search; the only state an instance carries between searches is the expansion count behind
+     * {@link #getLastExpandedNodes()}.
      *
      * @param x         X coordinate of the target
      * @param y         Y coordinate of the target
@@ -43,6 +44,21 @@ public final class Pathfinder {
                 return (node.x != x || node.y != y) && Math.abs(node.x - x) <= 1 && Math.abs(node.y - y) <= 1;
             }
             return node.x == x && node.y == y;
+        }
+    }
+
+    /**
+     * The bookkeeping of one search, grouped so the steps of the search take one argument instead of three.
+     *
+     * @param openSet   nodes found and not expanded yet, cheapest estimate first
+     * @param cameFrom  the node each reached node was reached from
+     * @param gScores   the cheapest known cost from the start to each reached node
+     */
+    private record SearchState(PriorityQueue<PathNode> openSet,
+                               Map<PathNode, PathNode> cameFrom,
+                               Map<PathNode, Double> gScores) {
+        SearchState() {
+            this(new PriorityQueue<>(), new HashMap<>(), new HashMap<>());
         }
     }
 
@@ -101,9 +117,9 @@ public final class Pathfinder {
      * @param targetX Target X coordinate
      * @param targetY Target Y coordinate
      * @return List of nodes representing the path (excluding start position),
-     *         or null if no valid path exists
+     *         or empty if no valid path exists
      */
-    public List<PathNode> findPath(int startX, int startY, int targetX, int targetY) {
+    public Optional<List<PathNode>> findPath(int startX, int startY, int targetX, int targetY) {
         return findPath(startX, startY, targetX, targetY, Integer.MAX_VALUE);
     }
 
@@ -117,9 +133,10 @@ public final class Pathfinder {
      * @param targetX          Target X coordinate
      * @param targetY          Target Y coordinate
      * @param maxExpandedNodes largest number of tiles the search may expand, must be positive
-     * @return the path excluding the start position, or null if none exists within the cap
+     * @return the path excluding the start position, or empty if none exists within the cap
      */
-    public List<PathNode> findPath(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
+    public Optional<List<PathNode>> findPath(int startX, int startY, int targetX, int targetY,
+                                             int maxExpandedNodes) {
         return search(startX, startY, targetX, targetY, false, maxExpandedNodes);
     }
 
@@ -133,10 +150,11 @@ public final class Pathfinder {
      * @param targetX          X coordinate of the tile to get next to
      * @param targetY          Y coordinate of the tile to get next to
      * @param maxExpandedNodes largest number of tiles the search may expand, must be positive
-     * @return the path excluding the start position (empty when the start is already next to the target), or null if
-     *         no such tile can be reached within the cap
+     * @return the path excluding the start position (an empty list when the start is already next to the target), or
+     *         an empty Optional if no such tile can be reached within the cap
      */
-    public List<PathNode> findPathNextTo(int startX, int startY, int targetX, int targetY, int maxExpandedNodes) {
+    public Optional<List<PathNode>> findPathNextTo(int startX, int startY, int targetX, int targetY,
+                                                   int maxExpandedNodes) {
         return search(startX, startY, targetX, targetY, true, maxExpandedNodes);
     }
 
@@ -145,8 +163,8 @@ public final class Pathfinder {
      * next-to search is the distance to the target minus the farthest a goal tile lies from it, which never
      * overestimates the cost of reaching the closest goal.
      */
-    private List<PathNode> search(int startX, int startY, int targetX, int targetY,
-                                  boolean nextTo, int maxExpandedNodes) {
+    private Optional<List<PathNode>> search(int startX, int startY, int targetX, int targetY,
+                                            boolean nextTo, int maxExpandedNodes) {
         if (maxExpandedNodes <= 0) {
             throw new IllegalArgumentException("maxExpandedNodes must be positive");
         }
@@ -156,43 +174,41 @@ public final class Pathfinder {
         // The start only has to be on the map: a player standing on a tile that became blocked must still be able to
         // walk off it
         if (!IsometricUtils.isWithinMapBounds(startX, startY, map) || (!nextTo && !isWalkable(targetX, targetY))) {
-            return null;
+            return Optional.empty();
         }
 
         // Initialize data structures for A* algorithm
-        final PriorityQueue<PathNode> openSet = new PriorityQueue<>();
-        final Map<PathNode, PathNode> cameFrom = new HashMap<>();
-        final Map<PathNode, Double> gScores = new HashMap<>();
+        final SearchState state = new SearchState();
 
         // Configure starting node
         final PathNode startNode = new PathNode(startX, startY);
         initializeNode(startNode, 0, heuristic(startX, startY, goal));
-        openSet.add(startNode);
-        gScores.put(startNode, 0.0);
+        state.openSet().add(startNode);
+        state.gScores().put(startNode, 0.0);
 
         // Process nodes until path found or search exhausted
-        while (!openSet.isEmpty()) {
-            PathNode current = openSet.poll();
+        while (!state.openSet().isEmpty()) {
+            PathNode current = state.openSet().poll();
 
             // Skip outdated nodes that have been improved since being queued
-            if (current.gCost > gScores.getOrDefault(current, Double.POSITIVE_INFINITY)) {
+            if (current.gCost > state.gScores().getOrDefault(current, Double.POSITIVE_INFINITY)) {
                 continue;
             }
 
             // Check for path completion
             if (goal.isReached(current)) {
-                return reconstructPath(cameFrom, current);
+                return Optional.of(reconstructPath(state.cameFrom(), current));
             }
 
             if (++lastExpandedNodes > maxExpandedNodes) {
-                return null;
+                return Optional.empty();
             }
 
             // Explore all possible neighbor directions
-            exploreNeighbors(current, goal, openSet, cameFrom, gScores);
+            exploreNeighbors(current, goal, state);
         }
 
-        return null; // No valid path exists
+        return Optional.empty(); // No valid path exists
     }
 
     /**
@@ -212,26 +228,28 @@ public final class Pathfinder {
     /**
      * Explores all neighbor directions from current position.
      */
-    private void exploreNeighbors(PathNode current, Goal goal,
-                                  PriorityQueue<PathNode> openSet,
-                                  Map<PathNode, PathNode> cameFrom,
-                                  Map<PathNode, Double> gScores) {
+    private void exploreNeighbors(PathNode current, Goal goal, SearchState state) {
         for (int i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
             int nx = current.x + MOVEMENT_DIRECTIONS[i][0];
             int ny = current.y + MOVEMENT_DIRECTIONS[i][1];
 
-            // Skip invalid or unwalkable positions
-            if (!isWalkable(nx, ny)) continue;
-
-            // A diagonal step may not cut the corner of a blocked tile
-            if (isDiagonal(i) && !(isWalkable(current.x + MOVEMENT_DIRECTIONS[i][0], current.y)
-                    && isWalkable(current.x, current.y + MOVEMENT_DIRECTIONS[i][1]))) {
-                continue;
+            if (canStepTo(current, i, nx, ny)) {
+                processNeighbor(current, nx, ny, goal, i, state);
             }
-
-            processNeighbor(current, nx, ny, goal,
-                    i, openSet, cameFrom, gScores);
         }
+    }
+
+    /**
+     * Tells whether the step in a direction may be taken: the tile must be walkable, and a diagonal step may not cut
+     * the corner of a blocked tile.
+     */
+    private boolean canStepTo(PathNode current, int directionIndex, int nx, int ny) {
+        if (!isWalkable(nx, ny)) {
+            return false;
+        }
+        return !isDiagonal(directionIndex)
+                || (isWalkable(current.x + MOVEMENT_DIRECTIONS[directionIndex][0], current.y)
+                && isWalkable(current.x, current.y + MOVEMENT_DIRECTIONS[directionIndex][1]));
     }
 
     private static boolean isDiagonal(int directionIndex) {
@@ -241,20 +259,17 @@ public final class Pathfinder {
     /**
      * Processes a single neighbor position.
      */
-    private void processNeighbor(PathNode current, int nx, int ny, Goal goal,
-                                 int directionIndex,
-                                 PriorityQueue<PathNode> openSet,
-                                 Map<PathNode, PathNode> cameFrom,
-                                 Map<PathNode, Double> gScores) {
+    private void processNeighbor(PathNode current, int nx, int ny, Goal goal, int directionIndex,
+                                 SearchState state) {
         PathNode neighbor = new PathNode(nx, ny);
         double newGCost = current.gCost + DIRECTION_COSTS[directionIndex] + penalty.extraCost(nx, ny);
 
         // Update neighbor if we found a better path
-        if (newGCost < gScores.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
-            cameFrom.put(neighbor, current);
+        if (newGCost < state.gScores().getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
+            state.cameFrom().put(neighbor, current);
             initializeNode(neighbor, newGCost, heuristic(nx, ny, goal));
-            gScores.put(neighbor, newGCost);
-            openSet.add(neighbor);
+            state.gScores().put(neighbor, newGCost);
+            state.openSet().add(neighbor);
         }
     }
 
@@ -289,7 +304,7 @@ public final class Pathfinder {
     private double heuristic(int x, int y, Goal goal) {
         int dx = x - goal.x();
         int dy = y - goal.y();
-        return Math.max(0, Math.sqrt(dx * dx + dy * dy) - goal.slack());
+        return Math.max(0, Math.sqrt((double) dx * dx + (double) dy * dy) - goal.slack());
     }
 
     /**
@@ -324,7 +339,7 @@ public final class Pathfinder {
         for (int i = 0; i < MOVEMENT_DIRECTIONS.length; i++) {
             int dx = MOVEMENT_DIRECTIONS[i][0];
             int dy = MOVEMENT_DIRECTIONS[i][1];
-            costs[i] = Math.sqrt(dx * dx + dy * dy);
+            costs[i] = Math.sqrt((double) dx * dx + (double) dy * dy);
         }
         return costs;
     }

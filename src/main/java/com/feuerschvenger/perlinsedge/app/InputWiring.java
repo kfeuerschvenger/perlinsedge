@@ -54,22 +54,18 @@ public class InputWiring {
      * @param buildingManager  building placement and removal
      * @param playerManager    player movement
      * @param interactionManager walks to and interacts with resources and buildings
-     * @param camera           camera used to convert screen to tile coordinates
-     * @param inputHandler     keyboard and scroll input source
-     * @param minimapDrawer    minimap view
-     * @param mainCanvas       canvas that receives game clicks
+     * @param view             camera, keyboard and scroll input, minimap and the canvas that receives game clicks
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
-                       PlayerManager playerManager, InteractionManager interactionManager, FxCamera camera,
-                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas) {
+                       PlayerManager playerManager, InteractionManager interactionManager, GameView view) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
         this.playerManager = playerManager;
         this.interactionManager = interactionManager;
-        this.camera = camera;
-        this.inputHandler = inputHandler;
-        this.minimapDrawer = minimapDrawer;
-        this.mainCanvas = mainCanvas;
+        this.camera = view.camera();
+        this.inputHandler = view.inputHandler();
+        this.minimapDrawer = view.minimapDrawer();
+        this.mainCanvas = view.mainCanvas();
     }
 
     /**
@@ -145,9 +141,7 @@ public class InputWiring {
             case EXPLORATION:
                 handleExplorationModeClick(event, tileX, tileY);
                 break;
-            case INVENTORY_OPEN:
-            case CRAFTING_OPEN:
-            case PAUSED:
+            case INVENTORY_OPEN, CRAFTING_OPEN, PAUSED:
                 log.debug("Click ignored in UI mode");
                 break;
         }
@@ -201,9 +195,9 @@ public class InputWiring {
     private boolean pickTile(double screenX, double screenY) {
         TileMap map = gameState.getCurrentMap();
         if (map == null) return false;
-        return TilePicker.pick(map, screenX, screenY, camera.getX(), camera.getY(), camera.getZoom(),
-                AppConfig.getInstance().graphics().getTileHalfWidth(),
-                AppConfig.getInstance().graphics().getTileHalfHeight(), pickedTile);
+        return TilePicker.pick(map, screenX, screenY, new TilePicker.View(camera.getX(), camera.getY(),
+                camera.getZoom(), AppConfig.getInstance().graphics().getTileHalfWidth(),
+                AppConfig.getInstance().graphics().getTileHalfHeight()), pickedTile);
     }
 
     /**

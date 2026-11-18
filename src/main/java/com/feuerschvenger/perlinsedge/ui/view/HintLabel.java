@@ -61,6 +61,6 @@ public class HintLabel extends Label {
      * @return milliseconds from the start of the cycle
      */
     static double resumePositionMs(double opacity) {
-        return Math.max(0, Math.min(1, opacity)) * FADE_IN_MS;
+        return Math.clamp(opacity, 0.0, 1.0) * FADE_IN_MS;
     }
 }

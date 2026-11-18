@@ -62,9 +62,31 @@ public final class QuickMove {
         final int end = Math.min(to, target.getCapacity());
         final int start = Math.max(from, 0);
         final int original = stack.getQuantity();
-        final int maxStack = stack.getMaxStackSize();
-        int remaining = original;
+        int remaining = mergeIntoMatchingStacks(source, sourceSlot, target, start, end, original);
+        remaining = fillFreeSlots(source, sourceSlot, target, start, end, remaining);
 
+        if (remaining == original) {
+            return false;
+        }
+        if (remaining <= 0) {
+            source.setItemAt(sourceSlot, null);
+        } else {
+            stack.setQuantity(remaining);
+            source.noteStackChanged();
+        }
+        return true;
+    }
+
+    /**
+     * Tops up the stacks of the same type in the range, skipping the source slot.
+     *
+     * @return the quantity that still has to be placed
+     */
+    private static int mergeIntoMatchingStacks(Container source, int sourceSlot, Container target,
+                                               int start, int end, int quantity) {
+        final Item stack = source.getItemAt(sourceSlot);
+        final int maxStack = stack.getMaxStackSize();
+        int remaining = quantity;
         for (int i = start; i < end && remaining > 0; i++) {
             final Item existing = target.getItemAt(i);
             if (isSource(source, sourceSlot, target, i) || existing == null || existing.getType() != stack.getType()) {
@@ -77,6 +99,19 @@ public final class QuickMove {
                 remaining -= moved;
             }
         }
+        return remaining;
+    }
+
+    /**
+     * Places what is left into the free slots of the range, skipping the source slot.
+     *
+     * @return the quantity that did not fit
+     */
+    private static int fillFreeSlots(Container source, int sourceSlot, Container target,
+                                     int start, int end, int quantity) {
+        final Item stack = source.getItemAt(sourceSlot);
+        final int maxStack = stack.getMaxStackSize();
+        int remaining = quantity;
         for (int i = start; i < end && remaining > 0; i++) {
             if (!isSource(source, sourceSlot, target, i) && target.getItemAt(i) == null) {
                 final int placed = Math.min(maxStack, remaining);
@@ -84,17 +119,7 @@ public final class QuickMove {
                 remaining -= placed;
             }
         }
-
-        if (remaining == original) {
-            return false;
-        }
-        if (remaining <= 0) {
-            source.setItemAt(sourceSlot, null);
-        } else {
-            stack.setQuantity(remaining);
-            source.noteStackChanged();
-        }
-        return true;
+        return remaining;
     }
 
     private static boolean isSource(Container source, int sourceSlot, Container target, int slot) {

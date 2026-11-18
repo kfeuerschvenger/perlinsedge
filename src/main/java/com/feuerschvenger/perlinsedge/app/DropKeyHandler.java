@@ -73,7 +73,7 @@ public class DropKeyHandler {
             return;
         }
         boolean thrown = drops.dropFromSlot(slot.container(), slot.slot(), wholeStack);
-        log.debug("DROP KEY: slot {} {}", slot.slot(), thrown ? (wholeStack ? "stack thrown" : "one thrown") : "empty");
+        log.debug("DROP KEY: slot {} {}", slot.slot(), outcome(thrown, wholeStack));
     }
 
     /** Throws from the hotbar slot held in hand, which is the only slot the player can see with no inventory open. */
@@ -84,7 +84,15 @@ public class DropKeyHandler {
         }
         final int slot = player.getSelectedHotbarIndex();
         boolean thrown = drops.dropFromSlot(player, slot, wholeStack);
-        log.debug("DROP KEY: hand slot {} {}", slot, thrown ? (wholeStack ? "stack thrown" : "one thrown") : "empty");
+        log.debug("DROP KEY: hand slot {} {}", slot, outcome(thrown, wholeStack));
+    }
+
+    /** Names what a drop did, for the log. */
+    private static String outcome(boolean thrown, boolean wholeStack) {
+        if (!thrown) {
+            return "empty";
+        }
+        return wholeStack ? "stack thrown" : "one thrown";
     }
 
     private static boolean isInventoryMode(GameMode mode) {

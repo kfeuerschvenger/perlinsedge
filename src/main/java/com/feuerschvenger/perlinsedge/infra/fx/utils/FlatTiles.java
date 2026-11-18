@@ -92,11 +92,11 @@ public final class FlatTiles {
         if (GrayscaleTiles.insideDiamond(x, y - 1)) {
             return scale(argb, DARKER * DARKER);
         }
-        return scale(argb, x < WIDTH / 2 ? DARKER : DARKER * DARKER);
+        return scale(argb, x < WIDTH / 2.0 ? DARKER : DARKER * DARKER);
     }
 
     /** Converts a colour component from zero to one into a byte, clamping values outside that range. */
     private static int channel(double component) {
-        return (int) Math.round(Math.max(0.0, Math.min(1.0, component)) * 255.0);
+        return (int) Math.round(Math.clamp(component, 0.0, 1.0) * 255.0);
     }
 }

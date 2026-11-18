@@ -69,6 +69,6 @@ public final class CursorStyle {
      * @return an opacity between {@link #FLASH_MIN_ALPHA} and 1
      */
     public static double flashAlpha(double strength) {
-        return FLASH_MIN_ALPHA + (1 - FLASH_MIN_ALPHA) * Math.max(0, Math.min(1, strength));
+        return FLASH_MIN_ALPHA + (1 - FLASH_MIN_ALPHA) * Math.clamp(strength, 0.0, 1.0);
     }
 }

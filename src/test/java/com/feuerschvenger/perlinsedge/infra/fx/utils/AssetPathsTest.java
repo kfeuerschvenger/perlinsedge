@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.config.AppConfig.PlayerConfig.SpriteSheetConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -131,8 +132,8 @@ class AssetPathsTest {
             int edge = bed.getRGB(16, 0) & 0xFFFFFF;
             assertTrue(brightness(edge) < brightness(centre), art);
         }
-        assertTrue(brightness(read(AssetPaths.tile("bed-deep", 1)).getRGB(16, 8) & 0xFFFFFF)
-                != brightness(read(AssetPaths.tile("bed", 1)).getRGB(16, 8) & 0xFFFFFF));
+        assertNotEquals(brightness(read(AssetPaths.tile("bed-deep", 1)).getRGB(16, 8) & 0xFFFFFF),
+                brightness(read(AssetPaths.tile("bed", 1)).getRGB(16, 8) & 0xFFFFFF));
     }
 
     private static int brightness(int rgb) {
@@ -245,10 +246,11 @@ class AssetPathsTest {
 
     @Test
     void thePlayerSheetMatchesTheConfiguredGrid() throws IOException {
-        AppConfig.PlayerConfig.SpriteSheetConfig config = AppConfig.getInstance().player().spriteSheet;
-        BufferedImage sheet = read(config.path);
-        assertEquals(config.startX + config.columns * config.columnOffset, sheet.getWidth());
-        assertEquals(config.rowYCoordinates[config.rows - 1] + config.spriteHeight, sheet.getHeight());
+        BufferedImage sheet = read(SpriteSheetConfig.PATH);
+        assertEquals(SpriteSheetConfig.START_X + SpriteSheetConfig.COLUMNS * SpriteSheetConfig.COLUMN_OFFSET,
+                sheet.getWidth());
+        assertEquals(SpriteSheetConfig.rowY(SpriteSheetConfig.ROWS - 1) + SpriteSheetConfig.SPRITE_HEIGHT,
+                sheet.getHeight());
     }
 
     @Test

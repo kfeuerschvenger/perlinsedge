@@ -38,8 +38,8 @@ class FxObjectShadowsTest {
                                         boolean water, boolean tileArt, double screenX, double screenY) {
         final ShadowList list = new ShadowList();
         final double drop = FxObjectShadows.waterDrop(water, tileArt, HALF_TILE_HEIGHT);
-        FxObjectShadows.addForTile(list, resource, image, contact, building, screenX, screenY + drop,
-                HALF_TILE_HEIGHT, ART_SCALE);
+        FxObjectShadows.addForTile(list, resource, image, contact, building,
+                new FxObjectShadows.TileAnchor(screenX, screenY + drop, HALF_TILE_HEIGHT, ART_SCALE));
         return list;
     }
 
@@ -100,8 +100,10 @@ class FxObjectShadowsTest {
         final ShadowList withArt = new ShadowList();
         final ShadowList withoutArt = new ShadowList();
 
-        FxObjectShadows.addForTile(withArt, null, null, 0, BuildingType.WORKBENCH, art, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
-        FxObjectShadows.addForTile(withoutArt, null, null, 0, BuildingType.WORKBENCH, (Image) null, 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+        final FxObjectShadows.TileAnchor anchor = new FxObjectShadows.TileAnchor(0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+
+        FxObjectShadows.addForTile(withArt, null, null, 0, BuildingType.WORKBENCH, art, anchor);
+        FxObjectShadows.addForTile(withoutArt, null, null, 0, BuildingType.WORKBENCH, (Image) null, anchor);
 
         assertEquals(1, withArt.size());
         assertNotNull(withArt.silhouette(0));
@@ -113,7 +115,8 @@ class FxObjectShadowsTest {
     void aFlatBuildingCastsNoShadowEvenWithArt() {
         final ShadowList list = new ShadowList();
 
-        FxObjectShadows.addForTile(list, null, null, 0, BuildingType.BRIDGE, sprite(), 0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+        FxObjectShadows.addForTile(list, null, null, 0, BuildingType.BRIDGE, sprite(),
+                new FxObjectShadows.TileAnchor(0, 0, HALF_TILE_HEIGHT, ART_SCALE));
 
         assertEquals(0, list.size());
     }

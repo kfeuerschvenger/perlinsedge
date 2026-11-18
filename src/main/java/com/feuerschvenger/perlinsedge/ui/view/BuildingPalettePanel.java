@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -121,7 +122,7 @@ public class BuildingPalettePanel extends HBox {
             choose(type);
             event.consume();
         });
-        card.node.setOnMouseClicked(event -> event.consume());
+        card.node.setOnMouseClicked(Event::consume);
         return card;
     }
 

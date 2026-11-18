@@ -118,25 +118,25 @@ public class KeyController implements IKeyListener {
             // ------------- Game keys --------------
 
             case ESCAPE:
-                if (togglePauseMenuAction != null) togglePauseMenuAction.run();
+                runIfSet(togglePauseMenuAction);
                 break;
             case SPACE:
-                if (centerCameraAction != null) centerCameraAction.run();
+                runIfSet(centerCameraAction);
                 break;
             case I:
-                if (toggleInventoryPanelAction != null) toggleInventoryPanelAction.run();
+                runIfSet(toggleInventoryPanelAction);
                 break;
             case DROP_ONE:
-                if (onDropOne != null) onDropOne.run();
+                runIfSet(onDropOne);
                 break;
             case DROP_STACK:
-                if (onDropStack != null) onDropStack.run();
+                runIfSet(onDropStack);
                 break;
             case ROTATE:
-                if (onRotate != null) onRotate.run();
+                runIfSet(onRotate);
                 break;
             case USE_ITEM:
-                if (onUseItem != null) onUseItem.run();
+                runIfSet(onUseItem);
                 break;
 
             // ----------- Debugging keys -----------
@@ -161,6 +161,13 @@ public class KeyController implements IKeyListener {
                 break;
             default:
                 break;
+        }
+    }
+
+    /** Runs an action that a key may have no handler for. */
+    private static void runIfSet(Runnable action) {
+        if (action != null) {
+            action.run();
         }
     }
 

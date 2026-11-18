@@ -77,7 +77,7 @@ public final class DamageNumbers {
          * @return 0 when it appears, rising to 1 when it is gone
          */
         public double progress(double gameTime) {
-            return Math.max(0.0, Math.min(1.0, (gameTime - startTime) / LIFETIME_SECONDS));
+            return Math.clamp((gameTime - startTime) / LIFETIME_SECONDS, 0.0, 1.0);
         }
 
         /**

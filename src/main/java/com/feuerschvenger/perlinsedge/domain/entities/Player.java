@@ -52,7 +52,7 @@ public class Player extends Entity implements Container {
     // ==================================================================
 
     // Combat state
-    private double attackCooldown = DEFAULT_ATTACK_COOLDOWN;
+    private final double attackCooldown =DEFAULT_ATTACK_COOLDOWN;
     private double attackTimer = 0;
     private boolean isAttacking = false;
     private double attackAnimationTime = 0;
@@ -186,9 +186,9 @@ public class Player extends Entity implements Container {
         }
 
         Pathfinder pathfinder = new Pathfinder(map, occupied);
-        List<PathNode> path = pathfinder.findPath(fromX, fromY, targetX, targetY);
+        List<PathNode> path = pathfinder.findPath(fromX, fromY, targetX, targetY).orElse(List.of());
 
-        if (path == null || path.isEmpty()) {
+        if (path.isEmpty()) {
             // A refused order ends the walk the way any stop does: a player between two tiles finishes its step
             stop();
             return false;
@@ -564,29 +564,43 @@ public class Player extends Entity implements Container {
         }
 
         for (CraftingIngredient ingredient : recipe.getIngredients()) {
-            int remaining = ingredient.quantity();
-            for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
-                if (types[i] == ingredient.itemType()) {
-                    int taken = Math.min(quantities[i], remaining);
-                    quantities[i] -= taken;
-                    remaining -= taken;
-                    if (quantities[i] == 0) {
-                        types[i] = null;
-                    }
+            consumeFromSimulation(types, quantities, ingredient);
+        }
+
+        return simulatedRoomFor(types, quantities, recipe.getOutputItemType()) >= recipe.getOutputQuantity();
+    }
+
+    /**
+     * Removes one ingredient from the simulated slots, front to back.
+     */
+    private static void consumeFromSimulation(ItemType[] types, int[] quantities, CraftingIngredient ingredient) {
+        int remaining = ingredient.quantity();
+        for (int i = 0; i < INVENTORY_CAPACITY && remaining > 0; i++) {
+            if (types[i] == ingredient.itemType()) {
+                int taken = Math.min(quantities[i], remaining);
+                quantities[i] -= taken;
+                remaining -= taken;
+                if (quantities[i] == 0) {
+                    types[i] = null;
                 }
             }
         }
+    }
 
-        int maxStack = recipe.getOutputItemType().getMaxStackSize();
+    /**
+     * Counts how many units of the output type the simulated slots can still take.
+     */
+    private static int simulatedRoomFor(ItemType[] types, int[] quantities, ItemType outputType) {
+        int maxStack = outputType.getMaxStackSize();
         int room = 0;
         for (int i = 0; i < INVENTORY_CAPACITY; i++) {
             if (types[i] == null) {
                 room += maxStack;
-            } else if (types[i] == recipe.getOutputItemType()) {
+            } else if (types[i] == outputType) {
                 room += maxStack - quantities[i];
             }
         }
-        return room >= recipe.getOutputQuantity();
+        return room;
     }
 
     // ==================================================================
@@ -758,6 +772,7 @@ public class Player extends Entity implements Container {
 
     @Override
     public double getRenderOffsetY() { return RENDER_OFFSET_Y; }
+    @Override
     public double getMaxHealth() { return MAX_HEALTH; }
     public List<Item> getInventory() { return Collections.unmodifiableList(inventory); }
     public int getDirection() { return direction; }

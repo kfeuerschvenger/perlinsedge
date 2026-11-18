@@ -34,16 +34,14 @@ public final class FxBuildingDrawingHelper {
      * @param sprite  the art of the building in its present state, or null to draw the procedural shape
      * @param centerX screen X of the tile centre
      * @param centerY screen Y of the tile centre
-     * @param offsetX camera X offset, for the procedural shape
-     * @param offsetY camera Y offset, for the procedural shape
-     * @param zoom    current zoom level
+     * @param camera  the camera offset, for the procedural shape, and the current zoom level
      */
     public static void drawBuilding(GraphicsContext gc, Building building, Image sprite, double centerX,
-                                    double centerY, double offsetX, double offsetY, double zoom) {
+                                    double centerY, CameraView camera) {
         if (sprite != null) {
-            drawSprite(gc, sprite, centerX, centerY, ZoomSteps.integerArtScale(zoom));
+            drawSprite(gc, sprite, centerX, centerY, ZoomSteps.integerArtScale(camera.zoom()));
         } else {
-            drawBuilding(gc, building, offsetX, offsetY, zoom);
+            drawBuilding(gc, building, camera.offsetX(), camera.offsetY(), camera.zoom());
         }
     }
 
@@ -87,12 +85,10 @@ public final class FxBuildingDrawingHelper {
      * @param sprites the art of the piece, which is several images for a fence, or null or none when it has none
      * @param centerX screen X of the tile centre
      * @param centerY screen Y of the tile centre
-     * @param offsetX camera X offset
-     * @param offsetY camera Y offset
      * @param zoom    current zoom level
      */
     public static void drawGhost(GraphicsContext gc, BuildingPreview preview, Image[] sprites, double centerX,
-                                 double centerY, double offsetX, double offsetY, double zoom) {
+                                 double centerY, double zoom) {
         gc.save();
         gc.setGlobalAlpha(GHOST_OPACITY);
         if (sprites != null && sprites.length > 0) {

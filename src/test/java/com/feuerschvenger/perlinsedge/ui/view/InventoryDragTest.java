@@ -275,7 +275,7 @@ class InventoryDragTest {
 
         var hovered = FxToolkitSupport.onFx(panel::getHoveredOrSelectedSlot);
         assertEquals(9, hovered.slot());
-        assertTrue(hovered.container() == player);
+        assertSame(player, hovered.container());
     }
 
     @Test

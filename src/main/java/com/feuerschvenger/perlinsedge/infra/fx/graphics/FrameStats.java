@@ -18,7 +18,7 @@ public final class FrameStats {
      *
      * @param deltaSeconds duration of the frame in seconds, non-positive values are ignored
      */
-    public void record(double deltaSeconds) {
+    public void recordFrame(double deltaSeconds) {
         if (deltaSeconds <= 0) {
             return;
         }

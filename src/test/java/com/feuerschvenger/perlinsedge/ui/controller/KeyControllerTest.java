@@ -121,8 +121,10 @@ class KeyControllerTest {
 
     @Test
     void dropKeysWithoutActionsAreIgnored() {
-        controller.onKeyAction(GameKey.DROP_ONE);
-        controller.onKeyAction(GameKey.DROP_STACK);
+        assertDoesNotThrow(() -> {
+            controller.onKeyAction(GameKey.DROP_ONE);
+            controller.onKeyAction(GameKey.DROP_STACK);
+        });
     }
 
     @Test
@@ -191,8 +193,10 @@ class KeyControllerTest {
     void missingActionsAreIgnored() {
         KeyController bare = new KeyController(null, null, null, null, null, null);
 
-        bare.onKeyAction(GameKey.DIGIT_1);
-        bare.onKeyAction(GameKey.SPACE);
+        assertDoesNotThrow(() -> {
+            bare.onKeyAction(GameKey.DIGIT_1);
+            bare.onKeyAction(GameKey.SPACE);
+        });
     }
 
     @Test

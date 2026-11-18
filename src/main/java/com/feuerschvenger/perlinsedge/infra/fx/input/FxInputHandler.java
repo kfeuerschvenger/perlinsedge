@@ -18,7 +18,7 @@ import java.util.Arrays;
  * It manages camera zooming and edge detection for screen edges.
  */
 public class FxInputHandler {
-    private final static int EDGE_SIZE = 30;
+    private static final int EDGE_SIZE = 30;
 
     private final boolean[] edgeActive; // [0]Up, [1]Right, [2]Down, [3]Left
 

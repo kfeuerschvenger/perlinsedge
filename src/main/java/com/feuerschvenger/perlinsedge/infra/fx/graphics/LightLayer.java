@@ -53,6 +53,17 @@ public final class LightLayer {
     /** Art pixels from the top vertex of a tile to its centre along the height, where an entity stands. */
     static final double TILE_ART_HALF_HEIGHT = AppConfig.getInstance().graphics().getTileHalfHeight()
             / ZoomSteps.ART_SCALE_AT_UNIT_ZOOM;
+    /**
+     * The art grid of the canvas the cells are laid on.
+     *
+     * @param artScale the integer number of screen pixels per art pixel
+     * @param originX  screen X of the camera origin, which the art grid is aligned to
+     * @param originY  screen Y of the camera origin
+     * @param wide     the number of cells across the canvas grid, with its border cells
+     * @param high     the number of cells down the canvas grid, with its border cells
+     */
+    public record GridView(double artScale, double originX, double originY, int wide, int high) {}
+
     /** The numbers kept for each light: its centre cell, radius, intensity, colour, shape time and box. */
     private static final int STRIDE = 12;
     /** The part of the stride that holds the box as left, top, right and bottom. */
@@ -141,24 +152,21 @@ public final class LightLayer {
      * @param gameTime     the game time in seconds, which the flicker of the lights runs on
      * @param tint         the colour of the sky tint
      * @param tintStrength how strongly the sky tint is laid over the world, 0 to 1
-     * @param artScale     the integer number of screen pixels per art pixel
-     * @param originX      screen X of the camera origin, which the art grid is aligned to
-     * @param originY      screen Y of the camera origin
-     * @param wide         the number of cells across the canvas grid, with its border cells
-     * @param high         the number of cells down the canvas grid, with its border cells
+     * @param grid         the art grid of the canvas the cells are laid on
      * @return true when at least one light reaches into the canvas, false when the plain tint is all there is to draw
      */
     public boolean compose(LightRegistry registry, LightStyle style, double gameTime, ColourChannels tint, double tintStrength,
-                           double artScale, double originX, double originY, int wide, int high) {
+                           GridView grid) {
         changed = false;
-        if (wide != cellsWide || high != cellsHigh) {
-            cellsWide = wide;
-            cellsHigh = high;
-            pixels = new int[wide * high];
+        final double artScale = grid.artScale();
+        if (grid.wide() != cellsWide || grid.high() != cellsHigh) {
+            cellsWide = grid.wide();
+            cellsHigh = grid.high();
+            pixels = new int[cellsWide * cellsHigh];
             signatureLength = 0;
         }
-        final double snappedX = PixelSnap.round(originX);
-        final double snappedY = PixelSnap.round(originY);
+        final double snappedX = PixelSnap.round(grid.originX());
+        final double snappedY = PixelSnap.round(grid.originY());
         phaseX = snappedX - Math.floor(snappedX / artScale) * artScale;
         phaseY = snappedY - Math.floor(snappedY / artScale) * artScale;
         plain = plainCellFor(tint, tintStrength);
@@ -173,7 +181,7 @@ public final class LightLayer {
         // keeps the regions of the last one and runs no merge
         group();
         groupRuns++;
-        work(style, tint, tintStrength, gameTime);
+        work(style, tint, tintStrength);
         changed = true;
         composes++;
         return true;
@@ -186,66 +194,71 @@ public final class LightLayer {
     private void collect(LightRegistry registry, double gameTime, double artScale, double snappedX, double snappedY) {
         count = 0;
         for (int i = 0, total = registry.size(); i < total; i++) {
-            final LightSource source = registry.get(i);
-            final Flicker flicker = source.flicker();
-            // The light shines from where an entity at its position would stand, and is placed on a whole screen pixel
-            final double screenX = PixelSnap.round((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale
-                    + snappedX);
-            final double screenY = PixelSnap.round(((source.x() + source.y()) * TILE_ART_HALF_HEIGHT
-                    + TILE_ART_HALF_HEIGHT) * artScale + snappedY);
-            final double centreX = (screenX - phaseX) / artScale + 1.0;
-            final double centreY = (screenY - phaseY) / artScale + 1.0;
-            // A light whose widest possible reach stays off the canvas is dropped before any flicker is evaluated
-            if (!reachesCanvas(centreX, centreY, source.radius() * (1.0 + flicker.radiusAmplitude()), flicker)) {
-                continue;
-            }
-            final double radius = source.radius() * flicker.radiusFactor(gameTime);
-            final double intensity = Math.max(0.0, Math.min(1.0,
-                    source.intensity() * flicker.intensityFactor(gameTime)));
-            if (!(radius > 0.0) || intensity <= 0.0) {
-                continue;
-            }
-            // A circle of the ground is an ellipse of the screen: sqrt(2) tiles along each diagonal of a tile, and the
-            // shape of the light can reach out by its amplitude
-            final double reach = radius * Math.sqrt(2.0) * (1.0 + flicker.shapeAmplitude());
-            final double reachX = reach * TILE_ART_HALF_WIDTH;
-            final double reachY = reach * TILE_ART_HALF_HEIGHT;
-            final int boxLeft = Math.max(0, (int) Math.floor(centreX - reachX));
-            final int boxTop = Math.max(0, (int) Math.floor(centreY - reachY));
-            final int boxRight = Math.min(cellsWide, (int) Math.ceil(centreX + reachX));
-            final int boxBottom = Math.min(cellsHigh, (int) Math.ceil(centreY + reachY));
-            if (boxRight <= boxLeft || boxBottom <= boxTop) {
-                continue;
-            }
-            if ((count + 1) * STRIDE > lights.length) {
-                lights = Arrays.copyOf(lights, lights.length * 2);
-                flickers = Arrays.copyOf(flickers, flickers.length * 2);
-            }
-            final int at = count * STRIDE;
-            final Rgba colour = source.colour();
-            double red = colour.r();
-            double green = colour.g();
-            double blue = colour.b();
-            if (flicker.hasColourDrift()) {
-                final double share = flicker.colourShare(gameTime);
-                red = mix(flicker.colourLow().r(), flicker.colourHigh().r(), share);
-                green = mix(flicker.colourLow().g(), flicker.colourHigh().g(), share);
-                blue = mix(flicker.colourLow().b(), flicker.colourHigh().b(), share);
-            }
-            lights[at] = centreX;
-            lights[at + 1] = centreY;
-            lights[at + 2] = radius;
-            lights[at + 3] = intensity;
-            lights[at + 4] = red;
-            lights[at + 5] = green;
-            lights[at + 6] = blue;
-            lights[at + SHAPE_TIME_AT] = flicker.shapeAmplitude() > 0.0 ? gameTime : 0.0;
-            lights[at + BOX_AT] = boxLeft;
-            lights[at + BOX_AT + 1] = boxTop;
-            lights[at + BOX_AT + 2] = boxRight;
-            lights[at + BOX_AT + 3] = boxBottom;
-            flickers[count] = flicker;
-            count++;
+            addLight(registry.get(i), gameTime, artScale, snappedX, snappedY);
+        }
+    }
+
+    /** Adds a light to the lights in view when its box has a cell on the canvas. */
+    private void addLight(LightSource source, double gameTime, double artScale, double snappedX, double snappedY) {
+        final Flicker flicker = source.flicker();
+        // The light shines from where an entity at its position would stand, and is placed on a whole screen pixel
+        final double screenX = PixelSnap.round((source.x() - source.y()) * TILE_ART_HALF_WIDTH * artScale
+                + snappedX);
+        final double screenY = PixelSnap.round(((source.x() + source.y()) * TILE_ART_HALF_HEIGHT
+                + TILE_ART_HALF_HEIGHT) * artScale + snappedY);
+        final double centreX = (screenX - phaseX) / artScale + 1.0;
+        final double centreY = (screenY - phaseY) / artScale + 1.0;
+        // A light whose widest possible reach stays off the canvas is dropped before any flicker is evaluated
+        if (!reachesCanvas(centreX, centreY, source.radius() * (1.0 + flicker.radiusAmplitude()), flicker)) {
+            return;
+        }
+        final double radius = source.radius() * flicker.radiusFactor(gameTime);
+        final double intensity = Math.clamp(source.intensity() * flicker.intensityFactor(gameTime), 0.0, 1.0);
+        if (radius <= 0.0 || intensity <= 0.0) {
+            return;
+        }
+        // A circle of the ground is an ellipse of the screen: sqrt(2) tiles along each diagonal of a tile, and the
+        // shape of the light can reach out by its amplitude
+        final double reach = radius * Math.sqrt(2.0) * (1.0 + flicker.shapeAmplitude());
+        final double reachX = reach * TILE_ART_HALF_WIDTH;
+        final double reachY = reach * TILE_ART_HALF_HEIGHT;
+        final int boxLeft = Math.max(0, (int) Math.floor(centreX - reachX));
+        final int boxTop = Math.max(0, (int) Math.floor(centreY - reachY));
+        final int boxRight = Math.min(cellsWide, (int) Math.ceil(centreX + reachX));
+        final int boxBottom = Math.min(cellsHigh, (int) Math.ceil(centreY + reachY));
+        if (boxRight <= boxLeft || boxBottom <= boxTop) {
+            return;
+        }
+        if ((count + 1) * STRIDE > lights.length) {
+            lights = Arrays.copyOf(lights, lights.length * 2);
+            flickers = Arrays.copyOf(flickers, flickers.length * 2);
+        }
+        final int at = count * STRIDE;
+        lights[at] = centreX;
+        lights[at + 1] = centreY;
+        lights[at + 2] = radius;
+        lights[at + 3] = intensity;
+        storeColour(at + 4, source.colour(), flicker, gameTime);
+        lights[at + SHAPE_TIME_AT] = flicker.shapeAmplitude() > 0.0 ? gameTime : 0.0;
+        lights[at + BOX_AT] = boxLeft;
+        lights[at + BOX_AT + 1] = boxTop;
+        lights[at + BOX_AT + 2] = boxRight;
+        lights[at + BOX_AT + 3] = boxBottom;
+        flickers[count] = flicker;
+        count++;
+    }
+
+    /** Stores the colour of a light at a place of the lights, drifted between the two ends of its flicker when it drifts. */
+    private void storeColour(int at, Rgba colour, Flicker flicker, double gameTime) {
+        if (flicker.hasColourDrift()) {
+            final double share = flicker.colourShare(gameTime);
+            lights[at] = mix(flicker.colourLow().r(), flicker.colourHigh().r(), share);
+            lights[at + 1] = mix(flicker.colourLow().g(), flicker.colourHigh().g(), share);
+            lights[at + 2] = mix(flicker.colourLow().b(), flicker.colourHigh().b(), share);
+        } else {
+            lights[at] = colour.r();
+            lights[at + 1] = colour.g();
+            lights[at + 2] = colour.b();
         }
     }
 
@@ -283,36 +296,68 @@ public final class LightLayer {
         }
         boolean merged = count > 1;
         while (merged) {
-            merged = false;
-            for (int a = 0; a < count; a++) {
-                if (isEmptyRegion(a)) {
-                    continue;
-                }
-                for (int b = a + 1; b < count; b++) {
-                    if (!isEmptyRegion(b) && regionsOverlap(a, b)) {
-                        mergeRegion(a, b);
-                        merged = true;
-                    }
-                }
+            merged = mergePass();
+        }
+        regionCount = compactRegions();
+    }
+
+    /**
+     * Merges every region that overlaps another once.
+     *
+     * @return whether any two regions were merged
+     */
+    private boolean mergePass() {
+        boolean merged = false;
+        for (int a = 0; a < count; a++) {
+            if (!isEmptyRegion(a) && absorbOverlapping(a)) {
+                merged = true;
             }
         }
-        // The regions that are left take the first numbers
+        return merged;
+    }
+
+    /**
+     * Merges into a region every later region that overlaps it.
+     *
+     * @return whether any region was merged
+     */
+    private boolean absorbOverlapping(int a) {
+        boolean merged = false;
+        for (int b = a + 1; b < count; b++) {
+            if (!isEmptyRegion(b) && regionsOverlap(a, b)) {
+                mergeRegion(a, b);
+                merged = true;
+            }
+        }
+        return merged;
+    }
+
+    /**
+     * Gives the regions that are left the first numbers.
+     *
+     * @return how many regions are left
+     */
+    private int compactRegions() {
         int next = 0;
         for (int a = 0; a < count; a++) {
-            if (isEmptyRegion(a)) {
-                continue;
-            }
-            if (next != a) {
-                System.arraycopy(regionBoxes, a * 4, regionBoxes, next * 4, 4);
-                for (int i = 0; i < count; i++) {
-                    if (lightRegion[i] == a) {
-                        lightRegion[i] = next;
-                    }
+            if (!isEmptyRegion(a)) {
+                if (next != a) {
+                    renumberRegion(a, next);
                 }
+                next++;
             }
-            next++;
         }
-        regionCount = next;
+        return next;
+    }
+
+    /** Moves the box of a region to another number, and the lights of the region with it. */
+    private void renumberRegion(int from, int to) {
+        System.arraycopy(regionBoxes, from * 4, regionBoxes, to * 4, 4);
+        for (int i = 0; i < count; i++) {
+            if (lightRegion[i] == from) {
+                lightRegion[i] = to;
+            }
+        }
     }
 
     /** Tells whether a region was merged into another, which leaves it with no box. */
@@ -392,16 +437,16 @@ public final class LightLayer {
     }
 
     /** Works out every cell of the box of every region. */
-    private void work(LightStyle style, ColourChannels tint, double tintStrength, double gameTime) {
+    private void work(LightStyle style, ColourChannels tint, double tintStrength) {
         final double darkness = Math.min(1.0, tintStrength / style.referenceDarkness());
         final double warm = style.warmStrength() * darkness;
         for (int region = 0; region < regionCount; region++) {
-            workRegion(region, gameTime, tint, tintStrength, warm);
+            workRegion(region, tint, tintStrength, warm);
         }
     }
 
     /** Works out every cell of the box of one region. */
-    private void workRegion(int region, double gameTime, ColourChannels tint, double tintStrength, double warm) {
+    private void workRegion(int region, ColourChannels tint, double tintStrength, double warm) {
         final int regionLeft = regionBoxes[region * 4];
         final int regionTop = regionBoxes[region * 4 + 1];
         final int regionRight = regionBoxes[region * 4 + 2];
@@ -409,23 +454,47 @@ public final class LightLayer {
         for (int y = regionTop; y < regionBottom; y++) {
             Arrays.fill(pixels, y * cellsWide + regionLeft, y * cellsWide + regionRight, plain);
         }
-        int first = -1;
-        int members = 0;
-        for (int light = 0; light < count; light++) {
-            if (lightRegion[light] == region) {
-                first = first < 0 ? light : first;
-                members++;
-            }
-        }
-        if (members == 1) {
+        final int first = firstLightOf(region);
+        if (first >= 0 && membersOf(region) == 1) {
             // One light needs nothing remembered between cells: every cell is worked out straight to its colour
-            castLight(first, gameTime, tint, tintStrength, warm, false);
+            castLight(first, tint, tintStrength, warm, false);
             return;
         }
         sumLeft = regionLeft;
         sumTop = regionTop;
         sumWide = regionRight - regionLeft;
-        final int cells = sumWide * (regionBottom - regionTop);
+        clearSums(sumWide * (regionBottom - regionTop));
+        for (int light = 0; light < count; light++) {
+            if (lightRegion[light] == region) {
+                castLight(light, tint, tintStrength, warm, true);
+            }
+        }
+        resolveSums(regionLeft, regionTop, regionRight, regionBottom, tint, tintStrength, warm);
+    }
+
+    /** Returns the first light of a region, or -1 when it has none. */
+    private int firstLightOf(int region) {
+        for (int light = 0; light < count; light++) {
+            if (lightRegion[light] == region) {
+                return light;
+            }
+        }
+        return -1;
+    }
+
+    /** Returns how many lights a region holds. */
+    private int membersOf(int region) {
+        int members = 0;
+        for (int light = 0; light < count; light++) {
+            if (lightRegion[light] == region) {
+                members++;
+            }
+        }
+        return members;
+    }
+
+    /** Makes the sums hold room for a number of cells, every one of them zero. */
+    private void clearSums(int cells) {
         if (levels.length < cells) {
             levels = new int[cells];
             weights = new int[cells];
@@ -439,11 +508,11 @@ public final class LightLayer {
             Arrays.fill(greens, 0, cells, 0);
             Arrays.fill(blues, 0, cells, 0);
         }
-        for (int light = 0; light < count; light++) {
-            if (lightRegion[light] == region) {
-                castLight(light, gameTime, tint, tintStrength, warm, true);
-            }
-        }
+    }
+
+    /** Turns the sums of the lights of a region into the finished cells of its box. */
+    private void resolveSums(int regionLeft, int regionTop, int regionRight, int regionBottom, ColourChannels tint,
+                             double tintStrength, double warm) {
         for (int y = regionTop; y < regionBottom; y++) {
             for (int x = regionLeft; x < regionRight; x++) {
                 final int sum = (y - sumTop) * sumWide + (x - sumLeft);
@@ -460,15 +529,12 @@ public final class LightLayer {
      * Casts one light over the cells of its box, either straight to the pixels or into the sums that several lights
      * share.
      */
-    private void castLight(int light, double gameTime, ColourChannels tint, double tintStrength, double warm, boolean sums) {
+    private void castLight(int light, ColourChannels tint, double tintStrength, double warm, boolean sums) {
         final int at = light * STRIDE;
         final double centreX = lights[at];
         final double centreY = lights[at + 1];
         final double radius = lights[at + 2];
         final double intensity = lights[at + 3];
-        final double red = lights[at + 4];
-        final double green = lights[at + 5];
-        final double blue = lights[at + 6];
         final int boxLeft = (int) lights[at + BOX_AT];
         final int boxTop = (int) lights[at + BOX_AT + 1];
         final int boxRight = (int) lights[at + BOX_AT + 2];
@@ -479,18 +545,46 @@ public final class LightLayer {
             prepareShape(flickers[light], lights[at + SHAPE_TIME_AT]);
         }
         if (!sums) {
-            // One light has one colour, so a cell is looked up by its light in 256 steps instead of being mixed
-            for (int level = 0; level <= 255; level++) {
-                litCells[level] = cell(level / 255.0, red, green, blue, tint, tintStrength, warm);
-            }
+            fillLitCells(lights[at + 4], lights[at + 5], lights[at + 6], tint, tintStrength, warm);
         }
-        final int red255 = (int) Math.round(red * 255.0);
-        final int green255 = (int) Math.round(green * 255.0);
-        final int blue255 = (int) Math.round(blue * 255.0);
+        final int red255 = (int) Math.round(lights[at + 4] * 255.0);
+        final int green255 = (int) Math.round(lights[at + 5] * 255.0);
+        final int blue255 = (int) Math.round(lights[at + 6] * 255.0);
         // A distance on the ground in tiles, from two distances in art pixels: tiles are 32 across and 16 down, and the
         // square of a step along a tile axis is half the sum of the squares of its two diagonal parts
         final double scale = 0.5 / (radius * radius);
         final int boxWide = boxRight - boxLeft;
+        prepareColumns(boxLeft, boxWide, centreX);
+        for (int y = boxTop; y < boxBottom; y++) {
+            final double down = (y + 0.5 - centreY) / TILE_ART_HALF_HEIGHT;
+            final double downSquare = down * down;
+            final int row = y * cellsWide + boxLeft;
+            final int sumRow = (y - sumTop) * sumWide + (boxLeft - sumLeft);
+            for (int x = 0; x < boxWide; x++) {
+                final double share = shareAt(x, down, downSquare, scale, shaped);
+                if (share < 1.0) {
+                    final int level = (int) (Math.min(1.0, LightFalloff.level(share) * intensity) * 255.0 + 0.5);
+                    if (sums) {
+                        addToSums(sumRow + x, level, red255, green255, blue255);
+                    } else {
+                        pixels[row + x] = litCells[level];
+                    }
+                }
+            }
+        }
+    }
+
+    /** Works out the finished cell of each of the 256 steps of light of one colour, which a single light looks up. */
+    private void fillLitCells(double red, double green, double blue, ColourChannels tint, double tintStrength,
+                              double warm) {
+        // One light has one colour, so a cell is looked up by its light in 256 steps instead of being mixed
+        for (int level = 0; level <= 255; level++) {
+            litCells[level] = cell(level / 255.0, red, green, blue, tint, tintStrength, warm);
+        }
+    }
+
+    /** Works out, for each column of the box of a light, its distance across the ground from the light. */
+    private void prepareColumns(int boxLeft, int boxWide, double centreX) {
         if (columnPart.length < boxWide) {
             columnPart = new double[boxWide];
             columnAcross = new double[boxWide];
@@ -500,33 +594,21 @@ public final class LightLayer {
             columnAcross[x] = across;
             columnPart[x] = across * across;
         }
-        for (int y = boxTop; y < boxBottom; y++) {
-            final double down = (y + 0.5 - centreY) / TILE_ART_HALF_HEIGHT;
-            final double downSquare = down * down;
-            final int row = y * cellsWide + boxLeft;
-            final int sumRow = (y - sumTop) * sumWide + (boxLeft - sumLeft);
-            for (int x = 0; x < boxWide; x++) {
-                double share = (downSquare + columnPart[x]) * scale;
-                if (shaped) {
-                    share *= inverseAt(columnAcross[x], down);
-                }
-                if (!(share < 1.0)) {
-                    continue;
-                }
-                final double lit = Math.min(1.0, LightFalloff.level(share) * intensity);
-                final int level = (int) (lit * 255.0 + 0.5);
-                if (!sums) {
-                    pixels[row + x] = litCells[level];
-                    continue;
-                }
-                final int i = sumRow + x;
-                levels[i] = levels[i] == 0 ? level : 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
-                weights[i] += level;
-                reds[i] += level * red255;
-                greens[i] += level * green255;
-                blues[i] += level * blue255;
-            }
-        }
+    }
+
+    /** Returns the square of the distance of a cell from the light as a share of its radius, which is 1 at its edge. */
+    private double shareAt(int column, double down, double downSquare, double scale, boolean shaped) {
+        final double share = (downSquare + columnPart[column]) * scale;
+        return shaped ? share * inverseAt(columnAcross[column], down) : share;
+    }
+
+    /** Adds the light of one light to the sums of a cell. */
+    private void addToSums(int i, int level, int red255, int green255, int blue255) {
+        levels[i] = levels[i] == 0 ? level : 255 - ((255 - levels[i]) * (255 - level) + 127) / 255;
+        weights[i] += level;
+        reds[i] += level * red255;
+        greens[i] += level * green255;
+        blues[i] += level * blue255;
     }
 
     /**
@@ -592,7 +674,7 @@ public final class LightLayer {
 
     /** Rounds a channel and holds it to 0 to 255. */
     private static int clamp(double value) {
-        return (int) Math.max(0, Math.min(255, Math.round(value)));
+        return Math.clamp(Math.round(value), 0, 255);
     }
 
     /** @return true when at least one light was in view at the last call */

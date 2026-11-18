@@ -17,7 +17,7 @@ public final class ThrowArc {
      * @return 0 at both ends and 1 halfway
      */
     public static double heightFraction(double progress) {
-        double p = Math.max(0.0, Math.min(1.0, progress));
+        double p = Math.clamp(progress, 0.0, 1.0);
         return 4.0 * p * (1.0 - p);
     }
 

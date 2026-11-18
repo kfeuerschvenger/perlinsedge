@@ -44,7 +44,6 @@ public class FxMinimapDrawer {
 
     // State
     private TileMap map;
-    private double scale = 1.0;
     private double scaledTileW = BASE_TILE_WIDTH;
     private double scaledTileH = BASE_TILE_HEIGHT;
     private double offsetX;
@@ -153,7 +152,10 @@ public class FxMinimapDrawer {
         final double maxScaleX = (canvas.getWidth() - PADDING) / mapPixelWidth;
         final double maxScaleY = (canvas.getHeight() - PADDING) / mapPixelHeight;
 
-        scale = Math.max(MIN_SCALE, Math.min(maxScaleX, maxScaleY));
+        // Not a clamp: on a map too large for the canvas the fitting scale is below the minimum, and a clamp whose
+        // upper bound is below its lower bound throws
+        final double fittingScale = Math.min(maxScaleX, maxScaleY);
+        final double scale = Math.max(MIN_SCALE, fittingScale);
         scaledTileW = BASE_TILE_WIDTH * scale;
         scaledTileH = BASE_TILE_HEIGHT * scale;
 
@@ -271,7 +273,7 @@ public class FxMinimapDrawer {
     }
 
     private static int channel(double component) {
-        return (int) Math.round(Math.max(0.0, Math.min(1.0, component)) * 255.0);
+        return (int) Math.round(Math.clamp(component, 0.0, 1.0) * 255.0);
     }
 
     private void drawPlayerMarker() {

@@ -43,7 +43,8 @@ class LightLayerTest {
     }
 
     private static boolean compose(LightLayer layer, LightRegistry lights, double time, Rgba tint, double strength) {
-        return layer.compose(lights, STYLE, time, tint, strength, SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh());
+        return layer.compose(lights, STYLE, time, tint, strength,
+                new LightLayer.GridView(SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh()));
     }
 
     private static boolean compose(LightLayer layer, LightRegistry lights, double time, double strength) {
@@ -141,12 +142,13 @@ class LightLayerTest {
 
         // The corner of the box lies outside the circle of the light: the plain tint, which is blue
         final int corner = layer.pixelAt(layer.regionLeft(0), layer.regionTop(0));
-        assertEquals(Math.round(NIGHT_STRENGTH * 255), alpha(corner), 1);
+        assertEquals((float) Math.round(NIGHT_STRENGTH * 255), (float) alpha(corner), 1.0f);
         assertTrue(blue(corner) > red(corner));
         final int[] at = centreCell(layer);
         final int centre = layer.pixelAt(at[0], at[1]);
         assertTrue(red(centre) > blue(centre), "the light is warm: red over blue");
-        assertEquals(Math.round(WARM_STRENGTH * 255), alpha(centre), 2, "a modest warm wash at the centre");
+        assertEquals((float) Math.round(WARM_STRENGTH * 255), (float) alpha(centre), 2.0f,
+                "a modest warm wash at the centre");
     }
 
     @Test
@@ -197,7 +199,8 @@ class LightLayerTest {
             biggest = Math.max(biggest, now - previous);
             previous = now;
         }
-        assertEquals(Math.round(NIGHT_STRENGTH * 255), previous, 1, "it reaches the plain tint at the edge");
+        assertEquals((float) Math.round(NIGHT_STRENGTH * 255), (float) previous, 1.0f,
+                "it reaches the plain tint at the edge");
         assertTrue(biggest <= 4, "the biggest step between neighbouring cells is " + biggest);
         // Down the column the same, and many distinct levels, not a few flat rings
         previous = alpha(layer.pixelAt(at[0], at[1]));
@@ -421,9 +424,10 @@ class LightLayerTest {
     void theGradientFollowsTheLightByWholeCellsWhenTheCameraMovesByWholeArtPixels() {
         final LightLayer layer = new LightLayer();
         final LightLayer moved = new LightLayer();
-        layer.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh());
-        moved.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X + 10, ORIGIN_Y, cellsWide(),
-                cellsHigh());
+        layer.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH,
+                new LightLayer.GridView(SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh()));
+        moved.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH,
+                new LightLayer.GridView(SCALE, ORIGIN_X + 10, ORIGIN_Y, cellsWide(), cellsHigh()));
 
         assertEquals(layer.regionRight(0) - layer.regionLeft(0), moved.regionRight(0) - moved.regionLeft(0));
         for (int y = layer.regionTop(0); y < layer.regionBottom(0); y++) {
@@ -537,10 +541,9 @@ class LightLayerTest {
         final LightLayer layer = new LightLayer();
         final LightRegistry registry = oneTorch();
         // All the numbers are exact in binary: 0.125 * 1000 + 1.0 equals 0.1259765625 * 1000 + 0.0234375
-        layer.compose(registry, new LightStyle(0.125, 1.0), 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X, ORIGIN_Y,
-                cellsWide(), cellsHigh());
-        layer.compose(registry, new LightStyle(0.1259765625, 0.0234375), 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X,
-                ORIGIN_Y, cellsWide(), cellsHigh());
+        final LightLayer.GridView grid = new LightLayer.GridView(SCALE, ORIGIN_X, ORIGIN_Y, cellsWide(), cellsHigh());
+        layer.compose(registry, new LightStyle(0.125, 1.0), 0.0, NIGHT, NIGHT_STRENGTH, grid);
+        layer.compose(registry, new LightStyle(0.1259765625, 0.0234375), 0.0, NIGHT, NIGHT_STRENGTH, grid);
 
         assertTrue(layer.changed());
         assertEquals(2, layer.composes());
@@ -567,7 +570,8 @@ class LightLayerTest {
 
         for (int pan = 0; pan < 4; pan++) {
             final LightLayer layer = new LightLayer();
-            layer.compose(registry, STYLE, 0.0, NIGHT, NIGHT_STRENGTH, 1.0, 240 + pan, ORIGIN_Y, cellsWide(), cellsHigh());
+            layer.compose(registry, STYLE, 0.0, NIGHT, NIGHT_STRENGTH,
+                    new LightLayer.GridView(1.0, 240 + pan, ORIGIN_Y, cellsWide(), cellsHigh()));
             final int left = layer.regionLeft(0) - pan;
             offset = pan == 0 ? left : offset;
             assertEquals(offset, left, "a pan of " + pan + " moved the light by another distance");
@@ -579,8 +583,8 @@ class LightLayerTest {
         final LightLayer layer = new LightLayer();
         compose(layer, oneTorch(), 0.0, NIGHT_STRENGTH);
 
-        assertTrue(layer.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH, SCALE, ORIGIN_X, ORIGIN_Y,
-                cellsWide() + 10, cellsHigh()));
+        assertTrue(layer.compose(oneTorch(), STYLE, 0.0, NIGHT, NIGHT_STRENGTH,
+                new LightLayer.GridView(SCALE, ORIGIN_X, ORIGIN_Y, cellsWide() + 10, cellsHigh())));
 
         assertTrue(layer.changed());
         assertEquals(cellsWide() + 10, layer.width());

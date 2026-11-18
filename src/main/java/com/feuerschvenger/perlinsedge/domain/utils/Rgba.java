@@ -106,6 +106,6 @@ public record Rgba(double r, double g, double b, double a) implements ColourChan
     }
 
     private static double clamp(double v) {
-        return Math.max(0.0, Math.min(1.0, v));
+        return Math.clamp(v, 0.0, 1.0);
     }
 }

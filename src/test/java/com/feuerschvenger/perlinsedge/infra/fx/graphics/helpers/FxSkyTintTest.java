@@ -42,7 +42,7 @@ class FxSkyTintTest {
             final GraphicsContext gc = canvas.getGraphicsContext2D();
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, 8, 8);
-            tint.draw(gc, sky, new LightRegistry(), 0.0, 2.0, 0, 0, 8, 8);
+            tint.draw(gc, sky, new LightRegistry(), 0.0, new CanvasView(2.0, 0, 0, 8, 8));
             final int argb = canvas.snapshot(null, null).getPixelReader().getArgb(4, 4);
             return new int[]{(argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF};
         });
@@ -52,9 +52,9 @@ class FxSkyTintTest {
     void midDayLeavesTheWorldUntouched() {
         final int[] noon = centreOver(new FxSkyTint(), at(390));
 
-        assertEquals(128, noon[0], 1);
-        assertEquals(128, noon[1], 1);
-        assertEquals(128, noon[2], 1);
+        assertEquals(128.0f, (float) noon[0], 1.0f);
+        assertEquals(128.0f, (float) noon[1], 1.0f);
+        assertEquals(128.0f, (float) noon[2], 1.0f);
     }
 
     @Test
@@ -80,7 +80,10 @@ class FxSkyTintTest {
         final FxSkyTint tint = new FxSkyTint();
         final DayCycle night = at(DAWN + DAY + DUSK + 100);
 
-        assertEquals(centreOver(tint, night)[2], centreOver(tint, night)[2]);
+        final int[] firstFrame = centreOver(tint, night);
+        final int[] secondFrame = centreOver(tint, night);
+
+        assertEquals(firstFrame[2], secondFrame[2]);
     }
 
     @Test
@@ -115,7 +118,7 @@ class FxSkyTintTest {
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, W, H);
             // The origin is a multiple of every art scale used here, so the cells start at the canvas edge
-            tint.draw(gc, sky, lights, 0.0, scale, 120, -24, W, H);
+            tint.draw(gc, sky, lights, 0.0, new CanvasView(scale, 120, -24, W, H));
             final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
             final int[][] grey = new int[H][W];
             for (int y = 0; y < H; y++) {
@@ -138,8 +141,8 @@ class FxSkyTintTest {
         // Tile (3, 3) lies at x 120 on the canvas and at y 88 for this camera
         final int[][] lit = greysWithLights(new FxSkyTint(), night(), torchAt(3, 3, 2.5), 2.0);
 
-        assertEquals(unlit[5][5], lit[5][5], 2, "the far corner is as dark as without the light");
-        assertEquals(unlit[150][230], lit[150][230], 2);
+        assertEquals((float) unlit[5][5], (float) lit[5][5], 2.0f, "the far corner is as dark as without the light");
+        assertEquals((float) unlit[150][230], (float) lit[150][230], 2.0f);
         assertTrue(lit[88][120] > unlit[88][120] + 40, "the light is clearly brighter: " + lit[88][120]);
         assertTrue(lit[88][120] > lit[88][180], "brighter at the light than further out");
     }
@@ -152,7 +155,7 @@ class FxSkyTintTest {
             gc.setImageSmoothing(false);
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, W, H);
-            new FxSkyTint().draw(gc, night(), torchAt(3, 3, 2.5), 0.0, 2.0, 120, -24, W, H);
+            new FxSkyTint().draw(gc, night(), torchAt(3, 3, 2.5), 0.0, new CanvasView(2.0, 120, -24, W, H));
             final int argb = canvas.snapshot(null, null).getPixelReader().getArgb(120, 88);
             return new int[]{(argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF};
         });
@@ -167,7 +170,7 @@ class FxSkyTintTest {
 
         for (int[] row : noon) {
             for (int value : row) {
-                assertEquals(128, value, 1, "no tint to push back at midday");
+                assertEquals(128.0f, (float) value, 1.0f, "no tint to push back at midday");
             }
         }
         assertEquals(0, tint.layer().composes());
@@ -180,7 +183,8 @@ class FxSkyTintTest {
         final int[] flat = centreOver(new FxSkyTint(), night());
 
         assertEquals(0, tint.layer().composes());
-        assertEquals((flat[0] + flat[1] + flat[2]) / 3, plain[80][100], 2);
+        final int flatAverage = (flat[0] + flat[1] + flat[2]) / 3;
+        assertEquals((float) flatAverage, (float) plain[80][100], 2.0f);
         assertEquals(plain[0][0], plain[159][239]);
     }
 
@@ -220,7 +224,8 @@ class FxSkyTintTest {
             }
             assertTrue(differing > 50, "scale " + scale + " lit " + differing + " blocks");
             assertTrue(levels.size() >= 4, "scale " + scale + " shows the rings: " + levels.size());
-            assertEquals(unlit[5][5], lit[5][5], 2, "scale " + scale + ": the far world keeps the plain tint");
+            assertEquals((float) unlit[5][5], (float) lit[5][5], 2.0f,
+                    "scale " + scale + ": the far world keeps the plain tint");
         }
     }
 
@@ -244,7 +249,7 @@ class FxSkyTintTest {
             gc.setImageSmoothing(false);
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, W, H);
-            tint.draw(gc, night(), lights, 0.0, scale, originX, originY, W, H);
+            tint.draw(gc, night(), lights, 0.0, new CanvasView(scale, originX, originY, W, H));
             final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
             final int[][] argb = new int[H][W];
             for (int y = 0; y < H; y++) {
@@ -339,7 +344,7 @@ class FxSkyTintTest {
             gc.setImageSmoothing(false);
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, W, H);
-            new FxSkyTint().draw(gc, sky, lights, 0.0, 2.0, 120, -24, W, H);
+            new FxSkyTint().draw(gc, sky, lights, 0.0, new CanvasView(2.0, 120, -24, W, H));
             return canvas.snapshot(null, null).getPixelReader().getArgb(2, 2);
         });
     }
@@ -379,7 +384,7 @@ class FxSkyTintTest {
             final GraphicsContext gc = canvas.getGraphicsContext2D();
             gc.setFill(Color.RED);
             gc.setGlobalAlpha(0.5);
-            new FxSkyTint().draw(gc, at(DAWN / 2), new LightRegistry(), 0.0, 2.0, 0, 0, 8, 8);
+            new FxSkyTint().draw(gc, at(DAWN / 2), new LightRegistry(), 0.0, new CanvasView(2.0, 0, 0, 8, 8));
             fillAfter[0] = (Color) gc.getFill();
             alphaAfter[0] = gc.getGlobalAlpha();
             return null;
@@ -396,7 +401,7 @@ class FxSkyTintTest {
             final GraphicsContext gc = canvas.getGraphicsContext2D();
             gc.setFill(Color.rgb(128, 128, 128));
             gc.fillRect(0, 0, 480, 320);
-            tint.draw(gc, sky, lights, 0.0, 2.0, 240, 20, 480, 320);
+            tint.draw(gc, sky, lights, 0.0, new CanvasView(2.0, 240, 20, 480, 320));
             final int argb = canvas.snapshot(null, null).getPixelReader().getArgb(x, y);
             return new int[]{(argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF};
         });
@@ -422,9 +427,9 @@ class FxSkyTintTest {
             final int[] plain = pixelAfter(new FxSkyTint(), sky, new LightRegistry(), x, y);
             // A cell is blended as an image and the fill as a colour, and the platform may round the two one level apart
 
-            assertEquals(plain[0], inRegion[0], 1, "red at " + moment);
-            assertEquals(plain[1], inRegion[1], 1, "green at " + moment);
-            assertEquals(plain[2], inRegion[2], 1, "blue at " + moment);
+            assertEquals((float) plain[0], (float) inRegion[0], 1.0f, "red at " + moment);
+            assertEquals((float) plain[1], (float) inRegion[1], 1.0f, "green at " + moment);
+            assertEquals((float) plain[2], (float) inRegion[2], 1.0f, "blue at " + moment);
         }
     }
 }

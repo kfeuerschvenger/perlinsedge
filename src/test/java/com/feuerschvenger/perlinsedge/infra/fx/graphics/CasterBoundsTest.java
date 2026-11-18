@@ -53,12 +53,13 @@ class CasterBoundsTest {
 
     @Test
     void theCasterConstantsCoverTheFramesOfThePlayer() {
-        final AppConfig.PlayerConfig.SpriteSheetConfig sheet = AppConfig.getInstance().player().spriteSheet;
+        final int height = AppConfig.PlayerConfig.SpriteSheetConfig.SPRITE_HEIGHT;
+        final int width = AppConfig.PlayerConfig.SpriteSheetConfig.SPRITE_WIDTH;
 
-        assertTrue(FxRenderer.MAX_CASTER_ART_HEIGHT >= sheet.spriteHeight,
-                "a player " + sheet.spriteHeight + " high casts further than the reach allows for");
-        assertTrue(FxRenderer.MAX_CASTER_ART_HALF_WIDTH >= sheet.spriteWidth / 2.0,
-                "a player " + sheet.spriteWidth + " wide casts further sideways than the reach allows for");
+        assertTrue(FxRenderer.MAX_CASTER_ART_HEIGHT >= height,
+                "a player " + height + " high casts further than the reach allows for");
+        assertTrue(FxRenderer.MAX_CASTER_ART_HALF_WIDTH >= width / 2.0,
+                "a player " + width + " wide casts further sideways than the reach allows for");
     }
 
     @Test

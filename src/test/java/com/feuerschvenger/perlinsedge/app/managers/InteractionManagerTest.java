@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class InteractionManagerTest {
@@ -323,7 +324,7 @@ class InteractionManagerTest {
             player.update(STEP);
             interactions.update();
         }
-        assertTrue(player.getPosX() != Math.rint(player.getPosX()), "the player is between two tiles");
+        assertNotEquals(Math.rint(player.getPosX()), player.getPosX(), "the player is between two tiles");
     }
 
     private void assertPlayerStaysOnATile() {

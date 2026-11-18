@@ -53,6 +53,8 @@ public class GameOrchestrator {
     private final MapConfigPanel mapConfigPanel;
     private final DeathOverlay deathOverlay;
 
+    /** Draws the seed of every new world. */
+    private final Random seedSource = new Random();
     private final GameLoop gameLoop;
     private boolean gameActive;
     /** Interpolation factor of the last frame, reused to draw the paused frame. */
@@ -63,36 +65,25 @@ public class GameOrchestrator {
     /**
      * Builds the orchestrator and every manager it coordinates.
      *
-     * @param renderer            canvas renderer
-     * @param camera              camera
-     * @param inputHandler        keyboard and scroll input
-     * @param minimapDrawer       minimap view
-     * @param mapConfigPanel      map tuning panel
-     * @param mainCanvas          main game canvas
-     * @param healthBar           player health view
-     * @param inventoryPanel      inventory view
-     * @param buildingPalettePanel palette of the building pieces, shown while the hammer is in hand
-     * @param itemHotbarPanel     hotbar of the items the player carries
-     * @param hintLabel           short on-screen hints for actions that did nothing
-     * @param deathOverlay        death screen shown while the player is dead
-     * @param gameState           shared state, a new one is created when null
-     * @param recipeManager       recipes, a new one is created when null
+     * @param view          renderer, camera, input, minimap and main canvas
+     * @param panels        the panels the orchestrator feeds and listens to
+     * @param gameState     shared state, a new one is created when null
+     * @param recipeManager recipes, a new one is created when null
      */
-    public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
-                            FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
-                            Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingPalettePanel buildingPalettePanel, ItemHotbarPanel itemHotbarPanel,
-                            HintLabel hintLabel, DeathOverlay deathOverlay, GameStateManager gameState,
+    public GameOrchestrator(GameView view, GamePanels panels, GameStateManager gameState,
                             RecipeManager recipeManager) {
-        this.renderer = renderer;
-        this.camera = camera;
-        this.inputHandler = inputHandler;
-        this.minimapDrawer = minimapDrawer;
-        this.mapConfigPanel = mapConfigPanel;
-        this.mainCanvas = mainCanvas;
-        this.inventoryPanel = inventoryPanel;
-        this.deathOverlay = deathOverlay;
-        this.itemHotbarPanel = itemHotbarPanel;
+        this.renderer = view.renderer();
+        this.camera = view.camera();
+        this.inputHandler = view.inputHandler();
+        this.minimapDrawer = view.minimapDrawer();
+        this.mainCanvas = view.mainCanvas();
+        this.mapConfigPanel = panels.mapConfigPanel();
+        this.inventoryPanel = panels.inventoryPanel();
+        this.deathOverlay = panels.deathOverlay();
+        this.itemHotbarPanel = panels.itemHotbarPanel();
+        this.buildingPalettePanel = panels.buildingPalettePanel();
+        final HealthBar healthBar = panels.healthBar();
+        final HintLabel hintLabel = panels.hintLabel();
 
         this.gameState = gameState != null ? gameState : new GameStateManager();
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
@@ -107,7 +98,6 @@ public class GameOrchestrator {
         containerManager = new ContainerManager();
         buildingManager = new BuildingManager(this.gameState, recipes, containerManager, itemDropManager,
                 inventoryPanel::updateInventoryDisplay);
-        this.buildingPalettePanel = buildingPalettePanel;
         buildingPalettePanel.setOnBuildingSelected(buildingManager::setSelectedBuildingType);
         buildingManager.setHintSink(hintLabel::show);
         itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
@@ -122,8 +112,7 @@ public class GameOrchestrator {
             interactionManager.cancel();
             render(lastAlpha, 0);
         });
-        inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager,
-                camera, inputHandler, minimapDrawer, mainCanvas);
+        inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager, view);
     }
 
     // ==================================================================
@@ -142,7 +131,7 @@ public class GameOrchestrator {
         gameState.resetGameState();
         AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
 
-        var newSeed = new Random().nextLong();
+        var newSeed = seedSource.nextLong();
         MapGenerationContext newMapContext = mapManager.createMapContext(selectedMapType, newSeed);
         mapManager.generateNewMap(newMapContext);
 
@@ -308,30 +297,16 @@ public class GameOrchestrator {
         if (!isGameRunning("a map regeneration")) return;
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
-        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
+        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), seedSource.nextLong()));
     }
 
     /**
      * Applies a map configuration chosen in the map tuning panel by rebuilding the world with it.
      * The map type the renderer reads is only changed once the new map exists, so it always matches the map on screen.
      */
-    void applyMapConfig(MapType mapType, long seed,
-                        float heightFreq, int heightOctaves,
-                        float tempFreq, int tempOctaves,
-                        float moistureFreq, int moistureOctaves,
-                        float stoneFreq, float stoneThreshold,
-                        float crystalsFreq, float crystalsThreshold,
-                        float treeDensity, float riverDensity) {
+    void applyMapConfig(MapGenerationContext context) {
         if (!isGameRunning("a map configuration")) return;
-        rebuildWorld(new MapGenerationContext(
-                mapType, seed,
-                heightFreq, heightOctaves,
-                tempFreq, tempOctaves,
-                moistureFreq, moistureOctaves,
-                stoneFreq, stoneThreshold,
-                crystalsFreq, crystalsThreshold,
-                treeDensity, riverDensity
-        ));
+        rebuildWorld(context);
     }
 
     /**
@@ -345,7 +320,7 @@ public class GameOrchestrator {
      * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
      * set to match it, the player is removed first, the minimap is shown the new map, and the update and render steps
      * skip a frame that has no map or no player. The mode switches are ignored while there is no player. None of
-     * the steps throws a checked exception, so catching the runtime exceptions and the errors covers every failure.
+     * the steps throws a checked exception, so catching the runtime exceptions covers every failure the game can carry on after. An error is not caught, and the loop is still restarted by the finally block.
      * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
      * step draws the death overlay again from the player and the timer on every frame, so the overlay that
      * {@link #leaveGame()} hid comes back with the next frame.
@@ -366,7 +341,7 @@ public class GameOrchestrator {
             minimapDrawer.updateMap(gameState.getCurrentMap());
             centerOnPlayer();
             rebuilt = true;
-        } catch (RuntimeException | Error e) {
+        } catch (RuntimeException e) {
             log.error("The map rebuild failed, the game continues so the map keys can try again", e);
             // The map may have been replaced before the step that failed, whichever step it was
             if (gameState.getCurrentMap() != previousMap) {

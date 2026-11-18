@@ -154,7 +154,10 @@ public class FxCamera extends Camera {
         double totalWidth = corners.maxX() - corners.minX();
         double totalHeight = corners.maxY() - corners.minY();
 
-        double minX, maxX, minY, maxY;
+        double minX;
+        double maxX;
+        double minY;
+        double maxY;
 
         if (totalWidth < viewportWidth) {
             double centerOffsetX = (viewportWidth - totalWidth) * 0.5;
@@ -183,7 +186,8 @@ public class FxCamera extends Camera {
         double halfTileW = config.graphics().getTileHalfWidth() * zoomLevel;
         double halfTileH = config.graphics().getTileHalfHeight() * zoomLevel;
 
-        double x1 = 0, y1 = 0;
+        double x1 = 0;
+        double y1 = 0;
         double x2 = (w - h) * halfTileW;
         double y2 = (w + h) * halfTileH;
         double x3 = -h * halfTileW;
@@ -210,7 +214,7 @@ public class FxCamera extends Camera {
     }
 
     private static double clamp(double value, double min, double max) {
-        return value < min ? min : (Math.min(value, max));
+        return Math.clamp(value, min, max);
     }
 
     private static int clamp(int value, int max) {

@@ -31,6 +31,9 @@ public class PlayerManager {
     private static final int FALLBACK_SEARCH_RADIUS = 30; // Max radius for fallback position search
     private static final double RESPAWN_TIMER = 5.0; // Player respawn delay in seconds
 
+    /** Stands for "no position found", so a search never returns null. */
+    private static final int[] NO_POSITION = new int[0];
+
     // Tile validator predicates
     private static final Predicate<Tile> WALKABLE_CLEAR_VALIDATOR =
             tile -> tile != null && tile.isWalkable();
@@ -39,6 +42,8 @@ public class PlayerManager {
     private final GameStateManager gameState;
     private final HealthBar healthBar;
     private final InventoryPanel inventoryPanel;
+    /** Draws the candidate tiles of the spawn and respawn search. */
+    private final Random random = new Random();
 
     public PlayerManager(GameStateManager gameState, HealthBar healthBar, InventoryPanel inventoryPanel) {
         this.gameState = gameState;
@@ -80,7 +85,7 @@ public class PlayerManager {
         }
 
         int[] startPosition = findSafePosition(map);
-        if (startPosition == null) {
+        if (startPosition.length == 0) {
             startPosition = getFallbackPosition(map);
             log.debug("Using fallback position: {},{}", startPosition[0], startPosition[1]);
         }
@@ -168,7 +173,7 @@ public class PlayerManager {
         }
 
         int[] respawnPosition = findSafePosition(map);
-        if (respawnPosition == null) {
+        if (respawnPosition.length == 0) {
             respawnPosition = getFallbackPosition(map);
             log.debug("Using fallback respawn position");
         }
@@ -240,9 +245,10 @@ public class PlayerManager {
     /**
      * Finds a safe position for player spawn/respawn.
      * Ensures walkable tile with no resources/buildings and safe distance from enemies.
+     *
+     * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
     private int[] findSafePosition(TileMap map) {
-        var random = new Random();
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
         log.debug("Searching safe position (max attempts: {})", maxAttempts);
 
@@ -255,7 +261,7 @@ public class PlayerManager {
             }
         }
         log.debug("Safe position not found after {} attempts", maxAttempts);
-        return null;
+        return NO_POSITION;
     }
 
     /**
@@ -296,7 +302,7 @@ public class PlayerManager {
                 playerX, playerY,
                 map,
                 WALKABLE_CLEAR_VALIDATOR,
-                IsometricUtils.ALL_DIRECTIONS
+                IsometricUtils.allDirections()
         );
     }
 
@@ -332,7 +338,7 @@ public class PlayerManager {
                 x, y, map,
                 WALKABLE_CLEAR_VALIDATOR,
                 MIN_WALKABLE_NEIGHBORS,
-                IsometricUtils.CARDINAL_DIRECTIONS
+                IsometricUtils.cardinalDirections()
         );
     }
 

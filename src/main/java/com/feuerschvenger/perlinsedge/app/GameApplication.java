@@ -377,18 +377,9 @@ public class GameApplication extends Application {
 
             // Create orchestrator
             gameOrchestrator = new GameOrchestrator(
-                    renderer,
-                    camera,
-                    inputHandler,
-                    minimapDrawer,
-                    mapConfigPanel,
-                    mainCanvas,
-                    healthBar,
-                    inventoryPanel,
-                    palettePanel,
-                    itemHotbarPanel,
-                    hintLabel,
-                    deathOverlay,
+                    new GameView(renderer, camera, inputHandler, minimapDrawer, mainCanvas),
+                    new GamePanels(mapConfigPanel, healthBar, inventoryPanel, palettePanel, itemHotbarPanel,
+                            hintLabel, deathOverlay),
                     gameStateManager,
                     recipeManager
             );

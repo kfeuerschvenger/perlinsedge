@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -131,7 +132,7 @@ class FxRendererBuildModeTest {
                 if (plain[y * WIDTH + x] != building[y * WIDTH + x]) cornerChanges++;
             }
         }
-        assertTrue(cornerChanges == 0, "the grid does not reach the corner of the canvas");
+        assertEquals(0, cornerChanges, "the grid does not reach the corner of the canvas");
     }
 
     @Test

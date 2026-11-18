@@ -17,6 +17,28 @@ public final class DebugTileSprites {
     /** Builds the images on the first lookup, which the class loader makes thread safe. */
     private static final class Holder {
         static final Image[] IMAGES = bake();
+
+        /** Draws one grey diamond per level. */
+        private static Image[] bake() {
+            final Image[] images = new Image[GrayscaleTiles.LEVELS];
+            for (int level = 0; level < images.length; level++) {
+                final int grey = GrayscaleTiles.greyOf(level);
+                final int fill = 0xFF000000 | grey << 16 | grey << 8 | grey;
+                final int edge = (int) Math.round(grey * OUTLINE_KEPT);
+                final int outline = 0xFF000000 | edge << 16 | edge << 8 | edge;
+                final WritableImage image = new WritableImage(GrayscaleTiles.WIDTH, GrayscaleTiles.HEIGHT);
+                final PixelWriter writer = image.getPixelWriter();
+                for (int y = 0; y < GrayscaleTiles.HEIGHT; y++) {
+                    for (int x = 0; x < GrayscaleTiles.WIDTH; x++) {
+                        if (GrayscaleTiles.insideDiamond(x, y)) {
+                            writer.setArgb(x, y, GrayscaleTiles.isOutline(x, y) ? outline : fill);
+                        }
+                    }
+                }
+                images[level] = image;
+            }
+            return images;
+        }
     }
 
     /** Not instantiable: the class only holds shared images. */
@@ -30,27 +52,5 @@ public final class DebugTileSprites {
      */
     public static Image get(int level) {
         return Holder.IMAGES[level];
-    }
-
-    /** Draws one grey diamond per level. */
-    private static Image[] bake() {
-        final Image[] images = new Image[GrayscaleTiles.LEVELS];
-        for (int level = 0; level < images.length; level++) {
-            final int grey = GrayscaleTiles.greyOf(level);
-            final int fill = 0xFF000000 | grey << 16 | grey << 8 | grey;
-            final int edge = (int) Math.round(grey * OUTLINE_KEPT);
-            final int outline = 0xFF000000 | edge << 16 | edge << 8 | edge;
-            final WritableImage image = new WritableImage(GrayscaleTiles.WIDTH, GrayscaleTiles.HEIGHT);
-            final PixelWriter writer = image.getPixelWriter();
-            for (int y = 0; y < GrayscaleTiles.HEIGHT; y++) {
-                for (int x = 0; x < GrayscaleTiles.WIDTH; x++) {
-                    if (GrayscaleTiles.insideDiamond(x, y)) {
-                        writer.setArgb(x, y, GrayscaleTiles.isOutline(x, y) ? outline : fill);
-                    }
-                }
-            }
-            images[level] = image;
-        }
-        return images;
     }
 }

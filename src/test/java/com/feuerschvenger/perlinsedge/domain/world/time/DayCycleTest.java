@@ -201,7 +201,7 @@ class DayCycleTest {
         assertEquals(1.0, atHour(12.0).sunElevation(), 1e-9);
         assertEquals(0.0, atHour(19.8).sunElevation(), 1e-9);
         assertEquals(0.0, at(CYCLE - 1).sunElevation(), 1e-9);
-        assertEquals(atHour(9.0).sunProgress() + atHour(15.0).sunProgress(), 1.0, 1e-9,
+        assertEquals(1.0, atHour(9.0).sunProgress() + atHour(15.0).sunProgress(), 1e-9,
                 "the arc is symmetric around noon");
     }
 

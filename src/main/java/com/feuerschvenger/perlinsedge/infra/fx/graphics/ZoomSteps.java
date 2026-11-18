@@ -27,7 +27,7 @@ public final class ZoomSteps {
     public static double move(double current, int direction, double min, double max, double step) {
         int levels = (int) Math.round((max - min) / step);
         int index = (int) Math.round((current - min) / step) + Integer.signum(direction);
-        index = Math.max(0, Math.min(levels, index));
+        index = Math.clamp(index, 0, levels);
         return min + index * step;
     }
 

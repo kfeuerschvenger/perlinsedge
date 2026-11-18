@@ -27,12 +27,20 @@ public abstract class Entity {
     // ==================================================================
 
     // Tile-based coordinates
-    protected int currentTileX, currentTileY;  // Current tile position
-    protected int targetTileX, targetTileY;    // Movement target tile position
+    // Current tile position
+    protected int currentTileX;
+    protected int currentTileY;
+    // Movement target tile position
+    protected int targetTileX;
+    protected int targetTileY;
 
     // Interpolated positions for smooth rendering
-    protected double prevX, prevY;  // Previous frame's position
-    protected double posX, posY;    // Current frame's position
+    // Previous frame's position
+    protected double prevX;
+    protected double prevY;
+    // Current frame's position
+    protected double posX;
+    protected double posY;
 
     // ==================================================================
     //  Health State
@@ -53,7 +61,7 @@ public abstract class Entity {
      * @param startY    Initial Y tile coordinate
      * @param maxHealth Maximum health for this entity
      */
-    public Entity(int startX, int startY, double maxHealth) {
+    protected Entity(int startX, int startY, double maxHealth) {
         this.maxHealth = maxHealth;
         this.health = maxHealth;
         setPosition(startX, startY);

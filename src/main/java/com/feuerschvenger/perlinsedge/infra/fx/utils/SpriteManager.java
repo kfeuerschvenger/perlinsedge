@@ -1,6 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.config.AppConfig.PlayerConfig.SpriteSheetConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -275,16 +275,16 @@ public final class SpriteManager {
 
     /** Loads the player sheet frames and the slime strip frames, each left empty when its art is missing. */
     private void loadEntitySprites() {
-        AppConfig.PlayerConfig.SpriteSheetConfig config = AppConfig.getInstance().player().spriteSheet;
-        Image sheet = loadImage(config.path);
+        Image sheet = loadImage(SpriteSheetConfig.PATH);
         if (sheet == null) {
-            log.info("No player sheet at {}, the stand-in circle is drawn", config.path);
-        } else if (sheet.getWidth() < config.startX + config.columns * config.columnOffset
-                || sheet.getHeight() < config.rowYCoordinates[config.rows - 1] + config.spriteHeight) {
+            log.info("No player sheet at {}, the stand-in circle is drawn", SpriteSheetConfig.PATH);
+        } else if (sheet.getWidth() < SpriteSheetConfig.START_X + SpriteSheetConfig.COLUMNS * SpriteSheetConfig.COLUMN_OFFSET
+                || sheet.getHeight() < SpriteSheetConfig.rowY(SpriteSheetConfig.ROWS - 1) + SpriteSheetConfig.SPRITE_HEIGHT) {
             log.warn("Player sheet {} is {}x{}, too small for {} columns by {} rows, the stand-in circle is drawn",
-                    config.path, sheet.getWidth(), sheet.getHeight(), config.columns, config.rows);
+                    SpriteSheetConfig.PATH, sheet.getWidth(), sheet.getHeight(), SpriteSheetConfig.COLUMNS,
+                    SpriteSheetConfig.ROWS);
         } else {
-            entitySprites.put("player", extractSpritesheetFrames(sheet, config));
+            entitySprites.put("player", extractSpritesheetFrames(sheet));
         }
 
         Image strip = loadImage(AssetPaths.SLIME_STRIP);
@@ -429,24 +429,34 @@ public final class SpriteManager {
         if (variants == null || variants.isEmpty()) {
             return null;
         }
-        if (preferredKind != null) {
-            // The lists are a handful of sprites, so counting and picking inside them allocates nothing
-            int matching = 0;
-            for (int i = 0, count = variants.size(); i < count; i++) {
-                if (preferredKind.equals(variants.get(i).getKind())) {
-                    matching++;
-                }
-            }
-            if (matching > 0) {
-                int pick = SpriteVariants.forResource(worldSeed, x, y, matching);
-                for (int i = 0, count = variants.size(); i < count; i++) {
-                    if (preferredKind.equals(variants.get(i).getKind()) && pick-- == 0) {
-                        return variants.get(i);
-                    }
-                }
+        final SpriteMetadata preferred = preferredKind == null ? null
+                : pickOfKind(variants, preferredKind, worldSeed, x, y);
+        return preferred != null ? preferred : variants.get(SpriteVariants.forResource(worldSeed, x, y, variants.size()));
+    }
+
+    /**
+     * Picks a variant among the sprites of one art kind, chosen from the coordinates and the world seed.
+     * The lists are a handful of sprites, so counting and picking inside them allocates nothing.
+     *
+     * @return the variant, or null when none of the sprites is of that kind
+     */
+    private static SpriteMetadata pickOfKind(List<SpriteMetadata> variants, String kind, long worldSeed, int x, int y) {
+        int matching = 0;
+        for (int i = 0, count = variants.size(); i < count; i++) {
+            if (kind.equals(variants.get(i).getKind())) {
+                matching++;
             }
         }
-        return variants.get(SpriteVariants.forResource(worldSeed, x, y, variants.size()));
+        if (matching == 0) {
+            return null;
+        }
+        int pick = SpriteVariants.forResource(worldSeed, x, y, matching);
+        for (int i = 0, count = variants.size(); i < count; i++) {
+            if (kind.equals(variants.get(i).getKind()) && pick-- == 0) {
+                return variants.get(i);
+            }
+        }
+        return null;
     }
 
     /**
@@ -490,16 +500,17 @@ public final class SpriteManager {
     //  SPRITE LOADING HELPERS
     // ==================================================================
 
-    private List<List<Image>> extractSpritesheetFrames(Image sheet, AppConfig.PlayerConfig.SpriteSheetConfig config) {
+    private List<List<Image>> extractSpritesheetFrames(Image sheet) {
         List<List<Image>> frames = new ArrayList<>();
         PixelReader reader = sheet.getPixelReader();
 
-        for (int row = 0; row < config.rows; row++) {
-            int y = config.rowYCoordinates[row];
+        for (int row = 0; row < SpriteSheetConfig.ROWS; row++) {
+            int y = SpriteSheetConfig.rowY(row);
             List<Image> rowFrames = new ArrayList<>();
-            for (int col = 0; col < config.columns; col++) {
-                int x = config.startX + (col * config.columnOffset);
-                rowFrames.add(new WritableImage(reader, x, y, config.spriteWidth, config.spriteHeight));
+            for (int col = 0; col < SpriteSheetConfig.COLUMNS; col++) {
+                int x = SpriteSheetConfig.START_X + (col * SpriteSheetConfig.COLUMN_OFFSET);
+                rowFrames.add(new WritableImage(reader, x, y, SpriteSheetConfig.SPRITE_WIDTH,
+                        SpriteSheetConfig.SPRITE_HEIGHT));
             }
             frames.add(rowFrames);
         }

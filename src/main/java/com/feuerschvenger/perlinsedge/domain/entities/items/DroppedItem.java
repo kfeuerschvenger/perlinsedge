@@ -155,8 +155,8 @@ public class DroppedItem {
      * @return True if player is within pickup radius
      */
     public boolean isInPickupRange(int playerTileX, int playerTileY) {
-        double dx = playerTileX - tileX;
-        double dy = playerTileY - tileY;
+        double dx = (double) playerTileX - tileX;
+        double dy = (double) playerTileY - tileY;
         return Math.hypot(dx, dy) <= PICKUP_RADIUS;
     }
 
@@ -248,7 +248,7 @@ public class DroppedItem {
             return 1.0;
         }
         double progress = (gameTime - dropTime) / THROW_SECONDS;
-        return Math.max(0.0, Math.min(1.0, progress));
+        return Math.clamp(progress, 0.0, 1.0);
     }
 
     /**

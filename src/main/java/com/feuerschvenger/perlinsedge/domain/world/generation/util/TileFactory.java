@@ -3,8 +3,6 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.util;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
-import java.util.concurrent.ThreadLocalRandom;
-
 /**
  * Factory for creating TileType instances based on environmental parameters.
  * Uses deterministic noise-based variation to break uniformity in terrain generation.
@@ -22,12 +20,13 @@ public final class TileFactory {
     private static final float SWAMP_MOISTURE = 0.6f;
     private static final float FOREST_MOISTURE = 0.6f;
 
-    // Temperature thresholds
-    private static final float TUNDRA_TEMPERATURE = 0.4f;
-
     // Variation constants
     private static final float MAX_VARIATION = 0.025f;
     private static final float VARIATION_RANGE = 0.05f;
+
+    private TileFactory() {
+        throw new AssertionError("TileFactory is a utility class and should not be instantiated");
+    }
 
     /**
      * Determines the appropriate tile type based on environmental factors.
@@ -49,7 +48,7 @@ public final class TileFactory {
             case DENSE_FOREST:   return createDenseForestTile(variedHeight, moisture);
             case SWAMP:         return createSwampTile(variedHeight, moisture);
             case ISLANDS:       return createIslandsTile(variedHeight);
-            case DESERT:        return createDesertTile(variedHeight, moisture);
+            case DESERT:        return createDesertTile(variedHeight);
             case TUNDRA:        return createTundraTile(variedHeight, temperature, moisture);
             case RIVERS:        return createRiverTile(variedHeight, moisture);
             case MEDITERRANEAN: return createMediterraneanTile(variedHeight);
@@ -107,7 +106,7 @@ public final class TileFactory {
     /**
      * Tile generation for Desert biome.
      */
-    private static TileType createDesertTile(float height, float moisture) {
+    private static TileType createDesertTile(float height) {
         if (height < 0.15f) return TileType.DEEP_WATER;
         if (height < 0.2f) return TileType.SHALLOW_WATER;
         return height < HILL_THRESHOLD ? TileType.SAND : TileType.HILL;

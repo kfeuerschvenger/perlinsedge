@@ -259,8 +259,8 @@ public class CraftingListPanel extends VBox {
      */
     private void clearPreviousSelection() {
         recipesContainer.getChildren().forEach(node -> {
-            if (node instanceof CraftableItemCell) {
-                ((CraftableItemCell) node).setSelected(false);
+            if (node instanceof CraftableItemCell cell) {
+                cell.setSelected(false);
             }
         });
     }

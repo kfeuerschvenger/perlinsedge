@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxTileDrawingHelper;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.PixelSnap;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
@@ -37,17 +38,16 @@ final class ColumnPainter {
      *
      * @param map     the map
      * @param tile    the water tile
-     * @param bed     the bed block sprite of the tile
-     * @param art     the tile art name of the bed
+     * @param bed     the bed block sprite of the tile, whose tile art name picks the face colours
      * @param screenX X of the top vertex of the tile at the land tops
      * @param screenY Y of the top vertex of the tile at the land tops
      * @param zoom    camera zoom
      * @param seed    world seed
      */
-    void drawBed(TileMap map, Tile tile, Image bed, String art, double screenX, double screenY, double zoom, long seed) {
+    void drawBed(TileMap map, Tile tile, Image bed, double screenX, double screenY, double zoom, long seed) {
         final double bedY = screenY + TileDepths.sinkPixels(tile.getType()) * ZoomSteps.integerArtScale(zoom);
         FxTileDrawingHelper.drawTileSprite(gc, bed, screenX, bedY, zoom);
-        drawExposedFaces(map, tile, art, screenX, bedY, zoom);
+        drawExposedFaces(map, tile, AssetPaths.tileArt(tile.getType()), screenX, bedY, zoom);
         final int x = tile.getX();
         final int y = tile.getY();
         final Image decal = spriteManager.getDecalSprite(GroundDecals.underwaterDecalFor(tile.getType(), x, y, seed));

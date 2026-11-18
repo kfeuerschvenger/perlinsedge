@@ -71,7 +71,7 @@ class InputWiringClickTest {
         interactions = new InteractionManager(state, buildings, new ResourceManager(state), new CombatManager(state),
                 containers, () -> { }, message -> { });
         InputWiring wiring = new InputWiring(state, buildings, new PlayerManager(state, null, null), interactions,
-                camera, null, new FxMinimapDrawer(minimapCanvas, camera, canvas), canvas);
+                new GameView(null, camera, null, new FxMinimapDrawer(minimapCanvas, camera, canvas), canvas));
         wiring.registerMouseHandlers();
     }
 

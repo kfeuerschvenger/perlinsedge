@@ -50,8 +50,37 @@ public final class Flicker {
     /** The number of independent channels a flicker has. */
     private static final int CHANNELS = 4;
 
+    /** The frequency a flicker keeps for a part it does not use, such as the colour drift of a light with one colour. */
+    private static final double DEFAULT_HZ = 1.0;
+
     /** A light that never wavers. It is declared after the constants above, which its construction reads. */
-    public static final Flicker STEADY = new Flicker(0.0, 0.0, 1.0, 0L, 0.0, 1.0, null, null, 1.0);
+    public static final Flicker STEADY = new Flicker(0.0, 0.0, DEFAULT_HZ, 0L, Shape.ROUND, null);
+
+    /**
+     * How the radius of a light varies with the angle around the source.
+     *
+     * @param amplitude the most the radius varies, as a share of it, 0 for a round light
+     * @param driftHz   how fast the lobes turn, in turns per second
+     */
+    private record Shape(double amplitude, double driftHz) {
+        /** The shape of a light that is a perfect ellipse. */
+        static final Shape ROUND = new Shape(0.0, DEFAULT_HZ);
+    }
+
+    /**
+     * A colour that drifts between two colours.
+     *
+     * @param low  the colour at one end of the drift
+     * @param high the colour at the other end of the drift
+     * @param hz   the frequency of the slow drift in cycles per second
+     */
+    private record Drift(Rgba low, Rgba high, double hz) {
+        Drift {
+            if (low == null || high == null) {
+                throw new IllegalArgumentException("A colour drift needs both of its colours");
+            }
+        }
+    }
 
     /** The most the intensity of the light moves away from its value, as a share of it, 0 for none. */
     private final double intensityAmplitude;
@@ -83,38 +112,31 @@ public final class Flicker {
      *                           excluding 1
      * @param frequencyHz        the frequency of the slowest wave of the crackle in cycles per second, above zero
      * @param seed               what the phases of the waves are worked out from
-     * @param shapeAmplitude     the most the radius varies with the angle, as a share of it, from 0 up to but excluding
-     *                           one half, 0 for a round light
-     * @param shapeDriftHz       how fast the lobes of the shape turn, in turns per second, above zero
-     * @param colourLow          the colour at one end of the colour drift, or null for a light that keeps its colour
-     * @param colourHigh         the colour at the other end of the drift, null exactly when {@code colourLow} is
-     * @param colourHz           the frequency of the slow colour drift in cycles per second, above zero
-     * @throws IllegalArgumentException if an amplitude is outside its range, a frequency is not above zero or only one
-     *                                  of the drift colours is given
+     * @param shape              how the radius varies with the angle, {@link Shape#ROUND} for a round light
+     * @param drift              the colour drift, or null for a light that keeps its colour
+     * @throws IllegalArgumentException if an amplitude is outside its range or a frequency is not above zero
      */
     private Flicker(double intensityAmplitude, double radiusAmplitude, double frequencyHz, long seed,
-                    double shapeAmplitude, double shapeDriftHz, Rgba colourLow, Rgba colourHigh, double colourHz) {
+                    Shape shape, Drift drift) {
+        final double colourDriftHz = drift == null ? DEFAULT_HZ : drift.hz();
         if (!(intensityAmplitude >= 0.0 && intensityAmplitude < 1.0)
                 || !(radiusAmplitude >= 0.0 && radiusAmplitude < 1.0)
-                || !(shapeAmplitude >= 0.0 && shapeAmplitude < 0.5)) {
+                || !(shape.amplitude() >= 0.0 && shape.amplitude() < 0.5)) {
             throw new IllegalArgumentException("A flicker amplitude must be from 0 up to but excluding 1, "
                     + "and the shape amplitude below one half");
         }
-        if (!(frequencyHz > 0.0) || !(shapeDriftHz > 0.0) || !(colourHz > 0.0)) {
+        if (isNotAboveZero(frequencyHz) || isNotAboveZero(shape.driftHz()) || isNotAboveZero(colourDriftHz)) {
             throw new IllegalArgumentException("A flicker frequency must be above zero");
-        }
-        if ((colourLow == null) != (colourHigh == null)) {
-            throw new IllegalArgumentException("A colour drift needs both of its colours");
         }
         this.intensityAmplitude = intensityAmplitude;
         this.radiusAmplitude = radiusAmplitude;
         this.frequencyHz = frequencyHz;
         this.seed = seed;
-        this.shapeAmplitude = shapeAmplitude;
-        this.shapeDriftHz = shapeDriftHz;
-        this.colourLow = colourLow;
-        this.colourHigh = colourHigh;
-        this.colourHz = colourHz;
+        this.shapeAmplitude = shape.amplitude();
+        this.shapeDriftHz = shape.driftHz();
+        this.colourLow = drift == null ? null : drift.low();
+        this.colourHigh = drift == null ? null : drift.high();
+        this.colourHz = colourDriftHz;
         for (int channel = 0; channel < CHANNELS; channel++) {
             for (int wave = 0; wave < RATIOS.length; wave++) {
                 phases[channel][wave] = 2.0 * Math.PI * unit(seed, channel * RATIOS.length + wave);
@@ -133,7 +155,7 @@ public final class Flicker {
      * @throws IllegalArgumentException if an amplitude is outside its range or the frequency is not above zero
      */
     public static Flicker crackling(double intensityAmplitude, double radiusAmplitude, double frequencyHz, long seed) {
-        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, 0.0, 1.0, null, null, 1.0);
+        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, Shape.ROUND, null);
     }
 
     /**
@@ -145,8 +167,8 @@ public final class Flicker {
      * @throws IllegalArgumentException if the amplitude is outside its range or the drift is not above zero
      */
     public Flicker withShape(double amplitude, double driftHz) {
-        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, amplitude, driftHz, colourLow,
-                colourHigh, colourHz);
+        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, new Shape(amplitude, driftHz),
+                currentDrift());
     }
 
     /**
@@ -162,8 +184,18 @@ public final class Flicker {
         if (low == null || high == null) {
             throw new IllegalArgumentException("A colour drift needs both of its colours");
         }
-        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, shapeAmplitude, shapeDriftHz, low,
-                high, hz);
+        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed,
+                new Shape(shapeAmplitude, shapeDriftHz), new Drift(low, high, hz));
+    }
+
+    /** @return the colour drift of this flicker, or null when the colour does not drift */
+    private Drift currentDrift() {
+        return colourLow == null ? null : new Drift(colourLow, colourHigh, colourHz);
+    }
+
+    /** @return true for a value that is zero, negative or not a number, which no frequency may be */
+    private static boolean isNotAboveZero(double value) {
+        return Double.isNaN(value) || value <= 0.0;
     }
 
     /** @return true when the light never wavers in any way */
