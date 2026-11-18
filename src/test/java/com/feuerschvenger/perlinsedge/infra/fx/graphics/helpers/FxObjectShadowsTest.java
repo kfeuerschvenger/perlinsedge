@@ -38,8 +38,8 @@ class FxObjectShadowsTest {
                                         boolean water, boolean tileArt, double screenX, double screenY) {
         final ShadowList list = new ShadowList();
         final double drop = FxObjectShadows.waterDrop(water, tileArt, HALF_TILE_HEIGHT);
-        FxObjectShadows.addForTile(list, resource, image, contact, building, screenX, screenY + drop,
-                HALF_TILE_HEIGHT, ART_SCALE);
+        FxObjectShadows.addForTile(list, resource, image, contact, building,
+                new FxObjectShadows.TileAnchor(screenX, screenY + drop, HALF_TILE_HEIGHT, ART_SCALE));
         return list;
     }
 
@@ -91,6 +91,33 @@ class FxObjectShadowsTest {
         assertEquals(1, list.size());
         assertNull(list.silhouette(0));
         assertTrue(list.widthArt(0) > 0);
-        assertFalse(shadowsOf(null, null, 0, BuildingType.DOCK, false, true, 0, 0).size() > 0);
+        assertFalse(shadowsOf(null, null, 0, BuildingType.BRIDGE, false, true, 0, 0).size() > 0);
+    }
+
+    @Test
+    void aBuildingWithArtCastsTheSilhouetteOfItsSpriteAndOneWithoutCastsTheEllipse() {
+        final Image art = sprite();
+        final ShadowList withArt = new ShadowList();
+        final ShadowList withoutArt = new ShadowList();
+
+        final FxObjectShadows.TileAnchor anchor = new FxObjectShadows.TileAnchor(0, 0, HALF_TILE_HEIGHT, ART_SCALE);
+
+        FxObjectShadows.addForTile(withArt, null, null, 0, BuildingType.WORKBENCH, art, anchor);
+        FxObjectShadows.addForTile(withoutArt, null, null, 0, BuildingType.WORKBENCH, (Image) null, anchor);
+
+        assertEquals(1, withArt.size());
+        assertNotNull(withArt.silhouette(0));
+        assertEquals(1, withoutArt.size());
+        assertNull(withoutArt.silhouette(0));
+    }
+
+    @Test
+    void aFlatBuildingCastsNoShadowEvenWithArt() {
+        final ShadowList list = new ShadowList();
+
+        FxObjectShadows.addForTile(list, null, null, 0, BuildingType.BRIDGE, sprite(),
+                new FxObjectShadows.TileAnchor(0, 0, HALF_TILE_HEIGHT, ART_SCALE));
+
+        assertEquals(0, list.size());
     }
 }

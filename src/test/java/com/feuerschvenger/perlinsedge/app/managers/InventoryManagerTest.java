@@ -95,7 +95,7 @@ class InventoryManagerTest {
 
         assertEquals(2, count(ItemType.STONE), "a refused craft must not eat the ingredients that were there");
         assertEquals(0, count(ItemType.AXE));
-        assertEquals(List.of(InventoryManager.MISSING_INGREDIENTS_HINT), hints);
+        assertEquals(List.of("Missing ingredients"), hints);
         assertEquals(0, refreshes.get());
     }
 
@@ -110,7 +110,7 @@ class InventoryManagerTest {
 
         assertEquals(2, count(ItemType.WOOD_LOG));
         assertEquals(0, count(ItemType.WOOD_PLANK));
-        assertEquals(List.of(InventoryManager.NO_ROOM_HINT), hints);
+        assertEquals(List.of("Inventory full"), hints);
         assertEquals(0, refreshes.get());
     }
 

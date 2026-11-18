@@ -9,13 +9,15 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 public final class SlimeSquash {
 
     /** Seconds one breath takes. */
-    static final double BREATH_PERIOD_SECONDS = 2.4;
+    public static final double BREATH_PERIOD_SECONDS = 2.4;
     /** Share of the height a breath adds or removes, which the width does the other way round. */
-    static final double BREATH_AMPLITUDE = 0.06;
+    public static final double BREATH_AMPLITUDE = 0.06;
     /** Share of the height lost at the moment of the strike. */
-    static final double WINDUP_SQUASH = 0.3;
+    public static final double WINDUP_SQUASH = 0.3;
     /** Share of the width gained at the moment of the strike. */
-    static final double WINDUP_SPREAD = 0.2;
+    public static final double WINDUP_SPREAD = 0.2;
+    /** Full turns of the sine wave in one breath, written as the radians of a full circle. */
+    private static final double FULL_CIRCLE = 2 * Math.PI;
 
     /** Not instantiable: the class only holds static rules. */
     private SlimeSquash() {}
@@ -28,7 +30,7 @@ public final class SlimeSquash {
      * @return -1 to 1, positive when the slime is drawn in tall and thin
      */
     public static double breath(double clock, double offset) {
-        return Math.sin(2 * Math.PI * (clock / BREATH_PERIOD_SECONDS + offset));
+        return Math.sin(FULL_CIRCLE * (clock / BREATH_PERIOD_SECONDS + offset));
     }
 
     /**

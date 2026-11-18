@@ -8,6 +8,9 @@ public final class ThrowArc {
     /** Height of the top of the arc, in screen pixels at zoom 1. */
     public static final double PEAK_PIXELS = 18.0;
 
+    /** Scales p * (1 - p), whose peak is a quarter, up to a peak of one. */
+    private static final double PEAK_NORMALIZATION = 4.0;
+
     private ThrowArc() {}
 
     /**
@@ -17,8 +20,8 @@ public final class ThrowArc {
      * @return 0 at both ends and 1 halfway
      */
     public static double heightFraction(double progress) {
-        double p = Math.max(0.0, Math.min(1.0, progress));
-        return 4.0 * p * (1.0 - p);
+        double p = Math.clamp(progress, 0.0, 1.0);
+        return PEAK_NORMALIZATION * p * (1.0 - p);
     }
 
     /**

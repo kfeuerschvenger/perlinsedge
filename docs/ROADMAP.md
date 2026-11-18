@@ -9,6 +9,8 @@ flowchart LR
     survival --> digging[Digging and farming]
     survival --> bow[Player bow and arrows]
     survival --> fishing[Fishing]
+    survival --> structures[Enemies and other sources damage structures]
+    survival --> large[Large multi-tile buildings with interiors]
     world --> lighting[Light sources and darkness: held torch built]
     world --> biomes[Magic and sinister biomes]
     digging --> shovel[Shovel]
@@ -25,6 +27,14 @@ A shovel to dig the ground and to prepare soil, with planting and harvesting cro
 ## Player bow and arrows
 
 A bow and arrows the player crafts and fires at range, with ammunition that is spent and can be picked up again. It needs a projectile that the combat code can resolve against enemies, which the skeletons' ranged attack can share.
+
+## Damage to structures
+
+Every building already has health, a maximum per kind in `BuildingStats`, and a `damage` call that lowers it. Demolishing with the hammer already returns the share of the cost that matches the health left, and the hammer shows a health bar over a damaged building. What is missing is the damage itself: enemies that attack walls, doors and fences that block them, and other sources such as fire or explosions. It needs enemies that choose a structure as a target, a rule for what a destroyed structure leaves behind, and repair with the hammer so a damaged structure can be restored instead of only demolished.
+
+## Large buildings with interiors
+
+Buildings that span several tiles as one structure, such as a house or a windmill. The structure owns all the tiles it covers, so placing it needs a free footprint and demolishing it clears the whole footprint at once. Its door leads to a separate interior map that the player enters and leaves through that door, with its own tiles, light and furniture. It needs a multi-tile structure in the tile model, a way to switch the current map and come back to the same spot, and room-sized art for the exterior and the interior.
 
 ## Fishing
 

@@ -89,7 +89,7 @@ class InventoryDragTest {
                 .map(StackPane.class::cast)
                 .filter(node -> {
                     InventoryPanel.SlotContext context = (InventoryPanel.SlotContext) node.getUserData();
-                    return context.container == container && context.index == index;
+                    return context.container() == container && context.index() == index;
                 })
                 .findFirst()
                 .orElseThrow());
@@ -275,7 +275,7 @@ class InventoryDragTest {
 
         var hovered = FxToolkitSupport.onFx(panel::getHoveredOrSelectedSlot);
         assertEquals(9, hovered.slot());
-        assertTrue(hovered.container() == player);
+        assertSame(player, hovered.container());
     }
 
     @Test
@@ -317,7 +317,7 @@ class InventoryDragTest {
         moveTo(source, OUTSIDE);
 
         FxToolkitSupport.onFx(() -> {
-            panel.getController().focusListener().changed(null, false, true);
+            panel.getController().handleWindowFocus(true);
             return null;
         });
 
@@ -326,12 +326,12 @@ class InventoryDragTest {
 
     /**
      * The focus of a real window cannot be flipped from a test, so the tests of the window wiring give the panel a
-     * focus value of their own to read instead, and flip that. This one fires the listener directly, for the tests that
+     * focus value of their own to read instead, and flip that. This one calls the focus handler directly, for the tests that
      * are about what the panel does when the focus goes, not about how it hears of it.
      */
     private void loseFocus(InventoryController controller) {
         FxToolkitSupport.onFx(() -> {
-            controller.focusListener().changed(null, true, false);
+            controller.handleWindowFocus(false);
             return null;
         });
     }

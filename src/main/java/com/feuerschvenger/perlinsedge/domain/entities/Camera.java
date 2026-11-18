@@ -9,6 +9,8 @@ public class Camera {
     private static final double MIN_ZOOM = 0.1;
     private static final double MAX_ZOOM = 10.0;
     private static final double DEFAULT_ZOOM = 1.0;
+    /** Distance between two zoom levels the art can be drawn at: the art scale is twice the zoom and must be whole. */
+    private static final double ZOOM_GRID = 0.5;
 
     // Instance state
     protected double x;
@@ -64,18 +66,20 @@ public class Camera {
     }
 
     /**
-     * Sets the zoom level with validation.
+     * Sets the zoom level with validation. The zoom is snapped to the nearest multiple of {@value #ZOOM_GRID}, because
+     * the pixel art is drawn at a whole number of screen pixels per art pixel, which is twice the zoom: the lights, the
+     * shadows and the sprites all assume that twice the zoom is a whole number.
      *
-     * @param zoom New zoom level (clamped between MIN_ZOOM and MAX_ZOOM)
+     * @param zoom New zoom level, between MIN_ZOOM and MAX_ZOOM before snapping
      * @throws IllegalArgumentException if zoom is not within valid range
      */
-    public void setZoom(double zoom) {
+    public final void setZoom(double zoom) {
         if (zoom < MIN_ZOOM || zoom > MAX_ZOOM) {
             throw new IllegalArgumentException(
                     "Zoom must be between " + MIN_ZOOM + " and " + MAX_ZOOM
             );
         }
-        this.zoom = zoom;
+        this.zoom = Math.max(ZOOM_GRID, Math.rint(zoom / ZOOM_GRID) * ZOOM_GRID);
     }
 
     // ==================================================================

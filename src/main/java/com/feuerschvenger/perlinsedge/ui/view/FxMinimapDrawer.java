@@ -32,6 +32,21 @@ public class FxMinimapDrawer {
     private static final Color CAMERA_STROKE_COLOR = Color.WHITE;
     private static final Color PLAYER_MARKER_COLOR = Color.rgb(255, 60, 60);
     private static final double PLAYER_MARKER_RADIUS = 2.5;
+    /** Twice {@link #PLAYER_MARKER_RADIUS}. */
+    private static final double PLAYER_MARKER_DIAMETER = 5.0;
+
+    /** Divisor that turns the sum or difference of the two isometric components into a tile coordinate. */
+    private static final double ISO_AXIS_DIVISOR = 2.0;
+    /** Corners of the camera view polygon. */
+    private static final int CAMERA_CORNER_COUNT = 4;
+    /** Values stored per corner in the corner array: x and y. */
+    private static final int COORDINATES_PER_CORNER = 2;
+
+    // Layout of a packed 0xAARRGGBB pixel
+    private static final int ALPHA_SHIFT = 24;
+    private static final int RED_SHIFT = 16;
+    private static final int GREEN_SHIFT = 8;
+    private static final double MAX_CHANNEL = 255.0;
 
     // Configuration references
     private final AppConfig.GraphicsConfig graphicsConfig = AppConfig.getInstance().graphics();
@@ -44,7 +59,6 @@ public class FxMinimapDrawer {
 
     // State
     private TileMap map;
-    private double scale = 1.0;
     private double scaledTileW = BASE_TILE_WIDTH;
     private double scaledTileH = BASE_TILE_HEIGHT;
     private double offsetX;
@@ -72,7 +86,9 @@ public class FxMinimapDrawer {
     public void draw() {
         clearCanvas();
 
-        if (map == null) return;
+        if (map == null) {
+            return;
+        }
 
         if (tileLayerDirty) {
             rebuildTileLayer();
@@ -89,7 +105,9 @@ public class FxMinimapDrawer {
      * @param newMap The new TileMap to display
      */
     public void updateMap(TileMap newMap) {
-        if (newMap == this.map) return;
+        if (newMap == this.map) {
+            return;
+        }
 
         this.map = newMap;
         calculateScaling();
@@ -123,8 +141,8 @@ public class FxMinimapDrawer {
         double compY = isoY / scaledTileH;
 
         return new double[] {
-                (compX + compY) / 2.0,
-                (compY - compX) / 2.0
+                (compX + compY) / ISO_AXIS_DIVISOR,
+                (compY - compX) / ISO_AXIS_DIVISOR
         };
     }
 
@@ -141,7 +159,9 @@ public class FxMinimapDrawer {
     }
 
     private void calculateScaling() {
-        if (map == null) return;
+        if (map == null) {
+            return;
+        }
 
         final int mapWidth = map.getWidth();
         final int mapHeight = map.getHeight();
@@ -153,7 +173,10 @@ public class FxMinimapDrawer {
         final double maxScaleX = (canvas.getWidth() - PADDING) / mapPixelWidth;
         final double maxScaleY = (canvas.getHeight() - PADDING) / mapPixelHeight;
 
-        scale = Math.max(MIN_SCALE, Math.min(maxScaleX, maxScaleY));
+        // Not a clamp: on a map too large for the canvas the fitting scale is below the minimum, and a clamp whose
+        // upper bound is below its lower bound throws
+        final double fittingScale = Math.min(maxScaleX, maxScaleY);
+        final double scale = Math.max(MIN_SCALE, fittingScale);
         scaledTileW = BASE_TILE_WIDTH * scale;
         scaledTileH = BASE_TILE_HEIGHT * scale;
 
@@ -181,7 +204,7 @@ public class FxMinimapDrawer {
         final int imageHeight = Math.max(1, (int) canvas.getHeight());
         final int[] pixels = samplePixels(map, imageWidth, imageHeight, scaledTileW, scaledTileH, offsetX, offsetY);
 
-        if (tileLayer == null || tileLayer.getWidth() != imageWidth || tileLayer.getHeight() != imageHeight) {
+        if (tileLayer == null || (int) tileLayer.getWidth() != imageWidth || (int) tileLayer.getHeight() != imageHeight) {
             tileLayer = new WritableImage(imageWidth, imageHeight);
         }
         tileLayer.getPixelWriter().setPixels(0, 0, imageWidth, imageHeight,
@@ -208,14 +231,14 @@ public class FxMinimapDrawer {
      */
     static int[] samplePixels(TileMap map, int imageWidth, int imageHeight, double tileW, double tileH,
                               double offsetX, double offsetY) {
-        final int[] pixels = new int[imageWidth * imageHeight];
+        final var pixels = new int[imageWidth * imageHeight];
         final int width = map.getWidth();
         final int height = map.getHeight();
 
-        final Rgba[] samples = new Rgba[SAMPLES_PER_PIXEL];
-        for (int py = 0; py < imageHeight; py++) {
-            for (int px = 0; px < imageWidth; px++) {
-                for (int sample = 0; sample < SAMPLES_PER_PIXEL; sample++) {
+        final var samples = new Rgba[SAMPLES_PER_PIXEL];
+        for (var py = 0; py < imageHeight; py++) {
+            for (var px = 0; px < imageWidth; px++) {
+                for (var sample = 0; sample < SAMPLES_PER_PIXEL; sample++) {
                     final double isoX = px + SAMPLE_OFFSETS[sample % 2] - offsetX;
                     final double isoY = py + SAMPLE_OFFSETS[sample / 2] - offsetY;
                     final double compX = isoX / tileW;
@@ -267,30 +290,33 @@ public class FxMinimapDrawer {
      * @return the packed colour
      */
     static int toArgb(Rgba color) {
-        return (channel(color.a()) << 24) | (channel(color.r()) << 16) | (channel(color.g()) << 8) | channel(color.b());
+        return (channel(color.a()) << ALPHA_SHIFT) | (channel(color.r()) << RED_SHIFT)
+                | (channel(color.g()) << GREEN_SHIFT) | channel(color.b());
     }
 
     private static int channel(double component) {
-        return (int) Math.round(Math.max(0.0, Math.min(1.0, component)) * 255.0);
+        return (int) Math.round(Math.clamp(component, 0.0, 1.0) * MAX_CHANNEL);
     }
 
     private void drawPlayerMarker() {
-        if (!playerVisible) return;
+        if (!playerVisible) {
+            return;
+        }
 
         final double[] marker = tileToMiniMap(playerTileX, playerTileY);
         gc.setFill(PLAYER_MARKER_COLOR);
         gc.fillOval(marker[0] - PLAYER_MARKER_RADIUS, marker[1] - PLAYER_MARKER_RADIUS,
-                PLAYER_MARKER_RADIUS * 2, PLAYER_MARKER_RADIUS * 2);
+                PLAYER_MARKER_DIAMETER, PLAYER_MARKER_DIAMETER);
     }
 
     private void drawCameraView() {
         final double[] corners = calculateCameraCorners();
-        final double[] polygonX = new double[4];
-        final double[] polygonY = new double[4];
+        final var polygonX = new double[CAMERA_CORNER_COUNT];
+        final var polygonY = new double[CAMERA_CORNER_COUNT];
 
         // Convert corners to minimap coordinates
-        for (int i = 0; i < 4; i++) {
-            final double[] tilePos = screenToTile(corners[i*2], corners[i*2 + 1]);
+        for (var i = 0; i < CAMERA_CORNER_COUNT; i++) {
+            final double[] tilePos = screenToTile(corners[i * COORDINATES_PER_CORNER], corners[i * COORDINATES_PER_CORNER + 1]);
             final double[] miniPos = tileToMiniMap(tilePos[0], tilePos[1]);
             polygonX[i] = miniPos[0];
             polygonY[i] = miniPos[1];
@@ -298,11 +324,11 @@ public class FxMinimapDrawer {
 
         // Draw camera view polygon
         gc.setFill(CAMERA_FILL_COLOR);
-        gc.fillPolygon(polygonX, polygonY, 4);
+        gc.fillPolygon(polygonX, polygonY, CAMERA_CORNER_COUNT);
 
         gc.setStroke(CAMERA_STROKE_COLOR);
         gc.setLineWidth(LINE_WIDTH);
-        gc.strokePolygon(polygonX, polygonY, 4);
+        gc.strokePolygon(polygonX, polygonY, CAMERA_CORNER_COUNT);
     }
 
     private double[] calculateCameraCorners() {

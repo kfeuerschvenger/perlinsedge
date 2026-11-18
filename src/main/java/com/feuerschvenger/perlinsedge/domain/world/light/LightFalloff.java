@@ -19,7 +19,7 @@ public final class LightFalloff {
      *         {@code (1 - shareSquared)^2}
      */
     public static double level(double shareSquared) {
-        if (!(shareSquared < 1.0)) {
+        if (Double.isNaN(shareSquared) || shareSquared >= 1.0) {
             return 0.0;
         }
         final double left = 1.0 - Math.max(0.0, shareSquared);

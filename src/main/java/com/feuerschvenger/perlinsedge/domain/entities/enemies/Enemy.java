@@ -44,7 +44,7 @@ public abstract class Enemy extends Entity {
      * @param movementStrategy  Movement behavior implementation
      * @param attackStrategy    Attack behavior implementation
      */
-    public Enemy(int startX, int startY, double maxHealth,
+    protected Enemy(int startX, int startY, double maxHealth,
                  double attackDamage, double attackCooldown,
                  EnemyMovementStrategy movementStrategy,
                  EnemyAttackStrategy attackStrategy) {
@@ -171,7 +171,7 @@ public abstract class Enemy extends Entity {
      *
      * @param color New color value
      */
-    public void setColor(Rgba color) {
+    public final void setColor(Rgba color) {
         this.color = color;
     }
 

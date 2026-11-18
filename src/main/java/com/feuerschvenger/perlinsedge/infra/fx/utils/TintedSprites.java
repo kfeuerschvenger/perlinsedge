@@ -1,8 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
 import javafx.scene.image.Image;
-import javafx.scene.image.PixelReader;
-import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 
 import java.util.IdentityHashMap;
@@ -42,11 +40,11 @@ public final class TintedSprites {
     private static Image bake(Image source, int phase) {
         final int width = (int) source.getWidth();
         final int height = (int) source.getHeight();
-        final PixelReader reader = source.getPixelReader();
-        final WritableImage copy = new WritableImage(width, height);
-        final PixelWriter writer = copy.getPixelWriter();
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
+        final var reader = source.getPixelReader();
+        final var copy = new WritableImage(width, height);
+        final var writer = copy.getPixelWriter();
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
                 writer.setArgb(x, y, HurtReaction.tint(reader.getArgb(x, y), phase));
             }
         }

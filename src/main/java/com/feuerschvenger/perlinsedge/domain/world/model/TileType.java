@@ -110,30 +110,30 @@ public enum TileType {
     // ==================================================================
     private static class TerrainProperties {
         // Predefined property configurations
-        static final TerrainProperties WATER =
+        private static final TerrainProperties WATER =
                 new TerrainProperties(false, true, false, false);
-        static final TerrainProperties LAND =
+        private static final TerrainProperties LAND =
                 new TerrainProperties(true, false, true, false);
 
-        private final boolean land;
-        private final boolean water;
+        private final boolean solidGround;
+        private final boolean underWater;
         private final boolean walkable;
         private final boolean fertile;
 
-        TerrainProperties(boolean land, boolean water,
+        TerrainProperties(boolean solidGround, boolean underWater,
                           boolean walkable, boolean fertile) {
-            this.land = land;
-            this.water = water;
+            this.solidGround = solidGround;
+            this.underWater = underWater;
             this.walkable = walkable;
             this.fertile = fertile;
         }
 
         public boolean isLand() {
-            return land;
+            return solidGround;
         }
 
         public boolean isWater() {
-            return water;
+            return underWater;
         }
 
         public boolean isWalkable() {

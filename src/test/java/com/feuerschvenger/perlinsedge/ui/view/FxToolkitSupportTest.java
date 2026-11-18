@@ -30,9 +30,9 @@ class FxToolkitSupportTest {
 
         assertThrows(TestAbortedException.class,
                 () -> launcher.start(null, task -> { throw new UnsupportedOperationException("no display"); }));
-        assertThrows(TestAbortedException.class, () -> launcher.start(null, task -> task.run()),
+        assertThrows(TestAbortedException.class, () -> launcher.start(null, Runnable::run),
                 "the failure is remembered, the starter is not asked again");
-        assertThrows(AssertionError.class, () -> launcher.start("true", task -> task.run()),
+        assertThrows(AssertionError.class, () -> launcher.start("true", Runnable::run),
                 "and it is reported against the CI value of the later call");
     }
 

@@ -10,6 +10,7 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -70,9 +71,10 @@ class UiThemeTest {
         String css = css().replaceAll("(?s)/\\*.*?\\*/", "");
         assertTrue(!css.contains("linear-gradient") && !css.contains("radial-gradient"));
         // every effect is a drop shadow with radius 0, a hard offset
+        Pattern hardShadow = Pattern.compile("dropshadow\\(one-pass-box, [^,]++, 0, 0, [12], [12]\\);");
         for (String line : css.split("\n")) {
             if (line.contains("-fx-effect")) {
-                assertTrue(line.matches(".*dropshadow\\(one-pass-box, [^,]+, 0, 0, [12], [12]\\);.*"), line);
+                assertTrue(hardShadow.matcher(line).find(), line);
             }
         }
     }

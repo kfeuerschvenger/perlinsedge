@@ -45,24 +45,30 @@ public class Chest extends Building implements Container {
 
     @Override
     public Item getItemAt(int slotIndex) {
-        if (!isValidSlot(slotIndex)) return null;
+        if (!isValidSlot(slotIndex)) {
+            return null;
+        }
         return slots.get(slotIndex);
     }
 
     @Override
     public void setItemAt(int slotIndex, Item item) {
-        if (!isValidSlot(slotIndex)) return;
+        if (!isValidSlot(slotIndex)) {
+            return;
+        }
         slots.set(slotIndex, item);
     }
 
     @Override
     public boolean addItem(Item item) {
-        if (item == null || item.getQuantity() <= 0) return false;
+        if (item == null || item.getQuantity() <= 0) {
+            return false;
+        }
 
         int originalQuantity = item.getQuantity();
         int remaining = originalQuantity;
 
-        for (int i = 0; i < capacity && remaining > 0; i++) {
+        for (var i = 0; i < capacity && remaining > 0; i++) {
             Item existing = slots.get(i);
             if (canStack(existing, item)) {
                 int transfer = Math.min(existing.getMaxStackSize() - existing.getQuantity(), remaining);
@@ -71,7 +77,7 @@ public class Chest extends Building implements Container {
             }
         }
 
-        for (int i = 0; i < capacity && remaining > 0; i++) {
+        for (var i = 0; i < capacity && remaining > 0; i++) {
             if (slots.get(i) == null) {
                 int stackSize = Math.min(remaining, item.getMaxStackSize());
                 slots.set(i, new Item(item.getType(), stackSize));
@@ -85,12 +91,16 @@ public class Chest extends Building implements Container {
 
     @Override
     public boolean removeItem(Item itemToRemove, int quantity) {
-        if (itemToRemove == null || quantity <= 0) return false;
-        if (getItemCount(itemToRemove) < quantity) return false;
+        if (itemToRemove == null || quantity <= 0) {
+            return false;
+        }
+        if (getItemCount(itemToRemove) < quantity) {
+            return false;
+        }
 
         int remaining = quantity;
-        for (int i = 0; i < capacity && remaining > 0; i++) {
-            Item item = slots.get(i);
+        for (var i = 0; i < capacity && remaining > 0; i++) {
+            var item = slots.get(i);
             if (item != null && item.getType() == itemToRemove.getType()) {
                 int toRemove = Math.min(item.getQuantity(), remaining);
                 item.removeQuantity(toRemove);
@@ -107,7 +117,9 @@ public class Chest extends Building implements Container {
 
     @Override
     public int getItemCount(Item item) {
-        if (item == null) return 0;
+        if (item == null) {
+            return 0;
+        }
         return slots.stream()
                 .filter(i -> i != null && i.getType() == item.getType())
                 .mapToInt(Item::getQuantity)
@@ -116,7 +128,9 @@ public class Chest extends Building implements Container {
 
     @Override
     public boolean hasSpace(Item item) {
-        if (item == null) return false;
+        if (item == null) {
+            return false;
+        }
 
         boolean hasStackSpace = slots.stream().anyMatch(i -> canStack(i, item));
         return hasStackSpace || hasAvailableSlot();
@@ -130,8 +144,8 @@ public class Chest extends Building implements Container {
     @Override
     public void setItems(List<Item> items) {
         Collections.fill(slots, null);
-        for (int i = 0; i < items.size() && i < capacity; i++) {
-            Item source = items.get(i);
+        for (var i = 0; i < items.size() && i < capacity; i++) {
+            var source = items.get(i);
             if (source != null && source.getQuantity() > 0) {
                 slots.set(i, new Item(source.getType(), Math.min(source.getQuantity(), source.getMaxStackSize())));
             }
@@ -160,7 +174,7 @@ public class Chest extends Building implements Container {
     /**
      * Checks if an item can be stacked onto an existing stack.
      */
-    private boolean canStack(Item existing, Item newItem) {
+    private static boolean canStack(Item existing, Item newItem) {
         return existing != null &&
                 newItem != null &&
                 existing.getType() == newItem.getType() &&

@@ -47,7 +47,7 @@ public class ResourceManager {
      * @param gameState shared game state
      */
     public ResourceManager(GameStateManager gameState) {
-        this(gameState, message -> { });
+        this(gameState, (String _) -> { });
     }
 
     /**
@@ -72,7 +72,9 @@ public class ResourceManager {
      *         of reach or lacks the tool
      */
     public HitResult handleTileInteraction(Player player, Tile tile) {
-        if (!isValidInteraction(player, tile)) return HitResult.REFUSED;
+        if (!isValidInteraction(player, tile)) {
+            return HitResult.REFUSED;
+        }
         if (!hasToolFor(player, tile)) {
             hintMissingTool(tile);
             return HitResult.REFUSED;
@@ -91,7 +93,9 @@ public class ResourceManager {
      * @return true when the resource needs no tool or the item in the player's hand is that tool
      */
     public boolean hasToolFor(Player player, Tile tile) {
-        if (tile == null || !tile.hasResource()) return false;
+        if (tile == null || !tile.hasResource()) {
+            return false;
+        }
         return hasRequiredTool(player, tile.getWorldResource());
     }
 
@@ -101,10 +105,14 @@ public class ResourceManager {
      * @param tile tile with a resource that needs a tool; anything else does nothing
      */
     public void hintMissingTool(Tile tile) {
-        if (tile == null || !tile.hasResource()) return;
-        Resource resource = tile.getWorldResource();
+        if (tile == null || !tile.hasResource()) {
+            return;
+        }
+        var resource = tile.getWorldResource();
         ItemType tool = resource.getType().getRequiredTool();
-        if (tool == null) return;
+        if (tool == null) {
+            return;
+        }
         log.debug("Cannot harvest {} at ({}, {}): the player does not hold a {}",
                 resource.getType(), tile.getX(), tile.getY(), tool);
         hintSink.accept("Hold a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
@@ -114,7 +122,7 @@ public class ResourceManager {
      * Checks that the item in hand is the tool a resource needs, such as the pickaxe for iron ore. A tool in the bag
      * outside the hotbar slot held in hand does not count.
      */
-    private boolean hasRequiredTool(Player player, Resource resource) {
+    private static boolean hasRequiredTool(Player player, Resource resource) {
         ItemType tool = resource.getType().getRequiredTool();
         return tool == null || player.getActiveItemType() == tool;
     }
@@ -134,7 +142,9 @@ public class ResourceManager {
         double currentTime = gameState.getGameTime();
         double cooldown = ToolStats.resourceCooldownMs(tool, resource.getType()) / MILLIS_PER_SECOND;
 
-        if (isOnCooldown(resource, currentTime, cooldown)) return false;
+        if (isOnCooldown(resource, currentTime, cooldown)) {
+            return false;
+        }
 
         resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
@@ -142,7 +152,7 @@ public class ResourceManager {
         // The number shows what the hit took off, so the last hit on a nearly broken resource shows what was left
         final int healthBefore = resource.getHealth();
         boolean depleted = resource.takeDamage(ToolStats.resourceDamage(tool, resource.getType()));
-        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, healthBefore - resource.getHealth(),
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.RESOURCE, (double) healthBefore - resource.getHealth(),
                 tileX, tileY, currentTime);
         if (depleted) {
             processResourceDepletion(resource, tileX, tileY);
@@ -177,14 +187,14 @@ public class ResourceManager {
      * - Tile exists and contains resource
      * - Player is within interaction distance
      */
-    private boolean isValidInteraction(Player player, Tile tile) {
+    private static boolean isValidInteraction(Player player, Tile tile) {
         return tile != null && tile.hasResource() && isWithinInteractionDistance(player, tile);
     }
 
     /**
      * Checks if player is adjacent to resource tile.
      */
-    private boolean isWithinInteractionDistance(Player player, Tile tile) {
+    private static boolean isWithinInteractionDistance(Player player, Tile tile) {
         int dx = Math.abs(player.getCurrentTileX() - tile.getX());
         int dy = Math.abs(player.getCurrentTileY() - tile.getY());
         return dx <= MAX_INTERACTION_DISTANCE &&
@@ -212,7 +222,7 @@ public class ResourceManager {
     private void removeResourceFromTile(int tileX, int tileY) {
         TileMap map = gameState.getCurrentMap();
         if (map != null) {
-            Tile tile = map.getTile(tileX, tileY);
+            var tile = map.getTile(tileX, tileY);
             if (tile != null) {
                 tile.setWorldResource(null);
             }

@@ -33,6 +33,14 @@ public final class ShadowList {
     /** The number of shadows in the list. */
     private int size;
 
+    /**
+     * The size in art pixels a sprite is drawn at.
+     *
+     * @param widthArt  the width in art pixels
+     * @param heightArt the height in art pixels
+     */
+    public record SpriteSize(double widthArt, double heightArt) {}
+
     /** Empties the list for the next frame, keeping the arrays. */
     public void clear() {
         Arrays.fill(silhouette, 0, size, null);
@@ -48,7 +56,7 @@ public final class ShadowList {
      * @param fade     share of the shadow opacity, 0 to 1
      */
     public void add(double centreX, double centreY, double widthArt, double fade) {
-        append(centreX, centreY, widthArt, fade, null, 0.0, 0.0, 0.0);
+        append(centreX, centreY, widthArt, fade);
     }
 
     /**
@@ -63,7 +71,8 @@ public final class ShadowList {
      */
     public void addSilhouette(double centreX, double centreY, Silhouette silhouette, double groundRow,
                               double widthFactor, double fade) {
-        addSilhouette(centreX, centreY, silhouette, groundRow, widthFactor, silhouette.width(), groundRow, fade);
+        final int index = append(centreX, centreY, silhouette.width() * widthFactor, fade);
+        setSprite(index, silhouette, groundRow, silhouette.width(), groundRow);
     }
 
     /**
@@ -76,19 +85,29 @@ public final class ShadowList {
      * @param silhouette      the silhouette of the sprite
      * @param groundRow       the row of the sprite that touches the ground, counted from its top
      * @param widthFactor     how wide the shadow is relative to the silhouette, 1 for the whole width
-     * @param drawnWidthArt   the width in art pixels the sprite is drawn at
-     * @param drawnHeightArt  the height in art pixels the sprite is drawn at
+     * @param drawnSize       the size in art pixels the sprite is drawn at
      * @param fade            share of the shadow opacity, 0 to 1
      */
     public void addSilhouette(double centreX, double centreY, Silhouette silhouette, double groundRow,
-                              double widthFactor, double drawnWidthArt, double drawnHeightArt, double fade) {
-        append(centreX, centreY, silhouette.width() * widthFactor, fade, silhouette, groundRow, drawnWidthArt,
-                drawnHeightArt);
+                              double widthFactor, SpriteSize drawnSize, double fade) {
+        final int index = append(centreX, centreY, silhouette.width() * widthFactor, fade);
+        setSprite(index, silhouette, groundRow, drawnSize.widthArt(), drawnSize.heightArt());
     }
 
-    /** Stores one shadow, growing the arrays when they are full. */
-    private void append(double centreX, double centreY, double widthArt, double fade, Silhouette sprite,
-                        double groundRow, double drawnWidthArt, double drawnHeightArt) {
+    /** Makes a stored shadow the one of a sprite. */
+    private void setSprite(int index, Silhouette sprite, double row, double drawnWidthArt, double drawnHeightArt) {
+        silhouette[index] = sprite;
+        groundRow[index] = row;
+        drawnWidth[index] = drawnWidthArt;
+        drawnHeight[index] = drawnHeightArt;
+    }
+
+    /**
+     * Stores one ellipse shadow, growing the arrays when they are full.
+     *
+     * @return the index the shadow was stored at
+     */
+    private int append(double centreX, double centreY, double widthArt, double fade) {
         if (size == x.length) {
             final int capacity = size * 2;
             x = Arrays.copyOf(x, capacity);
@@ -104,11 +123,11 @@ public final class ShadowList {
         y[size] = centreY;
         width[size] = widthArt;
         this.fade[size] = fade;
-        silhouette[size] = sprite;
-        this.groundRow[size] = groundRow;
-        drawnWidth[size] = drawnWidthArt;
-        drawnHeight[size] = drawnHeightArt;
-        size++;
+        silhouette[size] = null;
+        groundRow[size] = 0.0;
+        drawnWidth[size] = 0.0;
+        drawnHeight[size] = 0.0;
+        return size++;
     }
 
     /**
@@ -153,14 +172,33 @@ public final class ShadowList {
         if (size != other.size) {
             return false;
         }
-        for (int i = 0; i < size; i++) {
-            if (x[i] != other.x[i] || y[i] != other.y[i] || width[i] != other.width[i] || fade[i] != other.fade[i]
-                    || silhouette[i] != other.silhouette[i] || groundRow[i] != other.groundRow[i]
-                    || drawnWidth[i] != other.drawnWidth[i] || drawnHeight[i] != other.drawnHeight[i]) {
+        for (var i = 0; i < size; i++) {
+            if (!sameShadowAt(other, i)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** Tells whether the shadow at an index matches the one at the same index of another list, in every field. */
+    private boolean sameShadowAt(ShadowList other, int i) {
+        return samePlacement(other, i) && sameShape(other, i) && silhouette[i] == other.silhouette[i];
+    }
+
+    /** Tells whether two shadows sit at the same point with the same opacity share. */
+    private boolean samePlacement(ShadowList other, int i) {
+        return same(x[i], other.x[i]) && same(y[i], other.y[i]) && same(fade[i], other.fade[i]);
+    }
+
+    /** Tells whether two shadows have the same width, ground row and drawn size. */
+    private boolean sameShape(ShadowList other, int i) {
+        return same(width[i], other.width[i]) && same(groundRow[i], other.groundRow[i])
+                && same(drawnWidth[i], other.drawnWidth[i]) && same(drawnHeight[i], other.drawnHeight[i]);
+    }
+
+    /** Compares two stored values by their exact bits, which is what makes two casts give the same layer. */
+    private static boolean same(double a, double b) {
+        return Double.compare(a, b) == 0;
     }
 
     /** @return the number of shadows in the list */

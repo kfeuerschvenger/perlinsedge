@@ -5,6 +5,19 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
  */
 public final class SpriteVariants {
 
+    /** Multipliers that spread the tile column and row over the seed. */
+    private static final long COLUMN_HASH_PRIME = 73_856_093L;
+    private static final long ROW_HASH_PRIME = 19_349_663L;
+
+    /** Multiplier that mixes the tile hash into the world seed of a resource. */
+    private static final long RESOURCE_SEED_MULTIPLIER = 0xD6E8_FEB8_6659_FD93L;
+
+    /** Multipliers and shifts of the finaliser that turns a seed into well spread bits. */
+    private static final long FIRST_MULTIPLIER = 0x9E37_79B9_7F4A_7C15L;
+    private static final long SECOND_MULTIPLIER = 0xBF58_476D_1CE4_E5B9L;
+    private static final int FIRST_SHIFT = 32;
+    private static final int SECOND_SHIFT = 29;
+
     /** Not instantiable: the class only holds static rules. */
     private SpriteVariants() {}
 
@@ -17,7 +30,7 @@ public final class SpriteVariants {
      * @return an index in [0, count), or 0 when count is not above one
      */
     public static int forTile(int x, int y, int count) {
-        return forSeed(x * 73_856_093L ^ y * 19_349_663L, count);
+        return forSeed(x * COLUMN_HASH_PRIME ^ y * ROW_HASH_PRIME, count);
     }
 
     /**
@@ -32,7 +45,7 @@ public final class SpriteVariants {
      * @return an index in [0, count), or 0 when count is not above one
      */
     public static int forResource(long worldSeed, int x, int y, int count) {
-        return forSeed(worldSeed ^ (x * 73_856_093L ^ y * 19_349_663L) * 0xD6E8FEB86659FD93L, count);
+        return forSeed(worldSeed ^ (x * COLUMN_HASH_PRIME ^ y * ROW_HASH_PRIME) * RESOURCE_SEED_MULTIPLIER, count);
     }
 
     /**
@@ -46,10 +59,10 @@ public final class SpriteVariants {
         if (count <= 1) {
             return 0;
         }
-        long h = seed * 0x9E3779B97F4A7C15L;
-        h ^= h >>> 32;
-        h *= 0xBF58476D1CE4E5B9L;
-        h ^= h >>> 29;
+        long h = seed * FIRST_MULTIPLIER;
+        h ^= h >>> FIRST_SHIFT;
+        h *= SECOND_MULTIPLIER;
+        h ^= h >>> SECOND_SHIFT;
         return (int) Math.floorMod(h, (long) count);
     }
 }

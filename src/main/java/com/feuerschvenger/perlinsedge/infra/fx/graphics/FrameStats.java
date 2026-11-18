@@ -7,6 +7,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 public final class FrameStats {
 
     private static final double WINDOW_SECONDS = 0.5;
+    private static final double MILLIS_PER_SECOND = 1000.0;
 
     private double windowTime;
     private int windowFrames;
@@ -18,11 +19,11 @@ public final class FrameStats {
      *
      * @param deltaSeconds duration of the frame in seconds, non-positive values are ignored
      */
-    public void record(double deltaSeconds) {
+    public void recordFrame(double deltaSeconds) {
         if (deltaSeconds <= 0) {
             return;
         }
-        lastFrameMillis = deltaSeconds * 1000.0;
+        lastFrameMillis = deltaSeconds * MILLIS_PER_SECOND;
         windowTime += deltaSeconds;
         windowFrames++;
 

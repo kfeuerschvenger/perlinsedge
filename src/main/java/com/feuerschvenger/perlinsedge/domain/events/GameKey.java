@@ -5,15 +5,13 @@ package com.feuerschvenger.perlinsedge.domain.events;
  * keys the game does not use are never delivered.
  */
 public enum GameKey {
+    /** Escape: drops the selected building piece in build mode, otherwise opens the pause menu. */
     ESCAPE,
     /** Centres the camera on the player. */
     SPACE,
     I,
-    B,
-    /** Previous page of the building hotbar. */
-    PAGE_UP,
-    /** Next page of the building hotbar. */
-    PAGE_DOWN,
+    /** R: turns the selected building piece a quarter turn clockwise while the hammer is in hand. */
+    ROTATE,
     /** E: uses the item held in hand, such as a potion. */
     USE_ITEM,
     /** Q: throws one item out of the hovered or selected inventory slot. */

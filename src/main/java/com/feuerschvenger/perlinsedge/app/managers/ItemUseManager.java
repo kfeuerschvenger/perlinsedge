@@ -1,7 +1,5 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +14,7 @@ import java.util.function.Consumer;
 @Slf4j
 public class ItemUseManager {
     /** Hint shown when the player tries to heal at full health. */
-    static final String FULL_HEALTH_HINT = "Already at full health";
+    private static final String FULL_HEALTH_HINT = "Already at full health";
 
     private final GameStateManager gameState;
     private final Runnable onInventoryChanged;
@@ -48,8 +46,8 @@ public class ItemUseManager {
                 || gameState.getCurrentGameMode() != GameMode.EXPLORATION) {
             return false;
         }
-        final Player player = gameState.getPlayer();
-        final ItemType type = player.getActiveItemType();
+        final var player = gameState.getPlayer();
+        final var type = player.getActiveItemType();
         if (type == null || !type.isConsumable()) {
             return false;
         }

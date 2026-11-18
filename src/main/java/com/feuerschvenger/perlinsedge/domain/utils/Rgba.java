@@ -9,9 +9,13 @@ package com.feuerschvenger.perlinsedge.domain.utils;
  * @param b blue component
  * @param a opacity, where 1.0 is fully opaque
  */
-public record Rgba(double r, double g, double b, double a) {
+public record Rgba(double r, double g, double b, double a) implements ColourChannels {
 
     private static final double DARKER_BRIGHTER_FACTOR = 0.7;
+    /** Largest value of an 8-bit channel. */
+    private static final double CHANNEL_MAX = 255.0;
+    /** Brightness that one unit of brightening lifts pure black to, which has no hue to scale. */
+    private static final double BLACK_LIFT = 0.05;
 
     /** Named colours used by the domain. */
     public static final Rgba GRAY = rgb(128, 128, 128);
@@ -50,7 +54,7 @@ public record Rgba(double r, double g, double b, double a) {
      * @return the colour
      */
     public static Rgba rgb(int red, int green, int blue) {
-        return new Rgba(red / 255.0, green / 255.0, blue / 255.0, 1.0);
+        return new Rgba(red / CHANNEL_MAX, green / CHANNEL_MAX, blue / CHANNEL_MAX, 1.0);
     }
 
     /**
@@ -80,11 +84,11 @@ public record Rgba(double r, double g, double b, double a) {
      */
     public Rgba scaleBrightness(double factor) {
         double max = Math.max(r, Math.max(g, b));
-        if (max == 0.0) {
+        if (Doubles.isZero(max)) {
             if (factor <= 1.0) {
                 return this;
             }
-            double v = Math.min(1.0, 0.05 * factor);
+            double v = Math.min(1.0, BLACK_LIFT * factor);
             return new Rgba(v, v, v, a);
         }
         double scale = Math.min(1.0, max * factor) / max;
@@ -106,6 +110,6 @@ public record Rgba(double r, double g, double b, double a) {
     }
 
     private static double clamp(double v) {
-        return Math.max(0.0, Math.min(1.0, v));
+        return Math.clamp(v, 0.0, 1.0);
     }
 }

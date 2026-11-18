@@ -78,8 +78,11 @@ class DomainIsFrameworkFreeTest {
 
     @Test
     void commentStrippingRemovesReferencesThatLiveOnlyInComments() {
-        String source = "// import javafx.scene.Node;\n/* com.feuerschvenger.perlinsedge.infra.Foo */\n"
-                + "/** {@link javafx.scene.Node} */\nclass A { char slash = '/'; char quote = '\"'; String s = \"a\\\"//b\"; }";
+        String source = """
+                // import javafx.scene.Node;
+                /* com.feuerschvenger.perlinsedge.infra.Foo */
+                /** {@link javafx.scene.Node} */
+                class A { char slash = '/'; char quote = '"'; String s = "a\\"//b"; }""";
 
         String code = stripComments(source);
 

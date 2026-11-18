@@ -24,10 +24,10 @@ final class FixedStepAccumulator {
      * @param maxFrameDelta largest frame time in seconds that is accumulated, which avoids a spiral of death; must be positive and finite
      */
     FixedStepAccumulator(double stepSeconds, double maxFrameDelta) {
-        if (!(stepSeconds > 0) || Double.isInfinite(stepSeconds)) {
+        if (Double.isNaN(stepSeconds) || stepSeconds <= 0 || Double.isInfinite(stepSeconds)) {
             throw new IllegalArgumentException("stepSeconds must be positive and finite");
         }
-        if (!(maxFrameDelta > 0) || Double.isInfinite(maxFrameDelta)) {
+        if (Double.isNaN(maxFrameDelta) || maxFrameDelta <= 0 || Double.isInfinite(maxFrameDelta)) {
             throw new IllegalArgumentException("maxFrameDelta must be positive and finite");
         }
         this.stepSeconds = stepSeconds;
@@ -49,11 +49,11 @@ final class FixedStepAccumulator {
         }
 
         double elapsed = (nowNanos - lastTimestamp) / NANOS_PER_SECOND;
-        lastDelta = Math.max(0.0, Math.min(elapsed, maxFrameDelta));
+        lastDelta = Math.clamp(elapsed, 0.0, maxFrameDelta);
         lastTimestamp = nowNanos;
 
         accumulator += lastDelta;
-        int steps = 0;
+        var steps = 0;
         while (accumulator >= stepSeconds) {
             accumulator -= stepSeconds;
             steps++;
@@ -85,4 +85,5 @@ final class FixedStepAccumulator {
     double lastDelta() {
         return lastDelta;
     }
+
 }

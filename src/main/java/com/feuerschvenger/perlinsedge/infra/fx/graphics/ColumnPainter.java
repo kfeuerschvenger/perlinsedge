@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxTileDrawingHelper;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.PixelSnap;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundDecals;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
@@ -37,17 +38,16 @@ final class ColumnPainter {
      *
      * @param map     the map
      * @param tile    the water tile
-     * @param bed     the bed block sprite of the tile
-     * @param art     the tile art name of the bed
+     * @param bed     the bed block sprite of the tile, whose tile art name picks the face colours
      * @param screenX X of the top vertex of the tile at the land tops
      * @param screenY Y of the top vertex of the tile at the land tops
      * @param zoom    camera zoom
      * @param seed    world seed
      */
-    void drawBed(TileMap map, Tile tile, Image bed, String art, double screenX, double screenY, double zoom, long seed) {
+    void drawBed(TileMap map, Tile tile, Image bed, double screenX, double screenY, double zoom, long seed) {
         final double bedY = screenY + TileDepths.sinkPixels(tile.getType()) * ZoomSteps.integerArtScale(zoom);
         FxTileDrawingHelper.drawTileSprite(gc, bed, screenX, bedY, zoom);
-        drawExposedFaces(map, tile, art, screenX, bedY, zoom);
+        drawExposedFaces(map, tile, AssetPaths.tileArt(tile.getType()), screenX, bedY, zoom);
         final int x = tile.getX();
         final int y = tile.getY();
         final Image decal = spriteManager.getDecalSprite(GroundDecals.underwaterDecalFor(tile.getType(), x, y, seed));
@@ -72,8 +72,8 @@ final class ColumnPainter {
         if (strip == null) {
             return;
         }
-        final Tile below = map.getTile(tile.getX(), tile.getY() + 1);
-        final Tile beside = map.getTile(tile.getX() + 1, tile.getY());
+        final var below = map.getTile(tile.getX(), tile.getY() + 1);
+        final var beside = map.getTile(tile.getX() + 1, tile.getY());
         final int left = TileDepths.stripsExposed(tile.getType(), below == null ? null : below.getType());
         final int right = TileDepths.stripsExposed(tile.getType(), beside == null ? null : beside.getType());
         if (left > 0) {
@@ -91,7 +91,7 @@ final class ColumnPainter {
         final double height = strip.getHeight();
         final double left = PixelSnap.round(screenX - halfWidth * scale) + (rightHalf ? halfWidth * scale : 0);
         final double top = PixelSnap.round(screenY);
-        for (int i = 0; i < count; i++) {
+        for (var i = 0; i < count; i++) {
             gc.drawImage(strip, rightHalf ? halfWidth : 0, 0, halfWidth, height,
                     left, top + i * TileDepths.FACE_PIXELS * scale, halfWidth * scale, height * scale);
         }

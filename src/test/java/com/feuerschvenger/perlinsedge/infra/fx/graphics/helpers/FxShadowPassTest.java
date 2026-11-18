@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FxShadowPassTest {
@@ -34,7 +35,8 @@ class FxShadowPassTest {
         gc.setImageSmoothing(false);
         gc.setFill(Color.WHITE);
         gc.fillRect(0, 0, WIDTH, HEIGHT);
-        pass.draw(gc, new ShadowList(), shadows, scale, originX, originY, WIDTH, HEIGHT, NOON, 1.0, strength);
+        pass.draw(gc, new ShadowList(), shadows, new CanvasView(scale, originX, originY, WIDTH, HEIGHT),
+                new SunShadow(NOON, 1.0, strength));
         final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
         final int[][] grey = new int[HEIGHT][WIDTH];
         for (int y = 0; y < HEIGHT; y++) {
@@ -61,7 +63,7 @@ class FxShadowPassTest {
 
         final int expected = (int) Math.round(255 * (1.0 - GroundShadow.OPACITY));
         // Straight under the anchor of a noon shadow
-        assertEquals(expected, grey[63][120], 2);
+        assertEquals((float) expected, (float) grey[63][120], 2.0f);
         assertEquals(255, grey[10][10], "far from every shadow the world is untouched");
     }
 
@@ -72,7 +74,7 @@ class FxShadowPassTest {
         final int[][] none = FxToolkitSupport.onFx(() ->
                 render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), oneBlock(120, 60), 2.0, 0, 0, 0.0));
 
-        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), half[63][120], 2);
+        assertEquals((float) Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), (float) half[63][120], 2.0f);
         for (int[] row : none) {
             for (int value : row) {
                 assertEquals(255, value, "no shadow at all at night");
@@ -100,12 +102,13 @@ class FxShadowPassTest {
                 darkest = Math.min(darkest, overlapped[y][x]);
                 if (single[y][x] < 255) {
                     lightestInsideShadow = Math.max(lightestInsideShadow, overlapped[y][x]);
-                    assertEquals(single[y][x], overlapped[y][x], 1, "same darkness as one shadow at " + x + "," + y);
+                    assertEquals((float) single[y][x], (float) overlapped[y][x], 1.0f,
+                            "same darkness as one shadow at " + x + "," + y);
                 }
             }
         }
         final int expected = (int) Math.round(255 * (1.0 - GroundShadow.OPACITY));
-        assertEquals(expected, darkest, 2, "no cell is darker than a single shadow");
+        assertEquals((float) expected, (float) darkest, 2.0f, "no cell is darker than a single shadow");
         assertTrue(lightestInsideShadow <= expected + 2);
     }
 
@@ -116,7 +119,7 @@ class FxShadowPassTest {
         final int[][] grey = FxToolkitSupport.onFx(() ->
                 render(new FxShadowPass(), new Canvas(WIDTH, HEIGHT), faded, 2.0, 0, 0, 1.0));
 
-        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), grey[63][120], 3);
+        assertEquals((float) Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), (float) grey[63][120], 3.0f);
     }
 
     @Test
@@ -183,7 +186,8 @@ class FxShadowPassTest {
         gc.setImageSmoothing(false);
         gc.setFill(Color.WHITE);
         gc.fillRect(0, 0, WIDTH, HEIGHT);
-        pass.draw(gc, new ShadowList(), shadows, 2.0, originX, 0, WIDTH, HEIGHT, angle, length, strength);
+        pass.draw(gc, new ShadowList(), shadows, new CanvasView(2.0, originX, 0, WIDTH, HEIGHT),
+                new SunShadow(angle, length, strength));
         final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
         final int[][] grey = new int[HEIGHT][WIDTH];
         for (int y = 0; y < HEIGHT; y++) {
@@ -220,7 +224,7 @@ class FxShadowPassTest {
         final int[][] half = FxToolkitSupport.onFx(() -> render(pass, canvas, oneBlock(120, 60), 2.0, 0, 0, 0.5));
 
         assertEquals(1, pass.recasts());
-        assertEquals(Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), half[63][120], 2);
+        assertEquals((float) Math.round(255 * (1.0 - GroundShadow.OPACITY * 0.5)), (float) half[63][120], 2.0f);
     }
 
     @Test
@@ -275,7 +279,7 @@ class FxShadowPassTest {
         gc.setImageSmoothing(false);
         gc.setFill(Color.WHITE);
         gc.fillRect(0, 0, WIDTH, HEIGHT);
-        pass.draw(gc, fixed, moving, scale, originX, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
+        pass.draw(gc, fixed, moving, new CanvasView(scale, originX, 0, WIDTH, HEIGHT), new SunShadow(NOON, 1.0, 1.0));
         final PixelReader reader = canvas.snapshot(null, null).getPixelReader();
         final int[][] grey = new int[HEIGHT][WIDTH];
         for (int y = 0; y < HEIGHT; y++) {
@@ -327,7 +331,7 @@ class FxShadowPassTest {
         // Two draws that blend to the stronger shadow differ from one draw by the rounding of two 8 bit blends
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
-                assertEquals(single[y][x], fadedStatic[y][x], 2,
+                assertEquals((float) single[y][x], (float) fadedStatic[y][x], 2.0f,
                         "the stronger dynamic shadow wins over a fainter static one at " + x + "," + y);
             }
         }
@@ -339,7 +343,7 @@ class FxShadowPassTest {
                 darkest = Math.min(darkest, value);
             }
         }
-        assertEquals(expected, darkest, 2, "no cell is darker than a single shadow");
+        assertEquals((float) expected, (float) darkest, 2.0f, "no cell is darker than a single shadow");
     }
 
     @Test
@@ -444,7 +448,7 @@ class FxShadowPassTest {
     @Test
     void theStaticWindowCoversTheCanvasWithAMarginOnEverySide() {
         final FxShadowPass pass = new FxShadowPass();
-        pass.beginFrame(2.0, 10, 20, WIDTH, HEIGHT);
+        pass.beginFrame(new CanvasView(2.0, 10, 20, WIDTH, HEIGHT));
 
         final double margin = FxShadowPass.WINDOW_MARGIN_CELLS * 2.0;
         assertTrue(pass.windowLeft() <= -margin + 1e-9, "left " + pass.windowLeft());
@@ -452,7 +456,7 @@ class FxShadowPassTest {
         assertTrue(pass.windowLeft() + pass.windowWidth() >= WIDTH + margin - 1e-9);
         assertTrue(pass.windowTop() + pass.windowHeight() >= HEIGHT + margin - 1e-9);
         final double before = pass.windowLeft();
-        pass.beginFrame(2.0, 10, 20, WIDTH, HEIGHT);
+        pass.beginFrame(new CanvasView(2.0, 10, 20, WIDTH, HEIGHT));
         assertEquals(before, pass.windowLeft(), "asking twice in a frame changes nothing");
         assertTrue(pass.windowOverhangXPixels() >= 2 * margin);
         assertTrue(pass.windowOverhangYPixels() >= 2 * margin);
@@ -462,7 +466,8 @@ class FxShadowPassTest {
     private static int drawEmpty(FxShadowPass pass, Canvas canvas, double scale, double originX) {
         final GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.setImageSmoothing(false);
-        pass.draw(gc, new ShadowList(), new ShadowList(), scale, originX, 0, WIDTH, HEIGHT, NOON, 1.0, 1.0);
+        pass.draw(gc, new ShadowList(), new ShadowList(), new CanvasView(scale, originX, 0, WIDTH, HEIGHT),
+                new SunShadow(NOON, 1.0, 1.0));
         return pass.staticRecasts();
     }
 
@@ -499,7 +504,7 @@ class FxShadowPassTest {
         }
         final int[][] read = FxToolkitSupport.onFx(() -> {
             final javafx.scene.image.WritableImage image = FxShadowPass.newPaddedImage(wide, high);
-            FxShadowPass.uploadPadded(image, wide, high, 0, 0, wide, high, cells);
+            FxShadowPass.uploadPadded(image, wide, high, new int[]{0, 0, wide, high}, cells);
             final int[][] argb = new int[high + 1][wide + 1];
             for (int y = 0; y <= high; y++) {
                 for (int x = 0; x <= wide; x++) {
@@ -530,7 +535,7 @@ class FxShadowPassTest {
         assertEquals(481, FxShadowPass.marginFor(1922));
 
         final FxShadowPass pass = new FxShadowPass();
-        pass.beginFrame(1.0, 0, 0, WIDTH, HEIGHT);
+        pass.beginFrame(new CanvasView(1.0, 0, 0, WIDTH, HEIGHT));
         assertEquals(-62.0, pass.windowLeft(), 1e-9, "61 cells and the border cell");
         assertEquals(-42.0, pass.windowTop(), 1e-9, "41 cells and the border cell");
         assertEquals(242 + 2 * 61, pass.windowWidth(), 1e-9);
@@ -561,7 +566,7 @@ class FxShadowPassTest {
 
         assertEquals(2, pass.staticRecasts(), "a pan past the margin casts once");
         assertEquals(centredLeft, pass.windowLeft(), 1e-9, "the window is centred on the camera again");
-        assertTrue(pass.windowLeft() - pass.snappedOffsetX() != worldLeft, "and it moved in the world");
+        assertNotEquals(worldLeft, pass.windowLeft() - pass.snappedOffsetX(), "and it moved in the world");
         FxToolkitSupport.onFx(() -> drawEmpty(pass, canvas, 1.0, -62 - 60));
         assertEquals(2, pass.staticRecasts(), "and the new window holds again for a pan under the margin");
     }
@@ -585,5 +590,41 @@ class FxShadowPassTest {
 
             assertTrue(Arrays.deepEquals(drawnAsSprite, drawnAsStatic), "the shadow slips a pixel at camera " + origin);
         }
+    }
+
+    /** Draws one frame with a static list that carries a version. */
+    private static void drawVersioned(FxShadowPass pass, Canvas canvas, ShadowList fixed, long version) {
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(false);
+        pass.draw(gc, fixed, version, new ShadowList(), new CanvasView(2.0, 0, 0, WIDTH, HEIGHT),
+                new SunShadow(NOON, 1.0, 1.0));
+    }
+
+    @Test
+    void aStaticListWithAVersionIsCastAgainOnlyWhenTheVersionChanges() {
+        final FxShadowPass pass = new FxShadowPass();
+        final Canvas canvas = FxToolkitSupport.onFx(() -> new Canvas(WIDTH, HEIGHT));
+        final ShadowList list = oneBlock(60, 120);
+
+        FxToolkitSupport.onFx(() -> {
+            drawVersioned(pass, canvas, list, 7);
+            drawVersioned(pass, canvas, list, 7);
+            return null;
+        });
+        assertEquals(1, pass.staticRecasts(), "the same version is not compared shadow by shadow");
+
+        // The content is not read while the version stays: the caller promises it did not change
+        list.add(10, 20, 8, 1.0);
+        FxToolkitSupport.onFx(() -> {
+            drawVersioned(pass, canvas, list, 7);
+            return null;
+        });
+        assertEquals(1, pass.staticRecasts());
+
+        FxToolkitSupport.onFx(() -> {
+            drawVersioned(pass, canvas, list, 8);
+            return null;
+        });
+        assertEquals(2, pass.staticRecasts(), "a new version casts the list again");
     }
 }

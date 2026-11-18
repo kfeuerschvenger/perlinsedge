@@ -9,15 +9,15 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 public final class SlimeShadow {
 
     /** Shadow width relative to the size it is derived from. */
-    static final double WIDTH_FACTOR = 1.2;
+    public static final double WIDTH_FACTOR = 1.2;
     /** Fraction of the size lost at the top of a jump. */
-    static final double MAX_SHRINK = 0.3;
-    /** The shadow width factor is rounded to a multiple of one over this, so the shadow takes few distinct shapes. */
-    static final int WIDTH_STEPS = 16;
-    /** Share of the shadow opacity under a slime resting on the ground: all of it. */
-    static final double BASE_OPACITY = 1.0;
+    public static final double MAX_SHRINK = 0.3;
     /** Fraction of the opacity lost at the top of a jump. */
-    static final double MAX_FADE = 0.4;
+    public static final double MAX_FADE = 0.4;
+    /** The shadow width factor is rounded to a multiple of one over this, so the shadow takes few distinct shapes. */
+    private static final int WIDTH_STEPS = 16;
+    /** Share of the shadow opacity under a slime resting on the ground: all of it. */
+    private static final double BASE_OPACITY = 1.0;
 
     /** Not instantiable: the class only holds static rules. */
     private SlimeShadow() {}
@@ -61,6 +61,6 @@ public final class SlimeShadow {
 
     /** Returns how far into the jump the slime is, from zero on the ground to one at the top. */
     private static double lift(double height, double maxHeight) {
-        return Math.max(0.0, Math.min(1.0, maxHeight > 0 ? height / maxHeight : 0.0));
+        return Math.clamp(maxHeight > 0 ? height / maxHeight : 0.0, 0.0, 1.0);
     }
 }

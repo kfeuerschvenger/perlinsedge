@@ -16,6 +16,18 @@ public final class GrayscaleTiles {
     /** Height of a diamond in pixels. */
     public static final int HEIGHT = 16;
 
+    /** Pixels a diamond row grows by on each side, going down to the middle. */
+    private static final int ROW_GROWTH_PER_SIDE = 2;
+
+    /** The column at the middle of a diamond. */
+    private static final int MIDDLE_COLUMN = WIDTH / 2;
+
+    /** The row at the middle of a diamond, where the rows stop growing and start to shrink. */
+    private static final int MIDDLE_ROW = HEIGHT / 2;
+
+    /** The largest grey value of a channel. */
+    private static final double GREY_MAX = 255.0;
+
     /** Heights run from minus one to one. */
     private static final double HEIGHT_NORMALIZATION = 2.0;
 
@@ -29,7 +41,7 @@ public final class GrayscaleTiles {
      * @return zero for the lowest tile and one for the highest
      */
     public static double normalized(double height) {
-        return Math.max(0.0, Math.min(1.0, (height + 1.0) / HEIGHT_NORMALIZATION));
+        return Math.clamp((height + 1.0) / HEIGHT_NORMALIZATION, 0.0, 1.0);
     }
 
     /**
@@ -49,7 +61,7 @@ public final class GrayscaleTiles {
      * @return a channel value from 0 to 255
      */
     public static int greyOf(int level) {
-        return (int) Math.round(255.0 * level / (LEVELS - 1));
+        return (int) Math.round(GREY_MAX * level / (LEVELS - 1));
     }
 
     /**
@@ -63,8 +75,8 @@ public final class GrayscaleTiles {
         if (y < 0 || y >= HEIGHT) {
             return false;
         }
-        final int half = 2 * (y < HEIGHT / 2 ? y + 1 : HEIGHT - y);
-        return x >= WIDTH / 2 - half && x < WIDTH / 2 + half;
+        final var half = ROW_GROWTH_PER_SIDE * (y < MIDDLE_ROW ? y + 1 : HEIGHT - y);
+        return x >= MIDDLE_COLUMN - half && x < MIDDLE_COLUMN + half;
     }
 
     /**
@@ -75,7 +87,12 @@ public final class GrayscaleTiles {
      * @return true when the pixel is on the diamond and one of its four neighbours is not
      */
     public static boolean isOutline(int x, int y) {
-        return insideDiamond(x, y)
-                && !(insideDiamond(x - 1, y) && insideDiamond(x + 1, y) && insideDiamond(x, y - 1) && insideDiamond(x, y + 1));
+        return insideDiamond(x, y) && !hasAllNeighbours(x, y);
+    }
+
+    private static boolean hasAllNeighbours(int x, int y) {
+        final var sides = insideDiamond(x - 1, y) && insideDiamond(x + 1, y);
+        final var ends = insideDiamond(x, y - 1) && insideDiamond(x, y + 1);
+        return sides && ends;
     }
 }

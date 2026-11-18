@@ -35,9 +35,13 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private static final double HELD_WAIT_SPREAD_SECONDS = 0.3;
     /** Longest wait for a step another enemy holds: the wait doubles while the same step stays blocked, up to this. */
     private static final double MAX_HELD_WAIT_SECONDS = 1.5;
+    /** How much longer each repeated wait for the same held step is. */
+    private static final double HELD_WAIT_GROWTH_FACTOR = 2.0;
     /** First wait before a hovering slime looks for a tile to land on again, doubled up to the longest after each miss. */
     private static final double HOVER_RETRY_SECONDS = 0.1;
     private static final double MAX_HOVER_RETRY_SECONDS = 1.0;
+    /** How much longer each failed look for a landing tile makes the wait. */
+    private static final double HOVER_RETRY_GROWTH_FACTOR = 2.0;
     /** Marks that no step of the path is blocked. */
     private static final int NO_STEP = Integer.MIN_VALUE;
     /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
@@ -192,8 +196,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** @return the distance in tiles between the tile of the enemy and the tile of the player */
     private static double distanceToPlayer(Enemy enemy, Player player) {
-        return Math.hypot(player.getCurrentTileX() - enemy.getCurrentTileX(),
-                player.getCurrentTileY() - enemy.getCurrentTileY());
+        return Math.hypot((double) player.getCurrentTileX() - enemy.getCurrentTileX(),
+                (double) player.getCurrentTileY() - enemy.getCurrentTileY());
     }
 
     /**
@@ -203,14 +207,14 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private void handleAggroBehavior(Enemy enemy, TileMap map, Player player) {
         if (secondsOfReplanWait <= 0 && needsNewPath(player)) {
             // Capped, and skipped for a while after a failed search (the player may be unreachable)
-            List<PathNode> pathToPlayer = pathPlanner.findPath(
+            var pathToPlayer = pathPlanner.findPath(
                     map,
                     enemy.getCurrentTileX(), enemy.getCurrentTileY(),
                     player.getCurrentTileX(), player.getCurrentTileY(),
                     occupancy.penaltyFor(enemy, HELD_TILE_PENALTY)
-            );
+            ).nodes();
 
-            if (pathToPlayer != null && !pathToPlayer.isEmpty()) {
+            if (!pathToPlayer.isEmpty()) {
                 currentPath = new LinkedList<>(pathToPlayer);
                 removeCurrentPositionFromPath(enemy);
                 forgetBlockedStepUnlessAhead();
@@ -255,7 +259,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** Hops to a random free tile around the slime, with the given hop duration, unless it is already in the air. */
     private void moveRandomly(Enemy enemy, TileMap map, Player player, double duration) {
-        if (isJumping || secondsOfRest > 0) return;
+        if (isJumping || secondsOfRest > 0) {
+            return;
+        }
 
         List<int[]> possibleMoves = findPossibleMoves(enemy, map, player);
         if (!possibleMoves.isEmpty()) {
@@ -276,7 +282,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private List<int[]> findPossibleMoves(Enemy enemy, TileMap map, Player player) {
         List<int[]> moves = new ArrayList<>();
 
-        for (int i = 0; i < DX.length; i++) {
+        for (var i = 0; i < DX.length; i++) {
             int nextX = enemy.getCurrentTileX() + DX[i];
             int nextY = enemy.getCurrentTileY() + DY[i];
 
@@ -290,7 +296,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /** A hop lands on a free tile, and a diagonal hop may not cut the corner of a blocked tile. */
-    private boolean canHop(TileMap map, int fromX, int fromY, int toX, int toY) {
+    private static boolean canHop(TileMap map, int fromX, int fromY, int toX, int toY) {
         if (!isValidMove(map, toX, toY)) {
             return false;
         }
@@ -299,10 +305,10 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /** @return true when the tile is inside the map and walkable by the rule the pathfinder uses */
-    private boolean isValidMove(TileMap map, int x, int y) {
-        return x >= 0 && x < map.getWidth() &&
-                y >= 0 && y < map.getHeight() &&
-                map.getTile(x, y).isWalkable(); // The rule the pathfinder uses: water, resources and solid buildings block
+    private static boolean isValidMove(TileMap map, int x, int y) {
+        final boolean insideMap = x >= 0 && x < map.getWidth() && y >= 0 && y < map.getHeight();
+        // The rule the pathfinder uses: water, resources and solid buildings block
+        return insideMap && map.getTile(x, y).isWalkable();
     }
 
     /**
@@ -382,15 +388,15 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         }
         final int fromX = enemy.getCurrentTileX();
         final int fromY = enemy.getCurrentTileY();
-        int bestX = 0;
-        int bestY = 0;
+        var bestX = 0;
+        var bestY = 0;
         double bestDistance = Double.MAX_VALUE;
-        boolean found = false;
+        var found = false;
         // The take-off tile comes first as the zero offset, the neighbours follow
         for (int i = -1; i < DX.length; i++) {
             final int x = fromX + (i < 0 ? 0 : DX[i]);
             final int y = fromY + (i < 0 ? 0 : DY[i]);
-            if (isPlayerTile(x, y, player) || !occupancy.isFreeFor(enemy, x, y) || !canHop(map, fromX, fromY, x, y)) {
+            if (!canLandOn(enemy, map, player, x, y)) {
                 continue;
             }
             final double distance = Math.hypot(x - enemy.getPosX(), y - enemy.getPosY());
@@ -411,9 +417,15 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         hoverRetrySeconds = 0;
         enemy.setTargetTileX(bestX);
         enemy.setTargetTileY(bestY);
-        final double duration = Math.max(MIN_BEND_FRACTION * hopDuration,
-                Math.min(MAX_BEND_FRACTION * hopDuration, hopDuration * bestDistance));
+        final double duration = Math.clamp(hopDuration * bestDistance,
+                MIN_BEND_FRACTION * hopDuration, MAX_BEND_FRACTION * hopDuration);
         beginSegment(enemy, duration, jumpPhase);
+    }
+
+    /** Tells whether the enemy may hop from its take-off tile to a tile: not the player's, held by no other enemy, and walkable. */
+    private boolean canLandOn(Enemy enemy, TileMap map, Player player, int x, int y) {
+        return !isPlayerTile(x, y, player) && occupancy.isFreeFor(enemy, x, y)
+                && canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), x, y);
     }
 
     /**
@@ -425,9 +437,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         occupancy.tryReserve(enemy, fromX, fromY);
         enemy.setTargetTileX(fromX);
         enemy.setTargetTileY(fromY);
-        hoverRetrySeconds = hoverRetrySeconds == 0
-                ? HOVER_RETRY_SECONDS
-                : Math.min(MAX_HOVER_RETRY_SECONDS, hoverRetrySeconds * 2);
+        hoverRetrySeconds = hoverRetrySeconds > 0
+                ? Math.min(MAX_HOVER_RETRY_SECONDS, hoverRetrySeconds * HOVER_RETRY_GROWTH_FACTOR)
+                : HOVER_RETRY_SECONDS;
         secondsOfHoverWait = hoverRetrySeconds;
     }
 
@@ -480,7 +492,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private boolean waitForHeldStep(PathNode step) {
         final boolean repeated = step.x == blockedStepX && step.y == blockedStepY;
         if (repeated) {
-            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * 2);
+            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * HELD_WAIT_GROWTH_FACTOR);
         } else {
             blockedStepX = step.x;
             blockedStepY = step.y;

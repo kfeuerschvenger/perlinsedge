@@ -17,6 +17,7 @@ flowchart LR
   Q --> E[slime strip]
   P[player.py] --> O
   I[items.py] --> O
+  B[buildings.py] --> O
   Q --> G[hearts]
   L[tiles.py] --> O[src/main/resources/assets]
   T[trees.py] --> O
@@ -54,6 +55,25 @@ python -I tools/pixelart/items.py
 `items.py` draws the icon of every `ItemType` with no raw input, 16x16 each, into `assets/items/<item>.png`. The file name is the lower case constant name, which is the name the game looks an icon up by. Every icon is built from a few shaded blobs, rectangles, lines and single pixels in colours of `palette.hex`, lit from the upper left and wrapped in the dark outline. The script has one drawing function per item and an `ICONS` table that maps the file name to it, so adding an item type is one function and one table entry. It writes every icon of the table and removes the stale icons of the folder, which are the files named like an item icon (lower case `ItemType` style names, such as `wood_log.png`) that no drawing produces. It prints each file it removes and never touches any other file, so a differently named image in the folder is safe. The game shows an icon at a whole multiple of its own size with image smoothing off, which keeps every art pixel a crisp block, and it only draws a stand-in shape for an item whose file is missing. `build.py` does not touch items, so running it never overwrites them.
 
 `--preview <file>` renders every icon on a dark panel at 4x instead of writing the assets.
+
+## Buildings drawn by script
+
+```bash
+python -I -B tools/pixelart/buildings.py
+```
+
+`buildings.py` draws every build mode piece with no raw input into `assets/buildings/<name>.png`. Each piece is a stack of boxes in tile space rendered by a small ray caster, so every orientation is the same object seen from another side and a back view shows the back. The colours are those of `palette.hex`, with the dark outline and light from the upper left. The run removes any other `.png` of the folder and prints each one.
+
+| Files | Meaning |
+|---|---|
+| `chest_0..3`, `furnace_off_0..3`, `furnace_on_0..3`, `anvil_0..3`, `workbench_0..3`, `bed_0..3` | 4 way pieces: the front faces the lower right edge (0), lower left (1), upper left (2), upper right (3), each step a quarter turn clockwise seen from above |
+| `bridge_0..1`, `fence_gate_closed_0..1`, `fence_gate_open_0..1` | 2 way pieces: axis 0 runs between the upper left and lower right edges, axis 1 between the upper right and lower left edges |
+| `fence_post`, `fence_rail_ul`, `fence_rail_ur`, `fence_rail_ll`, `fence_rail_lr` | fence parts the game composes: a rail is half a rail from the post to the middle of that edge, drawn on the same anchor so the parts overlay exactly. Draw the back rails (ul, ur), the post, then the front rails (ll, lr). The gate posts and rails sit at the same heights, so a fence connects to a gate |
+| `campfire_0..3`, `standing_torch_0..3` | animation frames, not rotated |
+
+Every sprite is 32 px wide, all orientations of one piece share one height (20 to 40 px). The footprint is the 32x16 diamond of a land tile top and it always fills the bottom 16 rows of the canvas, so the bottom centre pixel of a sprite goes on the bottom vertex of the tile diamond and the tile centre is the pixel (16, height - 8). This differs from the resource sprites, whose canvas bottom sits on the tile centre: a building is drawn 8 art pixels lower than a tree of the same height.
+
+`--preview <file>` renders every sprite at 3x on grass green and on water blue with labels, `--placed <file>` renders a map with a fence ring (a corner, a T and two gates composed from the parts) and a 3 tile bridge, and `--orient <file>` renders every 4 way piece in its 4 orientations. None of them writes assets.
 
 ## Raw layout
 

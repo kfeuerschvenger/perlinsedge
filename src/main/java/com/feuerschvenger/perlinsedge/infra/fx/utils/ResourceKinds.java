@@ -3,7 +3,6 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.PerlinMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -21,7 +20,7 @@ public final class ResourceKinds {
     public static final String CACTUS = "cactus";
 
     /** One desert tree in this many is of the kind that does not suit its surroundings. */
-    static final int ODD_ONE_IN = 6;
+    private static final int ODD_ONE_IN = 6;
 
     private static final long SALT_ODD = 0x6A09_E667_F3BCL;
 
@@ -51,7 +50,7 @@ public final class ResourceKinds {
         final int reach = PerlinMapGenerator.OASIS_PALM_REACH;
         for (int dx = -reach; dx <= reach; dx++) {
             for (int dy = -reach; dy <= reach; dy++) {
-                final Tile tile = map.getTile(x + dx, y + dy);
+                final var tile = map.getTile(x + dx, y + dy);
                 if (tile != null && tile.getType().isWater()) {
                     return true;
                 }
@@ -76,6 +75,6 @@ public final class ResourceKinds {
             return null;
         }
         final boolean odd = SpriteVariants.forResource(seed ^ SALT_ODD, x, y, ODD_ONE_IN) == 0;
-        return nearWater != odd ? PALM : CACTUS;
+        return nearWater == odd ? CACTUS : PALM;
     }
 }

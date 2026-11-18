@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
@@ -15,7 +14,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Carries out the interaction the player asks for with a click on a resource, on a building such as a chest or a door,
+ * Carries out the interaction the player asks for with a click on a resource, on a building such as a chest or a gate,
  * or on an enemy, which is attacked with the item in hand. An enemy is followed while it moves: the walk is planned
  * again whenever it has changed tile, and the swing lands the first time it is within reach.
  * Within reach the interaction happens at once. Out of reach the player first walks toward the nearest walkable tile
@@ -45,11 +44,21 @@ public class InteractionManager {
     }
 
     /** Fewest tiles the search for the walk to an enemy may expand, whatever the size of the map. */
-    static final int ENEMY_SEARCH_MIN_NODES = 6_000;
+    private static final int ENEMY_SEARCH_MIN_NODES = 6_000;
     /** The search for the walk to an enemy may expand up to this fraction of the tiles of the map. */
     private static final int ENEMY_SEARCH_MAP_DIVISOR = 4;
     /** Most tiles the search for the walk to an enemy may expand, whatever the size of the map: a click stays cheap. */
-    static final int ENEMY_SEARCH_MAX_NODES = 60_000;
+    private static final int ENEMY_SEARCH_MAX_NODES = 60_000;
+
+    /** @return the fewest tiles the search for the walk to an enemy may expand, whatever the size of the map */
+    static int enemySearchMinNodes() {
+        return ENEMY_SEARCH_MIN_NODES;
+    }
+
+    /** @return the most tiles the search for the walk to an enemy may expand, whatever the size of the map */
+    static int enemySearchMaxNodes() {
+        return ENEMY_SEARCH_MAX_NODES;
+    }
 
     /**
      * Gives the number of tiles the search for the walk to an enemy may expand, which is also its largest cost. It
@@ -62,7 +71,7 @@ public class InteractionManager {
      */
     static int enemySearchBudget(TileMap map) {
         final long quarter = (long) map.getWidth() * map.getHeight() / ENEMY_SEARCH_MAP_DIVISOR;
-        return (int) Math.min(ENEMY_SEARCH_MAX_NODES, Math.max(ENEMY_SEARCH_MIN_NODES, quarter));
+        return Math.clamp(quarter, ENEMY_SEARCH_MIN_NODES, ENEMY_SEARCH_MAX_NODES);
     }
 
     /** What a click on a tile does. */
@@ -92,7 +101,7 @@ public class InteractionManager {
      * Creates the manager.
      *
      * @param gameState         shared game state
-     * @param buildingManager   opens chests and toggles doors
+     * @param buildingManager   opens chests and toggles gates
      * @param resourceManager   hits resources
      * @param combatManager     swings at enemies
      * @param containerManager  tells whether an interaction opened a container
@@ -125,18 +134,18 @@ public class InteractionManager {
      */
     public Outcome interact(int tileX, int tileY) {
         cancel();
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
         if (player == null || map == null || player.isDead()) {
             return Outcome.REFUSED;
         }
         // An enemy on the tile is the target, ahead of whatever else the tile holds
-        final Enemy enemy = enemyAt(tileX, tileY);
+        final var enemy = enemyAt(tileX, tileY);
         if (enemy != null) {
             return attack(player, map, enemy);
         }
-        final Tile tile = map.getTile(tileX, tileY);
-        final Kind kind = kindOf(tile);
+        final var tile = map.getTile(tileX, tileY);
+        final var kind = kindOf(tile);
         if (kind == Kind.NONE) {
             return Outcome.REFUSED;
         }
@@ -145,6 +154,16 @@ public class InteractionManager {
             return Outcome.REFUSED;
         }
 
+        return approach(player, map, tile, kind);
+    }
+
+    /**
+     * Plans the walk to a building or a resource and performs the interaction at once when the player is in reach.
+     * A walk that has to be made leaves the interaction pending.
+     */
+    private Outcome approach(Player player, TileMap map, Tile tile, Kind kind) {
+        final int tileX = tile.getX();
+        final int tileY = tile.getY();
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
         final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY,
@@ -157,7 +176,7 @@ public class InteractionManager {
             // A walk left over from an earlier order would carry the player away from the target
             player.stop();
             if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), tileX, tileY)) {
-                final Outcome outcome = perform(player, tile, kind);
+                final var outcome = perform(player, tile, kind);
                 if (outcome == Outcome.IGNORED) {
                     // The target was hit a moment ago: the interaction waits and lands when the cooldown ends, as it
                     // does for a player that arrives during the cooldown
@@ -183,10 +202,9 @@ public class InteractionManager {
         if (pending == null) {
             return;
         }
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
-        if (player == null || map == null || player.isDead()
-                || gameState.isGamePaused() || gameState.getCurrentGameMode() != GameMode.EXPLORATION) {
+        if (cannotContinue(player, map)) {
             cancel();
             return;
         }
@@ -194,8 +212,8 @@ public class InteractionManager {
             updateAttack(player, map);
             return;
         }
-        final Tile tile = map.getTile(pending.tileX(), pending.tileY());
-        final Kind kind = kindOf(tile);
+        final var tile = map.getTile(pending.tileX(), pending.tileY());
+        final var kind = kindOf(tile);
         if (kind != pending.kind()) {
             cancel();
             return;
@@ -204,7 +222,7 @@ public class InteractionManager {
                 pending.tileX(), pending.tileY())) {
             // The remaining steps only lead to the stand tile, which the interaction does not need
             player.stop();
-            final Outcome outcome = perform(player, tile, kind);
+            final var outcome = perform(player, tile, kind);
             if (outcome == Outcome.IGNORED) {
                 // The target was hit a moment ago: the interaction stays pending and lands when the cooldown ends
                 return;
@@ -219,6 +237,14 @@ public class InteractionManager {
         }
     }
 
+    /** Tells whether the player is gone or dead, or the game is paused or out of exploration, so nothing can go on. */
+    private boolean cannotContinue(Player player, TileMap map) {
+        final var playerUnavailable = player == null || map == null || player.isDead();
+        final var gameNotExploring = gameState.isGamePaused()
+                || gameState.getCurrentGameMode() != GameMode.EXPLORATION;
+        return playerUnavailable || gameNotExploring;
+    }
+
     /**
      * Forgets the pending interaction and ends the walk that was started for it, so a player never keeps walking to a
      * target it no longer has. Does nothing when no interaction is pending, which leaves a plain move order alone.
@@ -228,7 +254,7 @@ public class InteractionManager {
             return;
         }
         pending = null;
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         if (player != null) {
             player.stop();
         }
@@ -319,7 +345,7 @@ public class InteractionManager {
      * is gone or cannot be reached.
      */
     private void updateAttack(Player player, TileMap map) {
-        final Enemy enemy = pending.enemy();
+        final var enemy = pending.enemy();
         if (enemy.isDead() || !gameState.getEnemies().contains(enemy)) {
             cancel();
             return;
@@ -328,25 +354,31 @@ public class InteractionManager {
         final int enemyY = enemy.getCurrentTileY();
         final PathNode origin = player.getWalkOrigin();
         if (InteractionPlanner.inReach(origin.x, origin.y, enemyX, enemyY)) {
-            player.stop();
-            if (!standsOn(player, origin)) {
-                // The step in progress ends next to the enemy: wait for the arrival before swinging
-                pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
-                return;
-            }
-            switch (combatManager.strikeEnemy(enemy)) {
-                case HIT -> pending = null;
-                case COOLDOWN -> pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
-                case REFUSED -> {
-                    pending = null;
-                    gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
-                }
-            }
+            swingWhenArrived(player, origin, enemy);
             return;
         }
-        if (enemyX != pending.tileX() || enemyY != pending.tileY() || !player.isMoving()) {
-            if (!chase(player, map, enemy)) {
-                cancel();
+        final boolean needsNewWalk = enemyX != pending.tileX() || enemyY != pending.tileY() || !player.isMoving();
+        if (needsNewWalk && !chase(player, map, enemy)) {
+            cancel();
+            gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
+        }
+    }
+
+    /** Swings at an enemy in reach once the player stands still on a tile, and waits for the arrival before that. */
+    private void swingWhenArrived(Player player, PathNode origin, Enemy enemy) {
+        final int enemyX = enemy.getCurrentTileX();
+        final int enemyY = enemy.getCurrentTileY();
+        player.stop();
+        if (!standsOn(player, origin)) {
+            // The step in progress ends next to the enemy: wait for the arrival before swinging
+            pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+            return;
+        }
+        switch (combatManager.strikeEnemy(enemy)) {
+            case HIT -> pending = null;
+            case COOLDOWN -> pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+            case REFUSED -> {
+                pending = null;
                 gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
             }
         }
@@ -361,12 +393,7 @@ public class InteractionManager {
         Enemy best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Enemy enemy : gameState.getEnemies()) {
-            if (enemy.isDead()) {
-                continue;
-            }
-            final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
-            final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
-            if (!standsThere && !drawnThere) {
+            if (enemy.isDead() || !isOnOrDrawnOver(enemy, tileX, tileY)) {
                 continue;
             }
             final double distance = Math.hypot(enemy.getPosX() - tileX, enemy.getPosY() - tileY);
@@ -376,6 +403,13 @@ public class InteractionManager {
             }
         }
         return best;
+    }
+
+    /** @return true when the enemy stands on the tile or its sprite is drawn over it */
+    private static boolean isOnOrDrawnOver(Enemy enemy, int tileX, int tileY) {
+        final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
+        final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
+        return standsThere || drawnThere;
     }
 
     private Outcome perform(Player player, Tile tile, Kind kind) {
@@ -398,10 +432,11 @@ public class InteractionManager {
         if (tile == null) {
             return Kind.NONE;
         }
-        final Building building = tile.getBuilding();
+        final var building = tile.getBuilding();
         if (building != null && building.isInteractable()) {
             return Kind.BUILDING;
         }
         return tile.hasResource() ? Kind.RESOURCE : Kind.NONE;
     }
+
 }

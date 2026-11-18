@@ -20,6 +20,9 @@ import java.util.Locale;
  */
 @Slf4j
 public class ItemDropManager {
+    /** Seconds in a minute, to report how long an item lay on the ground. */
+    private static final int SECONDS_PER_MINUTE = 60;
+
     private final GameStateManager gameState;
     private final Runnable onInventoryChanged;
 
@@ -45,11 +48,11 @@ public class ItemDropManager {
      * @return true when something was thrown
      */
     public boolean dropFromSlot(Container container, int slot, boolean wholeStack) {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player == null || player.isDead() || container == null) {
             return false;
         }
-        Item stack = container.getItemAt(slot);
+        var stack = container.getItemAt(slot);
         if (stack == null || stack.getQuantity() <= 0) {
             log.debug("DROP: slot {} is empty", slot);
             return false;
@@ -79,7 +82,7 @@ public class ItemDropManager {
         int[] landing = ItemThrow.landingTile(gameState.getCurrentMap(), fromX, fromY, player.getDirection());
         double now = gameState.getGameTime();
 
-        int remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(),
+        var remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(),
                 landing[0], landing[1], now);
         if (remaining > 0) {
             gameState.getDroppedItems().add(new DroppedItem(fromX, fromY, landing[0], landing[1],
@@ -87,6 +90,37 @@ public class ItemDropManager {
         }
         log.debug("DROP: threw {}x {} from ({}, {}) to ({}, {}), {} not merged",
                 item.getQuantity(), item.getDisplayName(), fromX, fromY, landing[0], landing[1], remaining);
+    }
+
+    /**
+     * Drops items on the tile the player stands on, merging them into the piles of the same type nearby. It is where
+     * what the inventory has no room for ends up, so nothing a refund returns is lost.
+     *
+     * @param item   the dropped units, it is not stored itself
+     * @param player the player whose tile receives the pile
+     */
+    public void dropAtFeet(Item item, Player player) {
+        dropAt(item, player.getCurrentTileX(), player.getCurrentTileY());
+    }
+
+    /**
+     * Drops items on a tile, merging them into the piles of the same type nearby.
+     *
+     * @param item the dropped units, it is not stored itself
+     * @param x    tile X
+     * @param y    tile Y
+     */
+    public void dropAt(Item item, int x, int y) {
+        if (item == null || item.getQuantity() <= 0) {
+            return;
+        }
+        double now = gameState.getGameTime();
+        var remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(), x, y, now);
+        if (remaining > 0) {
+            gameState.getDroppedItems().add(new DroppedItem(x, y,
+                    new Item(item.getType(), remaining), now, DroppedItem.DropSource.PLAYER));
+        }
+        onInventoryChanged.run();
     }
 
     /**
@@ -112,8 +146,10 @@ public class ItemDropManager {
     }
 
     private void checkItemPickup() {
-        Player player = gameState.getPlayer();
-        if (player == null || player.isDead()) return;
+        var player = gameState.getPlayer();
+        if (player == null || player.isDead()) {
+            return;
+        }
 
         List<DroppedItem> droppedItems = gameState.getDroppedItems();
         Iterator<DroppedItem> iterator = droppedItems.iterator();
@@ -132,7 +168,9 @@ public class ItemDropManager {
     private void processItemPickup(Player player, Iterator<DroppedItem> iterator, DroppedItem item) {
         int quantityPickedUp = player.pickUpItem(item.getItem());
 
-        if (quantityPickedUp <= 0) return;
+        if (quantityPickedUp <= 0) {
+            return;
+        }
 
         if (item.getItem().getQuantity() <= 0) {
             iterator.remove();
@@ -146,7 +184,7 @@ public class ItemDropManager {
         if (log.isDebugEnabled()) {
             log.debug("Despawned {} (on the ground for {} minutes)",
                     item.getItem().getType().getDisplayName(),
-                    String.format(Locale.ROOT, "%.1f", item.ageSeconds(currentTime) / 60));
+                    String.format(Locale.ROOT, "%.1f", item.ageSeconds(currentTime) / SECONDS_PER_MINUTE));
         }
     }
 

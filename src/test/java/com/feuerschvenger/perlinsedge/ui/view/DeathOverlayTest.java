@@ -46,7 +46,7 @@ class DeathOverlayTest {
             assertFalse(overlay.isVisible());
             overlay.update(true, 3.0);
             assertTrue(overlay.isVisible());
-            return ((Label) overlay.lookup("#" + DeathOverlay.COUNTDOWN_ID)).getText();
+            return ((Label) overlay.lookup("#death-countdown")).getText();
         });
         assertFalse(text.isEmpty());
         assertEquals(text, text.toUpperCase());

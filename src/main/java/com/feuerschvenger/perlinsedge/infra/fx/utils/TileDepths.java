@@ -21,6 +21,9 @@ public final class TileDepths {
     /** Art pixels of side face a tile sprite carries, and the height of one face strip. */
     public static final int FACE_PIXELS = 5;
 
+    /** The depth level of the bed under deep water. */
+    private static final int DEEP_WATER_LEVEL = 2;
+
     /** Not instantiable: the class only holds static rules. */
     private TileDepths() {}
 
@@ -34,7 +37,7 @@ public final class TileDepths {
         if (!type.isWater()) {
             return 0;
         }
-        return type == TileType.DEEP_WATER ? 2 : 1;
+        return type == TileType.DEEP_WATER ? DEEP_WATER_LEVEL : 1;
     }
 
     /**

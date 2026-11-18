@@ -3,13 +3,13 @@ package com.feuerschvenger.perlinsedge.ui.view;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.InventoryManager;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
-import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.event.Event;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -26,6 +26,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -113,7 +114,7 @@ class InventoryCraftingFlowTest {
     @Test
     void noButtonOfThePanelCanTakeKeyboardFocusSoSpaceStaysWithTheCamera() {
         List<Boolean> focusable = FxToolkitSupport.onFx(() -> panel.lookupAll(".button").stream()
-                .map(node -> node.isFocusTraversable())
+                .map(Node::isFocusTraversable)
                 .toList());
 
         assertFalse(focusable.isEmpty());
@@ -184,7 +185,7 @@ class InventoryCraftingFlowTest {
                 assertTrue(effects.get(i) instanceof javafx.scene.effect.ColorAdjust adjust
                         && adjust.getSaturation() == -1.0, "greyed cell " + i + " has a greyscale icon");
             } else {
-                assertEquals(null, effects.get(i), "craftable cell " + i + " keeps its colour");
+                assertNull(effects.get(i), "craftable cell " + i + " keeps its colour");
             }
         }
         assertTrue(grey.contains(true) && grey.contains(false));

@@ -2,6 +2,9 @@ package com.feuerschvenger.perlinsedge.ui.view;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,8 +44,14 @@ class HintLabelTest {
     @Test
     void showingAgainWhileFadingOutFadesBackInAndStaysVisible() throws InterruptedException {
         double[] opacityRightAfterShow = new double[1];
+        CountDownLatch fadedIn = new CountDownLatch(1);
         HintLabel label = FxToolkitSupport.onFx(() -> {
             HintLabel created = new HintLabel();
+            created.opacityProperty().addListener((observable, previous, current) -> {
+                if (current.doubleValue() >= 0.99) {
+                    fadedIn.countDown();
+                }
+            });
             created.show("first");
             // The state of a label half way through its fade out
             created.setOpacity(0.2);
@@ -53,13 +62,8 @@ class HintLabelTest {
         });
 
         assertEquals(0.2, opacityRightAfterShow[0], 0.1, "it continues from where it was");
-        double opacity = 0;
-        for (int attempt = 0; attempt < 200 && opacity < 0.99; attempt++) {
-            Thread.sleep(25);
-            opacity = FxToolkitSupport.onFx(label::getOpacity);
-        }
-
-        assertTrue(opacity >= 0.99, "the label fades back in to full opacity instead of carrying on to zero: " + opacity);
+        assertTrue(fadedIn.await(5, TimeUnit.SECONDS),
+                "the label fades back in to full opacity instead of carrying on to zero");
         assertEquals("SECOND", FxToolkitSupport.onFx(label::getText).toUpperCase());
     }
 

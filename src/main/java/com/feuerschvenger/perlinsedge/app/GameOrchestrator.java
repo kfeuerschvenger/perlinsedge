@@ -1,9 +1,22 @@
 package com.feuerschvenger.perlinsedge.app;
 
-import com.feuerschvenger.perlinsedge.app.managers.*;
+import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
+import com.feuerschvenger.perlinsedge.app.managers.CombatManager;
+import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
+import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.app.managers.InteractionManager;
+import com.feuerschvenger.perlinsedge.app.managers.InventoryManager;
+import com.feuerschvenger.perlinsedge.app.managers.ItemDropManager;
+import com.feuerschvenger.perlinsedge.app.managers.ItemHotbarManager;
+import com.feuerschvenger.perlinsedge.app.managers.ItemUseManager;
+import com.feuerschvenger.perlinsedge.app.managers.MapManager;
+import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
+import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
@@ -13,7 +26,15 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
 import com.feuerschvenger.perlinsedge.ui.controller.KeyController;
-import com.feuerschvenger.perlinsedge.ui.view.*;
+import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
+import com.feuerschvenger.perlinsedge.ui.view.DeathOverlay;
+import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
+import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
+import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
+import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
+import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
+import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
+import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +48,14 @@ import java.util.Random;
  */
 @Slf4j
 public class GameOrchestrator {
+    /** Frame rate the configured pan speed is tuned for. */
+    private static final double PAN_REFERENCE_FRAME_RATE = 60;
+    /** Positions of the screen edges in the edge-active flags of the input handler. */
+    private static final int EDGE_UP = 0;
+    private static final int EDGE_LEFT = 1;
+    private static final int EDGE_DOWN = 2;
+    private static final int EDGE_RIGHT = 3;
+
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
@@ -36,10 +65,10 @@ public class GameOrchestrator {
     private final InventoryManager inventoryManager;
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
-    private final HotbarManager hotbarManager;
     private final ItemHotbarManager itemHotbarManager;
     private final ItemUseManager itemUseManager;
     private final ItemHotbarPanel itemHotbarPanel;
+    private final BuildingPalettePanel buildingPalettePanel;
     private final DropKeyHandler dropKeys;
 
     private final FxRenderer renderer;
@@ -51,6 +80,8 @@ public class GameOrchestrator {
     private final MapConfigPanel mapConfigPanel;
     private final DeathOverlay deathOverlay;
 
+    /** Draws the seed of every new world. */
+    private final Random seedSource = new Random();
     private final GameLoop gameLoop;
     private boolean gameActive;
     /** Interpolation factor of the last frame, reused to draw the paused frame. */
@@ -61,36 +92,25 @@ public class GameOrchestrator {
     /**
      * Builds the orchestrator and every manager it coordinates.
      *
-     * @param renderer            canvas renderer
-     * @param camera              camera
-     * @param inputHandler        keyboard and scroll input
-     * @param minimapDrawer       minimap view
-     * @param mapConfigPanel      map tuning panel
-     * @param mainCanvas          main game canvas
-     * @param healthBar           player health view
-     * @param inventoryPanel      inventory view
-     * @param buildingHotbarPanel building hotbar view
-     * @param itemHotbarPanel     hotbar of the items the player carries, shown outside building mode
-     * @param hintLabel           short on-screen hints for actions that did nothing
-     * @param deathOverlay        death screen shown while the player is dead
-     * @param gameState           shared state, a new one is created when null
-     * @param recipeManager       recipes, a new one is created when null
+     * @param view          renderer, camera, input, minimap and main canvas
+     * @param panels        the panels the orchestrator feeds and listens to
+     * @param gameState     shared state, a new one is created when null
+     * @param recipeManager recipes, a new one is created when null
      */
-    public GameOrchestrator(FxRenderer renderer, FxCamera camera, FxInputHandler inputHandler,
-                            FxMinimapDrawer minimapDrawer, MapConfigPanel mapConfigPanel,
-                            Canvas mainCanvas, HealthBar healthBar, InventoryPanel inventoryPanel,
-                            BuildingHotbarPanel buildingHotbarPanel, ItemHotbarPanel itemHotbarPanel,
-                            HintLabel hintLabel, DeathOverlay deathOverlay, GameStateManager gameState,
+    public GameOrchestrator(GameView view, GamePanels panels, GameStateManager gameState,
                             RecipeManager recipeManager) {
-        this.renderer = renderer;
-        this.camera = camera;
-        this.inputHandler = inputHandler;
-        this.minimapDrawer = minimapDrawer;
-        this.mapConfigPanel = mapConfigPanel;
-        this.mainCanvas = mainCanvas;
-        this.inventoryPanel = inventoryPanel;
-        this.deathOverlay = deathOverlay;
-        this.itemHotbarPanel = itemHotbarPanel;
+        this.renderer = view.renderer();
+        this.camera = view.camera();
+        this.inputHandler = view.inputHandler();
+        this.minimapDrawer = view.minimapDrawer();
+        this.mainCanvas = view.mainCanvas();
+        this.mapConfigPanel = panels.mapConfigPanel();
+        this.inventoryPanel = panels.inventoryPanel();
+        this.deathOverlay = panels.deathOverlay();
+        this.itemHotbarPanel = panels.itemHotbarPanel();
+        this.buildingPalettePanel = panels.buildingPalettePanel();
+        final var healthBar = panels.healthBar();
+        final var hintLabel = panels.hintLabel();
 
         this.gameState = gameState != null ? gameState : new GameStateManager();
         RecipeManager recipes = recipeManager != null ? recipeManager : new RecipeManager();
@@ -98,18 +118,20 @@ public class GameOrchestrator {
         combatManager = new CombatManager(this.gameState);
         inventoryManager = new InventoryManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
-        ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
+        var resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
         dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot,
                 inventoryPanel::isStackInHand, itemDropManager);
         containerManager = new ContainerManager();
-        buildingManager = new BuildingManager(this.gameState, recipes, containerManager);
-        hotbarManager = new HotbarManager(buildingManager, this.gameState, buildingHotbarPanel);
+        buildingManager = new BuildingManager(this.gameState, recipes, containerManager, itemDropManager,
+                inventoryPanel::updateInventoryDisplay);
+        buildingPalettePanel.setOnBuildingSelected(buildingManager::setSelectedBuildingType);
+        buildingManager.setHintSink(hintLabel::show);
         itemUseManager = new ItemUseManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         itemHotbarManager = new ItemHotbarManager(this.gameState);
 
         gameLoop = new GameLoop(this::update, this::render);
-        transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, hotbarManager,
+        transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, buildingPalettePanel,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
                 combatManager, containerManager, transitions::showOpenContainer, hintLabel::show);
@@ -117,8 +139,7 @@ public class GameOrchestrator {
             interactionManager.cancel();
             render(lastAlpha, 0);
         });
-        inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager,
-                camera, inputHandler, minimapDrawer, mainCanvas);
+        inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager, view);
     }
 
     // ==================================================================
@@ -137,7 +158,7 @@ public class GameOrchestrator {
         gameState.resetGameState();
         AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
 
-        long newSeed = new Random().nextLong();
+        var newSeed = seedSource.nextLong();
         MapGenerationContext newMapContext = mapManager.createMapContext(selectedMapType, newSeed);
         mapManager.generateNewMap(newMapContext);
 
@@ -184,7 +205,7 @@ public class GameOrchestrator {
 
     /** Centers the camera on the player position. */
     public void centerOnPlayer() {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player != null) {
             camera.centerOnTile(player.getCurrentTileX(), player.getCurrentTileY(), mainCanvas);
         }
@@ -221,14 +242,14 @@ public class GameOrchestrator {
         mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerKeyboard(createKeyController());
-        // Ctrl with the wheel zooms in every mode, the plain wheel belongs to whichever hotbar is showing
+        // Ctrl with the wheel zooms in every mode, the plain wheel moves along the item hotbar
         inputWiring.registerWheelInterceptor((deltaY, ctrlDown) -> !gameState.isGameplayInputBlocked()
-                && (itemHotbarManager.handleWheel(deltaY, ctrlDown) || hotbarManager.handleWheel(deltaY, ctrlDown)));
+                && itemHotbarManager.handleWheel(deltaY, ctrlDown));
         inputWiring.registerMouseHandlers();
     }
 
     private void setupInventoryCallbacks() {
-        inventoryPanel.setOnItemDroppedInside((srcSlot, srcContainer, tgtSlot, tgtContainer, item) -> {
+        inventoryPanel.setOnItemDroppedInside((int srcSlot, Container srcContainer, int tgtSlot, Container tgtContainer, Item item) -> {
             containerManager.transferBetweenSlots(srcContainer, srcSlot, tgtContainer, tgtSlot, item);
             Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
@@ -242,27 +263,37 @@ public class GameOrchestrator {
     }
 
     private KeyController createKeyController() {
-        KeyController controller = new KeyController(
-                transitions::togglePauseMenu,
+        var controller = new KeyController(
+                this::handleEscape,
                 this::centerOnPlayer,
                 this::regenerateMap,
                 this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
-                transitions::toggleBuildingMode,
-                this::handleNumberKey,
-                hotbarManager::changePage
+                itemHotbarManager::handleNumberKey
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setUseAction(itemUseManager::useActiveItem);
+        controller.setRotateAction(buildingManager::rotateSelected);
         controller.setInputBlocked(gameState::isGameplayInputBlocked);
         return controller;
     }
 
-    /** Gives a number key to the item hotbar while exploring and to the building hotbar while building. */
-    private void handleNumberKey(int number) {
-        if (!itemHotbarManager.handleNumberKey(number)) {
-            hotbarManager.handleHotbarNumberSelection(number);
+    /** @return the building manager, for the tests that read the selected piece */
+    BuildingManager buildingManager() {
+        return buildingManager;
+    }
+
+    /**
+     * Escape drops the selected building piece while the hammer is in hand, so the next click in the world places
+     * nothing and the hammer stays in hand. With no piece selected, and in every other mode, it toggles the pause menu.
+     */
+    void handleEscape() {
+        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE
+                && buildingManager.getSelectedBuildingType() != null) {
+            buildingManager.setSelectedBuildingType(null);
+            return;
         }
+        transitions.togglePauseMenu();
     }
 
     /**
@@ -290,33 +321,23 @@ public class GameOrchestrator {
      * hand lights the new map as soon as the next frame.
      */
     void regenerateMap() {
-        if (!isGameRunning("a map regeneration")) return;
+        if (!isGameRunning("a map regeneration")) {
+            return;
+        }
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
-        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), new Random().nextLong()));
+        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), seedSource.nextLong()));
     }
 
     /**
      * Applies a map configuration chosen in the map tuning panel by rebuilding the world with it.
      * The map type the renderer reads is only changed once the new map exists, so it always matches the map on screen.
      */
-    void applyMapConfig(MapType mapType, long seed,
-                        float heightFreq, int heightOctaves,
-                        float tempFreq, int tempOctaves,
-                        float moistureFreq, int moistureOctaves,
-                        float stoneFreq, float stoneThreshold,
-                        float crystalsFreq, float crystalsThreshold,
-                        float treeDensity, float riverDensity) {
-        if (!isGameRunning("a map configuration")) return;
-        rebuildWorld(new MapGenerationContext(
-                mapType, seed,
-                heightFreq, heightOctaves,
-                tempFreq, tempOctaves,
-                moistureFreq, moistureOctaves,
-                stoneFreq, stoneThreshold,
-                crystalsFreq, crystalsThreshold,
-                treeDensity, riverDensity
-        ));
+    void applyMapConfig(MapGenerationContext context) {
+        if (!isGameRunning("a map configuration")) {
+            return;
+        }
+        rebuildWorld(context);
     }
 
     /**
@@ -330,14 +351,14 @@ public class GameOrchestrator {
      * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
      * set to match it, the player is removed first, the minimap is shown the new map, and the update and render steps
      * skip a frame that has no map or no player. The mode switches are ignored while there is no player. None of
-     * the steps throws a checked exception, so catching the runtime exceptions and the errors covers every failure.
+     * the steps throws a checked exception, so catching the runtime exceptions covers every failure the game can carry on after. An error is not caught, and the loop is still restarted by the finally block.
      * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
      * step draws the death overlay again from the player and the timer on every frame, so the overlay that
      * {@link #leaveGame()} hid comes back with the next frame.
      * The caller has already checked that a game is running.
      */
     private void rebuildWorld(MapGenerationContext context) {
-        boolean rebuilt = false;
+        var rebuilt = false;
         final TileMap previousMap = gameState.getCurrentMap();
         try {
             leaveGame();
@@ -351,7 +372,7 @@ public class GameOrchestrator {
             minimapDrawer.updateMap(gameState.getCurrentMap());
             centerOnPlayer();
             rebuilt = true;
-        } catch (RuntimeException | Error e) {
+        } catch (RuntimeException e) {
             log.error("The map rebuild failed, the game continues so the map keys can try again", e);
             // The map may have been replaced before the step that failed, whichever step it was
             if (gameState.getCurrentMap() != previousMap) {
@@ -402,9 +423,13 @@ public class GameOrchestrator {
      * @param deltaTime Fixed timestep value (1/60 second)
      */
     void update(double deltaTime) {
-        if (gameState.isGamePaused()) return;
+        if (gameState.isGamePaused()) {
+            return;
+        }
         // A rebuild that failed halfway leaves no player or no map, and there is nothing to advance until the next one
-        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) {
+            return;
+        }
 
         if (playerManager.handleRespawn(deltaTime)) {
             centerOnPlayer();
@@ -415,6 +440,8 @@ public class GameOrchestrator {
         gameState.getDayCycle().advance(deltaTime * AppConfig.getInstance().dayCycle().timeScale());
         handleEdgePanning(deltaTime);
         playerManager.updatePlayer(deltaTime);
+        // The hammer in hand is what puts the game in build mode, so any way of changing the slot is covered here
+        transitions.syncBuildModeWithHand();
         // The light of the held torch follows the player and the selected item, after the player has moved
         gameState.syncLights(1.0);
         interactionManager.update();
@@ -433,12 +460,20 @@ public class GameOrchestrator {
 
     private void handleEdgePanning(double deltaTime) {
         boolean[] edgeActive = inputHandler.getEdgeActive();
-        double panSpeed = AppConfig.getInstance().core().getPanSpeed() * deltaTime * 60;
+        double panSpeed = AppConfig.getInstance().core().getPanSpeed() * deltaTime * PAN_REFERENCE_FRAME_RATE;
 
-        if (edgeActive[0]) camera.pan(0, panSpeed, mainCanvas);  // Up
-        if (edgeActive[1]) camera.pan(-panSpeed, 0, mainCanvas); // Left
-        if (edgeActive[2]) camera.pan(0, -panSpeed, mainCanvas); // Down
-        if (edgeActive[3]) camera.pan(panSpeed, 0, mainCanvas);  // Right
+        if (edgeActive[EDGE_UP]) {  // Up
+            camera.pan(0, panSpeed, mainCanvas);
+        }
+        if (edgeActive[EDGE_LEFT]) {  // Left
+            camera.pan(-panSpeed, 0, mainCanvas);
+        }
+        if (edgeActive[EDGE_DOWN]) {  // Down
+            camera.pan(0, -panSpeed, mainCanvas);
+        }
+        if (edgeActive[EDGE_RIGHT]) {  // Right
+            camera.pan(panSpeed, 0, mainCanvas);
+        }
     }
 
     /**
@@ -448,7 +483,9 @@ public class GameOrchestrator {
      * @param deltaTime Time since last render (seconds)
      */
     void render(double alpha, double deltaTime) {
-        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) return;
+        if (gameState.getCurrentMap() == null || gameState.getPlayer() == null) {
+            return;
+        }
         lastAlpha = alpha;
         inputWiring.refreshHover();
 
@@ -459,6 +496,7 @@ public class GameOrchestrator {
                     mouseTile[0],
                     mouseTile[1],
                     buildingManager.getSelectedBuildingType(),
+                    buildingManager.getRotation(buildingManager.getSelectedBuildingType()),
                     previewColor
             );
         } else {
@@ -466,17 +504,13 @@ public class GameOrchestrator {
         }
 
         renderer.render(alpha, deltaTime);
-        // The building hotbar takes the place of the item hotbar in building mode
-        itemHotbarPanel.setVisible(gameState.getCurrentGameMode() != GameMode.BUILDING_MODE);
         itemHotbarPanel.update(gameState.getPlayer());
+        buildingPalettePanel.update(gameState.getPlayer(), buildingManager.getSelectedBuildingType(),
+                buildingManager::getRotation);
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
         minimapDrawer.updateMap(gameState.getCurrentMap());
         minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());
         minimapDrawer.draw();
-
-        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
-            renderer.drawBuildingModeBorder(mainCanvas.getWidth(), mainCanvas.getHeight());
-        }
     }
 }

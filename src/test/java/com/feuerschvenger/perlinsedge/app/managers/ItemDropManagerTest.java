@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -54,7 +54,7 @@ class ItemDropManagerTest {
         for (int x = 3; x <= 5; x++) {
             for (int y = 3; y <= 5; y++) {
                 if (x != 4 || y != 4) {
-                    map.getTile(x, y).setBuilding(new Wall(x, y));
+                    map.getTile(x, y).setBuilding(new Fence(x, y));
                 }
             }
         }
@@ -136,7 +136,7 @@ class ItemDropManagerTest {
 
     @Test
     void aWallRightInFrontMakesTheItemLandOnThePlayersOwnTile() {
-        map.getTile(4, 3).setBuilding(new Wall(4, 3));
+        map.getTile(4, 3).setBuilding(new Fence(4, 3));
 
         drops.dropFromSlot(player, 0, false);
 

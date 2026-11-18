@@ -40,7 +40,7 @@ public final class ResourceAnchor {
      * @return the number of empty rows at the bottom, the whole height for an empty sprite
      */
     public static int bottomPadding(int height, IntPredicate rowIsEmpty) {
-        int padding = 0;
+        var padding = 0;
         while (padding < height && rowIsEmpty.test(height - 1 - padding)) {
             padding++;
         }

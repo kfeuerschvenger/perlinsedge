@@ -46,35 +46,44 @@ public final class SlimeStrikeCycle {
      * @return true on the update in which the squash ends and the strike lands
      */
     public boolean update(double deltaTime, boolean inReach) {
-        switch (phase) {
-            case READY -> {
-                if (inReach) {
-                    phase = Phase.WINDUP;
-                    timer = 0;
-                }
-            }
-            case WINDUP -> {
-                if (!inReach) {
-                    phase = Phase.READY;
-                    timer = 0;
-                } else {
-                    timer += deltaTime;
-                    if (timer >= windupSeconds) {
-                        phase = Phase.WAIT;
-                        timer = 0;
-                        return true;
-                    }
-                }
-            }
-            case WAIT -> {
-                timer += deltaTime;
-                if (timer >= waitSeconds) {
-                    phase = Phase.READY;
-                    timer = 0;
-                }
-            }
+        return switch (phase) {
+            case READY -> updateReady(inReach);
+            case WINDUP -> updateWindup(deltaTime, inReach);
+            case WAIT -> updateWait(deltaTime);
+        };
+    }
+
+    private boolean updateReady(boolean inReach) {
+        if (inReach) {
+            enter(Phase.WINDUP);
         }
         return false;
+    }
+
+    private boolean updateWindup(double deltaTime, boolean inReach) {
+        if (!inReach) {
+            enter(Phase.READY);
+            return false;
+        }
+        timer += deltaTime;
+        if (timer >= windupSeconds) {
+            enter(Phase.WAIT);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean updateWait(double deltaTime) {
+        timer += deltaTime;
+        if (timer >= waitSeconds) {
+            enter(Phase.READY);
+        }
+        return false;
+    }
+
+    private void enter(Phase next) {
+        phase = next;
+        timer = 0;
     }
 
     /**

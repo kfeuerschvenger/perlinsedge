@@ -33,6 +33,15 @@ public final class EnemyOccupancy {
         private boolean targetHeld;
         /** The price list handed to searches of this enemy, created on the first search. */
         private HeldTilePenalty penalty;
+
+        /** Tells whether the recorded holds are exactly the tiles an enemy stands on and moves to now. */
+        private boolean isRecordedAt(int currentTileX, int currentTileY, int targetTileX, int targetTileY) {
+            if (!recorded) {
+                return false;
+            }
+            return currentX == currentTileX && currentY == currentTileY
+                    && targetX == targetTileX && targetY == targetTileY;
+        }
     }
 
     /** Prices the tiles other enemies hold for one enemy, reading the occupancy as it is when the search runs. */
@@ -52,12 +61,21 @@ public final class EnemyOccupancy {
 
     /** A long-keyed map from tile to owner with linear probing and backward-shift deletion, so lookups never box. */
     private static final class TileOwners {
-        private long[] keys = new long[64];
-        private Enemy[] owners = new Enemy[64];
+        private static final int INITIAL_CAPACITY = 64;
+        /** The multiplier of the fibonacci hash that spreads tile keys over the slots, and the bits it keeps. */
+        private static final long HASH_MULTIPLIER = 0x9E37_79B9_7F4A_7C15L;
+        private static final int HASH_SHIFT = 32;
+        /** Slots the table keeps per entry at the most load, so probing stays short. */
+        private static final int SLOTS_PER_ENTRY = 2;
+        /** How many times larger the table gets when it is full. */
+        private static final int GROWTH_FACTOR = 2;
+
+        private long[] keys = new long[INITIAL_CAPACITY];
+        private Enemy[] owners = new Enemy[INITIAL_CAPACITY];
         private int size;
 
         private static int slot(long key, int mask) {
-            return (int) ((key * 0x9E3779B97F4A7C15L) >>> 32) & mask;
+            return (int) ((key * HASH_MULTIPLIER) >>> HASH_SHIFT) & mask;
         }
 
         Enemy get(long key) {
@@ -71,7 +89,7 @@ public final class EnemyOccupancy {
         }
 
         void put(long key, Enemy owner) {
-            if ((size + 1) * 2 > keys.length) {
+            if ((size + 1) * SLOTS_PER_ENTRY > keys.length) {
                 grow();
             }
             final int mask = keys.length - 1;
@@ -120,10 +138,10 @@ public final class EnemyOccupancy {
         private void grow() {
             final long[] oldKeys = keys;
             final Enemy[] oldOwners = owners;
-            keys = new long[oldKeys.length * 2];
-            owners = new Enemy[oldOwners.length * 2];
+            keys = new long[oldKeys.length * GROWTH_FACTOR];
+            owners = new Enemy[oldOwners.length * GROWTH_FACTOR];
             size = 0;
-            for (int i = 0; i < oldKeys.length; i++) {
+            for (var i = 0; i < oldKeys.length; i++) {
                 if (oldOwners[i] != null) {
                     put(oldKeys[i], oldOwners[i]);
                 }
@@ -143,8 +161,12 @@ public final class EnemyOccupancy {
     private final TileOwners owners = new TileOwners();
     private final Map<Enemy, Claim> claims = new IdentityHashMap<>();
 
+    /** A tile key holds the column in its high 32 bits and the row in its low 32 bits. */
+    private static final int KEY_X_SHIFT = 32;
+    private static final long KEY_Y_MASK = 0xFFFF_FFFFL;
+
     private static long key(int x, int y) {
-        return ((long) x << 32) | (y & 0xFFFFFFFFL);
+        return ((long) x << KEY_X_SHIFT) | (y & KEY_Y_MASK);
     }
 
     /**
@@ -171,7 +193,7 @@ public final class EnemyOccupancy {
      * @return the price list, which reads this occupancy as it is when the search runs
      */
     public TilePenalty penaltyFor(Enemy enemy, double penalty) {
-        final Claim claim = claimOf(enemy);
+        final var claim = claimOf(enemy);
         if (claim.penalty == null) {
             claim.penalty = new HeldTilePenalty(enemy);
         }
@@ -205,7 +227,7 @@ public final class EnemyOccupancy {
         if (!isFreeFor(enemy, x, y)) {
             return false;
         }
-        final Claim claim = claims.get(enemy);
+        final var claim = claims.get(enemy);
         if (claim.targetX != claim.currentX || claim.targetY != claim.currentY) {
             unhold(claim.targetX, claim.targetY, enemy);
         }
@@ -223,13 +245,12 @@ public final class EnemyOccupancy {
      * @param enemy the enemy to record
      */
     public void sync(Enemy enemy) {
-        final Claim claim = claimOf(enemy);
+        final var claim = claimOf(enemy);
         final int currentX = enemy.getCurrentTileX();
         final int currentY = enemy.getCurrentTileY();
         final int targetX = enemy.getTargetTileX();
         final int targetY = enemy.getTargetTileY();
-        if (claim.recorded && claim.currentX == currentX && claim.currentY == currentY
-                && claim.targetX == targetX && claim.targetY == targetY) {
+        if (claim.isRecordedAt(currentX, currentY, targetX, targetY)) {
             if (!claim.currentHeld) {
                 claim.currentHeld = acquire(currentX, currentY, enemy);
             }
@@ -257,7 +278,7 @@ public final class EnemyOccupancy {
      * @param enemy the enemy to forget
      */
     public void release(Enemy enemy) {
-        final Claim claim = claims.remove(enemy);
+        final var claim = claims.remove(enemy);
         if (claim != null && claim.recorded) {
             unhold(claim.currentX, claim.currentY, enemy);
             unhold(claim.targetX, claim.targetY, enemy);
@@ -298,7 +319,7 @@ public final class EnemyOccupancy {
     }
 
     private Claim claimOf(Enemy enemy) {
-        Claim claim = claims.get(enemy);
+        var claim = claims.get(enemy);
         if (claim == null) {
             claim = new Claim();
             claims.put(enemy, claim);

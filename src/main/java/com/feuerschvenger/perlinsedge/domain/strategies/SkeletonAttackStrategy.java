@@ -23,8 +23,8 @@ public class SkeletonAttackStrategy implements EnemyAttackStrategy {
         if (!enemy.isReadyToAttack() || player.isDead()) {
             return false;
         }
-        double distance = Math.hypot(player.getCurrentTileX() - enemy.getCurrentTileX(),
-                player.getCurrentTileY() - enemy.getCurrentTileY());
+        double distance = Math.hypot((double) player.getCurrentTileX() - enemy.getCurrentTileX(),
+                (double) player.getCurrentTileY() - enemy.getCurrentTileY());
         return distance <= ATTACK_RANGE_TILES;
     }
 }

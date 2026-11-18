@@ -2,7 +2,11 @@ package com.feuerschvenger.perlinsedge.ui.view.utils;
 
 import javafx.geometry.Insets;
 import com.feuerschvenger.perlinsedge.ui.view.UiTheme;
-import javafx.scene.layout.*;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.StackPane;
 
 import java.util.Collections;
 import java.util.List;
@@ -71,7 +75,7 @@ public final class GridUtils {
      * Initializes a base grid with consistent styling and spacing.
      */
     private static GridPane initializeBaseGrid() {
-        GridPane grid = new GridPane();
+        var grid = new GridPane();
         grid.setHgap(GRID_SPACING);
         grid.setVgap(GRID_SPACING);
         grid.setPadding(new Insets(GRID_PADDING));
@@ -110,15 +114,15 @@ public final class GridUtils {
      */
     private static void configureGridConstraints(GridPane grid, int cols, int rows) {
         // Configure columns with equal growth priority
-        for (int i = 0; i < cols; i++) {
-            ColumnConstraints colConstraints = new ColumnConstraints();
+        for (var i = 0; i < cols; i++) {
+            var colConstraints = new ColumnConstraints();
             colConstraints.setHgrow(Priority.ALWAYS);
             grid.getColumnConstraints().add(colConstraints);
         }
 
         // Configure rows with equal growth priority
-        for (int i = 0; i < rows; i++) {
-            RowConstraints rowConstraints = new RowConstraints();
+        for (var i = 0; i < rows; i++) {
+            var rowConstraints = new RowConstraints();
             rowConstraints.setVgrow(Priority.ALWAYS);
             grid.getRowConstraints().add(rowConstraints);
         }
@@ -132,7 +136,7 @@ public final class GridUtils {
      * @param cols Number of columns in the grid
      */
     private static void populateGridSlots(GridPane grid, List<StackPane> slots, int cols) {
-        for (int i = 0; i < slots.size(); i++) {
+        for (var i = 0; i < slots.size(); i++) {
             int row = i / cols;
             int col = i % cols;
             grid.add(slots.get(i), col, row);

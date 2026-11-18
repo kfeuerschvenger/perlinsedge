@@ -11,11 +11,11 @@ import java.util.Locale;
  * Full-screen death screen: a dark translucent backdrop with "YOU DIED" and the seconds left until the respawn.
  * It is hidden until the player dies. It takes mouse events, so a click on it never reaches the world behind it.
  */
-public class DeathOverlay extends VBox {
+public final class DeathOverlay extends VBox {
     private static final double SPACING = 16;
 
     /** Node id of the countdown label, so a caller can look it up without relying on child order. */
-    static final String COUNTDOWN_ID = "death-countdown";
+    private static final String COUNTDOWN_ID = "death-countdown";
 
     private final Label countdown = new Label();
     private int shownSeconds = -1;
@@ -26,7 +26,7 @@ public class DeathOverlay extends VBox {
         setSpacing(SPACING);
         getStyleClass().add(UiTheme.BACKDROP);
 
-        Label title = new Label("YOU DIED");
+        var title = new Label("YOU DIED");
         title.getStyleClass().add(UiTheme.TITLE_DANGER);
         countdown.getStyleClass().add(UiTheme.HEADING);
         countdown.setId(COUNTDOWN_ID);

@@ -11,13 +11,17 @@ import javafx.scene.layout.StackPane;
 
 /**
  * The hotbar of the items the player carries: nine slots of their own, ahead of the inventory slots, always shown at
- * the bottom of the screen in exploration mode. The selected slot has the white border, the count sits at the bottom
+ * the bottom of the screen. The selected slot has the white border, the count sits at the bottom
  * right and the number key that selects the slot at the top left, in the same dark rounded squares as the building
- * hotbar.
+ * palette.
  * The panel shows what the player holds and keeps no state the player does not have. {@link #update(Player)} redraws
  * only the slots whose item, count or selection changed, so it is cheap enough to call on every frame.
  */
-public class ItemHotbarPanel extends HBox {
+public final class ItemHotbarPanel extends HBox {
+    /** Slot edge in whole pixels; the UI layer never scales with the world zoom, so it stays this size. */
+    public static final double SLOT_SIZE = 48;
+    /** Gap between slots in whole pixels. */
+    private static final double SLOT_GAP = 4;
     /** Icon edge: the 16 px art at 2x, so every art pixel stays a whole square block. */
     private static final int ICON_SIZE = 32;
     private static final double COUNT_MARGIN = 3;
@@ -31,9 +35,9 @@ public class ItemHotbarPanel extends HBox {
     public ItemHotbarPanel() {
         // No panel behind the row: the slots float over the world, each one dark and translucent on its own
         setAlignment(Pos.BOTTOM_CENTER);
-        setSpacing(BuildingHotbarPanel.SLOT_GAP);
+        setSpacing(SLOT_GAP);
         setPickOnBounds(false);
-        for (int i = 0; i < slots.length; i++) {
+        for (var i = 0; i < slots.length; i++) {
             slots[i] = createSlot(i);
             getChildren().add(slots[i]);
         }
@@ -46,7 +50,7 @@ public class ItemHotbarPanel extends HBox {
      */
     public void update(Player player) {
         final int selected = player != null ? player.getSelectedHotbarIndex() : -1;
-        for (int i = 0; i < slots.length; i++) {
+        for (var i = 0; i < slots.length; i++) {
             final Item item = player != null ? player.getItemAt(i) : null;
             final ItemType type = item != null ? item.getType() : null;
             final int quantity = item != null ? item.getQuantity() : 0;
@@ -81,11 +85,11 @@ public class ItemHotbarPanel extends HBox {
         return slots[index];
     }
 
-    private StackPane createSlot(int index) {
-        StackPane slot = new StackPane();
-        slot.setPrefSize(BuildingHotbarPanel.SLOT_SIZE, BuildingHotbarPanel.SLOT_SIZE);
-        slot.setMinSize(BuildingHotbarPanel.SLOT_SIZE, BuildingHotbarPanel.SLOT_SIZE);
-        slot.setMaxSize(BuildingHotbarPanel.SLOT_SIZE, BuildingHotbarPanel.SLOT_SIZE);
+    private static StackPane createSlot(int index) {
+        var slot = new StackPane();
+        slot.setPrefSize(SLOT_SIZE, SLOT_SIZE);
+        slot.setMinSize(SLOT_SIZE, SLOT_SIZE);
+        slot.setMaxSize(SLOT_SIZE, SLOT_SIZE);
         slot.getStyleClass().addAll(UiTheme.SLOT, UiTheme.SLOT_EMPTY);
         slot.getChildren().add(createNumberLabel(index + 1));
         return slot;
@@ -106,7 +110,7 @@ public class ItemHotbarPanel extends HBox {
 
     /** The key number in the top left corner of a slot. */
     private static Label createNumberLabel(int number) {
-        Label numberLabel = new Label(String.valueOf(number));
+        var numberLabel = new Label(String.valueOf(number));
         numberLabel.getStyleClass().add(UiTheme.SLOT_NUMBER);
         numberLabel.setMouseTransparent(true);
         StackPane.setAlignment(numberLabel, Pos.TOP_LEFT);
@@ -115,7 +119,7 @@ public class ItemHotbarPanel extends HBox {
 
     /** The stack size in the pixel font with a 1 px dark shadow, at the bottom right corner of the slot. */
     private static Label createCountLabel(int quantity) {
-        Label count = new Label(String.valueOf(quantity));
+        var count = new Label(String.valueOf(quantity));
         count.getStyleClass().add(UiTheme.COUNT);
         count.setMouseTransparent(true);
         StackPane.setAlignment(count, Pos.BOTTOM_RIGHT);

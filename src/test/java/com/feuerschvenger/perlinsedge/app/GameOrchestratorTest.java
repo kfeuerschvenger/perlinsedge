@@ -10,6 +10,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.PointLight;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
@@ -17,7 +18,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxRenderer;
 import com.feuerschvenger.perlinsedge.infra.fx.input.FxInputHandler;
-import com.feuerschvenger.perlinsedge.ui.view.BuildingHotbarPanel;
+import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.DeathOverlay;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer;
 import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -103,18 +105,11 @@ class GameOrchestratorTest {
             panel = new SwitchablePanel();
             minimap = new FailingOnceMinimap(minimapCanvas, camera, canvas);
             return new GameOrchestrator(
-                    new FxRenderer(canvas.getGraphicsContext2D(), camera, state),
-                    camera,
-                    new FxInputHandler(canvas.getScene(), canvas, camera),
-                    minimap,
-                    panel,
-                    canvas,
-                    new HealthBar(),
-                    new InventoryPanel(state),
-                    new BuildingHotbarPanel(recipes),
-                    new ItemHotbarPanel(),
-                    new HintLabel(),
-                    new DeathOverlay(),
+                    new GameView(new FxRenderer(canvas.getGraphicsContext2D(), camera, state), camera,
+                            new FxInputHandler(canvas.getScene(), canvas, camera), minimap, canvas),
+                    new GamePanels(panel, new HealthBar(), new InventoryPanel(state),
+                            new BuildingPalettePanel(recipes), new ItemHotbarPanel(), new HintLabel(),
+                            new DeathOverlay()),
                     state,
                     recipes);
         });
@@ -137,7 +132,8 @@ class GameOrchestratorTest {
 
     /** The map tuning panel's configuration with the values of a default map, for the given type. */
     private void applyConfig(MapType type) {
-        orchestrator.applyMapConfig(type, 7L, 0.01f, 3, 0.01f, 3, 0.01f, 3, 0.05f, 0.5f, 0.05f, 0.5f, 0.3f, 0.3f);
+        orchestrator.applyMapConfig(new MapGenerationContext(
+                type, 7L, 0.01f, 3, 0.01f, 3, 0.01f, 3, 0.05f, 0.5f, 0.05f, 0.5f, 0.3f, 0.3f));
     }
 
     @Test
@@ -378,16 +374,16 @@ class GameOrchestratorTest {
         onFx(() -> orchestrator.startNewGame(MapType.DESERT));
 
         state.setPlayer(null);
-        onFx(() -> {
+        assertDoesNotThrow(() -> onFx(() -> {
             orchestrator.update(1.0 / 60.0);
             orchestrator.render(0.5, 1.0 / 60.0);
-        });
+        }));
 
         state.setCurrentMap(null);
-        onFx(() -> {
+        assertDoesNotThrow(() -> onFx(() -> {
             orchestrator.update(1.0 / 60.0);
             orchestrator.render(0.5, 1.0 / 60.0);
-        });
+        }));
     }
 
     @Test
@@ -404,5 +400,47 @@ class GameOrchestratorTest {
         assertTrue(state.getDroppedItems().isEmpty());
         assertNotNull(state.getPlayer());
         assertFalse(state.getPlayer().isDead());
+    }
+
+    @Test
+    void anUpdateWithTheHammerInHandEntersBuildModeAndAnotherSlotLeavesIt() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getPlayer().setItemAt(1, new Item(ItemType.HAMMER, 1));
+        state.getPlayer().selectHotbarSlot(1);
+
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        assertEquals(GameMode.BUILDING_MODE, state.getCurrentGameMode());
+
+        state.getPlayer().selectHotbarSlot(2);
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        assertEquals(GameMode.EXPLORATION, state.getCurrentGameMode());
+    }
+
+    @Test
+    void escapeDropsTheSelectedPieceFirstAndPausesOnlyWhenNothingIsSelected() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+        state.getPlayer().setItemAt(1, new Item(ItemType.HAMMER, 1));
+        state.getPlayer().selectHotbarSlot(1);
+        onFx(() -> orchestrator.update(1.0 / 60.0));
+        orchestrator.buildingManager().setSelectedBuildingType(com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType.FENCE);
+
+        onFx(orchestrator::handleEscape);
+
+        assertNull(orchestrator.buildingManager().getSelectedBuildingType());
+        assertEquals(GameMode.BUILDING_MODE, state.getCurrentGameMode(), "the hammer stays in hand");
+        assertFalse(state.isGamePaused());
+
+        onFx(orchestrator::handleEscape);
+
+        assertTrue(state.isGamePaused());
+    }
+
+    @Test
+    void escapeWhileExploringPauses() {
+        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
+
+        onFx(orchestrator::handleEscape);
+
+        assertTrue(state.isGamePaused());
     }
 }

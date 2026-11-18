@@ -162,9 +162,11 @@ class RecipeTest {
     void recipeManagerExposesItemAndBuildingRecipes() {
         RecipeManager manager = new RecipeManager();
 
-        assertFalse(manager.getAllItemRecipes().isEmpty());
+        final List<Recipe> itemRecipes = manager.getAllItemRecipes();
+
+        assertFalse(itemRecipes.isEmpty());
         assertFalse(manager.getAllBuildingRecipes().isEmpty());
-        assertThrows(UnsupportedOperationException.class, () -> manager.getAllItemRecipes().clear());
+        assertThrows(UnsupportedOperationException.class, itemRecipes::clear);
     }
 
     @Test

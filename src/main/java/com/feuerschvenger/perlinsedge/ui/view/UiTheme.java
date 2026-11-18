@@ -1,7 +1,10 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.effect.ColorAdjust;
+import javafx.scene.image.ImageView;
 import javafx.scene.text.Font;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,9 +24,11 @@ public final class UiTheme {
     /** Classpath location of the stylesheet. */
     public static final String STYLESHEET_PATH = "/ui/theme.css";
     /** Classpath location of the bundled font. */
-    public static final String FONT_PATH = "/assets/fonts/PixelifySans.ttf";
+    public static final String FONT_PATH = AppConfig.ASSET_ROOT + "/fonts/PixelifySans.ttf";
     /** Family name of the bundled font, as the stylesheet refers to it. */
     public static final String FONT_FAMILY = "Pixelify Sans";
+    /** Size the font is loaded at; the style sheet sets the sizes the labels use. */
+    private static final double LOADED_FONT_SIZE = 16;
 
     /** Dark translucent rounded panel. */
     public static final String PANEL = "pe-panel";
@@ -39,6 +44,8 @@ public final class UiTheme {
     public static final String HEADING = "pe-heading";
     /** Muted secondary text. */
     public static final String MUTED = "pe-muted";
+    /** Title of a small HUD panel, bold and slightly larger than the lines under it. */
+    public static final String PANEL_TITLE = "pe-panel-title";
     /** Small text. */
     public static final String SMALL = "pe-small";
     /** Dark pill behind a short label. */
@@ -76,6 +83,11 @@ public final class UiTheme {
     /** Text that states a requirement that is not met. */
     public static final String TEXT_BAD = "pe-bad";
 
+    /** Opacity of the icon of something the player cannot afford. */
+    private static final double UNAVAILABLE_ICON_OPACITY = 0.6;
+    /** Removes all the colour of an icon and darkens it a little. One instance is shared, it has no state. */
+    private static final ColorAdjust GREYSCALE = new ColorAdjust(0, -1, -0.2, 0);
+
     private static boolean fontLoaded;
 
     /** Not instantiable: the class only holds the theme entry points. */
@@ -107,7 +119,7 @@ public final class UiTheme {
         }
         fontLoaded = true;
         try (InputStream in = UiTheme.class.getResourceAsStream(FONT_PATH)) {
-            Font font = in == null ? null : Font.loadFont(in, 16);
+            Font font = in == null ? null : Font.loadFont(in, LOADED_FONT_SIZE);
             if (font == null) {
                 log.warn("Font {} could not be loaded, the default font is used", FONT_PATH);
             } else {
@@ -133,6 +145,18 @@ public final class UiTheme {
         } else {
             node.getStyleClass().remove(style);
         }
+    }
+
+    /**
+     * Shows an icon as unavailable or restores it. The look is a real greyscale and a fade, not a fade alone: a faded
+     * icon keeps its hue and still reads as available. Every list that greys out what the player cannot afford uses this.
+     *
+     * @param icon        the icon to change
+     * @param unavailable true to grey the icon, false to show it in full colour
+     */
+    public static void setIconUnavailable(ImageView icon, boolean unavailable) {
+        icon.setEffect(unavailable ? GREYSCALE : null);
+        icon.setOpacity(unavailable ? UNAVAILABLE_ICON_OPACITY : 1.0);
     }
 
     /**

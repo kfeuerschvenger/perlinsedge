@@ -30,12 +30,13 @@ public class MimicAttackStrategy implements EnemyAttackStrategy {
     public boolean canAttack(Enemy enemy, Player player) {
         if (enemy.isReadyToAttack() && !player.isDead()) {
             // Check aggro state for Mimic
-            if (enemy.getMovementStrategy() instanceof MimicMovementStrategy movementStrategy) {
-                if (!movementStrategy.isAggroed()) return false;
+            if (enemy.getMovementStrategy() instanceof MimicMovementStrategy movementStrategy
+                    && !movementStrategy.isAggroed()) {
+                return false;
             }
 
-            double dx = player.getCurrentTileX() - enemy.getCurrentTileX();
-            double dy = player.getCurrentTileY() - enemy.getCurrentTileY();
+            double dx = (double) player.getCurrentTileX() - enemy.getCurrentTileX();
+            double dy = (double) player.getCurrentTileY() - enemy.getCurrentTileY();
             double distance = Math.sqrt(dx * dx + dy * dy);
             return distance <= ATTACK_RANGE_TILES;
         }

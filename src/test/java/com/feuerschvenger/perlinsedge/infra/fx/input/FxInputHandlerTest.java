@@ -63,25 +63,13 @@ class FxInputHandlerTest {
     void aRepeatedPressIsNotDeliveredWhileTheKeyIsHeld() {
         List<GameKey> delivered = FxToolkitSupport.onFx(() -> {
             Rig rig = new Rig();
-            rig.press(KeyCode.B);
-            rig.press(KeyCode.B);
-            rig.press(KeyCode.B);
+            rig.press(KeyCode.I);
+            rig.press(KeyCode.I);
+            rig.press(KeyCode.I);
             return rig.delivered;
         });
 
-        assertEquals(List.of(GameKey.B), delivered);
-    }
-
-    @Test
-    void thePagingKeysAreDeliveredOnEveryRepeat() {
-        List<GameKey> delivered = FxToolkitSupport.onFx(() -> {
-            Rig rig = new Rig();
-            rig.press(KeyCode.PAGE_UP);
-            rig.press(KeyCode.PAGE_UP);
-            return rig.delivered;
-        });
-
-        assertEquals(List.of(GameKey.PAGE_UP, GameKey.PAGE_UP), delivered);
+        assertEquals(List.of(GameKey.I), delivered);
     }
 
     @Test
@@ -89,7 +77,7 @@ class FxInputHandlerTest {
         List<GameKey> delivered = FxToolkitSupport.onFx(() -> {
             Rig rig = new Rig();
             rig.press(KeyCode.I);
-            rig.handler.focusListener.changed(null, false, true);
+            rig.handler.onFocusChanged();
             rig.press(KeyCode.I);
             return rig.delivered;
         });

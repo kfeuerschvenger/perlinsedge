@@ -21,6 +21,12 @@ public final class FxTileDrawingHelper {
     private static final double DECAL_TILE_HALF_WIDTH = 16.0;
     private static final double DECAL_TILE_HALF_HEIGHT = 8.0;
     private static final double DEBUG_TEXT_OFFSET = 5.0;
+    /** Divisor that finds the middle of a sprite width. */
+    private static final int CENTRE_DIVISOR = 2;
+    /** Extra stroke width of the cursor outline over the crosshair line, in screen pixels. */
+    private static final int OUTLINE_EXTRA_WIDTH = 2;
+    /** Length of the cursor crosshair segments from each corner, in screen pixels at zoom 1. */
+    private static final double SEGMENT_LENGTH = 8;
     private static final double DEBUG_TEXT_Y_OFFSET_FACTOR = 1.2;
     private static final Font DEBUG_FONT = new Font("Arial", 10);
 
@@ -55,7 +61,7 @@ public final class FxTileDrawingHelper {
         final double scale = ZoomSteps.integerArtScale(zoom);
         final double width = tileSprite.getWidth() * scale;
         final double height = tileSprite.getHeight() * scale;
-        gc.drawImage(tileSprite, PixelSnap.round(screenX - width / 2), PixelSnap.round(screenY), width, height);
+        gc.drawImage(tileSprite, PixelSnap.round(screenX - width / CENTRE_DIVISOR), PixelSnap.round(screenY), width, height);
     }
 
     /**
@@ -81,7 +87,7 @@ public final class FxTileDrawingHelper {
         final double anchorY = screenY + halfH + (offsetU + offsetV) * halfH;
         final double width = decal.getWidth() * scale;
         final double height = decal.getHeight() * scale;
-        gc.drawImage(decal, PixelSnap.round(anchorX - width / 2), PixelSnap.round(anchorY - height), width, height);
+        gc.drawImage(decal, PixelSnap.round(anchorX - width / CENTRE_DIVISOR), PixelSnap.round(anchorY - height), width, height);
     }
 
     /**
@@ -94,16 +100,18 @@ public final class FxTileDrawingHelper {
      * @param resourceSprite Sprite image to draw
      */
     public static void drawResourceSprite(GraphicsContext gc, double screenX, double screenY, double zoom, Image resourceSprite) {
-        if (resourceSprite == null) return;
+        if (resourceSprite == null) {
+            return;
+        }
 
-        final AppConfig config = AppConfig.getInstance();
+        final var config = AppConfig.getInstance();
         final double halfTileHeight = config.graphics().getTileHalfHeight() * zoom;
         final double scale = ZoomSteps.integerArtScale(zoom);
         final double spriteWidth = resourceSprite.getWidth() * scale;
         final double spriteHeight = resourceSprite.getHeight() * scale;
 
         final double baseY = screenY + halfTileHeight;
-        gc.drawImage(resourceSprite, PixelSnap.round(screenX - spriteWidth / 2), PixelSnap.round(baseY - spriteHeight),
+        gc.drawImage(resourceSprite, PixelSnap.round(screenX - spriteWidth / CENTRE_DIVISOR), PixelSnap.round(baseY - spriteHeight),
                 spriteWidth, spriteHeight);
     }
 
@@ -112,22 +120,22 @@ public final class FxTileDrawingHelper {
      * given colour over a wider outline of the opposite brightness, so it reads on light and dark ground alike.
      *
      * @param gc         graphics context to draw on
-     * @param centerX    X of the centre of the tile top
-     * @param centerY    Y of the centre of the tile top
-     * @param tileWidth  the zoomed width of the tile
-     * @param tileHeight the zoomed height of the tile
+     * @param highlight  the tile cursor: the centre of the tile top and the zoomed size of the tile
      * @param zoom       current zoom level
      * @param line       colour of the crosshair
      * @param outline    colour of the outline under it
      * @param lineWidth  stroke width of the crosshair, the outline is wider
      * @param alpha      opacity of the whole crosshair
      */
-    public static void drawTileHighlight(GraphicsContext gc, double centerX, double centerY,
-                                         double tileWidth, double tileHeight, double zoom,
+    public static void drawTileHighlight(GraphicsContext gc, TileHighlight highlight, double zoom,
                                          Color line, Color outline, double lineWidth, double alpha) {
+        final double centerX = highlight.centerX();
+        final double centerY = highlight.centerY();
+        final double tileWidth = highlight.tileWidth();
+        final double tileHeight = highlight.tileHeight();
         gc.setGlobalAlpha(alpha);
         gc.setStroke(outline);
-        gc.setLineWidth(lineWidth + 2);
+        gc.setLineWidth(lineWidth + OUTLINE_EXTRA_WIDTH);
         drawCornerSegments(gc, centerX, centerY, tileWidth, tileHeight, zoom);
         gc.setStroke(line);
         gc.setLineWidth(lineWidth);
@@ -137,7 +145,6 @@ public final class FxTileDrawingHelper {
 
     private static void drawCornerSegments(GraphicsContext gc, double centerX, double centerY,
                                            double tileWidth, double tileHeight, double zoom) {
-        final double segmentLength = 8; // Length of the highlight segments from each corner
         final double halfWidth = tileWidth / 2; // Half of the zoomed tile width
         final double halfHeight = tileHeight / 2; // Half of the zoomed tile height
 
@@ -159,9 +166,9 @@ public final class FxTileDrawingHelper {
         final double normDx = halfWidth / edgeLength; // Normalized change in X along an isometric edge
         final double normDy = halfHeight / edgeLength; // Normalized change in Y along an isometric edge
 
-        // Calculate the actual delta X and Y for a segment of 'segmentLength' along an isometric edge
-        final double segmentDx = segmentLength * normDx * zoom;
-        final double segmentDy = segmentLength * normDy * zoom;
+        // Calculate the actual delta X and Y for a segment of 'SEGMENT_LENGTH' along an isometric edge
+        final double segmentDx = SEGMENT_LENGTH * normDx * zoom;
+        final double segmentDy = SEGMENT_LENGTH * normDy * zoom;
 
         // Draw segments at each corner following the correct isometric directions
         // Each corner will have two segments extending outwards along the tile's edges.
@@ -193,7 +200,7 @@ public final class FxTileDrawingHelper {
 
     private static void drawDebugText(GraphicsContext gc, double x, double y, double zoom,
                                       double halfH, double normalizedHeight, Tile tile) {
-        final String heightText = String.format(Locale.ROOT, "%.2f", tile.getHeight());
+        final var heightText = String.format(Locale.ROOT, "%.2f", tile.getHeight());
         final Color textColor = (normalizedHeight > 0.5) ? Color.BLACK : Color.WHITE;
         final double textY = y + halfH * DEBUG_TEXT_Y_OFFSET_FACTOR;
 

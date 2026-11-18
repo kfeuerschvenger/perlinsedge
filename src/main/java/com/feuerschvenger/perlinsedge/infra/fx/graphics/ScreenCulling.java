@@ -9,7 +9,11 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 final class ScreenCulling {
 
     /** Art pixels the deepest bed lies below the land tops, so its block still reaches into view from above. */
-    static final int MAX_SINK_ART_PIXELS = TileDepths.sinkPixels(TileType.DEEP_WATER);
+    private static final int MAX_SINK_ART_PIXELS = TileDepths.sinkPixels(TileType.DEEP_WATER);
+    /** Tile heights a tile block reaches below its top vertex, which keeps it on screen past the top edge. */
+    private static final int TILE_HEIGHTS_BELOW = 2;
+    /** Tile heights a tile block is kept above the bottom edge before it counts as off screen. */
+    private static final int TILE_HEIGHTS_ABOVE = 3;
 
     /** Not instantiable: the class only holds the shared test. */
     private ScreenCulling() {}
@@ -31,7 +35,7 @@ final class ScreenCulling {
                                  double canvasWidth, double canvasHeight, double artScale) {
         return screenX + tileWidth > 0 &&
                 screenX - tileWidth < canvasWidth &&
-                screenY + tileHeight * 2 + MAX_SINK_ART_PIXELS * artScale > 0 &&
-                screenY - tileHeight * 3 < canvasHeight;
+                screenY + tileHeight * TILE_HEIGHTS_BELOW + MAX_SINK_ART_PIXELS * artScale > 0 &&
+                screenY - tileHeight * TILE_HEIGHTS_ABOVE < canvasHeight;
     }
 }

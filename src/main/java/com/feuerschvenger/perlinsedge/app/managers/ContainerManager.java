@@ -2,14 +2,17 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manages container interactions including opening/closing containers and item transfers.
  * Supports both bulk quantity transfers and slot-based transfers between containers.
  */
+@Getter
 @Slf4j
 public class ContainerManager {
+
     private Container openContainer; // Currently active container in UI
 
     public ContainerManager() {
@@ -48,15 +51,7 @@ public class ContainerManager {
         return openContainer != null;
     }
 
-    /**
-     * Retrieves the currently open container.
-     * @return Open container instance or null if none
-     */
-    public Container getOpenContainer() {
-        return openContainer;
-    }
-
-    /**
+	/**
      * Transfers items between specific slots in two containers.
      * Handles moving to empty slots, stacking, and swapping items.
      *
@@ -73,8 +68,8 @@ public class ContainerManager {
             return;
         }
 
-        Item sourceItem = source.getItemAt(sourceSlot);
-        Item destItem = destination.getItemAt(destinationSlot);
+        var sourceItem = source.getItemAt(sourceSlot);
+        var destItem = destination.getItemAt(destinationSlot);
 
         logTransferOperation(sourceItem, sourceSlot, destItem, destinationSlot);
 
@@ -139,7 +134,7 @@ public class ContainerManager {
             return false;
         }
 
-        Item sourceItem = source.getItemAt(sourceSlot);
+        var sourceItem = source.getItemAt(sourceSlot);
         if (sourceItem == null) {
             log.warn("Slot transfer failed: Empty source slot");
             return false;
@@ -155,7 +150,7 @@ public class ContainerManager {
      * Checks if two items can be stacked.
      * @return true if same type and destination has stack space
      */
-    private boolean canStack(Item sourceItem, Item destItem) {
+    private static boolean canStack(Item sourceItem, Item destItem) {
         return sourceItem.getType() == destItem.getType() &&
                 destItem.getQuantity() < destItem.getMaxStackSize();
     }
@@ -165,7 +160,9 @@ public class ContainerManager {
      */
     private void logTransferOperation(Item sourceItem, int sourceSlot,
                                       Item destItem, int destSlot) {
-        if (!log.isDebugEnabled()) return;
+        if (!log.isDebugEnabled()) {
+            return;
+        }
         log.debug("TRANSFER OP: {} x{} (Slot {}) -> {} (Slot {})",
                 sourceItem.getDisplayName(),
                 sourceItem.getQuantity(),

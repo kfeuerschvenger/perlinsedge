@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
@@ -17,7 +17,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EnemyBehaviourTest {
@@ -39,7 +38,7 @@ class EnemyBehaviourTest {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 if (dx != 0 || dy != 0) {
-                    map.getTile(cx + dx, cy + dy).setBuilding(new Wall(cx + dx, cy + dy));
+                    map.getTile(cx + dx, cy + dy).setBuilding(new Fence(cx + dx, cy + dy));
                 }
             }
         }
@@ -53,17 +52,17 @@ class EnemyBehaviourTest {
         wallIn(map, 50, 50);
         Pathfinder bounded = new Pathfinder(map);
 
-        assertNull(bounded.findPath(5, 5, 50, 50, 200));
+        assertFalse(bounded.findPath(5, 5, 50, 50, 200).reachable());
         assertEquals(201, bounded.getLastExpandedNodes(), "stops right after the cap instead of flooding the map");
 
         Pathfinder unbounded = new Pathfinder(map);
-        assertNull(unbounded.findPath(5, 5, 50, 50));
+        assertFalse(unbounded.findPath(5, 5, 50, 50).reachable());
         assertTrue(unbounded.getLastExpandedNodes() > 3000, "without a cap every reachable tile is expanded");
     }
 
     @Test
     void reachableTargetWithinTheCapStillGetsAPath() {
-        List<PathNode> path = new Pathfinder(grass(60)).findPath(5, 5, 20, 20, 5000);
+        List<PathNode> path = new Pathfinder(grass(60)).findPath(5, 5, 20, 20, 5000).requireNodes();
 
         assertNotNull(path);
         assertEquals(15, path.size());
@@ -77,23 +76,23 @@ class EnemyBehaviourTest {
         wallIn(map, 50, 50);
         PathPlanner planner = new PathPlanner();
 
-        assertNull(planner.findPath(map, 5, 5, 50, 50));
+        assertFalse(planner.findPath(map, 5, 5, 50, 50).reachable());
         assertTrue(planner.isBackingOff());
 
-        planner.tick(PathPlanner.INITIAL_BACKOFF_SECONDS - 0.01);
+        planner.tick(PathPlanner.initialBackoffSeconds() - 0.01);
         assertTrue(planner.isBackingOff());
         planner.tick(0.02);
         assertFalse(planner.isBackingOff());
 
-        assertNull(planner.findPath(map, 5, 5, 50, 50));
-        planner.tick(PathPlanner.INITIAL_BACKOFF_SECONDS + 0.01);
+        assertFalse(planner.findPath(map, 5, 5, 50, 50).reachable());
+        planner.tick(PathPlanner.initialBackoffSeconds() + 0.01);
         assertTrue(planner.isBackingOff(), "the second wait is longer than the first");
 
         for (int i = 0; i < 10; i++) {
-            planner.tick(PathPlanner.MAX_BACKOFF_SECONDS);
+            planner.tick(PathPlanner.maxBackoffSeconds());
             planner.findPath(map, 5, 5, 50, 50);
         }
-        planner.tick(PathPlanner.MAX_BACKOFF_SECONDS);
+        planner.tick(PathPlanner.maxBackoffSeconds());
         assertFalse(planner.isBackingOff(), "the wait never exceeds the limit");
     }
 
@@ -104,10 +103,11 @@ class EnemyBehaviourTest {
         PathPlanner planner = new PathPlanner();
         planner.findPath(map, 5, 5, 50, 50);
 
-        assertNull(planner.findPath(map, 5, 5, 6, 6), "a reachable target is not searched during the backoff");
+        assertFalse(planner.findPath(map, 5, 5, 6, 6).reachable(),
+                "a reachable target is not searched during the backoff");
 
-        planner.tick(PathPlanner.MAX_BACKOFF_SECONDS);
-        assertNotNull(planner.findPath(map, 5, 5, 6, 6));
+        planner.tick(PathPlanner.maxBackoffSeconds());
+        assertTrue(planner.findPath(map, 5, 5, 6, 6).reachable());
         assertFalse(planner.isBackingOff());
     }
 

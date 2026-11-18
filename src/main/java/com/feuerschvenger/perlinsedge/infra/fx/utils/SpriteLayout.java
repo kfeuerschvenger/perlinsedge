@@ -11,6 +11,9 @@ public final class SpriteLayout {
     /** Frames in the slime strip: rest first, then the five frames of a jump. */
     public static final int SLIME_FRAMES = 6;
 
+    /** Frames of a jump, after the rest frame. */
+    private static final int JUMP_FRAMES = SLIME_FRAMES - 1;
+
     /** Not instantiable: the class only holds static rules. */
     private SpriteLayout() {}
 
@@ -38,7 +41,7 @@ public final class SpriteLayout {
         if (!jumping) {
             return 0;
         }
-        double clamped = Math.max(0.0, Math.min(1.0, phase));
-        return 1 + Math.min(SLIME_FRAMES - 2, (int) (clamped * (SLIME_FRAMES - 1)));
+        double clamped = Math.clamp(phase, 0.0, 1.0);
+        return 1 + Math.min(JUMP_FRAMES - 1, (int) (clamped * JUMP_FRAMES));
     }
 }

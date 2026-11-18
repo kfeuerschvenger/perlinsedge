@@ -3,10 +3,11 @@ package com.feuerschvenger.perlinsedge.app;
 import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
 import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
-import com.feuerschvenger.perlinsedge.app.managers.HotbarManager;
+import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
-import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
+import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
@@ -26,7 +27,7 @@ public class GameStateTransitions {
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
     private final ContainerManager containerManager;
-    private final HotbarManager hotbarManager;
+    private final BuildingPalettePanel palette;
     private final InventoryPanel inventoryPanel;
     private final MapConfigPanel mapConfigPanel;
     private final RecipeManager recipeManager;
@@ -63,7 +64,7 @@ public class GameStateTransitions {
     public void resetUi() {
         setGameMode(GameMode.EXPLORATION);
         containerManager.closeContainer();
-        hotbarManager.hideHotbar();
+        palette.hidePalette();
         inventoryPanel.closeInventory();
         hidePauseMenu();
         gameState.setInventoryOpen(false);
@@ -79,20 +80,32 @@ public class GameStateTransitions {
         log.debug("Map Config Panel: {}", isVisible ? "VISIBLE" : "HIDDEN");
     }
 
-    /** Toggles building mode on and off. Entering it closes the inventory. */
-    public void toggleBuildingMode() {
-        if (gameState.getCurrentGameMode() == GameMode.BUILDING_MODE) {
+    /**
+     * Keeps the build mode in step with the hand: the game is in build mode while the hammer is the item held in hand,
+     * and out of it as soon as any other slot is selected or the hammer leaves its slot. Build mode is never entered
+     * while the player is dead or the game is paused, and a mode with a panel open, such as the inventory, is left
+     * alone, so closing the panel with the hammer still in hand brings the build mode back. Called every update, which
+     * covers every way the selection can change: the number keys, the wheel, a click on a slot and moving items.
+     */
+    public void syncBuildModeWithHand() {
+        final var player = gameState.getPlayer();
+        final boolean hammerInHand = player != null && player.getActiveItemType() == ItemType.HAMMER
+                && !gameState.isPlayerDead() && !gameState.isGamePaused();
+        final var mode = gameState.getCurrentGameMode();
+        if (mode == GameMode.BUILDING_MODE && !hammerInHand) {
             setGameMode(GameMode.EXPLORATION);
-        } else if (!gameState.isGamePaused()) {
+        } else if (mode == GameMode.EXPLORATION && hammerInHand) {
             setGameMode(GameMode.BUILDING_MODE);
         }
     }
 
     /** Toggles the player inventory. Opening it leaves building mode. */
     public void toggleInventory() {
-        if (gameState.isGamePaused() || gameState.getPlayer() == null) return;
+        if (gameState.isGamePaused() || gameState.getPlayer() == null) {
+            return;
+        }
 
-        GameMode mode = gameState.getCurrentGameMode();
+        var mode = gameState.getCurrentGameMode();
         if (mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN) {
             setGameMode(GameMode.EXPLORATION);
         } else {
@@ -106,10 +119,12 @@ public class GameStateTransitions {
      * The mode becomes the inventory mode with the inventory flag set, so the inventory key closes it again.
      */
     public void showOpenContainer() {
-        Container container = containerManager.getOpenContainer();
-        if (container == null) return;
+        var container = containerManager.getOpenContainer();
+        if (container == null) {
+            return;
+        }
 
-        hotbarManager.hideHotbar();
+        palette.hidePalette();
         inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
         inventoryPanel.openDualInventory(container);
         gameState.setInventoryOpen(true);
@@ -125,7 +140,9 @@ public class GameStateTransitions {
      * @param newMode target game mode
      */
     public void setGameMode(GameMode newMode) {
-        if (gameState.getCurrentGameMode() == newMode) return;
+        if (gameState.getCurrentGameMode() == newMode) {
+            return;
+        }
         if (newMode != GameMode.EXPLORATION && gameState.getPlayer() == null) {
             log.debug("Ignoring the switch to {}: there is no player", newMode);
             return;
@@ -134,10 +151,9 @@ public class GameStateTransitions {
         switch (gameState.getCurrentGameMode()) {
             case BUILDING_MODE:
                 buildingManager.deactivateBuildingMode();
-                hotbarManager.hideHotbar();
+                palette.hidePalette();
                 break;
-            case INVENTORY_OPEN:
-            case CRAFTING_OPEN:
+            case INVENTORY_OPEN, CRAFTING_OPEN:
                 containerManager.closeContainer();
                 inventoryPanel.closeInventory();
                 gameState.setInventoryOpen(false);
@@ -149,7 +165,7 @@ public class GameStateTransitions {
         switch (newMode) {
             case BUILDING_MODE:
                 buildingManager.activateBuildingMode();
-                hotbarManager.showHotbar();
+                palette.showPalette();
                 break;
             case INVENTORY_OPEN:
                 containerManager.openContainer(gameState.getPlayer());

@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.QuickMove;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import com.feuerschvenger.perlinsedge.ui.view.callbacks.CraftRecipeCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import javafx.application.Platform;
@@ -19,11 +18,13 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Window;
+import javafx.util.Subscription;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -53,7 +54,7 @@ class InventoryController {
     @Setter
     private ItemDropCallback onItemDroppedCallback;
     @Setter
-    private CraftRecipeCallback onCraftRecipeCallback;
+    private Consumer<Recipe> onCraftRecipeCallback;
 
     /** Index of the selected slot, or -1 when no slot is selected. */
     @Getter
@@ -82,14 +83,13 @@ class InventoryController {
 
     /** Window whose focus is being followed, or null. */
     private Window watchedWindow;
-    /** The focus value of {@link #watchedWindow} that {@link #focusListener} is registered on, or null. */
-    private ObservableValue<Boolean> watchedFocus;
+    /** The subscription to the focus value of {@link #watchedWindow}, or null. */
+    private Subscription focusSubscription;
     /** Where the focus of a window is read from: its own focus property. */
     private Function<Window, ObservableValue<Boolean>> focusSource = Window::focusedProperty;
 
     private final EventHandler<MouseEvent> sceneMouseFilter = this::handleSceneMouse;
-    private final ChangeListener<Boolean> focusListener = (observable, wasFocused, focused) -> handleWindowFocus(focused);
-    private final ChangeListener<Window> windowListener = (observable, oldWindow, newWindow) -> {
+    private final ChangeListener<Window> windowListener = (ObservableValue<? extends Window> observable, Window oldWindow, Window newWindow) -> {
         unwatchFocus(oldWindow);
         watchFocus(newWindow);
     };
@@ -156,22 +156,22 @@ class InventoryController {
             return;
         }
         final ObservableValue<Boolean> focus = focusSource.apply(window);
-        focus.addListener(focusListener);
-        // The window is only recorded once the listener is on its focus value, so the record is the registration
+        // The change overload does not fire on subscribe, so watching a window never reports a focus change
+        focusSubscription = focus.subscribe((Boolean wasFocused, Boolean focused) -> handleWindowFocus(focused));
+        // The window is only recorded once the subscription is on its focus value, so the record is the registration
         watchedWindow = window;
-        watchedFocus = focus;
     }
 
     private void unwatchFocus(Window window) {
         if (window != null && watchedWindow == window) {
-            watchedFocus.removeListener(focusListener);
+            focusSubscription.unsubscribe();
             watchedWindow = null;
-            watchedFocus = null;
+            focusSubscription = null;
         }
     }
 
     /**
-     * Test seam: the window whose focus value currently has {@link #focusListener} registered.
+     * Test seam: the window whose focus value is currently subscribed to.
      *
      * @return the watched window, or null when none is watched
      */
@@ -187,16 +187,6 @@ class InventoryController {
      */
     void setFocusSource(Function<Window, ObservableValue<Boolean>> source) {
         this.focusSource = source;
-    }
-
-    /**
-     * Test seam: the very listener that {@link #bindScene} registers on the focus property of the window, so a test
-     * can run what the window would run when it loses the focus.
-     *
-     * @return the focus listener
-     */
-    ChangeListener<Boolean> focusListener() {
-        return focusListener;
     }
 
     /**
@@ -311,7 +301,7 @@ class InventoryController {
 
     private void startDrag(MouseEvent event) {
         SlotRef origin = InventoryPanel.refOf(pressedSlot);
-        Item item = origin.item();
+        var item = origin.item();
         if (item == null || item.getQuantity() <= 0) {
             pressedSlot = null;
             return;
@@ -332,21 +322,29 @@ class InventoryController {
         // The mouse button was held, so no enter or exit event told which slot the mouse ended up over
         hoveredSlot = under;
 
-        DragSession.Release outcome = finished.release(target, overPanel);
+        var outcome = finished.release(target, overPanel);
         log.debug("DRAG RELEASE: {} {}", finished.item().getDisplayName(), outcome);
         switch (outcome) {
-            case TRANSFER -> {
-                if (onItemDroppedInsideCallback != null) {
-                    onItemDroppedInsideCallback.transfer(finished.origin().slot(), finished.origin().container(),
-                            target.slot(), target.container(), finished.item());
-                }
+            case TRANSFER -> transferDragged(finished, target);
+            case DROP_STACK -> dropDraggedStack(finished);
+            case CANCEL -> {
+                // Nothing moves: the drag has ended and the item stays where it was
             }
-            case DROP_STACK -> {
-                if (onItemDroppedCallback != null) {
-                    onItemDroppedCallback.drop(finished.origin(), true);
-                }
-            }
-            case CANCEL -> { }
+        }
+    }
+
+    /** Hands the dragged stack to the transfer callback, when one is set. */
+    private void transferDragged(DragSession finished, SlotRef target) {
+        if (onItemDroppedInsideCallback != null) {
+            onItemDroppedInsideCallback.transfer(finished.origin().slot(), finished.origin().container(),
+                    target.slot(), target.container(), finished.item());
+        }
+    }
+
+    /** Throws the whole dragged stack through the drop callback, when one is set. */
+    private void dropDraggedStack(DragSession finished) {
+        if (onItemDroppedCallback != null) {
+            onItemDroppedCallback.drop(finished.origin(), true);
         }
     }
 
@@ -419,17 +417,17 @@ class InventoryController {
             event.consume();
             return;
         }
-        log.debug("SLOT CLICK: Slot {}", context.index);
+        log.debug("SLOT CLICK: Slot {}", context.index());
 
-        handleSlotSelection(context.index, context.container == gameState.getPlayer());
+        handleSlotSelection(context.index(), context.container() == gameState.getPlayer());
         event.consume();
     }
 
     /** Ctrl+click: sends the whole stack of the slot to the other side, see {@link QuickMove#route}. */
     private void quickMove(InventoryPanel.SlotContext context) {
-        boolean moved = QuickMove.route(gameState.getPlayer(), view.getSecondaryContainer(), context.container,
-                context.index);
-        log.debug("QUICK MOVE: slot {} moved={}", context.index, moved);
+        boolean moved = QuickMove.route(gameState.getPlayer(), view.getSecondaryContainer(), context.container(),
+                context.index());
+        log.debug("QUICK MOVE: slot {} moved={}", context.index(), moved);
         if (moved) {
             Platform.runLater(view::updateInventoryDisplay);
         }
@@ -437,7 +435,7 @@ class InventoryController {
 
     private void handleSlotSelection(int clickedSlotIndex, boolean isPlayerInventorySlot) {
         Container container = isPlayerInventorySlot ? gameState.getPlayer() : view.getSecondaryContainer();
-        Item item = view.getItemInSlot(clickedSlotIndex, container);
+        var item = view.getItemInSlot(clickedSlotIndex, container);
 
         if (item != null) {
             updateSlotSelection(clickedSlotIndex, isPlayerInventorySlot);
@@ -473,7 +471,7 @@ class InventoryController {
     // ==================================================================
 
     void handleCraftButtonClick() {
-        Recipe recipe = view.getSelectedCraftingRecipe();
+        var recipe = view.getSelectedCraftingRecipe();
         if (recipe == null) {
             log.warn("Crafting failed: No recipe selected");
             return;
@@ -484,6 +482,6 @@ class InventoryController {
         }
 
         log.debug("CRAFT CLICK: {}", recipe.getName());
-        onCraftRecipeCallback.craft(recipe);
+        onCraftRecipeCallback.accept(recipe);
     }
 }

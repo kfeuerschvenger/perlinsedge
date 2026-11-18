@@ -14,6 +14,21 @@ public final class FastNoiseLiteAdapter implements NoiseSource {
     /** Factory that the application passes to the map generator. */
     public static final NoiseSourceFactory FACTORY = FastNoiseLiteAdapter::new;
 
+    /** The golden-ratio increment that SplitMix64 adds to the seed. */
+    private static final long SEED_INCREMENT = 0x9E37_79B9_7F4A_7C15L;
+
+    /** The multipliers of the two SplitMix64 mixing rounds. */
+    private static final long FIRST_MULTIPLIER = 0xBF58_476D_1CE4_E5B9L;
+    private static final long SECOND_MULTIPLIER = 0x94D0_49BB_1331_11EBL;
+
+    /** The right shifts of the two mixing rounds and of the final round. */
+    private static final int FIRST_SHIFT = 30;
+    private static final int SECOND_SHIFT = 27;
+    private static final int FINAL_SHIFT = 31;
+
+    /** Distance between the two 32-bit halves of a 64-bit word. */
+    private static final int HALF_WORD_SHIFT = 32;
+
     private final FastNoiseLite noise;
 
     /**
@@ -46,11 +61,11 @@ public final class FastNoiseLiteAdapter implements NoiseSource {
      * @return a 32-bit seed that depends on every bit of the input
      */
     static int foldSeed(long seed) {
-        long z = seed + 0x9E3779B97F4A7C15L;
-        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
-        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-        z ^= z >>> 31;
-        return (int) (z ^ (z >>> 32));
+        long z = seed + SEED_INCREMENT;
+        z = (z ^ (z >>> FIRST_SHIFT)) * FIRST_MULTIPLIER;
+        z = (z ^ (z >>> SECOND_SHIFT)) * SECOND_MULTIPLIER;
+        z ^= z >>> FINAL_SHIFT;
+        return (int) (z ^ (z >>> HALF_WORD_SHIFT));
     }
 
     @Override

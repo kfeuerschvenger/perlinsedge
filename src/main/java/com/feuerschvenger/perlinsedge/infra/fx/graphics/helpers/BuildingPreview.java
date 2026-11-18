@@ -1,5 +1,19 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import javafx.scene.paint.Color;
 
-public record BuildingPreview(int tileX, int tileY, Color color) { }
+/**
+ * The ghost of the piece being placed: where it stands, which piece it is and the tint that says whether it can be
+ * placed, green for yes, red for a tile that refuses it and amber for missing resources.
+ *
+ * @param tileX the hovered tile X
+ * @param tileY the hovered tile Y
+ * @param type  the selected piece
+ * @param rotation the way the selected piece faces
+ * @param connections the sides a fence on that tile would join, 0 for any other piece
+ * @param tint  the tint as the domain gives it
+ * @param color the same tint as a drawing colour
+ */
+public record BuildingPreview(int tileX, int tileY, BuildingType type, int rotation, int connections, Rgba tint, Color color) { }

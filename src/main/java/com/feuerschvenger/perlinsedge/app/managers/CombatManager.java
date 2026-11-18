@@ -5,11 +5,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,14 +34,16 @@ public class CombatManager {
      * @param deltaTime Time since last update in seconds
      */
     public void updateEnemies(double deltaTime) {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         TileMap map = gameState.getCurrentMap();
 
-        if (player == null || map == null) return;
+        if (player == null || map == null) {
+            return;
+        }
 
         // Create a safe copy to avoid concurrent modification
         List<Enemy> enemies = new ArrayList<>(gameState.getEnemies());
-        final EnemyOccupancy occupancy = gameState.getEnemyOccupancy();
+        final var occupancy = gameState.getEnemyOccupancy();
 
         for (Enemy enemy : enemies) {
             // Skip dead enemies (should be removed but just in case), which hold no tile
@@ -64,7 +64,9 @@ public class CombatManager {
      * Handles enemy attack logic against the player.
      */
     private void handleEnemyAttack(Enemy enemy, Player player, double deltaTime) {
-        if (!enemy.canAttack(player)) return;
+        if (!enemy.canAttack(player)) {
+            return;
+        }
 
         // Update enemy attack cooldown
         enemy.updateAttackCooldown(deltaTime);
@@ -99,16 +101,20 @@ public class CombatManager {
      *         {@link Strike#REFUSED} when the enemy is not within melee reach of the tile the player stands on
      */
     public Strike strikeEnemy(Enemy target) {
-        if (!isValidAttackState() || target == null || target.isDead()) return Strike.REFUSED;
+        if (!isValidAttackState() || target == null || target.isDead()) {
+            return Strike.REFUSED;
+        }
 
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         if (!InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(),
                 target.getCurrentTileX(), target.getCurrentTileY())) {
             return Strike.REFUSED;
         }
         final int direction = calculateAttackDirection(target.getCurrentTileX() - player.getCurrentTileX(),
                 target.getCurrentTileY() - player.getCurrentTileY());
-        if (!player.startAttack(direction)) return Strike.COOLDOWN;
+        if (!player.startAttack(direction)) {
+            return Strike.COOLDOWN;
+        }
 
         damage(target, player);
         return Strike.HIT;
@@ -119,7 +125,7 @@ public class CombatManager {
      * Divides the circle into 8 directional sectors (45° each).
      * @return Direction index (0-7) corresponding to compass directions
      */
-    private int calculateAttackDirection(int dx, int dy) {
+    private static int calculateAttackDirection(int dx, int dy) {
         double angle = Math.atan2(dy, dx);
         double normalizedAngle = (angle < 0) ? angle + FULL_CIRCLE_RADIANS : angle;
         double adjustedAngle = (normalizedAngle + HALF_SECTOR_ADJUSTMENT) % FULL_CIRCLE_RADIANS;
@@ -176,7 +182,7 @@ public class CombatManager {
      * @return true if attack should proceed, false otherwise
      */
     private boolean isValidAttackState() {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         return player != null &&
                 !player.isDead() &&
                 !gameState.isGamePaused();

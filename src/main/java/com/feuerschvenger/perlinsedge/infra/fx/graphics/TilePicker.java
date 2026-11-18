@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 
@@ -11,9 +10,23 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
  * the point, the one in the land layer and the one in the water layer, and returns what the player sees on top: a land
  * tile whose top covers the point wins over the water behind it, because land in front is drawn after the water.
  * A point on the side face a land tile shows above lower water belongs to that land tile.
- * Nothing is allocated, the result is written into a caller supplied array.
+ * The result is written into a caller supplied array, so a pick allocates nothing but the view it is given.
  */
 public final class TilePicker {
+
+    /**
+     * Where the camera stands and how big a tile is.
+     *
+     * @param cameraX        X of the camera, where the top vertex of tile 0,0 is drawn
+     * @param cameraY        Y of the camera, where the top vertex of tile 0,0 is drawn
+     * @param zoom           camera zoom
+     * @param halfTileWidth  half the width of a tile at zoom 1
+     * @param halfTileHeight half the height of a tile at zoom 1
+     */
+    public record View(double cameraX, double cameraY, double zoom, double halfTileWidth, double halfTileHeight) {}
+
+    /** Half-cell steps in one grid cell, because a diamond cell spans two half widths and two half heights. */
+    private static final int HALF_STEPS_PER_CELL = 2;
 
     /** Not instantiable: the class only holds static rules. */
     private TilePicker() {}
@@ -24,29 +37,20 @@ public final class TilePicker {
      * @param map            the map, which says whether each candidate cell is land or water
      * @param screenX        X of the point on the canvas
      * @param screenY        Y of the point on the canvas
-     * @param cameraX        X of the camera, where the top vertex of tile 0,0 is drawn
-     * @param cameraY        Y of the camera, where the top vertex of tile 0,0 is drawn
-     * @param zoom           camera zoom
-     * @param halfTileWidth  half the width of a tile at zoom 1
-     * @param halfTileHeight half the height of a tile at zoom 1
+     * @param view           where the camera stands and how big a tile is
      * @param out            receives the tile column and row, at least two elements
      * @return true when a tile of the map is under the point, false when the point is outside the map
      */
-    public static boolean pick(TileMap map, double screenX, double screenY, double cameraX, double cameraY,
-                               double zoom, double halfTileWidth, double halfTileHeight, int[] out) {
-        final double scaledHalfWidth = halfTileWidth * zoom;
-        final double scaledHalfHeight = halfTileHeight * zoom;
-        final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(zoom);
+    public static boolean pick(TileMap map, double screenX, double screenY, View view, int[] out) {
+        final double scaledHalfWidth = view.halfTileWidth() * view.zoom();
+        final double scaledHalfHeight = view.halfTileHeight() * view.zoom();
 
-        final double worldX = screenX - cameraX;
-        final double worldY = screenY - cameraY;
+        final double worldX = screenX - view.cameraX();
+        final double worldY = screenY - view.cameraY();
         final int landX = cellX(worldX, worldY, scaledHalfWidth, scaledHalfHeight);
         final int landY = cellY(worldX, worldY, scaledHalfWidth, scaledHalfHeight);
-        final int waterX = cellX(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
-        final int waterY = cellY(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
 
-        final Tile land = map.getTile(landX, landY);
-        final Tile water = map.getTile(waterX, waterY);
+        final var land = map.getTile(landX, landY);
         final boolean landShowsTop = land != null && !land.getType().isWater();
 
         // Land wins whenever its top covers the point, also when the water sheet shows there too. The water sheet
@@ -55,6 +59,10 @@ public final class TilePicker {
         if (landShowsTop) {
             return write(out, landX, landY);
         }
+        final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(view.zoom());
+        final int waterX = cellX(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
+        final int waterY = cellY(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
+        final var water = map.getTile(waterX, waterY);
         if (water != null) {
             // The water diamond, or the side face of the land tile above lower water
             return write(out, waterX, waterY);
@@ -76,11 +84,11 @@ public final class TilePicker {
 
     /** Column of the exact diamond cell that holds a point given relative to the camera. */
     private static int cellX(double worldX, double worldY, double halfWidth, double halfHeight) {
-        return (int) Math.floor((worldX / halfWidth + worldY / halfHeight) / 2);
+        return (int) Math.floor((worldX / halfWidth + worldY / halfHeight) / HALF_STEPS_PER_CELL);
     }
 
     /** Row of the exact diamond cell that holds a point given relative to the camera. */
     private static int cellY(double worldX, double worldY, double halfWidth, double halfHeight) {
-        return (int) Math.floor((worldY / halfHeight - worldX / halfWidth) / 2);
+        return (int) Math.floor((worldY / halfHeight - worldX / halfWidth) / HALF_STEPS_PER_CELL);
     }
 }

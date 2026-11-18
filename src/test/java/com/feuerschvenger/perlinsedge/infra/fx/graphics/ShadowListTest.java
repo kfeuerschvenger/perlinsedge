@@ -170,7 +170,7 @@ class ShadowListTest {
     void theDrawnSizeIsKeptByCopiesAndTellsListsApart() {
         final Silhouette sprite = new Silhouette(4, 6, new int[24]);
         final ShadowList squashed = new ShadowList();
-        squashed.addSilhouette(10, 20, sprite, 6, 1.0, 4.5, 5.0, 1.0);
+        squashed.addSilhouette(10, 20, sprite, 6, 1.0, new ShadowList.SpriteSize(4.5, 5.0), 1.0);
         final ShadowList plain = new ShadowList();
         plain.addSilhouette(10, 20, sprite, 6, 1.0, 1.0);
 

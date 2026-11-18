@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.light;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
@@ -50,8 +51,57 @@ public final class Flicker {
     /** The number of independent channels a flicker has. */
     private static final int CHANNELS = 4;
 
+    /** Radians in one full turn of a wave. */
+    private static final double FULL_TURN = 2.0 * Math.PI;
+    /** Amplitudes of the intensity and the radius stay below this share of the value they move. */
+    private static final double AMPLITUDE_LIMIT = 1.0;
+    /** Amplitude of the shape stays below this share of the radius, so the lobes never fold the edge over. */
+    private static final double SHAPE_AMPLITUDE_LIMIT = 0.5;
+    /** A wave runs from minus one to one: its share of a colour drift is centred on this and spans this far each way. */
+    private static final double SHARE_MIDPOINT = 0.5;
+    private static final double SHARE_HALF_SPAN = 0.5;
+
+    /** The constants of the splitmix64 finalizer that turns a seed and an index into a phase. */
+    private static final long MIX_GAMMA = 0x9E37_79B9_7F4A_7C15L;
+    private static final long MIX_FIRST = 0xBF58_476D_1CE4_E5B9L;
+    private static final long MIX_SECOND = 0x94D0_49BB_1331_11EBL;
+    private static final int MIX_SHIFT_FIRST = 30;
+    private static final int MIX_SHIFT_SECOND = 27;
+    private static final int MIX_SHIFT_FINAL = 31;
+    /** Bits dropped to keep the 53 that fill the mantissa of a double. */
+    private static final int MANTISSA_DROPPED_BITS = 11;
+
+    /** The frequency a flicker keeps for a part it does not use, such as the colour drift of a light with one colour. */
+    private static final double DEFAULT_HZ = 1.0;
+
     /** A light that never wavers. It is declared after the constants above, which its construction reads. */
-    public static final Flicker STEADY = new Flicker(0.0, 0.0, 1.0, 0L, 0.0, 1.0, null, null, 1.0);
+    public static final Flicker STEADY = new Flicker(0.0, 0.0, DEFAULT_HZ, 0L, Shape.ROUND, null);
+
+    /**
+     * How the radius of a light varies with the angle around the source.
+     *
+     * @param amplitude the most the radius varies, as a share of it, 0 for a round light
+     * @param driftHz   how fast the lobes turn, in turns per second
+     */
+    private record Shape(double amplitude, double driftHz) {
+        /** The shape of a light that is a perfect ellipse. */
+        static final Shape ROUND = new Shape(0.0, DEFAULT_HZ);
+    }
+
+    /**
+     * A colour that drifts between two colours.
+     *
+     * @param low  the colour at one end of the drift
+     * @param high the colour at the other end of the drift
+     * @param hz   the frequency of the slow drift in cycles per second
+     */
+    private record Drift(Rgba low, Rgba high, double hz) {
+        Drift {
+            if (low == null || high == null) {
+                throw new IllegalArgumentException("A colour drift needs both of its colours");
+            }
+        }
+    }
 
     /** The most the intensity of the light moves away from its value, as a share of it, 0 for none. */
     private final double intensityAmplitude;
@@ -77,35 +127,49 @@ public final class Flicker {
     /**
      * Creates a flicker.
      *
+     * @param intensityAmplitude the most the intensity moves away from its value, as a share of it, from 0 up to but
+     *                           excluding 1
+     * @param radiusAmplitude    the most the radius moves away from its value, as a share of it, from 0 up to but
+     *                           excluding 1
+     * @param frequencyHz        the frequency of the slowest wave of the crackle in cycles per second, above zero
+     * @param seed               what the phases of the waves are worked out from
+     * @param shape              how the radius varies with the angle, {@link Shape#ROUND} for a round light
+     * @param drift              the colour drift, or null for a light that keeps its colour
      * @throws IllegalArgumentException if an amplitude is outside its range or a frequency is not above zero
      */
     private Flicker(double intensityAmplitude, double radiusAmplitude, double frequencyHz, long seed,
-                    double shapeAmplitude, double shapeDriftHz, Rgba colourLow, Rgba colourHigh, double colourHz) {
-        if (!(intensityAmplitude >= 0.0 && intensityAmplitude < 1.0)
-                || !(radiusAmplitude >= 0.0 && radiusAmplitude < 1.0)
-                || !(shapeAmplitude >= 0.0 && shapeAmplitude < 0.5)) {
-            throw new IllegalArgumentException("A flicker amplitude must be from 0 up to but excluding 1, "
-                    + "and the shape amplitude below one half");
-        }
-        if (!(frequencyHz > 0.0) || !(shapeDriftHz > 0.0) || !(colourHz > 0.0)) {
-            throw new IllegalArgumentException("A flicker frequency must be above zero");
-        }
-        if ((colourLow == null) != (colourHigh == null)) {
-            throw new IllegalArgumentException("A colour drift needs both of its colours");
-        }
+                    Shape shape, Drift drift) {
+        final double colourDriftHz = drift == null ? DEFAULT_HZ : drift.hz();
+        requireAmplitudes(intensityAmplitude, radiusAmplitude, shape);
+        requireFrequencies(frequencyHz, shape, colourDriftHz);
         this.intensityAmplitude = intensityAmplitude;
         this.radiusAmplitude = radiusAmplitude;
         this.frequencyHz = frequencyHz;
         this.seed = seed;
-        this.shapeAmplitude = shapeAmplitude;
-        this.shapeDriftHz = shapeDriftHz;
-        this.colourLow = colourLow;
-        this.colourHigh = colourHigh;
-        this.colourHz = colourHz;
-        for (int channel = 0; channel < CHANNELS; channel++) {
-            for (int wave = 0; wave < RATIOS.length; wave++) {
-                phases[channel][wave] = 2.0 * Math.PI * unit(seed, channel * RATIOS.length + wave);
+        this.shapeAmplitude = shape.amplitude();
+        this.shapeDriftHz = shape.driftHz();
+        this.colourLow = drift == null ? null : drift.low();
+        this.colourHigh = drift == null ? null : drift.high();
+        this.colourHz = colourDriftHz;
+        for (var channel = 0; channel < CHANNELS; channel++) {
+            for (var wave = 0; wave < RATIOS.length; wave++) {
+                phases[channel][wave] = FULL_TURN * unit(seed, channel * RATIOS.length + wave);
             }
+        }
+    }
+
+    private static void requireAmplitudes(double intensityAmplitude, double radiusAmplitude, Shape shape) {
+        if (!isBelow(intensityAmplitude, AMPLITUDE_LIMIT)
+                || !isBelow(radiusAmplitude, AMPLITUDE_LIMIT)
+                || !isBelow(shape.amplitude(), SHAPE_AMPLITUDE_LIMIT)) {
+            throw new IllegalArgumentException("A flicker amplitude must be from 0 up to but excluding 1, "
+                    + "and the shape amplitude below one half");
+        }
+    }
+
+    private static void requireFrequencies(double frequencyHz, Shape shape, double colourDriftHz) {
+        if (isNotAboveZero(frequencyHz) || isNotAboveZero(shape.driftHz()) || isNotAboveZero(colourDriftHz)) {
+            throw new IllegalArgumentException("A flicker frequency must be above zero");
         }
     }
 
@@ -120,7 +184,7 @@ public final class Flicker {
      * @throws IllegalArgumentException if an amplitude is outside its range or the frequency is not above zero
      */
     public static Flicker crackling(double intensityAmplitude, double radiusAmplitude, double frequencyHz, long seed) {
-        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, 0.0, 1.0, null, null, 1.0);
+        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, Shape.ROUND, null);
     }
 
     /**
@@ -132,8 +196,8 @@ public final class Flicker {
      * @throws IllegalArgumentException if the amplitude is outside its range or the drift is not above zero
      */
     public Flicker withShape(double amplitude, double driftHz) {
-        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, amplitude, driftHz, colourLow,
-                colourHigh, colourHz);
+        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, new Shape(amplitude, driftHz),
+                currentDrift());
     }
 
     /**
@@ -149,13 +213,29 @@ public final class Flicker {
         if (low == null || high == null) {
             throw new IllegalArgumentException("A colour drift needs both of its colours");
         }
-        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed, shapeAmplitude, shapeDriftHz, low,
-                high, hz);
+        return new Flicker(intensityAmplitude, radiusAmplitude, frequencyHz, seed,
+                new Shape(shapeAmplitude, shapeDriftHz), new Drift(low, high, hz));
+    }
+
+    /** @return the colour drift of this flicker, or null when the colour does not drift */
+    private Drift currentDrift() {
+        return colourLow == null ? null : new Drift(colourLow, colourHigh, colourHz);
+    }
+
+    /** @return true for a value from zero up to but excluding the limit */
+    private static boolean isBelow(double value, double limit) {
+        return value >= 0.0 && value < limit;
+    }
+
+    /** @return true for a value that is zero, negative or not a number, which no frequency may be */
+    private static boolean isNotAboveZero(double value) {
+        return Double.isNaN(value) || value <= 0.0;
     }
 
     /** @return true when the light never wavers in any way */
     public boolean isSteady() {
-        return intensityAmplitude == 0.0 && radiusAmplitude == 0.0 && shapeAmplitude == 0.0 && colourLow == null;
+        return Doubles.isZero(intensityAmplitude) && Doubles.isZero(radiusAmplitude) && Doubles.isZero(shapeAmplitude)
+                && colourLow == null;
     }
 
     /** @return the most the intensity moves, as a share of it */
@@ -222,15 +302,16 @@ public final class Flicker {
      */
     public double colourShare(double time) {
         if (colourLow == null) {
-            return 0.5;
+            return SHARE_MIDPOINT;
         }
-        double slow = 0.0;
-        for (int i = 0; i < COLOUR_RATIOS.length; i++) {
+        var slow = 0.0;
+        for (var i = 0; i < COLOUR_RATIOS.length; i++) {
             slow += COLOUR_WEIGHTS[i]
-                    * Math.sin(2.0 * Math.PI * colourHz * COLOUR_RATIOS[i] * time + phases[COLOUR][i]);
+                    * Math.sin(FULL_TURN * colourHz * COLOUR_RATIOS[i] * time + phases[COLOUR][i]);
         }
-        final double jitter = Math.sin(2.0 * Math.PI * colourHz * COLOUR_JITTER_RATIO * time + phases[COLOUR][2]);
-        return 0.5 + 0.5 * ((1.0 - COLOUR_JITTER_SHARE) * slow + COLOUR_JITTER_SHARE * jitter);
+        final double jitter = Math.sin(FULL_TURN * colourHz * COLOUR_JITTER_RATIO * time
+                + phases[COLOUR][COLOUR_RATIOS.length]);
+        return SHARE_MIDPOINT + SHARE_HALF_SPAN * ((1.0 - COLOUR_JITTER_SHARE) * slow + COLOUR_JITTER_SHARE * jitter);
     }
 
     /**
@@ -242,12 +323,12 @@ public final class Flicker {
      * @return a factor from {@code 1 - shapeAmplitude} to {@code 1 + shapeAmplitude}, 1 for a round light
      */
     public double shapeFactor(double turn, double time) {
-        if (shapeAmplitude == 0.0) {
+        if (Doubles.isZero(shapeAmplitude)) {
             return 1.0;
         }
-        double mix = 0.0;
-        for (int i = 0; i < SHAPE_LOBES.length; i++) {
-            mix += SHAPE_WEIGHTS[i] * Math.sin(2.0 * Math.PI
+        var mix = 0.0;
+        for (var i = 0; i < SHAPE_LOBES.length; i++) {
+            mix += SHAPE_WEIGHTS[i] * Math.sin(FULL_TURN
                     * (SHAPE_LOBES[i] * turn + shapeDriftHz * SHAPE_DRIFT[i] * time) + phases[SHAPE][i]);
         }
         return 1.0 + shapeAmplitude * mix;
@@ -255,19 +336,19 @@ public final class Flicker {
 
     /** Mixes the three waves of a channel at a moment, giving a value from minus one to one. */
     private double wave(int channel, double time) {
-        double mix = 0.0;
-        for (int i = 0; i < RATIOS.length; i++) {
-            mix += WEIGHTS[i] * Math.sin(2.0 * Math.PI * frequencyHz * RATIOS[i] * time + phases[channel][i]);
+        var mix = 0.0;
+        for (var i = 0; i < RATIOS.length; i++) {
+            mix += WEIGHTS[i] * Math.sin(FULL_TURN * frequencyHz * RATIOS[i] * time + phases[channel][i]);
         }
         return mix;
     }
 
     /** Hashes a seed and an index to a number from 0 up to but excluding 1, with the mixing steps of splitmix64. */
     private static double unit(long seed, int index) {
-        long z = seed + (index + 1) * 0x9E3779B97F4A7C15L;
-        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
-        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-        z ^= z >>> 31;
-        return (z >>> 11) * 0x1.0p-53;
+        long z = seed + (index + 1) * MIX_GAMMA;
+        z = (z ^ (z >>> MIX_SHIFT_FIRST)) * MIX_FIRST;
+        z = (z ^ (z >>> MIX_SHIFT_SECOND)) * MIX_SECOND;
+        z ^= z >>> MIX_SHIFT_FINAL;
+        return (z >>> MANTISSA_DROPPED_BITS) * 0x1.0p-53;
     }
 }

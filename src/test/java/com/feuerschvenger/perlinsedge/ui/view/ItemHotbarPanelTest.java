@@ -47,9 +47,9 @@ class ItemHotbarPanelTest {
     }
 
     @Test
-    void thePanelHasNineNumberedSlotsOfTheBuildingHotbarSize() {
+    void thePanelHasNineNumberedSlotsOfTheFixedSlotSize() {
         assertEquals(Player.HOTBAR_SIZE, panel.getChildren().size());
-        assertEquals(BuildingHotbarPanel.SLOT_SIZE, FxToolkitSupport.onFx(() -> panel.slotNode(0).getPrefWidth()));
+        assertEquals(ItemHotbarPanel.SLOT_SIZE, FxToolkitSupport.onFx(() -> panel.slotNode(0).getPrefWidth()));
     }
 
     @Test

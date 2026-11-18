@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.time;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
@@ -47,13 +48,13 @@ public final class DayCycle {
      * it. It is the sky's own threshold, independent of the one the shadows use.
      */
     public static final double MIN_VISIBLE_TINT_STRENGTH = 0.004;
-
-    /** The tint the night holds, shared by every moment of it so a hold phase allocates nothing. */
-    private static final Tint NIGHT_TINT = new Tint(NIGHT_COLOUR, NIGHT_STRENGTH);
-    /** The tint the warm light of the dawn and the dusk holds, shared by every moment of it. */
-    private static final Tint WARM_TINT = new Tint(WARM_COLOUR, WARM_STRENGTH);
-    /** The tint of midday, shared by every moment of it. */
-    private static final Tint NEUTRAL_TINT = new Tint(NEUTRAL_COLOUR, NEUTRAL_STRENGTH);
+    /** Minutes in an hour of the 24 hour clock. */
+    private static final int MINUTES_PER_HOUR = 60;
+    /** Where in a step of the shadow sun the shadow sits: the middle of it. */
+    private static final double STEP_MIDDLE = 0.5;
+    /** The coefficients of the smooth step curve, 3x^2 - 2x^3. */
+    private static final double EASE_QUADRATIC_WEIGHT = 3.0;
+    private static final double EASE_CUBIC_WEIGHT = 2.0;
 
     /** The durations and the shadow rules the cycle runs on. */
     private final DayCycleSettings settings;
@@ -62,7 +63,7 @@ public final class DayCycle {
     /** The value of {@link #elapsed} the cached tint was worked out for, NaN while there is none. */
     private double tintAt = Double.NaN;
     /** The tint worked out for {@link #tintAt}, so the colour and the strength of a frame share one calculation. */
-    private Tint tint;
+    private final SkyTint tint = new SkyTint();
 
     /**
      * Creates a cycle at the start of a new world.
@@ -105,7 +106,7 @@ public final class DayCycle {
     public double secondsIntoCycle() {
         final double cycle = settings.cycleSeconds();
         final double seconds = elapsed - Math.floor(elapsed / cycle) * cycle;
-        return Math.max(0.0, Math.min(Math.nextDown(cycle), seconds));
+        return Math.clamp(seconds, 0.0, Math.nextDown(cycle));
     }
 
     /**
@@ -119,7 +120,7 @@ public final class DayCycle {
         final double hours = unwrappedClockHours();
         final double wrapped = hours - Math.floor(hours / DayCycleSettings.HOURS_PER_DAY)
                 * DayCycleSettings.HOURS_PER_DAY;
-        return Math.max(0.0, Math.min(Math.nextDown(DayCycleSettings.HOURS_PER_DAY), wrapped));
+        return Math.clamp(wrapped, 0.0, Math.nextDown(DayCycleSettings.HOURS_PER_DAY));
     }
 
     /**
@@ -135,8 +136,8 @@ public final class DayCycle {
     /** @return the minutes since midnight on the 24 hour clock, 0 up to 1439, so 06:00 is 360 */
     public int clockMinuteOfDay() {
         // A hair above the exact minute keeps a time that lies on a minute from rounding down to the one before
-        final int minutes = (int) Math.floor(clockHours() * 60.0 + 1e-6);
-        return Math.min(minutes, (int) (DayCycleSettings.HOURS_PER_DAY * 60) - 1);
+        final int minutes = (int) Math.floor(clockHours() * MINUTES_PER_HOUR + 1e-6);
+        return Math.min(minutes, (int) (DayCycleSettings.HOURS_PER_DAY * MINUTES_PER_HOUR) - 1);
     }
 
     /** @return the time of day from 0, the beginning of the dawn, up to but excluding 1, which is the next dawn */
@@ -183,7 +184,7 @@ public final class DayCycle {
         if (arc <= 0.0) {
             return 1.0;
         }
-        return Math.max(0.0, Math.min(1.0, (unwrappedClockHours() - sunrise) / arc));
+        return Math.clamp((unwrappedClockHours() - sunrise) / arc, 0.0, 1.0);
     }
 
     /** @return true while the sun is above the horizon, from the sunrise up to but excluding the sunset */
@@ -208,7 +209,7 @@ public final class DayCycle {
     public double shadowSunProgress() {
         final int steps = settings.shadowSteps();
         final int step = Math.min(steps - 1, (int) Math.floor(sunProgress() * steps));
-        return (step + 0.5) / steps;
+        return (step + STEP_MIDDLE) / steps;
     }
 
     /**
@@ -248,38 +249,60 @@ public final class DayCycle {
     }
 
     /**
-     * Returns the colour of the ambient sky tint. Its opacity is always 1, how much of it shows is
-     * {@link #skyTintStrength()}.
+     * Returns the tint of the moment: the colour of the ambient sky tint and how strongly it is laid over the world. It
+     * is worked out once per position of the clock and in place, so reading it any number of times in a frame costs one
+     * calculation and allocates nothing, including in the middle of a transition. The object stays the same for the
+     * life of the cycle and holds the tint of the clock as it was last read, so it stays inside the cycle: callers
+     * outside the package read the tint through {@link #skyTintRed()}, {@link #skyTintGreen()},
+     * {@link #skyTintBlue()} and {@link #skyTintStrength()}.
      *
-     * @return neutral at midday, warm orange at dawn and dusk and a cool moonlit blue at night
+     * @return neutral with no strength at midday, warm orange at dawn and dusk and a cool moonlit blue at night
      */
-    public Rgba skyTint() {
-        return sampleTint().colour();
-    }
-
-    /** @return how strongly the sky tint is laid over the world, 0 at midday and the most at night */
-    public double skyTintStrength() {
-        return sampleTint().strength();
-    }
-
-    /**
-     * Returns the tint of the moment. It is worked out once per position of the clock, so asking for the colour and
-     * then the strength in one frame costs a single calculation.
-     */
-    private Tint sampleTint() {
-        if (tint == null || tintAt != elapsed) {
-            tint = computeTint();
+    SkyTint tint() {
+        if (!Doubles.areEqual(tintAt, elapsed)) {
+            computeTint();
             tintAt = elapsed;
         }
         return tint;
     }
 
     /**
-     * Works out the tint of the moment from the keyframes. The night turns warm through the first part of the dawn, the
-     * warm light holds and then fades to neutral, reaching it exactly as the dawn ends. Well before the dusk the light
-     * turns warm again, holds through the first half of the dusk and then sinks into the night.
+     * Returns the colour of the ambient sky tint. Its opacity is always 1, how much of it shows is
+     * {@link #skyTintStrength()}. It makes a new object on every call, so the frame loop reads {@link #tint()} instead.
+     *
+     * @return neutral at midday, warm orange at dawn and dusk and a cool moonlit blue at night
      */
-    private Tint computeTint() {
+    public Rgba skyTint() {
+        final SkyTint current = tint();
+        return new Rgba(current.r(), current.g(), current.b(), 1.0);
+    }
+
+    /** @return the red channel of the sky tint, 0.0 to 1.0, which allocates nothing */
+    public double skyTintRed() {
+        return tint().r();
+    }
+
+    /** @return the green channel of the sky tint, 0.0 to 1.0, which allocates nothing */
+    public double skyTintGreen() {
+        return tint().g();
+    }
+
+    /** @return the blue channel of the sky tint, 0.0 to 1.0, which allocates nothing */
+    public double skyTintBlue() {
+        return tint().b();
+    }
+
+    /** @return how strongly the sky tint is laid over the world, 0 at midday and the most at night */
+    public double skyTintStrength() {
+        return tint().strength();
+    }
+
+    /**
+     * Works out the tint of the moment from the keyframes into {@link #tint}. The night turns warm through the first part
+     * of the dawn, the warm light holds and then fades to neutral, reaching it exactly as the dawn ends. Well before the
+     * dusk the light turns warm again, holds through the first half of the dusk and then sinks into the night.
+     */
+    private void computeTint() {
         final double s = secondsIntoCycle();
         final double dawn = settings.dawnSeconds();
         final double day = settings.daySeconds();
@@ -290,44 +313,42 @@ public final class DayCycle {
         final double eveningFadeStart = dayEnd - day * (EVENING_FADE_SHARE + EVENING_WARM_SHARE);
         final double eveningWarmStart = dayEnd - day * EVENING_WARM_SHARE;
         if (s < warmUp) {
-            return blend(NIGHT_COLOUR, NIGHT_STRENGTH, WARM_COLOUR, WARM_STRENGTH, s / warmUp);
-        }
-        if (s < morningHoldEnd) {
-            return WARM_TINT;
-        }
-        if (s < dawn) {
-            return blend(WARM_COLOUR, WARM_STRENGTH, NEUTRAL_COLOUR, NEUTRAL_STRENGTH,
+            blend(NIGHT_COLOUR, NIGHT_STRENGTH, WARM_COLOUR, WARM_STRENGTH, s / warmUp);
+        } else if (s < morningHoldEnd) {
+            hold(WARM_COLOUR, WARM_STRENGTH);
+        } else if (s < dawn) {
+            blend(WARM_COLOUR, WARM_STRENGTH, NEUTRAL_COLOUR, NEUTRAL_STRENGTH,
                     (s - morningHoldEnd) / (dawn - morningHoldEnd));
-        }
-        if (s < eveningFadeStart) {
-            return NEUTRAL_TINT;
-        }
-        if (s < eveningWarmStart) {
-            return blend(NEUTRAL_COLOUR, NEUTRAL_STRENGTH, WARM_COLOUR, WARM_STRENGTH,
+        } else if (s < eveningFadeStart) {
+            hold(NEUTRAL_COLOUR, NEUTRAL_STRENGTH);
+        } else if (s < eveningWarmStart) {
+            blend(NEUTRAL_COLOUR, NEUTRAL_STRENGTH, WARM_COLOUR, WARM_STRENGTH,
                     (s - eveningFadeStart) / (eveningWarmStart - eveningFadeStart));
-        }
-        if (s < duskMid) {
-            return WARM_TINT;
-        }
-        if (s < settings.daylightSeconds()) {
-            return blend(WARM_COLOUR, WARM_STRENGTH, NIGHT_COLOUR, NIGHT_STRENGTH,
+        } else if (s < duskMid) {
+            hold(WARM_COLOUR, WARM_STRENGTH);
+        } else if (s < settings.daylightSeconds()) {
+            blend(WARM_COLOUR, WARM_STRENGTH, NIGHT_COLOUR, NIGHT_STRENGTH,
                     (s - duskMid) / (settings.daylightSeconds() - duskMid));
+        } else {
+            hold(NIGHT_COLOUR, NIGHT_STRENGTH);
         }
-        return NIGHT_TINT;
     }
 
-    /** Mixes two tints by an eased share. */
-    private static Tint blend(Rgba from, double fromStrength, Rgba to, double toStrength, double share) {
+    /** Sets the tint to a colour that a phase holds. */
+    private void hold(Rgba colour, double strength) {
+        tint.set(colour.r(), colour.g(), colour.b(), strength);
+    }
+
+    /** Sets the tint to a mix of two tints by an eased share. */
+    private void blend(Rgba from, double fromStrength, Rgba to, double toStrength, double share) {
         final double t = ease(share);
-        return new Tint(new Rgba(
-                channel(mix(from.r(), to.r(), t)), channel(mix(from.g(), to.g(), t)),
-                channel(mix(from.b(), to.b(), t)), 1.0),
-                mix(fromStrength, toStrength, t));
+        tint.set(channel(mix(from.r(), to.r(), t)), channel(mix(from.g(), to.g(), t)),
+                channel(mix(from.b(), to.b(), t)), mix(fromStrength, toStrength, t));
     }
 
     /** Keeps a mixed colour channel inside 0 to 1, so rounding at the ends of a mix can never leave the range. */
     private static double channel(double value) {
-        return Math.max(0.0, Math.min(1.0, value));
+        return Math.clamp(value, 0.0, 1.0);
     }
 
     /** Returns the point a share of the way from one value to another, {@code from} at zero and {@code to} at one. */
@@ -337,10 +358,7 @@ public final class DayCycle {
 
     /** A smooth step: zero at zero, one at one, with no jump in the slope at either end. */
     private static double ease(double t) {
-        final double x = Math.max(0.0, Math.min(1.0, t));
-        return x * x * (3.0 - 2.0 * x);
+        final double x = Math.clamp(t, 0.0, 1.0);
+        return x * x * (EASE_QUADRATIC_WEIGHT - EASE_CUBIC_WEIGHT * x);
     }
-
-    /** A sky tint: the colour and how strongly it is laid over the world. */
-    private record Tint(Rgba colour, double strength) {}
 }

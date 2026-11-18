@@ -2,7 +2,6 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import javafx.scene.image.Image;
-import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 
 import java.util.EnumMap;
@@ -18,7 +17,32 @@ public final class FlatTileSprites {
 
     /** Builds the images on the first lookup, which the class loader makes thread safe. */
     private static final class Holder {
-        static final Map<TileType, Image> IMAGES = bake();
+        private static final Map<TileType, Image> IMAGES = bake();
+
+        /** Draws one block per tile type. */
+        private static Map<TileType, Image> bake() {
+            final Map<TileType, Image> images = new EnumMap<>(TileType.class);
+            for (TileType type : TileType.values()) {
+                images.put(type, block(type));
+            }
+            return images;
+        }
+
+        /** Draws the block of one tile type. */
+        private static Image block(TileType type) {
+            final var argb = FlatTiles.argbOf(type.getColor());
+            final var image = new WritableImage(FlatTiles.WIDTH, FlatTiles.HEIGHT);
+            final var writer = image.getPixelWriter();
+            for (var y = 0; y < FlatTiles.HEIGHT; y++) {
+                for (var x = 0; x < FlatTiles.WIDTH; x++) {
+                    final var pixel = FlatTiles.pixel(x, y, argb, type.isWater());
+                    if (pixel != 0) {
+                        writer.setArgb(x, y, pixel);
+                    }
+                }
+            }
+            return image;
+        }
     }
 
     /** Not instantiable: the class only holds shared images. */
@@ -32,25 +56,5 @@ public final class FlatTileSprites {
      */
     public static Image get(TileType type) {
         return Holder.IMAGES.get(type);
-    }
-
-    /** Draws one block per tile type. */
-    private static Map<TileType, Image> bake() {
-        final Map<TileType, Image> images = new EnumMap<>(TileType.class);
-        for (TileType type : TileType.values()) {
-            final int argb = FlatTiles.argbOf(type.getColor());
-            final WritableImage image = new WritableImage(FlatTiles.WIDTH, FlatTiles.HEIGHT);
-            final PixelWriter writer = image.getPixelWriter();
-            for (int y = 0; y < FlatTiles.HEIGHT; y++) {
-                for (int x = 0; x < FlatTiles.WIDTH; x++) {
-                    final int pixel = FlatTiles.pixel(x, y, argb, type.isWater());
-                    if (pixel != 0) {
-                        writer.setArgb(x, y, pixel);
-                    }
-                }
-            }
-            images.put(type, image);
-        }
-        return images;
     }
 }

@@ -5,9 +5,10 @@ import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.WheelAccumulator;
 
 /**
- * Chooses which hotbar slot the player holds in hand in exploration mode: the number keys 1 to 9 pick a slot and the
- * mouse wheel moves along the slots. Choosing a slot never uses its item: that has a key of its own, see
- * {@link ItemUseManager}. The building hotbar answers the same keys in building mode, see {@link HotbarManager}.
+ * Chooses which hotbar slot the player holds in hand: the number keys 1 to 9 pick a slot and the
+ * mouse wheel moves along the slots, in exploration and in build mode, where picking a slot other than the hammer leaves
+ * the build mode. Choosing a slot never uses its item: that has a key of its own, see
+ * {@link ItemUseManager}.
  */
 public class ItemHotbarManager {
     private final GameStateManager gameState;
@@ -26,8 +27,8 @@ public class ItemHotbarManager {
      * Handles a number key.
      *
      * @param number the key number from 1 to 9
-     * @return true when the key belonged to the item hotbar, which is the case in exploration mode while the game runs
-     *         and the player lives; false leaves the key to the building hotbar
+     * @return true when the key belonged to the item hotbar, which is the case in exploration and build mode while the game runs
+     *         and the player lives; false otherwise
      */
     public boolean handleNumberKey(int number) {
         if (!isActive() || number < 1 || number > Player.HOTBAR_SIZE) {
@@ -53,7 +54,7 @@ public class ItemHotbarManager {
         }
         final int steps = wheel.add(deltaY);
         if (steps != 0) {
-            // Turning the wheel up goes to the slot on the left, like the building hotbar pages
+            // Turning the wheel up goes to the slot on the left
             gameState.getPlayer().cycleHotbar(-steps);
         }
         return true;
@@ -62,6 +63,7 @@ public class ItemHotbarManager {
     private boolean isActive() {
         return !gameState.isGameplayInputBlocked()
                 && !gameState.isGamePaused()
-                && gameState.getCurrentGameMode() == GameMode.EXPLORATION;
+                && (gameState.getCurrentGameMode() == GameMode.EXPLORATION
+                || gameState.getCurrentGameMode() == GameMode.BUILDING_MODE);
     }
 }

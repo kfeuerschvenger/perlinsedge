@@ -16,49 +16,42 @@ import java.util.function.Consumer;
 @Slf4j
 public class KeyController implements IKeyListener {
 
-    AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+    private final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
 
     private final Runnable togglePauseMenuAction;
     private final Runnable centerCameraAction;
     private final Runnable generateNewMapAction;
     private final Runnable toggleMapConfigPanelAction;
     private final Runnable toggleInventoryPanelAction;
-    private final Runnable toggleBuildingModeAction;
     private final Consumer<Integer> onNumberKeyPress;
-    private final Consumer<Integer> onHotbarPageChange;
     private BooleanSupplier inputBlocked;
     private Runnable onDropOne;
     private Runnable onDropStack;
     private Runnable onUseItem;
+    private Runnable onRotate;
 
     /**
      * Constructs a KeyController with the specified actions for various key events.
      *
-     * @param togglePauseMenuAction Action to toggle the pause menu.
+     * @param togglePauseMenuAction Action run by Escape: drops the selected building piece while building, otherwise toggles the pause menu.
      * @param centerCameraAction Action to center the camera, run by the space bar.
      * @param generateNewMapAction Action to generate a new random map.
      * @param toggleMapConfigPanelAction Action to toggle the map configuration panel.
      * @param toggleInventoryPanelAction Action to toggle the inventory panel.
-     * @param toggleBuildingModeAction Action to toggle the building mode.
      * @param onNumberKeyPress Action to handle number key presses for hotbar selection.
-     * @param onHotbarPageChange Action to switch the building hotbar page, receives -1 for previous and 1 for next.
      */
     public KeyController(Runnable togglePauseMenuAction,
                          Runnable centerCameraAction,
                          Runnable generateNewMapAction,
                          Runnable toggleMapConfigPanelAction,
                          Runnable toggleInventoryPanelAction,
-                         Runnable toggleBuildingModeAction,
-                         Consumer<Integer> onNumberKeyPress,
-                         Consumer<Integer> onHotbarPageChange) {
+                         Consumer<Integer> onNumberKeyPress) {
         this.togglePauseMenuAction = togglePauseMenuAction;
         this.centerCameraAction = centerCameraAction;
         this.generateNewMapAction = generateNewMapAction;
         this.toggleMapConfigPanelAction = toggleMapConfigPanelAction;
         this.toggleInventoryPanelAction = toggleInventoryPanelAction;
-        this.toggleBuildingModeAction = toggleBuildingModeAction;
         this.onNumberKeyPress = onNumberKeyPress;
-        this.onHotbarPageChange = onHotbarPageChange;
     }
 
     /**
@@ -91,6 +84,15 @@ public class KeyController implements IKeyListener {
         this.onUseItem = onUseItem;
     }
 
+    /**
+     * Sets the action of the rotate key. It is a gameplay key, so it is ignored while input is blocked.
+     *
+     * @param onRotate action for R, which turns the selected building piece
+     */
+    public void setRotateAction(Runnable onRotate) {
+        this.onRotate = onRotate;
+    }
+
     /** Tells whether a panel that covers the world currently takes the gameplay keys. */
     private boolean isGameplayBlocked() {
         return inputBlocked != null && inputBlocked.getAsBoolean();
@@ -112,66 +114,49 @@ public class KeyController implements IKeyListener {
         }
 
         switch (key) {
+            case ESCAPE, SPACE, I, DROP_ONE, DROP_STACK, ROTATE, USE_ITEM -> runIfSet(gameAction(key));
+            default -> runDebugKey(key);
+        }
+    }
 
-            // ------------- Game keys --------------
+    /** Gives the handler of a game key, which is null while none is set. */
+    private Runnable gameAction(GameKey key) {
+        return switch (key) {
+            case ESCAPE -> togglePauseMenuAction;
+            case SPACE -> centerCameraAction;
+            case I -> toggleInventoryPanelAction;
+            case DROP_ONE -> onDropOne;
+            case DROP_STACK -> onDropStack;
+            case ROTATE -> onRotate;
+            case USE_ITEM -> onUseItem;
+            default -> null;
+        };
+    }
 
-            case ESCAPE:
-                if (togglePauseMenuAction != null) togglePauseMenuAction.run();
-                break;
-            case SPACE:
-                if (centerCameraAction != null) centerCameraAction.run();
-                break;
-            case I:
-                if (toggleInventoryPanelAction != null) toggleInventoryPanelAction.run();
-                break;
-            case B:
-                if (toggleBuildingModeAction != null) toggleBuildingModeAction.run();
-                break;
-            case PAGE_UP:
-                if (onHotbarPageChange != null) onHotbarPageChange.accept(-1);
-                break;
-            case PAGE_DOWN:
-                if (onHotbarPageChange != null) onHotbarPageChange.accept(1);
-                break;
-            case DROP_ONE:
-                if (onDropOne != null) onDropOne.run();
-                break;
-            case DROP_STACK:
-                if (onDropStack != null) onDropStack.run();
-                break;
-            case USE_ITEM:
-                if (onUseItem != null) onUseItem.run();
-                break;
+    /** Runs what a debugging key does. */
+    private void runDebugKey(GameKey key) {
+        switch (key) {
+            case F1 -> toggleDebugMode();
+            case F2 -> toggleGrayScaleMode();
+            case F3 -> toggleDebugText();
+            case F4 -> toggleMapConfigPanelAction();
+            case F5 -> generateNewRandomMap();
+            case F7 -> toggleFastTime();
+            default -> { /* the other keys have nothing to do with debugging */ }
+        }
+    }
 
-            // ----------- Debugging keys -----------
-
-            case F1:
-                toggleDebugMode();
-                break;
-            case F2:
-                toggleGrayScaleMode();
-                break;
-            case F3:
-                toggleDebugText();
-                break;
-            case F4:
-                toggleMapConfigPanelAction();
-                break;
-            case F5:
-                generateNewRandomMap();
-                break;
-            case F7:
-                toggleFastTime();
-                break;
-            default:
-                break;
+    /** Runs an action that a key may have no handler for. */
+    private static void runIfSet(Runnable action) {
+        if (action != null) {
+            action.run();
         }
     }
 
     /** Tells whether a key acts on the world, as opposed to the debug and menu keys. */
     private static boolean isGameplayKey(GameKey key) {
         return switch (key) {
-            case I, B, PAGE_UP, PAGE_DOWN, DROP_ONE, DROP_STACK, USE_ITEM -> true;
+            case I, ROTATE, DROP_ONE, DROP_STACK, USE_ITEM -> true;
             default -> false;
         };
     }

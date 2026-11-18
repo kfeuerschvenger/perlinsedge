@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.model;
 
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,7 +13,9 @@ import java.util.Objects;
 public class Tile {
     // Coordinate Properties (Immutable)
     @Getter
-    private final int x, y;
+    private final int x;
+    @Getter
+    private final int y;
 
     // Terrain Properties
     @Getter
@@ -27,8 +28,12 @@ public class Tile {
     private Resource resource;
 
     // Building Association
+    /** The piece that stands on the tile, on top of the floor when there is one. */
     @Getter
     private Building building;
+    /** The floor layer of the tile, a bridge, which pieces can stand on. */
+    @Getter
+    private Building floor;
 
     /** The map this tile is stored in, told about every change that alters what stands on the tile, or null. */
     private TileMap owner;
@@ -95,12 +100,50 @@ public class Tile {
     }
 
     /**
-     * Records the map this tile is stored in, which is called by the map when the tile is put into it.
+     * Sets, replaces or removes the floor of this tile, which counts as a change of the map it is stored in.
+     *
+     * @param floor the bridge now laid on the tile, or null for none
+     */
+    public void setFloor(Building floor) {
+        this.floor = floor;
+        markOwnerChanged();
+    }
+
+    /**
+     * Tells the map this tile is stored in that the building on it changed in a way that is drawn or casts a shadow,
+     * such as a gate that opened or a fence that got a new neighbour, without the building being replaced.
+     */
+    public void buildingChanged() {
+        markOwnerChanged();
+    }
+
+    /**
+     * Records the map this tile is stored in, which is called by the map when the tile is put into it. A tile belongs to
+     * one map at a time, because it tells its map about every change and a second owner would never hear of them.
      *
      * @param map the map that now holds the tile
+     * @throws IllegalStateException when another map still holds the tile
      */
     void attachTo(TileMap map) {
+        if (owner != null && owner != map) {
+            throw new IllegalStateException("The tile at (" + x + ", " + y + ") belongs to another map");
+        }
         this.owner = map;
+    }
+
+    /** Forgets the map this tile was stored in, which the map calls when the tile is replaced in it. */
+    void detach() {
+        this.owner = null;
+    }
+
+    /**
+     * Tells whether this tile is held by a given map.
+     *
+     * @param map the map to ask about
+     * @return true when the map is the owner of the tile
+     */
+    boolean isOwnedBy(TileMap map) {
+        return owner == map;
     }
 
     /** Tells the map this tile is stored in that something on it changed, when it is stored in one. */
@@ -122,6 +165,11 @@ public class Tile {
         return building != null;
     }
 
+    /** @return true when a bridge is laid on the tile */
+    public boolean hasFloor() {
+        return floor != null;
+    }
+
     /**
      * Checks if this tile is walkable, considering its type and any building present.
      * This method is crucial for pathfinding and player movement.
@@ -133,13 +181,13 @@ public class Tile {
             return false;
         }
 
-        // Bridges and Docks explicitly make tiles walkable, even if the base tile type is not (e.g., water).
-        if (hasBuilding() && (building.getType() == BuildingType.BRIDGE || building.getType() == BuildingType.DOCK)) {
-            return true; // These buildings override tile type walkability
-        }
-
         if (hasResource()) {
             return false; // Tiles with resources are not walkable
+        }
+
+        // A floor, a bridge, makes the tile walkable even when its terrain is not, such as water
+        if (hasFloor()) {
+            return true;
         }
 
         // Otherwise, rely on the base tile type's walkability.
@@ -153,7 +201,7 @@ public class Tile {
      */
     public boolean isBuildable() {
         // A tile is generally buildable if it doesn't have a resource and no existing building.
-        // Specific building types (like Bridges/Docks) will have additional rules in BuildingManager.
+        // Specific building types (like Bridges) will have additional rules in BuildingManager.
         return !hasResource() && !hasBuilding();
     }
 
@@ -163,9 +211,13 @@ public class Tile {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Tile)) return false;
-        Tile tile = (Tile) o;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        var tile = (Tile) o;
         return x == tile.x && y == tile.y;
     }
 

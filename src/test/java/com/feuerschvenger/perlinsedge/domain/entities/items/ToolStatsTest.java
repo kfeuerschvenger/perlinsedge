@@ -67,6 +67,16 @@ class ToolStatsTest {
     }
 
     @Test
+    void theHammerIsTheRightToolForNothingAndHitsLikeABareHand() {
+        for (ResourceType type : ResourceType.values()) {
+            assertFalse(ToolStats.isRightTool(ItemType.HAMMER, type), type.name());
+            assertEquals(ToolStats.resourceDamage(null, type), ToolStats.resourceDamage(ItemType.HAMMER, type));
+            assertEquals(ToolStats.resourceCooldownMs(null, type), ToolStats.resourceCooldownMs(ItemType.HAMMER, type));
+        }
+        assertEquals(ToolStats.combatDamage(null), ToolStats.combatDamage(ItemType.HAMMER), 1e-9);
+    }
+
+    @Test
     void theSwordIsTwiceAsStrongAsAHandAndTheAxeIsASlightlyStrongerOne() {
         assertEquals(2 * ToolStats.HAND_COMBAT_DAMAGE, ToolStats.combatDamage(ItemType.SWORD), 1e-9);
         double axe = ToolStats.combatDamage(ItemType.AXE);

@@ -23,7 +23,17 @@ public final class FlatTiles {
     public static final int HEIGHT = TOP_HEIGHT + FACE_HEIGHT;
 
     /** Brightness kept by the left face and by the outline of the top, the factor of the JavaFX darker colour. */
-    static final double DARKER = 0.7;
+    public static final double DARKER = 0.7;
+
+    /** Bit positions of the red and green channels in a packed ARGB value, the blue channel sits at zero. */
+    private static final int RED_SHIFT = 16;
+    private static final int GREEN_SHIFT = 8;
+
+    /** The largest value of an 8-bit colour channel. */
+    private static final double CHANNEL_MAX = 255.0;
+
+    /** The divisor that finds the middle column of a block. */
+    private static final double MIDDLE_DIVISOR = 2.0;
 
     /** Not instantiable: the class only holds static rules. */
     private FlatTiles() {}
@@ -35,7 +45,7 @@ public final class FlatTiles {
      * @return the packed value
      */
     public static int argbOf(Rgba colour) {
-        return 0xFF000000 | channel(colour.r()) << 16 | channel(colour.g()) << 8 | channel(colour.b());
+        return 0xFF000000 | channel(colour.r()) << RED_SHIFT | channel(colour.g()) << GREEN_SHIFT | channel(colour.b());
     }
 
     /**
@@ -46,10 +56,10 @@ public final class FlatTiles {
      * @return the packed result
      */
     public static int scale(int argb, double factor) {
-        final int r = (int) Math.round(((argb >> 16) & 0xFF) * factor);
-        final int g = (int) Math.round(((argb >> 8) & 0xFF) * factor);
-        final int b = (int) Math.round((argb & 0xFF) * factor);
-        return 0xFF000000 | r << 16 | g << 8 | b;
+        final var r = (int) Math.round(((argb >> RED_SHIFT) & 0xFF) * factor);
+        final var g = (int) Math.round(((argb >> GREEN_SHIFT) & 0xFF) * factor);
+        final var b = (int) Math.round((argb & 0xFF) * factor);
+        return 0xFF000000 | r << RED_SHIFT | g << GREEN_SHIFT | b;
     }
 
     /**
@@ -60,7 +70,7 @@ public final class FlatTiles {
      * @return true when the pixel is part of the block
      */
     public static boolean insideBlock(int x, int y) {
-        for (int drop = 0; drop <= FACE_HEIGHT; drop++) {
+        for (var drop = 0; drop <= FACE_HEIGHT; drop++) {
             if (GrayscaleTiles.insideDiamond(x, y - drop)) {
                 return true;
             }
@@ -92,11 +102,11 @@ public final class FlatTiles {
         if (GrayscaleTiles.insideDiamond(x, y - 1)) {
             return scale(argb, DARKER * DARKER);
         }
-        return scale(argb, x < WIDTH / 2 ? DARKER : DARKER * DARKER);
+        return scale(argb, x < WIDTH / MIDDLE_DIVISOR ? DARKER : DARKER * DARKER);
     }
 
     /** Converts a colour component from zero to one into a byte, clamping values outside that range. */
     private static int channel(double component) {
-        return (int) Math.round(Math.max(0.0, Math.min(1.0, component)) * 255.0);
+        return (int) Math.round(Math.clamp(component, 0.0, 1.0) * CHANNEL_MAX);
     }
 }

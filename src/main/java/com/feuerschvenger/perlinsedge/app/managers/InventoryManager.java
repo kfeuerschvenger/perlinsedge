@@ -14,9 +14,9 @@ import java.util.function.Consumer;
 @Slf4j
 public class InventoryManager {
     /** Hint shown when the inventory lacks an ingredient. */
-    static final String MISSING_INGREDIENTS_HINT = "Missing ingredients";
+    private static final String MISSING_INGREDIENTS_HINT = "Missing ingredients";
     /** Hint shown when the result would not fit into the inventory. */
-    static final String NO_ROOM_HINT = "Inventory full";
+    private static final String NO_ROOM_HINT = "Inventory full";
 
     private final GameStateManager gameState;
     private final Runnable onInventoryChanged;
@@ -48,7 +48,7 @@ public class InventoryManager {
             return false;
         }
 
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player == null) {
             log.warn("Crafting failed: Player is null");
             return false;

@@ -89,4 +89,18 @@ class FxShadowHelperTest {
         assertFalse(FxShadowHelper.canReach(400, -500, 800, 600, MARGIN, BOTTOM));
         assertFalse(FxShadowHelper.canReach(400, 1400, 800, 600, MARGIN, BOTTOM));
     }
+
+    @Test
+    void theFarRingAddsTheSidewaysAndTheDownwardOverhangInTiles() {
+        // Zoom 1: a tile is 64 wide and 32 high. A wide canvas reaches 920 px sideways and 520 px down
+        final int far = FxShadowHelper.farRingTiles(0, 0, 920, 520, 32, 16);
+
+        // Half of 920/32 plus half of 520/16, which is more than either overhang takes alone
+        assertEquals(32, far, "ceil((28.75 + 32.5) / 2) is 31, and one tile of rounding is added");
+    }
+
+    @Test
+    void theOldFormOfTheFarRingIsTheCaseOfNoOverhang() {
+        assertEquals(FxShadowHelper.farRingTiles(100, 40, 0, 0, 32, 16), FxShadowHelper.farRingTiles(100, 40, 16));
+    }
 }

@@ -7,8 +7,8 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TilePickerTest {
@@ -33,7 +33,8 @@ class TilePickerTest {
 
     private static int[] pick(TileMap map, double screenX, double screenY, double cameraX, double cameraY, double zoom) {
         int[] out = {-1, -1};
-        return TilePicker.pick(map, screenX, screenY, cameraX, cameraY, zoom, HALF_W, HALF_H, out) ? out : null;
+        return TilePicker.pick(map, screenX, screenY,
+                new TilePicker.View(cameraX, cameraY, zoom, HALF_W, HALF_H), out) ? out : null;
     }
 
     @Test
@@ -70,10 +71,6 @@ class TilePickerTest {
         assertNull(pick(map, -500, 0, 0, 0, 1));
         assertNull(pick(map, 0, -20, 0, 0, 1));
         assertNull(pick(map, 0, 5000, 0, 0, 1));
-    }
-
-    private static void assertNull(int[] value) {
-        assertEquals(null, value);
     }
 
     @Test
@@ -158,6 +155,6 @@ class TilePickerTest {
             }
         }
         assertTrue(checked > 1000, "the check covered many points: " + checked);
-        assertFalse(pick(map, 0, 2, 0, 0, 1) == null);
+        assertNotNull(pick(map, 0, 2, 0, 0, 1));
     }
 }

@@ -2,7 +2,6 @@ package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.ItemDropManager;
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +54,7 @@ public class DropKeyHandler {
             log.debug("DROP KEY: ignored, the player is dead or the game is paused");
             return;
         }
-        final GameMode mode = gameState.getCurrentGameMode();
+        final var mode = gameState.getCurrentGameMode();
         if (mode == GameMode.EXPLORATION) {
             dropFromHand(wholeStack);
             return;
@@ -74,21 +73,30 @@ public class DropKeyHandler {
             return;
         }
         boolean thrown = drops.dropFromSlot(slot.container(), slot.slot(), wholeStack);
-        log.debug("DROP KEY: slot {} {}", slot.slot(), thrown ? (wholeStack ? "stack thrown" : "one thrown") : "empty");
+        log.debug("DROP KEY: slot {} {}", slot.slot(), outcome(thrown, wholeStack));
     }
 
     /** Throws from the hotbar slot held in hand, which is the only slot the player can see with no inventory open. */
     private void dropFromHand(boolean wholeStack) {
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         if (player == null) {
             return;
         }
         final int slot = player.getSelectedHotbarIndex();
         boolean thrown = drops.dropFromSlot(player, slot, wholeStack);
-        log.debug("DROP KEY: hand slot {} {}", slot, thrown ? (wholeStack ? "stack thrown" : "one thrown") : "empty");
+        log.debug("DROP KEY: hand slot {} {}", slot, outcome(thrown, wholeStack));
+    }
+
+    /** Names what a drop did, for the log. */
+    private static String outcome(boolean thrown, boolean wholeStack) {
+        if (!thrown) {
+            return "empty";
+        }
+        return wholeStack ? "stack thrown" : "one thrown";
     }
 
     private static boolean isInventoryMode(GameMode mode) {
         return mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN;
     }
+
 }

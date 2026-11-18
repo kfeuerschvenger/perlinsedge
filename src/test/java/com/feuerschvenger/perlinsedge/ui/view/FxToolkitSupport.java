@@ -66,7 +66,7 @@ public final class FxToolkitSupport {
             CountDownLatch ready = new CountDownLatch(1);
             try {
                 startup.accept(ready::countDown);
-            } catch (IllegalStateException alreadyRunning) {
+            } catch (IllegalStateException _) {
                 ready.countDown();
             } catch (RuntimeException | LinkageError noToolkit) {
                 unavailableReason = "The JavaFX toolkit cannot start on this machine: " + noToolkit;

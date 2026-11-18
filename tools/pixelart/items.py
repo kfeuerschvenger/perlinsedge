@@ -397,6 +397,32 @@ def axe():
     return finish(cv)
 
 
+def hammer():
+    cv = Canvas(SIZE, SIZE)
+    # a wooden haft rising from the lower left, the same slant as the axe so the hotbar reads as one tool family;
+    # it runs through the middle of the head and its tip shows a pixel or two beyond the head
+    handle(cv, 2, 14, 12, 3)
+    # the head is a block centred on the haft with both faces showing: long across the haft, short along it,
+    # which is what tells a hammer from an axe (one blade on one side) and from a pickaxe (a thin curved bar)
+    root = (10.0, 5.0)
+    along = (0.7071, -0.7071)
+    across = (-0.7071, -0.7071)
+    for y in range(SIZE):
+        for x in range(SIZE):
+            dx, dy = x + 0.5 - root[0], y + 0.5 - root[1]
+            s = dx * along[0] + dy * along[1]
+            t = dx * across[0] + dy * across[1]
+            if abs(s) < 2.2 and abs(t) < 4.4:
+                if abs(t) > 3.3:
+                    colour = STONE[3] if t > 0 else STONE[1]
+                elif s > 0.6:
+                    colour = STONE[2]
+                else:
+                    colour = STONE[1]
+                px(cv, x, y, colour)
+    return finish(cv)
+
+
 def sword():
     cv = Canvas(SIZE, SIZE)
     # a blade from the lower left to the upper right tip, a guard across it and a pommel
@@ -454,6 +480,7 @@ ICONS = {
     "pickaxe": pickaxe,
     "axe": axe,
     "sword": sword,
+    "hammer": hammer,
     "potion_health": potion_health,
 }
 

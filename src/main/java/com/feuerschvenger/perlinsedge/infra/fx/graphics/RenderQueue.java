@@ -25,7 +25,7 @@ public final class RenderQueue {
      * keeps a despawned enemy or a replaced map alive.
      */
     public void clear() {
-        for (int i = 0; i < queue.size(); i++) {
+        for (var i = 0; i < queue.size(); i++) {
             queue.get(i).clearReferences();
         }
         queue.clear();

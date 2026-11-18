@@ -6,6 +6,9 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
  */
 final class ShakeWave {
 
+    /** Radians in one full swing of the sine. */
+    private static final double FULL_TURN = 2.0 * Math.PI;
+
     /** Not instantiable: the class only holds static rules. */
     private ShakeWave() {}
 
@@ -23,7 +26,7 @@ final class ShakeWave {
             return 0.0;
         }
         final double progress = elapsedSeconds / durationSeconds;
-        return amplitude * (1.0 - progress) * Math.sin(2.0 * Math.PI * swings * progress);
+        return amplitude * (1.0 - progress) * Math.sin(FULL_TURN * swings * progress);
     }
 
     /**
@@ -34,6 +37,6 @@ final class ShakeWave {
      * @return the offset in screen pixels
      */
     static double toScreen(double artOffset, double artScale) {
-        return artOffset == 0.0 ? 0.0 : Math.rint(artOffset * artScale);
+        return Double.compare(Math.abs(artOffset), 0.0) == 0 ? 0.0 : Math.rint(artOffset * artScale);
     }
 }

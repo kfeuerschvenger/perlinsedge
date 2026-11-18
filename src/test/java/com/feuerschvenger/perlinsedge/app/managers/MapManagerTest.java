@@ -93,8 +93,8 @@ class MapManagerTest {
     void aFailedFirstGenerationLeavesNoContext() {
         factory.failing = true;
 
-        assertThrows(IllegalStateException.class,
-                () -> manager.generateNewMap(manager.createMapContext(MapType.DESERT, 1L)));
+        MapGenerationContext context = manager.createMapContext(MapType.DESERT, 1L);
+        assertThrows(IllegalStateException.class, () -> manager.generateNewMap(context));
 
         assertNull(manager.getCurrentMapContext());
         assertNull(state.getCurrentMap());

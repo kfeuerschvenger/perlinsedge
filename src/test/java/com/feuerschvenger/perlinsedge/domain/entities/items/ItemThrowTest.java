@@ -1,7 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Wall;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -48,21 +48,21 @@ class ItemThrowTest {
 
     @Test
     void aBlockedSecondTileShortensTheThrowToOneTile() {
-        map.getTile(6, 4).setBuilding(new Wall(6, 4));
+        map.getTile(6, 4).setBuilding(new Fence(6, 4));
 
         assertArrayEquals(new int[]{5, 4}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_RIGHT));
     }
 
     @Test
     void aBlockedFirstTileLeavesTheItemOnTheThrowersTile() {
-        map.getTile(5, 4).setBuilding(new Wall(5, 4));
+        map.getTile(5, 4).setBuilding(new Fence(5, 4));
 
         assertArrayEquals(new int[]{4, 4}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_RIGHT));
     }
 
     @Test
     void anItemNeverFliesOverAWallToLandBehindIt() {
-        map.getTile(5, 4).setBuilding(new Wall(5, 4));
+        map.getTile(5, 4).setBuilding(new Fence(5, 4));
 
         int[] landing = ItemThrow.landingTile(map, 4, 4, Entity.DIR_RIGHT);
 
@@ -71,23 +71,23 @@ class ItemThrowTest {
 
     @Test
     void aDiagonalThrowNeverSqueezesBetweenTwoBlockedCorners() {
-        map.getTile(5, 4).setBuilding(new Wall(5, 4));
-        map.getTile(4, 3).setBuilding(new Wall(4, 3));
+        map.getTile(5, 4).setBuilding(new Fence(5, 4));
+        map.getTile(4, 3).setBuilding(new Fence(4, 3));
 
         assertArrayEquals(new int[]{4, 4}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_UP_RIGHT));
     }
 
     @Test
     void aDiagonalThrowStopsWhenTheSecondStepSqueezesBetweenBlockedCorners() {
-        map.getTile(6, 3).setBuilding(new Wall(6, 3));
-        map.getTile(5, 2).setBuilding(new Wall(5, 2));
+        map.getTile(6, 3).setBuilding(new Fence(6, 3));
+        map.getTile(5, 2).setBuilding(new Fence(5, 2));
 
         assertArrayEquals(new int[]{5, 3}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_UP_RIGHT));
     }
 
     @Test
     void aDiagonalThrowPassesWhenOnlyOneCornerIsBlocked() {
-        map.getTile(5, 4).setBuilding(new Wall(5, 4));
+        map.getTile(5, 4).setBuilding(new Fence(5, 4));
 
         assertArrayEquals(new int[]{6, 2}, ItemThrow.landingTile(map, 4, 4, Entity.DIR_UP_RIGHT));
     }

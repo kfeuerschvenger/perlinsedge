@@ -44,7 +44,7 @@ public class GameStateManager {
 
     // Timing & Cooldowns
     @Setter(lombok.AccessLevel.NONE)
-    private double gameTime = 0;
+    private double gameTime;
     private double playerRespawnTimer = -1;
     /** The clock of the sky, advanced next to the game clock so a paused game stands still. */
     private final DayCycle dayCycle = new DayCycle(AppConfig.getInstance().dayCycle().settings());
@@ -64,10 +64,10 @@ public class GameStateManager {
     private final ClickFeedback clickFeedback = new ClickFeedback();
     /** The numbers that float up from a hit or a heal, on the game clock. */
     private final DamageNumbers damageNumbers = new DamageNumbers();
-    private boolean isGamePaused = false;
-    private boolean isInventoryOpen = false;
-    @Getter(lombok.AccessLevel.NONE)
-    private boolean shouldCenterCamera = true;
+    private boolean isGamePaused;
+    private boolean isInventoryOpen;
+	@Getter(lombok.AccessLevel.NONE)
+    private boolean shouldCenterCamera = true; // true to center at the next update
 
     // Game Configuration
     private GameMode currentGameMode = GameMode.EXPLORATION;
@@ -187,15 +187,6 @@ public class GameStateManager {
     /** @return true when the camera should be centred on the player at the next update */
     public boolean shouldCenterCamera() {
         return shouldCenterCamera;
-    }
-
-    /**
-     * Requests or cancels centring the camera on the player.
-     *
-     * @param shouldCenterCamera true to centre at the next update
-     */
-    public void setShouldCenterCamera(boolean shouldCenterCamera) {
-        this.shouldCenterCamera = shouldCenterCamera;
     }
 
 }

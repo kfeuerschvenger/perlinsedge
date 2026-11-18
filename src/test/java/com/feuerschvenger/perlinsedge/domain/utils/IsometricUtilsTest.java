@@ -118,7 +118,7 @@ class IsometricUtilsTest {
     void adjacentPositionNeverReturnsTheOriginTileWhenANeighbourIsFree() {
         TileMap map = walkableMap(3);
 
-        int[] found = IsometricUtils.findAdjacentPosition(1, 1, map, Tile::isWalkable, IsometricUtils.ALL_DIRECTIONS);
+        int[] found = IsometricUtils.findAdjacentPosition(1, 1, map, Tile::isWalkable, IsometricUtils.allDirections());
 
         assertFalse(found[0] == 1 && found[1] == 1);
         assertTrue(Math.abs(found[0] - 1) <= 1 && Math.abs(found[1] - 1) <= 1);
@@ -129,7 +129,7 @@ class IsometricUtilsTest {
         TileMap map = walkableMap(3);
 
         int[] found = IsometricUtils.findAdjacentPosition(1, 1, map, tile -> tile.getX() == 1 && tile.getY() == 1,
-                IsometricUtils.ALL_DIRECTIONS);
+                IsometricUtils.allDirections());
 
         assertArrayEquals(new int[]{1, 1}, found);
     }

@@ -86,7 +86,7 @@ class InventoryHotbarDragTest {
     private StackPane gridSlot(int index) {
         return FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.SLOT).stream()
                 .map(StackPane.class::cast)
-                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).index == index)
+                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).index() == index)
                 .findFirst()
                 .orElseThrow());
     }
@@ -273,8 +273,8 @@ class InventoryHotbarDragTest {
 
         StackPane chestSlot = FxToolkitSupport.onFx(() -> panel.lookupAll("." + UiTheme.SLOT).stream()
                 .map(StackPane.class::cast)
-                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).container == chest
-                        && ((InventoryPanel.SlotContext) node.getUserData()).index == 0)
+                .filter(node -> ((InventoryPanel.SlotContext) node.getUserData()).container() == chest
+                        && ((InventoryPanel.SlotContext) node.getUserData()).index() == 0)
                 .findFirst()
                 .orElseThrow());
         ctrlClick(chestSlot);

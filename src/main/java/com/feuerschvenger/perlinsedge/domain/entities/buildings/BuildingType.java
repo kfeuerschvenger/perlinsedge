@@ -2,6 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
+import java.util.Locale;
+
 /**
  * Defines all building types available in the game with their properties.
  * Each building type specifies:
@@ -13,21 +15,13 @@ public enum BuildingType {
     // ==================================================================
     //  Structural Buildings
     // ==================================================================
-    WALL(
-            "A sturdy wall block, keeping out the baddies and making your fortress strong.",
-            Rgba.GRAY
-    ),
-    DOOR(
-            "A door that swings open to new adventures, or slams shut on pesky intruders.",
-            Rgba.BROWN
-    ),
     BRIDGE(
             "A bridge block, connecting distant lands and making travel a breeze.",
             Rgba.DARK_GOLDENROD
     ),
-    DOCK(
-            "A dock for fishing, docking boats, or just hanging out by the water.",
-            Rgba.DARK_BLUE
+    FENCE_GATE(
+            "A gate in your fence: click it to swing it open for yourself or shut against the critters.",
+            Rgba.BROWN
     ),
     FENCE(
             "A fence to keep the critters out and your garden safe from nibblers.",
@@ -74,6 +68,11 @@ public enum BuildingType {
             Rgba.LIGHT_PINK
     );
 
+    /** Rotation count of a piece whose front turns through the four edges of its tile. */
+    private static final int FOUR_WAY_ROTATIONS = 4;
+    /** Rotation count of a piece that runs along one of the two diagonals of its tile. */
+    private static final int TWO_WAY_ROTATIONS = 2;
+
     // ==================================================================
     //  Instance Properties
     // ==================================================================
@@ -95,6 +94,46 @@ public enum BuildingType {
         this.description = description;
         this.baseColor = baseColor;
         this.displayName = generateDisplayName(name());
+    }
+
+    // ==================================================================
+    //  Rotation
+    // ==================================================================
+
+    /**
+     * Gives how many ways a piece of this type can face. A four way piece has a front that turns through the four edges
+     * of its tile, a two way piece runs along one of the two diagonals of its tile, and the others look the same
+     * whichever way they are placed.
+     * <p>
+     * A four way piece has rotation 0 when its front faces the lower right edge of the tile on the screen, 1 for the
+     * lower left, 2 for the upper left and 3 for the upper right, so one turn of the rotation key is a quarter turn
+     * clockwise seen from above. A two way piece has rotation 0 when it runs between the upper left and the lower right
+     * edge, which is along the tile X axis, and 1 when it runs between the upper right and the lower left edge, which
+     * is along the tile Y axis.
+     *
+     * @return 4, 2 or 1
+     */
+    public int rotationCount() {
+        return switch (this) {
+            case CHEST, FURNACE, ANVIL, WORKBENCH, BED -> FOUR_WAY_ROTATIONS;
+            case BRIDGE, FENCE_GATE -> TWO_WAY_ROTATIONS;
+            default -> 1;
+        };
+    }
+
+    /**
+     * Tells whether a piece of this type is a floor, which lies in its own layer of the tile under the other pieces. A
+     * bridge is a floor, it makes water walkable, and of the other pieces only the standing torch can be put on one.
+     *
+     * @return true for the bridge
+     */
+    public boolean isFloor() {
+        return this == BRIDGE;
+    }
+
+    /** @return true when the rotation key changes how a piece of this type faces */
+    public boolean isRotatable() {
+        return rotationCount() > 1;
     }
 
     // ==================================================================
@@ -130,15 +169,17 @@ public enum BuildingType {
     private static String generateDisplayName(String enumName) {
         // Split by underscores and process each part
         String[] parts = enumName.split("_");
-        StringBuilder builder = new StringBuilder();
+        var builder = new StringBuilder();
 
-        for (int i = 0; i < parts.length; i++) {
+        for (var i = 0; i < parts.length; i++) {
             String part = parts[i];
-            if (part.isEmpty()) continue;
+            if (part.isEmpty()) {
+                continue;
+            }
 
             // Capitalize first letter, lowercase the rest
             builder.append(Character.toUpperCase(part.charAt(0)))
-                    .append(part.substring(1).toLowerCase());
+                    .append(part.substring(1).toLowerCase(Locale.ROOT));
 
             if (i < parts.length - 1) {
                 builder.append(" ");

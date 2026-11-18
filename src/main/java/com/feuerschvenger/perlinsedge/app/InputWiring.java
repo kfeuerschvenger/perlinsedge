@@ -26,6 +26,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class InputWiring {
+    /** Number of coordinates in a picked tile: column and row. */
+    private static final int TILE_COORDINATES = 2;
+
     private final GameStateManager gameState;
     private final BuildingManager buildingManager;
     private final PlayerManager playerManager;
@@ -36,7 +39,7 @@ public class InputWiring {
     private final Canvas mainCanvas;
 
     /** Receives the tile found by {@link #pickTile}, reused so a pick allocates nothing. */
-    private final int[] pickedTile = new int[2];
+    private final int[] pickedTile = new int[TILE_COORDINATES];
     private double lastMouseX;
     private double lastMouseY;
     private boolean mouseOverCanvas;
@@ -54,22 +57,18 @@ public class InputWiring {
      * @param buildingManager  building placement and removal
      * @param playerManager    player movement
      * @param interactionManager walks to and interacts with resources and buildings
-     * @param camera           camera used to convert screen to tile coordinates
-     * @param inputHandler     keyboard and scroll input source
-     * @param minimapDrawer    minimap view
-     * @param mainCanvas       canvas that receives game clicks
+     * @param view             camera, keyboard and scroll input, minimap and the canvas that receives game clicks
      */
     public InputWiring(GameStateManager gameState, BuildingManager buildingManager,
-                       PlayerManager playerManager, InteractionManager interactionManager, FxCamera camera,
-                       FxInputHandler inputHandler, FxMinimapDrawer minimapDrawer, Canvas mainCanvas) {
+                       PlayerManager playerManager, InteractionManager interactionManager, GameView view) {
         this.gameState = gameState;
         this.buildingManager = buildingManager;
         this.playerManager = playerManager;
         this.interactionManager = interactionManager;
-        this.camera = camera;
-        this.inputHandler = inputHandler;
-        this.minimapDrawer = minimapDrawer;
-        this.mainCanvas = mainCanvas;
+        this.camera = view.camera();
+        this.inputHandler = view.inputHandler();
+        this.minimapDrawer = view.minimapDrawer();
+        this.mainCanvas = view.mainCanvas();
     }
 
     /**
@@ -132,9 +131,13 @@ public class InputWiring {
         lastMouseX = event.getX();
         lastMouseY = event.getY();
         mouseOverCanvas = true;
-        if (gameState.isGamePaused() || gameState.isPlayerDead()) return;
+        if (gameState.isGamePaused() || gameState.isPlayerDead()) {
+            return;
+        }
 
-        if (!pickTile(event.getX(), event.getY())) return;
+        if (!pickTile(event.getX(), event.getY())) {
+            return;
+        }
         int tileX = pickedTile[0];
         int tileY = pickedTile[1];
 
@@ -145,20 +148,30 @@ public class InputWiring {
             case EXPLORATION:
                 handleExplorationModeClick(event, tileX, tileY);
                 break;
-            case INVENTORY_OPEN:
-            case CRAFTING_OPEN:
-            case PAUSED:
+            case INVENTORY_OPEN, CRAFTING_OPEN, PAUSED:
                 log.debug("Click ignored in UI mode");
                 break;
         }
     }
 
+    /**
+     * Left click places the selected piece and right click demolishes what stands on the tile. The tile flashes green
+     * when the click did what it says and red when it was refused, the way an exploration click does. A left click with
+     * no piece selected places nothing and does not flash, which is what Escape leaves behind.
+     */
     private void handleBuildingModeClick(MouseEvent event, int tileX, int tileY) {
+        final boolean accepted;
         if (event.getButton() == MouseButton.PRIMARY) {
-            buildingManager.placeBuilding(tileX, tileY);
+            if (buildingManager.getSelectedBuildingType() == null) {
+                return;
+            }
+            accepted = buildingManager.placeBuilding(tileX, tileY);
         } else if (event.getButton() == MouseButton.SECONDARY) {
-            buildingManager.removeBuilding(tileX, tileY);
+            accepted = buildingManager.removeBuilding(tileX, tileY);
+        } else {
+            return;
         }
+        gameState.getClickFeedback().flash(tileX, tileY, accepted, gameState.getGameTime());
     }
 
     /**
@@ -169,10 +182,12 @@ public class InputWiring {
     private void handleExplorationModeClick(MouseEvent event, int tileX, int tileY) {
         final boolean accepted;
         if (event.getButton() == MouseButton.PRIMARY) {
-            final InteractionManager.Outcome outcome = interactionManager.interact(tileX, tileY);
+            final var outcome = interactionManager.interact(tileX, tileY);
             // A click that changed nothing, such as one during the hit cooldown, earns no flash: green would
             // promise an effect and red a refusal
-            if (outcome == InteractionManager.Outcome.IGNORED) return;
+            if (outcome == InteractionManager.Outcome.IGNORED) {
+                return;
+            }
             accepted = outcome.isAccepted();
         } else if (event.getButton() == MouseButton.SECONDARY) {
             interactionManager.cancel();
@@ -190,10 +205,12 @@ public class InputWiring {
      */
     private boolean pickTile(double screenX, double screenY) {
         TileMap map = gameState.getCurrentMap();
-        if (map == null) return false;
-        return TilePicker.pick(map, screenX, screenY, camera.getX(), camera.getY(), camera.getZoom(),
-                AppConfig.getInstance().graphics().getTileHalfWidth(),
-                AppConfig.getInstance().graphics().getTileHalfHeight(), pickedTile);
+        if (map == null) {
+            return false;
+        }
+        return TilePicker.pick(map, screenX, screenY, new TilePicker.View(camera.getX(), camera.getY(),
+                camera.getZoom(), AppConfig.getInstance().graphics().getTileHalfWidth(),
+                AppConfig.getInstance().graphics().getTileHalfHeight()), pickedTile);
     }
 
     /**
@@ -239,7 +256,9 @@ public class InputWiring {
     }
 
     private void handleMinimapClick(MouseEvent event) {
-        if (gameState.isGamePaused()) return;
+        if (gameState.isGamePaused()) {
+            return;
+        }
         double[] tileCoords = minimapDrawer.miniMapToTile(event.getX(), event.getY());
         camera.centerOnTile(tileCoords[0], tileCoords[1], mainCanvas);
     }

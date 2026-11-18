@@ -67,7 +67,7 @@ class PerlinMapGeneratorTest {
         long low = 12_345L;
         long high = low | (7L << 40);
 
-        assertTrue((int) low == (int) high, "precondition: a narrowing cast cannot tell these seeds apart");
+        assertEquals((int) low, (int) high, "precondition: a narrowing cast cannot tell these seeds apart");
         assertTrue(!sameTerrain(generate(defaults(MapType.DENSE_FOREST, low)), generate(defaults(MapType.DENSE_FOREST, high))));
     }
 

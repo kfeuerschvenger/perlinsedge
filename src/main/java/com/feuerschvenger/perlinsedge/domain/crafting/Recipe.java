@@ -59,18 +59,18 @@ public class Recipe {
     /**
      * Validates and prepares the ingredients list.
      *
-     * @return Unmodifiable list of validated ingredients
+     * @return Defensive immutable copy of the validated ingredients
      * @throws NullPointerException if ingredients is null
      * @throws IllegalArgumentException if ingredients list is empty
      */
-    private List<CraftingIngredient> validateIngredients(List<CraftingIngredient> ingredients) {
+    private static List<CraftingIngredient> validateIngredients(List<CraftingIngredient> ingredients) {
         Objects.requireNonNull(ingredients, "Ingredients list must not be null");
 
         if (ingredients.isEmpty()) {
             throw new IllegalArgumentException("Recipes must contain at least one ingredient");
         }
 
-        return Collections.unmodifiableList(ingredients);
+        return List.copyOf(ingredients);
     }
 
     // Display Methods -----------------------------------------------------------
@@ -128,7 +128,7 @@ public class Recipe {
      * @return Unmodifiable list of ingredients
      */
     public List<CraftingIngredient> getIngredients() {
-        return ingredients;
+        return Collections.unmodifiableList(ingredients);
     }
 
     // Object Contract -----------------------------------------------------------
@@ -148,9 +148,13 @@ public class Recipe {
      */
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Recipe recipe = (Recipe) o;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        var recipe = (Recipe) o;
         return outputQuantity == recipe.outputQuantity &&
                 Objects.equals(name, recipe.name) &&
                 Objects.equals(description, recipe.description) &&

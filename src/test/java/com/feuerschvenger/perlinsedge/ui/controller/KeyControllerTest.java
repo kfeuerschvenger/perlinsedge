@@ -17,19 +17,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeyControllerTest {
 
-    private final List<Integer> pageChanges = new ArrayList<>();
     private final List<Integer> numbers = new ArrayList<>();
     private KeyController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
-                numbers::add, pageChanges::add);
+        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { },
+                numbers::add);
     }
 
     @AfterEach
     void tearDown() {
         AppConfig.getInstance().dayCycle().setFastTime(false);
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+        debug.setEnabled(false);
+        debug.setGrayscaleEnabled(false);
+        debug.setTextEnabled(false);
+    }
+
+    private KeyController withCallbacks(List<String> calls) {
+        return new KeyController(() -> calls.add("pause"), () -> calls.add("centre"), () -> calls.add("newMap"),
+                () -> calls.add("mapPanel"), () -> calls.add("inventory"), numbers::add);
     }
 
     @Test
@@ -53,15 +61,6 @@ class KeyControllerTest {
         config.setFastTime(true);
         assertEquals(config.getFastTimeMultiplier(), config.timeScale(), 0.0);
         assertEquals(config.settings().cycleSeconds() / 40.0, config.getFastTimeMultiplier(), 1e-9);
-    }
-
-    @Test
-    void pageUpAndPageDownChangeTheHotbarPageBackwardsAndForwards() {
-        controller.onKeyAction(GameKey.PAGE_UP);
-        controller.onKeyAction(GameKey.PAGE_DOWN);
-        controller.onKeyAction(GameKey.PAGE_DOWN);
-
-        assertEquals(List.of(-1, 1, 1), pageChanges);
     }
 
     @Test
@@ -131,8 +130,10 @@ class KeyControllerTest {
 
     @Test
     void dropKeysWithoutActionsAreIgnored() {
-        controller.onKeyAction(GameKey.DROP_ONE);
-        controller.onKeyAction(GameKey.DROP_STACK);
+        assertDoesNotThrow(() -> {
+            controller.onKeyAction(GameKey.DROP_ONE);
+            controller.onKeyAction(GameKey.DROP_STACK);
+        });
     }
 
     @Test
@@ -140,7 +141,6 @@ class KeyControllerTest {
         controller.onKeyAction(GameKey.DIGIT_3);
 
         assertEquals(List.of(3), numbers);
-        assertTrue(pageChanges.isEmpty());
     }
 
     @Test
@@ -148,14 +148,11 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
                 () -> { }, () -> { }, () -> calls.add("inventory"),
-                () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
+                n -> calls.add("digit"));
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.I);
-        blocked.onKeyAction(GameKey.B);
         blocked.onKeyAction(GameKey.DIGIT_2);
-        blocked.onKeyAction(GameKey.PAGE_UP);
-        blocked.onKeyAction(GameKey.PAGE_DOWN);
 
         assertTrue(calls.isEmpty(), calls.toString());
     }
@@ -164,7 +161,7 @@ class KeyControllerTest {
     void pauseAndCameraKeysWorkWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, () -> { }, () -> { }, n -> { }, p -> { });
+                () -> { }, () -> { }, () -> { }, n -> { });
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.ESCAPE);
@@ -178,7 +175,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         KeyController keys = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
                 () -> calls.add("map"), () -> calls.add("config"), () -> calls.add("inventory"),
-                () -> calls.add("build"), n -> calls.add("digit"), p -> calls.add("page"));
+                n -> calls.add("digit"));
 
         keys.onKeyAction(GameKey.SPACE);
         keys.onKeyAction(GameKey.SPACE);
@@ -191,7 +188,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         boolean[] blocked = {true};
         KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { },
-                () -> calls.add("inventory"), () -> { }, n -> { }, p -> { });
+                () -> calls.add("inventory"), n -> { });
         keys.setInputBlocked(() -> blocked[0]);
 
         keys.onKeyAction(GameKey.I);
@@ -203,11 +200,105 @@ class KeyControllerTest {
 
     @Test
     void missingActionsAreIgnored() {
-        KeyController bare = new KeyController(null, null, null, null, null, null, null, null);
+        KeyController bare = new KeyController(null, null, null, null, null, null);
 
-        bare.onKeyAction(GameKey.PAGE_UP);
-        bare.onKeyAction(GameKey.PAGE_DOWN);
-        bare.onKeyAction(GameKey.DIGIT_1);
-        bare.onKeyAction(GameKey.SPACE);
+        assertDoesNotThrow(() -> {
+            bare.onKeyAction(GameKey.DIGIT_1);
+            bare.onKeyAction(GameKey.SPACE);
+        });
+    }
+
+    @Test
+    void theRotateKeyRunsItsActionAndIsIgnoredWhileInputIsBlocked() {
+        List<String> calls = new ArrayList<>();
+        controller.setRotateAction(() -> calls.add("rotate"));
+
+        controller.onKeyAction(GameKey.ROTATE);
+        controller.setInputBlocked(() -> true);
+        controller.onKeyAction(GameKey.ROTATE);
+
+        assertEquals(List.of("rotate"), calls);
+    }
+
+    @Test
+    void theRotateKeyWithNoActionSetDoesNothing() {
+        assertDoesNotThrow(() -> controller.onKeyAction(GameKey.ROTATE));
+    }
+
+    @Test
+    void theFixedKeysRunTheirOwnCallbacks() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController wired = withCallbacks(calls);
+
+        wired.onKeyAction(GameKey.ESCAPE);
+        wired.onKeyAction(GameKey.SPACE);
+        wired.onKeyAction(GameKey.I);
+
+        assertEquals(List.of("pause", "centre", "inventory"), calls);
+    }
+
+    @Test
+    void f1TogglesTheDebugMode() {
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        controller.onKeyAction(GameKey.F1);
+        assertTrue(debug.isEnabled());
+
+        controller.onKeyAction(GameKey.F1);
+        assertFalse(debug.isEnabled());
+    }
+
+    @Test
+    void f2TogglesTheGrayscaleView() {
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        controller.onKeyAction(GameKey.F2);
+        assertTrue(debug.isGrayscaleEnabled());
+
+        controller.onKeyAction(GameKey.F2);
+        assertFalse(debug.isGrayscaleEnabled());
+    }
+
+    @Test
+    void f3TogglesTheDebugTextOnlyWhileTheGrayscaleViewIsOn() {
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        controller.onKeyAction(GameKey.F3);
+        assertFalse(debug.isTextEnabled(), "the text belongs to the grayscale view");
+
+        controller.onKeyAction(GameKey.F2);
+        controller.onKeyAction(GameKey.F3);
+        assertTrue(debug.isTextEnabled());
+
+        controller.onKeyAction(GameKey.F3);
+        assertFalse(debug.isTextEnabled());
+    }
+
+    @Test
+    void theMapKeysOnlyActWhileTheDebugModeIsOn() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController wired = withCallbacks(calls);
+
+        wired.onKeyAction(GameKey.F4);
+        wired.onKeyAction(GameKey.F5);
+        assertTrue(calls.isEmpty(), "debug mode is off");
+
+        wired.onKeyAction(GameKey.F1);
+        wired.onKeyAction(GameKey.F4);
+        wired.onKeyAction(GameKey.F5);
+        assertEquals(List.of("mapPanel", "newMap"), calls);
+    }
+
+    @Test
+    void theMapKeysDoNothingWithoutCallbacksEvenInDebugMode() {
+        final KeyController bare = new KeyController(null, null, null, null, null, null);
+        bare.onKeyAction(GameKey.F1);
+
+        bare.onKeyAction(GameKey.F4);
+        bare.onKeyAction(GameKey.F5);
+        bare.onKeyAction(GameKey.ESCAPE);
+        bare.onKeyAction(GameKey.DIGIT_3);
+
+        assertTrue(AppConfig.getInstance().debug().isEnabled(), "only the debug toggle ran");
     }
 }

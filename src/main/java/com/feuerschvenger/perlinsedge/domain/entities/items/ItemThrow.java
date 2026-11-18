@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -51,16 +50,16 @@ public final class ItemThrow {
      * @return {x, y} of the landing tile
      */
     public static int[] landingTile(TileMap map, int fromX, int fromY, int direction) {
-        int[] offset = offsetOf(direction);
         int landingX = fromX;
         int landingY = fromY;
         if (map == null) {
             return new int[]{landingX, landingY};
         }
-        for (int step = 1; step <= MAX_DISTANCE; step++) {
+        int[] offset = offsetOf(direction);
+        for (var step = 1; step <= MAX_DISTANCE; step++) {
             int x = fromX + offset[0] * step;
             int y = fromY + offset[1] * step;
-            Tile tile = map.getTile(x, y);
+            var tile = map.getTile(x, y);
             if (tile == null || !tile.isWalkable() || cutsCorner(map, landingX, landingY, offset)) {
                 break;
             }
@@ -82,7 +81,7 @@ public final class ItemThrow {
     }
 
     private static boolean isOpen(TileMap map, int x, int y) {
-        Tile tile = map.getTile(x, y);
+        var tile = map.getTile(x, y);
         return tile != null && tile.isWalkable();
     }
 }

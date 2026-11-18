@@ -7,9 +7,8 @@ package com.feuerschvenger.perlinsedge.domain.pathfinding;
 public final class PathNode implements Comparable<PathNode> {
     public final int x;
     public final int y;
-    public double gCost;  // Cost from start node
-    public double hCost;  // Heuristic cost to target
-    public double fCost;  // Total cost (gCost + hCost)
+    private double gCost;  // Cost from start node
+    private double fCost;  // Total cost (gCost plus the heuristic cost to the target)
 
     /**
      * Creates a new path node at the specified coordinates.
@@ -19,6 +18,22 @@ public final class PathNode implements Comparable<PathNode> {
         this.y = y;
     }
 
+    /**
+     * Sets the costs of the node for a search.
+     *
+     * @param gCost cost from the start node
+     * @param hCost heuristic cost to the target
+     */
+    public void setCosts(double gCost, double hCost) {
+        this.gCost = gCost;
+        this.fCost = gCost + hCost;
+    }
+
+    /** @return the cost from the start node */
+    public double getGCost() {
+        return gCost;
+    }
+
     @Override
     public int compareTo(PathNode other) {
         return Double.compare(this.fCost, other.fCost);
@@ -26,9 +41,13 @@ public final class PathNode implements Comparable<PathNode> {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        PathNode pathNode = (PathNode) o;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        var pathNode = (PathNode) o;
         return x == pathNode.x && y == pathNode.y;
     }
 

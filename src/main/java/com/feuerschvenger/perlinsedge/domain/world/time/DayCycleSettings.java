@@ -27,21 +27,43 @@ public record DayCycleSettings(double dawnSeconds, double daySeconds, double dus
     /**
      * Validates the values.
      *
-     * @throws IllegalArgumentException if a value is not a finite number, a duration is not positive, the start is
+     * @throws IllegalArgumentException if a value is not a finite number, a duration is not positive, the cycle is not
+     *                                  of finite length, the start is
      *                                  negative, the number of shadow steps is not odd or the shadow length range is
      *                                  empty
      */
     public DayCycleSettings {
+        requirePositivePhases(dawnSeconds, daySeconds, duskSeconds, nightSeconds);
+        requireValidStart(startSeconds);
+        requireOddShadowSteps(shadowSteps);
+        requireOrderedShadowLengths(minShadowLength, maxShadowLength);
+    }
+
+    /** The phases and their sum must be finite and above zero: the sum is the length every clock reading is wrapped by. */
+    private static void requirePositivePhases(double dawnSeconds, double daySeconds, double duskSeconds,
+                                              double nightSeconds) {
         if (!isPositive(dawnSeconds) || !isPositive(daySeconds) || !isPositive(duskSeconds)
                 || !isPositive(nightSeconds)) {
             throw new IllegalArgumentException("Every phase must last longer than zero seconds");
         }
+        if (!Double.isFinite(dawnSeconds + daySeconds + duskSeconds + nightSeconds)) {
+            throw new IllegalArgumentException("The cycle must have a finite length");
+        }
+    }
+
+    private static void requireValidStart(double startSeconds) {
         if (!Double.isFinite(startSeconds) || startSeconds < 0) {
             throw new IllegalArgumentException("The start must be a finite number that is not negative");
         }
-        if (shadowSteps < 1 || shadowSteps % 2 == 0) {
+    }
+
+    private static void requireOddShadowSteps(int shadowSteps) {
+        if (shadowSteps < 1 || (shadowSteps & 1) == 0) {
             throw new IllegalArgumentException("The shadow steps must be an odd number so one is centred on noon");
         }
+    }
+
+    private static void requireOrderedShadowLengths(double minShadowLength, double maxShadowLength) {
         if (!isPositive(minShadowLength) || !Double.isFinite(maxShadowLength) || maxShadowLength < minShadowLength) {
             throw new IllegalArgumentException("The shadow length range must be positive and ordered");
         }

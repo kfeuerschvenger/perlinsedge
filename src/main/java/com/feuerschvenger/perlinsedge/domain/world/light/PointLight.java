@@ -23,7 +23,7 @@ public record PointLight(double x, double y, double radius, Rgba colour, double 
      *                                  or the flicker is missing
      */
     public PointLight {
-        if (!(radius > 0.0)) {
+        if (Double.isNaN(radius) || radius <= 0.0) {
             throw new IllegalArgumentException("A light needs a radius above zero");
         }
         if (!(intensity >= 0.0 && intensity <= 1.0)) {

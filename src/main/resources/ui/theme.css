@@ -92,6 +92,14 @@
     -fx-fill: -pe-muted;
 }
 
+/* The title of a small HUD panel: bold, a step above the 12px lines under it, with room before the first line */
+.pe-panel-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -pe-text;
+    -fx-padding: 0 0 4 0;
+}
+
 .pe-small {
     -fx-font-size: 12px;
 }

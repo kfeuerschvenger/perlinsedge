@@ -1,11 +1,16 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.layout.*;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.VBox;
 
 import java.util.function.Consumer;
 
@@ -13,12 +18,22 @@ import java.util.function.Consumer;
  * Panel for selecting a map type before starting a new game.
  * Displays a grid of map options as styled buttons.
  */
-public class MapSelectionPanel extends VBox {
+public final class MapSelectionPanel extends VBox {
+    private static final double PANEL_SPACING = 20;
+    private static final double GRID_GAP = 20;
+    private static final double GRID_PADDING = 20;
+    /** Columns of the map grid. */
+    private static final int GRID_COLUMNS = 3;
+    /** The whole of a grid, as the percentage its columns or rows share. */
+    private static final double FULL_PERCENT = 100.0;
+    private static final double BUTTON_WIDTH = 160;
+    private static final double BUTTON_HEIGHT = 36;
+
     private Consumer<MapType> onMapSelected;
     private Runnable onBackAction;
 
     public MapSelectionPanel() {
-        setSpacing(20); // Spacing between elements in the VBox
+        setSpacing(PANEL_SPACING); // Spacing between elements in the VBox
         setAlignment(Pos.CENTER); // Center elements horizontally and vertically
 
         minWidthProperty().bind(prefWidthProperty());
@@ -27,21 +42,21 @@ public class MapSelectionPanel extends VBox {
         getStyleClass().add(UiTheme.PANEL);
 
         // Title text
-        Label title = new Label(UiTheme.caps("Select a Map"));
+        var title = new Label(UiTheme.caps("Select a Map"));
         title.getStyleClass().add(UiTheme.TITLE);
 
         // Map grid container
-        GridPane mapGrid = new GridPane();
-        mapGrid.setHgap(20); // Horizontal gap between cells
-        mapGrid.setVgap(20); // Vertical gap between cells
-        mapGrid.setPadding(new Insets(20)); // Padding around the grid
+        var mapGrid = new GridPane();
+        mapGrid.setHgap(GRID_GAP); // Horizontal gap between cells
+        mapGrid.setVgap(GRID_GAP); // Vertical gap between cells
+        mapGrid.setPadding(new Insets(GRID_PADDING)); // Padding around the grid
         mapGrid.setAlignment(Pos.CENTER); // Center the grid within its allocated space
 
         // Define responsive column constraints (3 columns, each taking 1/3 of available width)
-        for (int i = 0; i < 3; i++) {
-            ColumnConstraints cc = new ColumnConstraints();
+        for (var i = 0; i < GRID_COLUMNS; i++) {
+            var cc = new ColumnConstraints();
             cc.setHgrow(Priority.ALWAYS); // Allow columns to grow horizontally
-            cc.setPercentWidth(100.0 / 3);
+            cc.setPercentWidth(FULL_PERCENT / GRID_COLUMNS);
             mapGrid.getColumnConstraints().add(cc);
         }
 
@@ -56,37 +71,37 @@ public class MapSelectionPanel extends VBox {
         };
 
         // Define responsive row constraints (based on number of rows needed)
-        int numRows = (int) Math.ceil(selectableMaps.length / 3.0); // Calculate rows needed (e.g., 6 maps / 3 cols = 2 rows)
-        for (int i = 0; i < numRows; i++) {
-            RowConstraints rc = new RowConstraints();
+        var numRows = Math.ceilDiv(selectableMaps.length, GRID_COLUMNS); // Calculate rows needed (e.g., 6 maps / 3 cols = 2 rows)
+        for (var i = 0; i < numRows; i++) {
+            var rc = new RowConstraints();
             rc.setVgrow(Priority.ALWAYS); // Allow rows to grow vertically
-            rc.setPercentHeight(100.0 / numRows);
+            rc.setPercentHeight(FULL_PERCENT / numRows);
             mapGrid.getRowConstraints().add(rc);
         }
 
 
-        int col = 0;
-        int row = 0;
+        var col = 0;
+        var row = 0;
         for (MapType mapType : selectableMaps) {
-            Button mapButton = createMapButton(mapType);
+            var mapButton = createMapButton(mapType);
             mapGrid.add(mapButton, col, row);
 
-            mapButton.setOnAction(e -> {
+            mapButton.setOnAction((ActionEvent e) -> {
                 if (onMapSelected != null) {
                     onMapSelected.accept(mapType);
                 }
             });
 
             col++;
-            if (col >= 3) { // 3 columns per row
+            if (col >= GRID_COLUMNS) {
                 col = 0;
                 row++;
             }
         }
 
         // "Back" button
-        Button backButton = createMenuButton("Back");
-        backButton.setOnAction(e -> {
+        var backButton = createMenuButton("Back");
+        backButton.setOnAction((ActionEvent e) -> {
             if (onBackAction != null) {
                 onBackAction.run();
             }
@@ -104,8 +119,8 @@ public class MapSelectionPanel extends VBox {
      * @param mapType The MapType associated with this button.
      * @return The configured Button.
      */
-    private Button createMapButton(MapType mapType) {
-        Button button = new Button(UiTheme.caps(mapType.getDisplayName()));
+    private static Button createMapButton(MapType mapType) {
+        var button = new Button(UiTheme.caps(mapType.getDisplayName()));
         button.getStyleClass().add(UiTheme.CARD);
         // Set maximum width/height so button fills its grid cell
         button.setMaxWidth(Double.MAX_VALUE);
@@ -118,10 +133,10 @@ public class MapSelectionPanel extends VBox {
      * @param text The text for the button.
      * @return The configured Button.
      */
-    private Button createMenuButton(String text) {
-        Button button = new Button(UiTheme.caps(text));
-        button.setPrefWidth(160);
-        button.setPrefHeight(36);
+    private static Button createMenuButton(String text) {
+        var button = new Button(UiTheme.caps(text));
+        button.setPrefWidth(BUTTON_WIDTH);
+        button.setPrefHeight(BUTTON_HEIGHT);
         return button;
     }
 

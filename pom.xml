@@ -25,6 +25,15 @@
 
     <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
     <versions-maven-plugin.version>2.25.1</versions-maven-plugin.version>
+    <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
+    <sonar-maven-plugin.version>5.9.0.7382</sonar-maven-plugin.version>
+
+    <!-- SonarQube analysis, run with ./mvnw verify sonar:sonar -Dsonar.token=... -->
+    <sonar.projectKey>perlinsedge</sonar.projectKey>
+    <sonar.host.url>http://localhost:9000</sonar.host.url>
+    <!-- Vendored third-party code (FastNoiseLite, MIT), kept identical to upstream -->
+    <sonar.exclusions>**/infra/noise/FastNoiseLite.java</sonar.exclusions>
+    <sonar.coverage.exclusions>**/infra/noise/FastNoiseLite.java</sonar.coverage.exclusions>
 
     <!-- JavaFX native classifier. Set by the OS profiles below, override with -Djavafx.platform=linux.
          The sentinel makes the build fail on an unsupported platform instead of picking the wrong natives. -->
@@ -94,6 +103,11 @@
           <artifactId>versions-maven-plugin</artifactId>
           <version>${versions-maven-plugin.version}</version>
         </plugin>
+        <plugin>
+          <groupId>org.sonarsource.scanner.maven</groupId>
+          <artifactId>sonar-maven-plugin</artifactId>
+          <version>${sonar-maven-plugin.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
@@ -141,6 +155,28 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
+      </plugin>
+
+      <!-- Coverage for SonarQube: the agent hooks the surefire run, the report lands in target/site/jacoco -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco-maven-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
 
       <!-- Runnable fat jar, one per platform (the JavaFX natives differ per OS) -->

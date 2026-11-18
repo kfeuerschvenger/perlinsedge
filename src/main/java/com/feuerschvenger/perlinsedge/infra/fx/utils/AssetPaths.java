@@ -52,8 +52,36 @@ public final class AssetPaths {
             MapType.DESERT, overrides("dune"),
             MapType.TUNDRA, overrides("snow"));
 
+    /** The art of every tile type on a map that has no art of its own for it, one entry for each type. */
+    private static final Map<TileType, String> TILE_ART = tileArtTable();
+
     /** Not instantiable: the class only holds paths and rules. */
     private AssetPaths() {}
+
+    /** Builds the table of the shared art, and fails at once when a tile type has none. */
+    private static Map<TileType, String> tileArtTable() {
+        final Map<TileType, String> table = new EnumMap<>(TileType.class);
+        table.put(TileType.GRASS, "grass");
+        table.put(TileType.FOREST, "forest");
+        table.put(TileType.SAVANNA, "savanna");
+        table.put(TileType.HILL, "hill");
+        table.put(TileType.SAND, "sand");
+        table.put(TileType.BEACH, "sand");
+        table.put(TileType.SHALLOW_WATER, "bed");
+        table.put(TileType.RIVER, "bed");
+        table.put(TileType.COAST, "bed");
+        table.put(TileType.DEEP_WATER, "bed-deep");
+        table.put(TileType.MOUNTAIN, "mountain");
+        table.put(TileType.SNOW, "snow");
+        table.put(TileType.ICE, "ice");
+        table.put(TileType.SWAMP, "swamp");
+        for (TileType type : TileType.values()) {
+            if (!table.containsKey(type)) {
+                throw new IllegalStateException("No tile art for " + type);
+            }
+        }
+        return Map.copyOf(table);
+    }
 
     /** Maps every grassy land type to one art, for a biome whose ground is not grass. */
     private static Map<TileType, String> overrides(String art) {
@@ -71,19 +99,7 @@ public final class AssetPaths {
      * @return the name, for example grass; water types answer the sunk sand block under their water, fogged more for deep water
      */
     public static String tileArt(TileType type) {
-        return switch (type) {
-            case GRASS -> "grass";
-            case FOREST -> "forest";
-            case SAVANNA -> "savanna";
-            case HILL -> "hill";
-            case SAND, BEACH -> "sand";
-            case SHALLOW_WATER, RIVER, COAST -> "bed";
-            case DEEP_WATER -> "bed-deep";
-            case MOUNTAIN -> "mountain";
-            case SNOW -> "snow";
-            case ICE -> "ice";
-            case SWAMP -> "swamp";
-        };
+        return TILE_ART.get(type);
     }
 
     /**

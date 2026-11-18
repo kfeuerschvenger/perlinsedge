@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Camera;
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import javafx.scene.canvas.Canvas;
 
@@ -10,11 +11,27 @@ import javafx.scene.canvas.Canvas;
  * and tile-centered repositioning with boundary constraints.
  */
 public class FxCamera extends Camera {
+
+    /** Tiles kept around the visible area so a tile just outside the edge is still drawn. */
+    private static final int VISIBLE_TILE_PADDING = 3;
+    /** Fraction of the viewport, or of the space left over, that puts something in the middle. */
+    private static final double CENTER_FACTOR = 0.5;
+
     private final AppConfig config;
 
+    /**
+     * Creates a camera. The zoom is snapped to the step grid by {@link Camera#setZoom(double)}, so a camera never
+     * starts at a zoom the art cannot be drawn at.
+     *
+     * @param x    initial horizontal offset, rounded to a whole pixel
+     * @param y    initial vertical offset, rounded to a whole pixel
+     * @param zoom initial zoom
+     */
     public FxCamera(double x, double y, double zoom) {
         super(Math.rint(x), Math.rint(y), zoom);
         this.config = AppConfig.getInstance();
+        ZoomSteps.requireValidRange(config.core().getMinZoom(), config.core().getMaxZoom(),
+                config.core().getZoomStep());
     }
 
     /**
@@ -28,13 +45,13 @@ public class FxCamera extends Camera {
         double proposedX = x + dx;
         double proposedY = y + dy;
 
-        Bounds bounds = calculateBounds(canvas.getWidth(), canvas.getHeight());
+        var bounds = calculateBounds(canvas.getWidth(), canvas.getHeight());
         double clampedX = clamp(proposedX, bounds.minX(), bounds.maxX());
         double clampedY = clamp(proposedY, bounds.minY(), bounds.maxY());
 
         clampedX = Math.rint(clampedX);
         clampedY = Math.rint(clampedY);
-        if (clampedX != x || clampedY != y) {
+        if (Doubles.differs(clampedX, x) || Doubles.differs(clampedY, y)) {
             x = clampedX;
             y = clampedY;
         }
@@ -68,11 +85,13 @@ public class FxCamera extends Camera {
         double targetZoom = ZoomSteps.move(zoom, direction,
                 config.core().getMinZoom(), config.core().getMaxZoom(), config.core().getZoomStep());
 
-        if (targetZoom == originalZoom) return;
+        if (Doubles.areEqual(targetZoom, originalZoom)) {
+            return;
+        }
 
         double scale = targetZoom / originalZoom;
         zoom = targetZoom;
-        final Bounds bounds = calculateBounds(viewportWidth, viewportHeight);
+        final var bounds = calculateBounds(viewportWidth, viewportHeight);
         x = Math.rint(clamp((x - centerX) * scale + centerX, bounds.minX(), bounds.maxX()));
         y = Math.rint(clamp((y - centerY) * scale + centerY, bounds.minY(), bounds.maxY()));
     }
@@ -85,8 +104,8 @@ public class FxCamera extends Camera {
      * @param canvas reference canvas for viewport dimensions
      */
     public void centerOnTile(double tileX, double tileY, Canvas canvas) {
-        double viewportCenterX = canvas.getWidth() * 0.5;
-        double viewportCenterY = canvas.getHeight() * 0.5;
+        double viewportCenterX = canvas.getWidth() * CENTER_FACTOR;
+        double viewportCenterY = canvas.getHeight() * CENTER_FACTOR;
 
         double worldX = (tileX - tileY) * config.graphics().getTileHalfWidth() * zoom;
         double worldY = (tileX + tileY) * config.graphics().getTileHalfHeight() * zoom;
@@ -120,11 +139,10 @@ public class FxCamera extends Camera {
         double maxY = max(topLeft[1], topRight[1], bottomLeft[1], bottomRight[1]);
 
         // Add padding and clamp to map boundaries
-        final int padding = 3;
-        int minTileX = clamp((int) Math.floor(minX) - padding, mapWidth);
-        int maxTileX = clamp((int) Math.ceil(maxX) + padding, mapWidth);
-        int minTileY = clamp((int) Math.floor(minY) - padding, mapHeight);
-        int maxTileY = clamp((int) Math.ceil(maxY) + padding, mapHeight);
+        var minTileX = clamp((int) Math.floor(minX) - VISIBLE_TILE_PADDING, mapWidth);
+        var maxTileX = clamp((int) Math.ceil(maxX) + VISIBLE_TILE_PADDING, mapWidth);
+        var minTileY = clamp((int) Math.floor(minY) - VISIBLE_TILE_PADDING, mapHeight);
+        var maxTileY = clamp((int) Math.ceil(maxY) + VISIBLE_TILE_PADDING, mapHeight);
 
         return new int[]{minTileX, maxTileX, minTileY, maxTileY};
     }
@@ -142,14 +160,17 @@ public class FxCamera extends Camera {
 
     /** Works out the range the camera offset may take at the current zoom for a viewport of the given size. */
     private Bounds calculateBounds(double viewportWidth, double viewportHeight) {
-        CornerPoints corners = computeCornerPoints(zoom);
+        var corners = computeCornerPoints(zoom);
         double totalWidth = corners.maxX() - corners.minX();
         double totalHeight = corners.maxY() - corners.minY();
 
-        double minX, maxX, minY, maxY;
+        double minX;
+        double maxX;
+        double minY;
+        double maxY;
 
         if (totalWidth < viewportWidth) {
-            double centerOffsetX = (viewportWidth - totalWidth) * 0.5;
+            double centerOffsetX = (viewportWidth - totalWidth) * CENTER_FACTOR;
             minX = centerOffsetX - corners.minX();
             maxX = minX;
         } else {
@@ -158,7 +179,7 @@ public class FxCamera extends Camera {
         }
 
         if (totalHeight < viewportHeight) {
-            double centerOffsetY = (viewportHeight - totalHeight) * 0.5;
+            double centerOffsetY = (viewportHeight - totalHeight) * CENTER_FACTOR;
             minY = centerOffsetY - corners.minY();
             maxY = minY;
         } else {
@@ -175,7 +196,8 @@ public class FxCamera extends Camera {
         double halfTileW = config.graphics().getTileHalfWidth() * zoomLevel;
         double halfTileH = config.graphics().getTileHalfHeight() * zoomLevel;
 
-        double x1 = 0, y1 = 0;
+        double x1 = 0;
+        double y1 = 0;
         double x2 = (w - h) * halfTileW;
         double y2 = (w + h) * halfTileH;
         double x3 = -h * halfTileW;
@@ -202,7 +224,7 @@ public class FxCamera extends Camera {
     }
 
     private static double clamp(double value, double min, double max) {
-        return value < min ? min : (Math.min(value, max));
+        return Math.clamp(value, min, max);
     }
 
     private static int clamp(int value, int max) {

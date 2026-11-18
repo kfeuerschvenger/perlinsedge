@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
@@ -18,7 +17,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
-
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -36,6 +35,9 @@ public class MapManager implements IMapGenerationListener {
     private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
 
+    /** Stands for "no position found", so a search never returns null. */
+    private static final int[] NO_POSITION = new int[0];
+
     // Tile validator predicate
     private static final Predicate<Tile> SPAWN_VALIDATOR =
             tile -> tile != null && tile.isWalkable();
@@ -44,8 +46,11 @@ public class MapManager implements IMapGenerationListener {
     private final GameStateManager gameState;
     private final MapConfigPanel mapConfigPanel;
     private final MapGeneratorFactory mapGeneratorFactory;
+    /** Draws the candidate tiles of the enemy spawn search. */
+    private final Random random = new Random();
 
     // State
+    @Getter
     private MapGenerationContext currentMapContext;
 
     public MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel) {
@@ -73,8 +78,8 @@ public class MapManager implements IMapGenerationListener {
      * @return Configured generation context
      */
     public MapGenerationContext createMapContext(MapType mapType, long seed) {
-        AppConfig.WorldConfig worldConfig = AppConfig.getInstance().world();
-        NoiseSettings heightProfile = NoiseSettings.heightProfile(mapType);
+        var worldConfig = AppConfig.getInstance().world();
+        var heightProfile = NoiseSettings.heightProfile(mapType);
         return new MapGenerationContext(
                 mapType,
                 seed,
@@ -148,7 +153,7 @@ public class MapManager implements IMapGenerationListener {
 
         int[] playerPosition = getPlayerPosition();
         // Every enemy takes a tile of its own: a tile held by one already spawned is never picked again
-        final EnemyOccupancy taken = new EnemyOccupancy();
+        final var taken = new EnemyOccupancy();
         spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map, taken);
         spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map, taken);
         spawnEnemyType(enemies, Skeleton.class, AppConfig.getInstance().world().getBaseSkeletonsCount(), playerPosition, map, taken);
@@ -164,10 +169,10 @@ public class MapManager implements IMapGenerationListener {
                                 int[] playerPosition, TileMap map, EnemyOccupancy taken) {
         logSpawnAttempt(type.getSimpleName(), count);
 
-        for (int i = 0; i < count; i++) {
+        for (var i = 0; i < count; i++) {
             int[] position = findSafePosition(playerPosition, map, taken);
-            if (position != null) {
-                final Enemy enemy = createEnemy(type, position[0], position[1]);
+            if (position.length > 0) {
+                final var enemy = createEnemy(type, position[0], position[1]);
                 taken.sync(enemy);
                 enemies.add(enemy);
             } else {
@@ -179,10 +184,16 @@ public class MapManager implements IMapGenerationListener {
     /**
      * Creates an enemy instance based on type.
      */
-    private Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
-        if (type == Slime.class) return new Slime(x, y);
-        if (type == Mimic.class) return new Mimic(x, y);
-        if (type == Skeleton.class) return new Skeleton(x, y);
+    private static Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
+        if (type == Slime.class) {
+            return new Slime(x, y);
+        }
+        if (type == Mimic.class) {
+            return new Mimic(x, y);
+        }
+        if (type == Skeleton.class) {
+            return new Skeleton(x, y);
+        }
         throw new IllegalArgumentException("Unsupported enemy type: " + type);
     }
 
@@ -192,27 +203,28 @@ public class MapManager implements IMapGenerationListener {
      * - Distance from player
      * - Sufficient adjacent walkable tiles
      * - A tile no other enemy holds
+     *
+     * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
     private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
-        Random random = new Random();
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
 
-        for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            int x = random.nextInt(map.getWidth());
-            int y = random.nextInt(map.getHeight());
+        for (var attempt = 0; attempt < maxAttempts; attempt++) {
+            var x = random.nextInt(map.getWidth());
+            var y = random.nextInt(map.getHeight());
 
             if (taken.ownerOf(x, y) == null && isValidSpawnPosition(x, y, playerPosition, map)) {
                 return new int[]{x, y};
             }
         }
-        return null;
+        return NO_POSITION;
     }
 
     /**
      * Validates a potential spawn position.
      */
-    private boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
-        Tile tile = map.getTile(x, y);
+    private static boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
+        var tile = map.getTile(x, y);
         if (tile == null || !tile.isWalkable()) {
             return false;
         }
@@ -222,8 +234,8 @@ public class MapManager implements IMapGenerationListener {
         }
 
         if (playerPosition != null) {
-            double distance = Math.hypot(x - playerPosition[0], y - playerPosition[1]);
-            return !(distance < MIN_SPAWN_DISTANCE);
+            double distance = Math.hypot((double) x - playerPosition[0], (double) y - playerPosition[1]);
+            return distance >= MIN_SPAWN_DISTANCE;
         }
 
         return true;
@@ -232,12 +244,12 @@ public class MapManager implements IMapGenerationListener {
     /**
      * Checks if position has sufficient walkable neighbors.
      */
-    private boolean isPositionSurrounded(int x, int y, TileMap map) {
+    private static boolean isPositionSurrounded(int x, int y, TileMap map) {
         return IsometricUtils.isPositionSurrounded(
                 x, y, map,
                 SPAWN_VALIDATOR,
                 MIN_WALKABLE_NEIGHBORS,
-                IsometricUtils.CARDINAL_DIRECTIONS
+                IsometricUtils.cardinalDirections()
         );
     }
 
@@ -245,7 +257,7 @@ public class MapManager implements IMapGenerationListener {
      * Retrieves player position if available.
      */
     private int[] getPlayerPosition() {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         return (player != null) ? new int[]{player.getCurrentTileX(), player.getCurrentTileY()} : null;
     }
 
@@ -265,12 +277,6 @@ public class MapManager implements IMapGenerationListener {
 
     private void logSpawnSummary(int total) {
         log.debug("Spawned {} total enemies", total);
-    }
-
-    // --- Getters ---
-
-    public MapGenerationContext getCurrentMapContext() {
-        return currentMapContext;
     }
 
 }

@@ -12,7 +12,7 @@ import javafx.util.Duration;
  * opacity the label has at that moment, so the label never jumps to full opacity when it is shown again mid fade.
  * The label never takes mouse events, so it cannot block clicks on the world behind it.
  */
-public class HintLabel extends Label {
+public final class HintLabel extends Label {
     private static final double FADE_IN_MS = 120;
     private static final double VISIBLE_MS = 1600;
     private static final double FADE_OUT_MS = 500;
@@ -25,11 +25,11 @@ public class HintLabel extends Label {
         getStyleClass().add(UiTheme.PILL);
 
         // Both fades have fixed end points, so the opacity is a function of the time inside the cycle alone
-        FadeTransition in = new FadeTransition(Duration.millis(FADE_IN_MS), this);
+        var in = new FadeTransition(Duration.millis(FADE_IN_MS), this);
         in.setFromValue(0);
         in.setToValue(1);
-        PauseTransition hold = new PauseTransition(Duration.millis(VISIBLE_MS));
-        FadeTransition out = new FadeTransition(Duration.millis(FADE_OUT_MS), this);
+        var hold = new PauseTransition(Duration.millis(VISIBLE_MS));
+        var out = new FadeTransition(Duration.millis(FADE_OUT_MS), this);
         out.setFromValue(1);
         out.setToValue(0);
         cycle = new SequentialTransition(in, hold, out);
@@ -61,6 +61,6 @@ public class HintLabel extends Label {
      * @return milliseconds from the start of the cycle
      */
     static double resumePositionMs(double opacity) {
-        return Math.max(0, Math.min(1, opacity)) * FADE_IN_MS;
+        return Math.clamp(opacity, 0.0, 1.0) * FADE_IN_MS;
     }
 }
