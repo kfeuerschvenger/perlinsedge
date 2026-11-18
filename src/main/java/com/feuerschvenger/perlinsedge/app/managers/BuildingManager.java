@@ -3,16 +3,19 @@ package com.feuerschvenger.perlinsedge.app.managers;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,6 +33,10 @@ public class BuildingManager {
     private static final double PREVIEW_OPACITY = 0.7;
     /** The tile offsets of the four neighbours that share an edge with a tile, not the diagonal ones. */
     private static final int[][] EDGE_NEIGHBOURS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    /** How many tiles away from the player a refund pile is looked for when the player's own tile is no ground. */
+    private static final int REFUND_SEARCH_RADIUS = 4;
+    /** The hint of a piece, a demolition or a closing gate that is refused because someone is in the tile. */
+    private static final String HINT_IN_THE_WAY = "Something is standing there";
 
     // Dependencies
     private final GameStateManager gameState;
@@ -46,6 +53,8 @@ public class BuildingManager {
     private BuildingType lastBuildingType;
     /** The rotation chosen for each piece type, kept while the hammer stays in hand. */
     private final Map<BuildingType, Integer> rotations = new EnumMap<>(BuildingType.class);
+    /** Whether a piece of each type blocks walking, read once from a sample piece of the type. */
+    private final Map<BuildingType, Boolean> blocksWalking = new EnumMap<>(BuildingType.class);
     @Getter
     private boolean buildingModeActive;
 
@@ -247,8 +256,8 @@ public class BuildingManager {
      *
      * @param worldX tile X
      * @param worldY tile Y
-     * @return true when the floor was demolished and refunded, false when there is none, a piece stands on it, or it
-     *         cannot be destroyed
+     * @return true when the floor was demolished and refunded, false when there is none, a piece stands on it, the
+     *         player or a living enemy is on or stepping to the tile, or it cannot be destroyed
      */
     public boolean removeFloor(int worldX, int worldY) {
         final var tileMap = gameState.getCurrentMap();
@@ -265,6 +274,11 @@ public class BuildingManager {
         if (!floor.isDestructible()) {
             return false;
         }
+        if (isEntityOn(worldX, worldY)) {
+            log.debug("The floor at ({}, {}) has the player or an enemy on it", worldX, worldY);
+            hintSink.accept(HINT_IN_THE_WAY);
+            return false;
+        }
         tile.setFloor(null);
         refund(floor);
         log.info("Removed {} from ({}, {})", floor.getType().getDisplayName(), worldX, worldY);
@@ -274,7 +288,8 @@ public class BuildingManager {
     /**
      * Gives the player back the share of the recipe that matches the health the building has left: for each
      * ingredient {@code floor(quantity * health / maxHealth)} items. What the inventory has no room for is dropped as a
-     * pile at the player's feet.
+     * pile on the player's tile, or on the nearest ground when that tile is none, and what a chest held falls out on
+     * its own tile. The views are told once, when everything has moved.
      */
     private void refund(Building building) {
         // What a chest held falls out on its own tile, whole, whatever its health
@@ -284,8 +299,12 @@ public class BuildingManager {
                     itemDropManager.dropAt(content, building.getTileX(), building.getTileY());
                 }
             }
-            onInventoryChanged.run();
         }
+        refundIngredients(building);
+        onInventoryChanged.run();
+    }
+
+    private void refundIngredients(Building building) {
         var player = gameState.getPlayer();
         Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(building.getType());
         if (player == null || recipe.isEmpty()) {
@@ -298,12 +317,43 @@ public class BuildingManager {
                 continue;
             }
             var refund = new Item(ingredient.itemType(), quantity);
+            // Container.addItem leaves in the item what it could not store, so a positive quantity is the leftover
             player.addItem(refund);
             if (refund.getQuantity() > 0) {
-                itemDropManager.dropAtFeet(refund, player);
+                dropOnGround(refund, player);
             }
         }
-        onInventoryChanged.run();
+    }
+
+    /** Drops a pile at the player's feet, or on the nearest walkable tile when the player's own tile is no ground. */
+    private void dropOnGround(Item pile, Player player) {
+        final var tileMap = gameState.getCurrentMap();
+        final int fromX = player.getCurrentTileX();
+        final int fromY = player.getCurrentTileY();
+        for (var radius = 0; tileMap != null && radius <= REFUND_SEARCH_RADIUS; radius++) {
+            if (dropOnRing(pile, tileMap, fromX, fromY, radius)) {
+                return;
+            }
+        }
+        itemDropManager.dropAtFeet(pile, player);
+    }
+
+    /** Drops the pile on the first ground tile at exactly the given Chebyshev radius from the origin, reporting whether it did. */
+    private boolean dropOnRing(Item pile, TileMap tileMap, int fromX, int fromY, int radius) {
+        for (var dx = -radius; dx <= radius; dx++) {
+            for (var dy = -radius; dy <= radius; dy++) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) == radius && isGround(tileMap, fromX + dx, fromY + dy)) {
+                    itemDropManager.dropAt(pile, fromX + dx, fromY + dy);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isGround(TileMap tileMap, int x, int y) {
+        final var tile = tileMap.getTile(x, y);
+        return tile != null && tile.isWalkable();
     }
 
     /**
@@ -326,6 +376,12 @@ public class BuildingManager {
         }
 
         var building = targetTile.getBuilding();
+        // Closing a gate on someone would trap them in it, so only opening is always allowed
+        if (building instanceof FenceGate gate && gate.isOpen() && isEntityOn(worldX, worldY)) {
+            log.debug("Gate at ({}, {}) cannot close with the player or an enemy in it", worldX, worldY);
+            hintSink.accept(HINT_IN_THE_WAY);
+            return false;
+        }
         boolean interacted = building.onInteract(targetTile);
 
         if (interacted && building instanceof Container container) {
@@ -369,7 +425,49 @@ public class BuildingManager {
             log.debug("Placement failed: No recipe for {}", selectedBuildingType.getDisplayName());
             return false;
         }
+        if (isBlockedByEntity(selectedBuildingType, worldX, worldY)) {
+            log.debug("Placement failed: The player or an enemy is on or moving to the tile");
+            hintSink.accept(HINT_IN_THE_WAY);
+            return false;
+        }
         return true;
+    }
+
+    /**
+     * Tells whether a piece that blocks walking would be put on a tile where the player or a living enemy stands or is
+     * stepping to, which would trap it inside the piece.
+     */
+    private boolean isBlockedByEntity(BuildingType type, int tileX, int tileY) {
+        return blocksWalking(type) && isEntityOn(tileX, tileY);
+    }
+
+    private boolean blocksWalking(BuildingType type) {
+        return blocksWalking.computeIfAbsent(type, t -> BuildingFactory.create(t, 0, 0).isSolid());
+    }
+
+    /**
+     * Tells whether the player or a living enemy stands on a tile or is stepping to it: the tile an entity stands on,
+     * the tile it has reserved as its target and, for the player, the next tile of its walk.
+     */
+    private boolean isEntityOn(int tileX, int tileY) {
+        final var player = gameState.getPlayer();
+        if (player != null && !player.isDead()) {
+            final var next = player.getNextTile();
+            if (holds(player, tileX, tileY) || (next != null && next.x == tileX && next.y == tileY)) {
+                return true;
+            }
+        }
+        for (var enemy : gameState.getEnemies()) {
+            if (!enemy.isDead() && holds(enemy, tileX, tileY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean holds(Entity entity, int tileX, int tileY) {
+        return (entity.getCurrentTileX() == tileX && entity.getCurrentTileY() == tileY)
+                || (entity.getTargetTileX() == tileX && entity.getTargetTileY() == tileY);
     }
 
     /**
@@ -421,37 +519,34 @@ public class BuildingManager {
             return false;
         }
 
-        switch (type) {
-            // A bridge is a floor over water that is next to land or to another bridge, so it grows out from
-            // the shore one tile at a time. Diagonal neighbours do not count: they share no edge to walk across
-            case BRIDGE -> {
-                boolean valid = !tile.hasFloor() && tile.getType().isWater() && touchesLandOrFloor(tile);
-                if (!valid) {
-                    log.debug("Invalid tile for {}: needs free water that shares an edge with land or a bridge",
-                            type.getDisplayName());
-                }
-                return valid;
-            }
-
+        return switch (type) {
+            case BRIDGE -> canPlaceBridge(type, tile);
             // The torch is the one piece that also stands on a floor
-            case STANDING_TORCH -> {
-                return tile.hasFloor() || isWalkableLand(tile);
-            }
-
+            case STANDING_TORCH -> tile.hasFloor() || isWalkableLand(tile);
             // Every other piece stands on land and never on a floor
-            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> {
-                boolean valid = !tile.hasFloor() && isWalkableLand(tile);
-                if (!valid) {
-                    log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
-                }
-                return valid;
-            }
+            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> canPlaceOnLand(type, tile);
+        };
+    }
 
-            default -> {
-                log.warn("Unhandled building type: {}", type);
-                return false;
-            }
+    /**
+     * A bridge is a floor over water that is next to land or to another bridge, so it grows out from the shore one
+     * tile at a time. Diagonal neighbours do not count: they share no edge to walk across.
+     */
+    private boolean canPlaceBridge(BuildingType type, Tile tile) {
+        boolean valid = !tile.hasFloor() && tile.getType().isWater() && touchesLandOrFloor(tile);
+        if (!valid) {
+            log.debug("Invalid tile for {}: needs free water that shares an edge with land or a bridge",
+                    type.getDisplayName());
         }
+        return valid;
+    }
+
+    private static boolean canPlaceOnLand(BuildingType type, Tile tile) {
+        boolean valid = !tile.hasFloor() && isWalkableLand(tile);
+        if (!valid) {
+            log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
+        }
+        return valid;
     }
 
     private static boolean isWalkableLand(Tile tile) {
@@ -501,11 +596,7 @@ public class BuildingManager {
         }
 
         Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
-        if (recipe.isEmpty()) {
-            return errorColor();
-        }
-
-        if (!canPlaceOnTile(selectedBuildingType, targetTile)) {
+        if (recipe.isEmpty() || isPlacementBlocked(targetTile, worldX, worldY)) {
             return errorColor();
         }
         if (!playerHasResources(player, recipe.orElse(null))) {
@@ -513,6 +604,10 @@ public class BuildingManager {
         }
 
         return Rgba.LIME_GREEN.withOpacityFactor(PREVIEW_OPACITY);
+    }
+
+    private boolean isPlacementBlocked(Tile targetTile, int worldX, int worldY) {
+        return !canPlaceOnTile(selectedBuildingType, targetTile) || isBlockedByEntity(selectedBuildingType, worldX, worldY);
     }
 
     /**

@@ -396,7 +396,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         for (int i = -1; i < DX.length; i++) {
             final int x = fromX + (i < 0 ? 0 : DX[i]);
             final int y = fromY + (i < 0 ? 0 : DY[i]);
-            if (isPlayerTile(x, y, player) || !occupancy.isFreeFor(enemy, x, y) || !canHop(map, fromX, fromY, x, y)) {
+            if (!canLandOn(enemy, map, player, x, y)) {
                 continue;
             }
             final double distance = Math.hypot(x - enemy.getPosX(), y - enemy.getPosY());
@@ -420,6 +420,12 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         final double duration = Math.clamp(hopDuration * bestDistance,
                 MIN_BEND_FRACTION * hopDuration, MAX_BEND_FRACTION * hopDuration);
         beginSegment(enemy, duration, jumpPhase);
+    }
+
+    /** Tells whether the enemy may hop from its take-off tile to a tile: not the player's, held by no other enemy, and walkable. */
+    private boolean canLandOn(Enemy enemy, TileMap map, Player player, int x, int y) {
+        return !isPlayerTile(x, y, player) && occupancy.isFreeFor(enemy, x, y)
+                && canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), x, y);
     }
 
     /**

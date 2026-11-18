@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -85,7 +86,7 @@ public final class MapSelectionPanel extends VBox {
             var mapButton = createMapButton(mapType);
             mapGrid.add(mapButton, col, row);
 
-            mapButton.setOnAction(e -> {
+            mapButton.setOnAction((ActionEvent e) -> {
                 if (onMapSelected != null) {
                     onMapSelected.accept(mapType);
                 }
@@ -100,7 +101,7 @@ public final class MapSelectionPanel extends VBox {
 
         // "Back" button
         var backButton = createMenuButton("Back");
-        backButton.setOnAction(e -> {
+        backButton.setOnAction((ActionEvent e) -> {
             if (onBackAction != null) {
                 onBackAction.run();
             }

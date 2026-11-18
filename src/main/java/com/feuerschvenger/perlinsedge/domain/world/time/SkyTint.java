@@ -6,15 +6,16 @@ import com.feuerschvenger.perlinsedge.domain.utils.ColourChannels;
  * The tint of the sky at the moment the clock stands at: a colour and how strongly it is laid over the world. The
  * {@link DayCycle} keeps one instance and works it out in place when the clock moves, so asking for the tint of a frame
  * allocates nothing even in the middle of a transition. The values are only good until the clock moves again, so a
- * caller reads them in the frame it asked in and does not keep the object.
+ * caller reads them in the frame it asked in and does not keep the object. The class does not leave the package: the
+ * rest of the game reads the tint through the accessors of the {@link DayCycle}.
  */
-public final class SkyTint implements ColourChannels {
+final class SkyTint implements ColourChannels {
     private double r;
     private double g;
     private double b;
     private double strength;
 
-    /** Package private: only the cycle that owns the instance changes it. */
+    /** Only the cycle that owns the instance creates and changes it. */
     SkyTint() {
     }
 

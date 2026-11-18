@@ -18,6 +18,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Window;
+import javafx.util.Subscription;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -82,14 +83,13 @@ class InventoryController {
 
     /** Window whose focus is being followed, or null. */
     private Window watchedWindow;
-    /** The focus value of {@link #watchedWindow} that {@link #focusListener} is registered on, or null. */
-    private ObservableValue<Boolean> watchedFocus;
+    /** The subscription to the focus value of {@link #watchedWindow}, or null. */
+    private Subscription focusSubscription;
     /** Where the focus of a window is read from: its own focus property. */
     private Function<Window, ObservableValue<Boolean>> focusSource = Window::focusedProperty;
 
     private final EventHandler<MouseEvent> sceneMouseFilter = this::handleSceneMouse;
-    private final ChangeListener<Boolean> focusListener = (observable, wasFocused, focused) -> handleWindowFocus(focused);
-    private final ChangeListener<Window> windowListener = (observable, oldWindow, newWindow) -> {
+    private final ChangeListener<Window> windowListener = (ObservableValue<? extends Window> observable, Window oldWindow, Window newWindow) -> {
         unwatchFocus(oldWindow);
         watchFocus(newWindow);
     };
@@ -156,22 +156,22 @@ class InventoryController {
             return;
         }
         final ObservableValue<Boolean> focus = focusSource.apply(window);
-        focus.addListener(focusListener);
-        // The window is only recorded once the listener is on its focus value, so the record is the registration
+        // The change overload does not fire on subscribe, so watching a window never reports a focus change
+        focusSubscription = focus.subscribe((Boolean wasFocused, Boolean focused) -> handleWindowFocus(focused));
+        // The window is only recorded once the subscription is on its focus value, so the record is the registration
         watchedWindow = window;
-        watchedFocus = focus;
     }
 
     private void unwatchFocus(Window window) {
         if (window != null && watchedWindow == window) {
-            watchedFocus.removeListener(focusListener);
+            focusSubscription.unsubscribe();
             watchedWindow = null;
-            watchedFocus = null;
+            focusSubscription = null;
         }
     }
 
     /**
-     * Test seam: the window whose focus value currently has {@link #focusListener} registered.
+     * Test seam: the window whose focus value is currently subscribed to.
      *
      * @return the watched window, or null when none is watched
      */
@@ -187,16 +187,6 @@ class InventoryController {
      */
     void setFocusSource(Function<Window, ObservableValue<Boolean>> source) {
         this.focusSource = source;
-    }
-
-    /**
-     * Test seam: the very listener that {@link #bindScene} registers on the focus property of the window, so a test
-     * can run what the window would run when it loses the focus.
-     *
-     * @return the focus listener
-     */
-    ChangeListener<Boolean> focusListener() {
-        return focusListener;
     }
 
     /**

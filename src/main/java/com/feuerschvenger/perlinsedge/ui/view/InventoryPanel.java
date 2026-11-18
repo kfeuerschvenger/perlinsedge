@@ -10,12 +10,15 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemDropCallback;
 import com.feuerschvenger.perlinsedge.ui.view.callbacks.ItemTransferCallback;
 import com.feuerschvenger.perlinsedge.ui.view.utils.GridUtils;
+import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -101,7 +104,8 @@ public class InventoryPanel extends BorderPane {
         configurePanel();
         initializeComponents();
         setupEventHandlers();
-        sceneProperty().addListener((observable, oldScene, newScene) -> controller.bindScene(oldScene, newScene));
+        sceneProperty().addListener((ObservableValue<? extends Scene> observable, Scene oldScene, Scene newScene) ->
+                controller.bindScene(oldScene, newScene));
 
         setVisible(false);
         setManaged(false);
@@ -220,17 +224,17 @@ public class InventoryPanel extends BorderPane {
             context.hotbar = true;
             slot.setUserData(context);
             // While no inventory is open the row is a display: a press on it must not start a drag
-            slot.setOnMousePressed(e -> {
+            slot.setOnMousePressed((MouseEvent e) -> {
                 if (isVisible()) {
                     controller.handleSlotPressed(e, slot);
                 }
             });
-            slot.setOnMouseClicked(e -> {
+            slot.setOnMouseClicked((MouseEvent e) -> {
                 if (isVisible()) {
                     controller.handleSlotClick(e);
                 }
             });
-            slot.setOnMouseEntered(e -> {
+            slot.setOnMouseEntered((MouseEvent e) -> {
                 if (isVisible()) {
                     controller.handleSlotHover(slot, true);
                 }

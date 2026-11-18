@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
  * A gate in a fence. It runs along one axis of its tile, set by its rotation, and joins the fences at both ends of that
  * axis. Closed, it blocks the player and the enemies like a fence; open, the tile can be walked through. Only the player
  * opens and closes it, by clicking it without the hammer in hand: the enemies have no way to, so for them a closed gate
- * is a wall.
+ * is as solid as a fence.
  */
 @Slf4j
 public class FenceGate extends Building {

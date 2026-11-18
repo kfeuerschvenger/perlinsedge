@@ -266,7 +266,7 @@ public final class SpriteManager {
     private static int bottomPadding(Image image) {
         final var reader = image.getPixelReader();
         final int width = (int) image.getWidth();
-        return ResourceAnchor.bottomPadding((int) image.getHeight(), row -> {
+        return ResourceAnchor.bottomPadding((int) image.getHeight(), (int row) -> {
             for (var x = 0; x < width; x++) {
                 if ((reader.getArgb(x, row) >>> ALPHA_SHIFT) >= Silhouette.PAINTED_ALPHA) {
                     return false;

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * The one table that says how much damage each kind of building takes before it falls. Balancing the structures is
- * editing this table and nothing else. Sturdy blocks such as walls and anvils hold the most, light pieces such as a
+ * editing this table and nothing else. Sturdy pieces such as furnaces and anvils hold the most, light pieces such as a
  * torch or a fence the least.
  */
 public final class BuildingStats {

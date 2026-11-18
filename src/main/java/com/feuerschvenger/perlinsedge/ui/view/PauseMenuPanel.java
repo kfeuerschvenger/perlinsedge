@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
+import javafx.event.ActionEvent;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -52,7 +53,7 @@ public final class PauseMenuPanel extends VBox {
         setVisible(false);
         setManaged(false);
 
-        backToMainMenuButton.setOnAction(e -> {
+        backToMainMenuButton.setOnAction((ActionEvent e) -> {
             if (onBackToMainMenuAction != null) {
                 onBackToMainMenuAction.run();
             }

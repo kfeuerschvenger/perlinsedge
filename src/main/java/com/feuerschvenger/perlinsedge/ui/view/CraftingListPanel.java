@@ -1,7 +1,9 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
+import javafx.event.ActionEvent;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -127,7 +129,7 @@ public class CraftingListPanel extends VBox {
         button.setDisable(true);
         // A focused button would take SPACE and craft again instead of centring the camera
         button.setFocusTraversable(false);
-        button.setOnAction(e -> {
+        button.setOnAction((ActionEvent e) -> {
             if (selectedRecipe != null && onCraftButtonClicked != null) {
                 onCraftButtonClicked.run();
             }
@@ -262,7 +264,7 @@ public class CraftingListPanel extends VBox {
      * Clears all previous selection states.
      */
     private void clearPreviousSelection() {
-        recipesContainer.getChildren().forEach(node -> {
+        recipesContainer.getChildren().forEach((Node node) -> {
             if (node instanceof CraftableItemCell cell) {
                 cell.setSelected(false);
             }

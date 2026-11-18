@@ -4,14 +4,15 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * Tinted copies of building sprites for the placement ghost: green where the piece can be placed, red where the tile
  * refuses it and amber where the resources are missing. A copy keeps the shape of the sprite and nothing around it, and
- * is made the first time a tint is needed and kept after that. The cache is only touched from the render thread.
+ * is made the first time a tint is needed and kept after that, for as long as the sprite it was made from is alive. A tint is
+ * told apart by its three 8-bit channels, so asking for a copy allocates nothing once it exists. The cache is only touched from
+ * the render thread.
  */
 public final class GhostSprites {
     /** Share of each painted pixel that is replaced by the tint, so the piece stays recognisable under the colour. */
@@ -25,7 +26,14 @@ public final class GhostSprites {
     /** The largest value of an 8-bit colour channel. */
     private static final double CHANNEL_MAX = 255.0;
 
-    private static final Map<Image, Map<Rgba, Image>> CACHE = new IdentityHashMap<>();
+    /** The mask of one 8-bit channel. */
+    private static final int CHANNEL_MASK = 0xFF;
+
+    /** One baked copy of a sprite and the tint it was baked with, in a chain of the copies of the same sprite. */
+    private record Baked(int tintKey, Image image, Baked next) { }
+
+    /** The copies of each sprite, held by the sprite weakly: the copy does not refer to the sprite it was made from. */
+    private static final Map<Image, Baked> CACHE = new WeakHashMap<>();
 
     /** Not instantiable: the class only holds the cache. */
     private GhostSprites() {
@@ -39,8 +47,35 @@ public final class GhostSprites {
      * @return the shared copy
      */
     public static Image of(Image source, Rgba tint) {
-        final var key = new Rgba(tint.r(), tint.g(), tint.b(), 1.0);
-        return CACHE.computeIfAbsent(source, image -> new HashMap<>()).computeIfAbsent(key, k -> bake(source, k));
+        final int key = keyOf(tint);
+        final var first = CACHE.get(source);
+        for (var baked = first; baked != null; baked = baked.next()) {
+            if (baked.tintKey() == key) {
+                return baked.image();
+            }
+        }
+        final var image = bake(source, tintOf(key));
+        CACHE.put(source, new Baked(key, image, first));
+        return image;
+    }
+
+    /** Forgets every copy, for when the sprites are loaded again. */
+    public static void clear() {
+        CACHE.clear();
+    }
+
+    /** Packs the three channels of a tint, each rounded to 8 bits, into one number. */
+    private static int keyOf(Rgba tint) {
+        return (channel(tint.r()) << RED_SHIFT) | (channel(tint.g()) << GREEN_SHIFT) | channel(tint.b());
+    }
+
+    private static int channel(double value) {
+        return (int) Math.round(Math.clamp(value, 0.0, 1.0) * CHANNEL_MAX);
+    }
+
+    private static Rgba tintOf(int key) {
+        return new Rgba(((key >> RED_SHIFT) & CHANNEL_MASK) / CHANNEL_MAX,
+                ((key >> GREEN_SHIFT) & CHANNEL_MASK) / CHANNEL_MAX, (key & CHANNEL_MASK) / CHANNEL_MAX, 1.0);
     }
 
     /**

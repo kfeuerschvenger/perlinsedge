@@ -185,11 +185,22 @@ final class WalkingChaser {
             path.add(new PathNode(originX, originY));
         }
         path.addAll(found);
+        forgetBlockedStepOffThePath();
+        stopOneTileShortOfThePlayer(player, midStep);
+    }
+
+    /** Forgets the step that was blocked when the new path no longer starts with it. */
+    private void forgetBlockedStepOffThePath() {
         if (path.isEmpty() || path.peek().x != blockedStepX || path.peek().y != blockedStepY) {
             clearBlockedStep();
         }
-        // The path ends on the tile of the player, the enemy stops one tile short of it. A step in progress that
-        // happens to be that tile stays, and follow() turns the enemy back.
+    }
+
+    /**
+     * The path ends on the tile of the player, the enemy stops one tile short of it. A step in progress that happens
+     * to be that tile stays, and follow() turns the enemy back.
+     */
+    private void stopOneTileShortOfThePlayer(Player player, boolean midStep) {
         if (path.size() > (midStep ? 1 : 0) && isPlayerTile(path.getLast(), player)) {
             path.removeLast();
         }

@@ -44,6 +44,13 @@ public final class BuildingFactory {
             case BRIDGE -> new Bridge(x, y);
             case FENCE -> new Fence(x, y);
             case FENCE_GATE -> new FenceGate(x, y);
+            default -> createFurnishing(type, x, y);
+        };
+    }
+
+    /** Creates the pieces that furnish a camp: the containers, the crafting stations and the light sources. */
+    private static Building createFurnishing(BuildingType type, int x, int y) {
+        return switch (type) {
             case CHEST -> new Chest(x, y, CHEST_CAPACITY);
             case FURNACE -> new Furnace(x, y);
             case CAMPFIRE -> new Campfire(x, y);
@@ -51,6 +58,7 @@ public final class BuildingFactory {
             case ANVIL -> new Anvil(x, y);
             case WORKBENCH -> new Workbench(x, y);
             case BED -> new Bed(x, y);
+            default -> throw new IllegalArgumentException("Not a piece that can be placed: " + type);
         };
     }
 }

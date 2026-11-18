@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.events.IConfigChangeListener;
 import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.geometry.Orientation;
 import javafx.scene.control.ComboBox;
@@ -209,41 +210,65 @@ public class MapConfigPanel extends VBox {
     private void setupListeners() {
         mapTypeComboBox.setOnAction(event -> notifyConfigChanged());
 
-        seedInputField.focusedProperty().addListener((observable, oldValue, focused) -> {
+        seedInputField.focusedProperty().subscribe((Boolean oldValue, Boolean focused) -> {
             if (Boolean.FALSE.equals(focused)) {
                 commitSeedInput();
             }
         });
         seedInputField.setOnAction(event -> commitSeedInput());
 
-        heightFreqSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(heightFreqValueLabel, newVal.doubleValue()));
+        heightFreqSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(heightFreqValueLabel, newVal.doubleValue()));
         heightFreqSlider.setOnMouseReleased(event -> notifyConfigChanged());
-        heightOctavesSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(heightOctavesValueLabel, newVal.doubleValue()));
+        heightOctavesSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(heightOctavesValueLabel, newVal.doubleValue()));
         heightOctavesSlider.setOnMouseReleased(event -> notifyConfigChanged());
 
-        tempFreqSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(tempFreqValueLabel, newVal.doubleValue()));
+        tempFreqSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(tempFreqValueLabel, newVal.doubleValue()));
         tempFreqSlider.setOnMouseReleased(event -> notifyConfigChanged());
-        tempOctavesSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(tempOctavesValueLabel, newVal.doubleValue()));
+        tempOctavesSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(tempOctavesValueLabel, newVal.doubleValue()));
         tempOctavesSlider.setOnMouseReleased(event -> notifyConfigChanged());
 
-        moistureFreqSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(moistureFreqValueLabel, newVal.doubleValue()));
+        moistureFreqSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(moistureFreqValueLabel, newVal.doubleValue()));
         moistureFreqSlider.setOnMouseReleased(event -> notifyConfigChanged());
-        moistureOctavesSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(moistureOctavesValueLabel, newVal.doubleValue()));
+        moistureOctavesSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(moistureOctavesValueLabel, newVal.doubleValue()));
         moistureOctavesSlider.setOnMouseReleased(event -> notifyConfigChanged());
 
-        stoneFreqSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(stoneFreqValueLabel, newVal.doubleValue()));
+        stoneFreqSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(stoneFreqValueLabel, newVal.doubleValue()));
         stoneFreqSlider.setOnMouseReleased(event -> notifyConfigChanged());
-        stoneThresholdSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(stoneThresholdValueLabel, newVal.doubleValue()));
+        stoneThresholdSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(stoneThresholdValueLabel, newVal.doubleValue()));
         stoneThresholdSlider.setOnMouseReleased(event -> notifyConfigChanged());
 
-        crystalsFreqSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(crystalsFreqValueLabel, newVal.doubleValue()));
+        crystalsFreqSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(crystalsFreqValueLabel, newVal.doubleValue()));
         crystalsFreqSlider.setOnMouseReleased(event -> notifyConfigChanged());
-        crystalsThresholdSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(crystalsThresholdValueLabel, newVal.doubleValue()));
+        crystalsThresholdSlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(crystalsThresholdValueLabel, newVal.doubleValue()));
         crystalsThresholdSlider.setOnMouseReleased(event -> notifyConfigChanged());
 
-        treeDensitySlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(treeDensityValueLabel, newVal.doubleValue()));
+        treeDensitySlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(treeDensityValueLabel, newVal.doubleValue()));
         treeDensitySlider.setOnMouseReleased(event -> notifyConfigChanged());
-        riverDensitySlider.valueProperty().addListener((obs, oldVal, newVal) -> updateValueLabel(riverDensityValueLabel, newVal.doubleValue()));
+        riverDensitySlider.valueProperty().addListener(
+                (ObservableValue<? extends Number> obs, Number oldVal, Number newVal) ->
+                        updateValueLabel(riverDensityValueLabel, newVal.doubleValue()));
         riverDensitySlider.setOnMouseReleased(event -> notifyConfigChanged());
     }
 

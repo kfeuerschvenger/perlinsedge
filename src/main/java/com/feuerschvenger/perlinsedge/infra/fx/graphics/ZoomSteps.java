@@ -15,6 +15,29 @@ public final class ZoomSteps {
     private ZoomSteps() {}
 
     /**
+     * Checks a zoom range once, where it is read from the configuration, so that {@link #move} can never be asked to
+     * clamp into an empty range.
+     *
+     * @param min  the lowest zoom
+     * @param max  the highest zoom
+     * @param step the distance between two levels
+     * @throws IllegalArgumentException when a value is not a finite number, the step is not positive, or the lowest
+     *                                  zoom is above the highest
+     */
+    public static void requireValidRange(double min, double max, double step) {
+        if (!Double.isFinite(min) || !Double.isFinite(max) || !Double.isFinite(step)) {
+            throw new IllegalArgumentException("The zoom range must be finite: min=" + min + ", max=" + max
+                    + ", step=" + step);
+        }
+        if (step <= 0) {
+            throw new IllegalArgumentException("The zoom step must be positive: " + step);
+        }
+        if (min > max) {
+            throw new IllegalArgumentException("The lowest zoom " + min + " is above the highest zoom " + max);
+        }
+    }
+
+    /**
      * Moves one step up or down from a zoom level, staying inside the range.
      *
      * @param current   the current zoom

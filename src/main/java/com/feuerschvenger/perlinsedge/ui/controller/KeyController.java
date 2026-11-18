@@ -114,53 +114,35 @@ public class KeyController implements IKeyListener {
         }
 
         switch (key) {
+            case ESCAPE, SPACE, I, DROP_ONE, DROP_STACK, ROTATE, USE_ITEM -> runIfSet(gameAction(key));
+            default -> runDebugKey(key);
+        }
+    }
 
-            // ------------- Game keys --------------
+    /** Gives the handler of a game key, which is null while none is set. */
+    private Runnable gameAction(GameKey key) {
+        return switch (key) {
+            case ESCAPE -> togglePauseMenuAction;
+            case SPACE -> centerCameraAction;
+            case I -> toggleInventoryPanelAction;
+            case DROP_ONE -> onDropOne;
+            case DROP_STACK -> onDropStack;
+            case ROTATE -> onRotate;
+            case USE_ITEM -> onUseItem;
+            default -> null;
+        };
+    }
 
-            case ESCAPE:
-                runIfSet(togglePauseMenuAction);
-                break;
-            case SPACE:
-                runIfSet(centerCameraAction);
-                break;
-            case I:
-                runIfSet(toggleInventoryPanelAction);
-                break;
-            case DROP_ONE:
-                runIfSet(onDropOne);
-                break;
-            case DROP_STACK:
-                runIfSet(onDropStack);
-                break;
-            case ROTATE:
-                runIfSet(onRotate);
-                break;
-            case USE_ITEM:
-                runIfSet(onUseItem);
-                break;
-
-            // ----------- Debugging keys -----------
-
-            case F1:
-                toggleDebugMode();
-                break;
-            case F2:
-                toggleGrayScaleMode();
-                break;
-            case F3:
-                toggleDebugText();
-                break;
-            case F4:
-                toggleMapConfigPanelAction();
-                break;
-            case F5:
-                generateNewRandomMap();
-                break;
-            case F7:
-                toggleFastTime();
-                break;
-            default:
-                break;
+    /** Runs what a debugging key does. */
+    private void runDebugKey(GameKey key) {
+        switch (key) {
+            case F1 -> toggleDebugMode();
+            case F2 -> toggleGrayScaleMode();
+            case F3 -> toggleDebugText();
+            case F4 -> toggleMapConfigPanelAction();
+            case F5 -> generateNewRandomMap();
+            case F7 -> toggleFastTime();
+            default -> { /* the other keys have nothing to do with debugging */ }
         }
     }
 

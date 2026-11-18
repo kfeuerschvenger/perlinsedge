@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Camera;
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import javafx.scene.canvas.Canvas;
 
@@ -29,6 +30,8 @@ public class FxCamera extends Camera {
     public FxCamera(double x, double y, double zoom) {
         super(Math.rint(x), Math.rint(y), zoom);
         this.config = AppConfig.getInstance();
+        ZoomSteps.requireValidRange(config.core().getMinZoom(), config.core().getMaxZoom(),
+                config.core().getZoomStep());
     }
 
     /**
@@ -48,7 +51,7 @@ public class FxCamera extends Camera {
 
         clampedX = Math.rint(clampedX);
         clampedY = Math.rint(clampedY);
-        if (differs(clampedX, x) || differs(clampedY, y)) {
+        if (Doubles.differs(clampedX, x) || Doubles.differs(clampedY, y)) {
             x = clampedX;
             y = clampedY;
         }
@@ -82,7 +85,7 @@ public class FxCamera extends Camera {
         double targetZoom = ZoomSteps.move(zoom, direction,
                 config.core().getMinZoom(), config.core().getMaxZoom(), config.core().getZoomStep());
 
-        if (!differs(targetZoom, originalZoom)) {
+        if (Doubles.areEqual(targetZoom, originalZoom)) {
             return;
         }
 
@@ -218,11 +221,6 @@ public class FxCamera extends Camera {
 
     private static double max(double a, double b, double c, double d) {
         return Math.max(Math.max(a, b), Math.max(c, d));
-    }
-
-    /** True when the two values are not the same number, written as a difference so it holds no float equality test. */
-    private static boolean differs(double a, double b) {
-        return Math.abs(a - b) > 0;
     }
 
     private static double clamp(double value, double min, double max) {

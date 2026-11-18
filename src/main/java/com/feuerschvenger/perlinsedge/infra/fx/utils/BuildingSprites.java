@@ -54,6 +54,8 @@ public final class BuildingSprites {
 
     private final Function<String, Image> loader;
     private final Map<String, Image> cache = new HashMap<>();
+    /** The one-image list of each piece that casts a single silhouette, kept so asking for it allocates nothing. */
+    private final Map<String, Image[]> singleImageLayers = new HashMap<>();
     private final Image[][] fenceCache = new Image[FENCE_MASK_COUNT][];
 
     /** The lazily created instance that reads the classpath. */
@@ -238,8 +240,13 @@ public final class BuildingSprites {
         }
         final String name = building.getType() == BuildingType.CAMPFIRE || building.getType() == BuildingType.STANDING_TORCH
                 ? restingName(building.getType(), 0) : spriteName(building, 0);
-        final var image = image(name);
-        return image != null ? new Image[]{image} : NO_IMAGES;
+        Image[] layers = singleImageLayers.get(name);
+        if (layers == null) {
+            final var image = image(name);
+            layers = image != null ? new Image[]{image} : NO_IMAGES;
+            singleImageLayers.put(name, layers);
+        }
+        return layers;
     }
 
     private static final Image[] NO_IMAGES = new Image[0];

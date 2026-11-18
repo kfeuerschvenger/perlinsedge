@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
-import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
@@ -9,7 +8,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
+import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
@@ -30,22 +33,21 @@ import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.FxSkyTint;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.HealthBarMark;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.SunShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers.TileHighlight;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
-import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.AssetPaths;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.BuildingSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.CursorStyle;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.DebugTileSprites;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.FxColors;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.GrayscaleTiles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.GroundShadow;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HitShake;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.HurtReaction;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.ResourceKindCache;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SilhouetteSprites;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteLayout;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
-import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.WaterShimmer;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -483,7 +485,7 @@ public class FxRenderer {
 
     /** Queues a tile of the walk when it is in view, and casts its shadows when it is out of view but reaches in. */
     private void visitTile(FrameState f, Tile tile, int x, int y) {
-        final boolean insideView = x >= f.minTileX && x < f.maxTileX && y >= f.minTileY && y < f.maxTileY;
+        final boolean insideView = isInsideView(f, x, y);
         final boolean castsStatic = f.rebuildStatic && !f.grayscaleEnabled;
         // A tile outside the view only matters for the shadow of what stands on it, so one with nothing on it
         // is skipped before any screen maths is done for it
@@ -502,6 +504,11 @@ public class FxRenderer {
             return;
         }
         queueVisibleTile(f, tile, x, y, screenX, screenY);
+    }
+
+    /** Tells whether a tile lies inside the tile window of the frame. */
+    private static boolean isInsideView(FrameState f, int x, int y) {
+        return x >= f.minTileX && x < f.maxTileX && y >= f.minTileY && y < f.maxTileY;
     }
 
     /** Queues a tile in view, the floor on it, and the resource and the building that stand on it. */
@@ -810,25 +817,21 @@ public class FxRenderer {
 
     /** Tells whether the list was built at another zoom or art scale. */
     private boolean scaleChanged(double zoom, double artScale) {
-        return differs(staticCastersZoom, zoom) || differs(staticCastersArtScale, artScale);
+        return Doubles.differs(staticCastersZoom, zoom) || Doubles.differs(staticCastersArtScale, artScale);
     }
 
     /** Tells whether the list was built for another reach of the shadows. */
     private boolean reachChanged() {
-        return differs(staticCastersReach, shadowReach) || differs(staticCastersBottomReach, shadowBottomReach);
+        return Doubles.differs(staticCastersReach, shadowReach)
+                || Doubles.differs(staticCastersBottomReach, shadowBottomReach);
     }
 
     /** Tells whether the list was built for another window of the world. */
     private boolean windowChanged() {
-        return differs(staticCastersWindow[WINDOW_LEFT], shadowWindowLeft - shadowCameraX)
-                || differs(staticCastersWindow[WINDOW_TOP], shadowWindowTop - shadowCameraY)
-                || differs(staticCastersWindow[WINDOW_WIDTH], shadowWindowWidth)
-                || differs(staticCastersWindow[WINDOW_HEIGHT], shadowWindowHeight);
-    }
-
-    /** Tells whether two values are not the same number, by their exact bits, which is what the list depends on. */
-    private static boolean differs(double a, double b) {
-        return Double.compare(a, b) != 0;
+        return Doubles.differs(staticCastersWindow[WINDOW_LEFT], shadowWindowLeft - shadowCameraX)
+                || Doubles.differs(staticCastersWindow[WINDOW_TOP], shadowWindowTop - shadowCameraY)
+                || Doubles.differs(staticCastersWindow[WINDOW_WIDTH], shadowWindowWidth)
+                || Doubles.differs(staticCastersWindow[WINDOW_HEIGHT], shadowWindowHeight);
     }
 
     /** Remembers what the static shadow list was just built from, see {@link #staticCastersStale}. */
@@ -856,11 +859,7 @@ public class FxRenderer {
      * object throws its shadow from the same point either way.
      */
     private void castOffscreenShadows(FrameState f, Tile tile, int x, int y, double screenX, double screenY) {
-        final var resource = tile.getWorldResource();
-        final boolean hasResource = tile.hasResource() && resource != null;
-        final var building = tile.getBuilding();
-        final boolean hasBuilding = tile.hasBuilding() && building != null;
-        if (!hasResource && !hasBuilding) {
+        if (shadowingResource(tile) == null && shadowingBuilding(tile) == null) {
             return;
         }
         // A static shadow is wanted when it reaches into the window the static layer covers, not only the canvas
@@ -868,12 +867,19 @@ public class FxRenderer {
                 shadowWindowWidth, shadowWindowHeight, shadowReach, shadowBottomReach)) {
             return;
         }
+        addOffscreenShadow(f, tile, x, y, screenX, screenY);
+    }
+
+    /** Adds the shadow of the resource and of the building of a tile that is not drawn to the static list. */
+    private void addOffscreenShadow(FrameState f, Tile tile, int x, int y, double screenX, double screenY) {
+        final var resource = shadowingResource(tile);
+        final var building = shadowingBuilding(tile);
         final boolean water = tile.getType().isWater();
         final double drop = FxObjectShadows.waterDrop(water,
                 water && spriteManager.getTileSprite(f.mapType, tile.getType(), x, y) != null, f.halfTileHeight);
         Image image = null;
         var contactArt = 0;
-        if (hasResource) {
+        if (resource != null) {
             final String preferredKind = resourceKinds.preferredKind(f.map, f.mapType, resource.getType(), x, y,
                     f.worldSeed);
             final var metadata = spriteManager.getResourceSprite(
@@ -881,10 +887,20 @@ public class FxRenderer {
             image = metadata != null ? metadata.getImage() : null;
             contactArt = metadata != null ? metadata.getContactArtPixels() : 0;
         }
-        FxObjectShadows.addForTile(staticShadows, hasResource ? resource.getType() : null, image, contactArt,
-                hasBuilding ? building.getType() : null,
-                hasBuilding ? buildingSprites.shadowImages(building) : null,
+        FxObjectShadows.addForTile(staticShadows, resource != null ? resource.getType() : null, image, contactArt,
+                building != null ? building.getType() : null,
+                building != null ? buildingSprites.shadowImages(building) : null,
                 staticAnchor(f, screenX, screenY + drop));
+    }
+
+    /** Gives the resource of a tile when it casts a shadow, null when the tile has none. */
+    private static Resource shadowingResource(Tile tile) {
+        return tile.hasResource() ? tile.getWorldResource() : null;
+    }
+
+    /** Gives the building of a tile when it casts a shadow, null when the tile has none. */
+    private static Building shadowingBuilding(Tile tile) {
+        return tile.hasBuilding() ? tile.getBuilding() : null;
     }
 
     /** Tells whether something stands on a tile that casts a shadow: a resource or a building. */
@@ -985,9 +1001,10 @@ public class FxRenderer {
     /** Tells whether a highlight is the crosshair that the given values would make. */
     private static boolean showsSameCursor(TileHighlight highlight, double centerX, double centerY, double tileWidth,
                                            double tileHeight, boolean lightGround, ClickFeedback.Kind tone) {
-        final boolean sameSpot = !differs(highlight.centerX(), centerX) && !differs(highlight.centerY(), centerY);
-        final boolean sameSize = !differs(highlight.tileWidth(), tileWidth)
-                && !differs(highlight.tileHeight(), tileHeight);
+        final boolean sameSpot = Doubles.areEqual(highlight.centerX(), centerX)
+                && Doubles.areEqual(highlight.centerY(), centerY);
+        final boolean sameSize = Doubles.areEqual(highlight.tileWidth(), tileWidth)
+                && Doubles.areEqual(highlight.tileHeight(), tileHeight);
         return sameSpot && sameSize && highlight.lightGround() == lightGround && highlight.tone() == tone;
     }
 

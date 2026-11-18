@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Carries out the interaction the player asks for with a click on a resource, on a building such as a chest or a door,
+ * Carries out the interaction the player asks for with a click on a resource, on a building such as a chest or a gate,
  * or on an enemy, which is attacked with the item in hand. An enemy is followed while it moves: the walk is planned
  * again whenever it has changed tile, and the swing lands the first time it is within reach.
  * Within reach the interaction happens at once. Out of reach the player first walks toward the nearest walkable tile
@@ -44,11 +44,21 @@ public class InteractionManager {
     }
 
     /** Fewest tiles the search for the walk to an enemy may expand, whatever the size of the map. */
-    public static final int ENEMY_SEARCH_MIN_NODES = 6_000;
+    private static final int ENEMY_SEARCH_MIN_NODES = 6_000;
     /** The search for the walk to an enemy may expand up to this fraction of the tiles of the map. */
     private static final int ENEMY_SEARCH_MAP_DIVISOR = 4;
     /** Most tiles the search for the walk to an enemy may expand, whatever the size of the map: a click stays cheap. */
-    public static final int ENEMY_SEARCH_MAX_NODES = 60_000;
+    private static final int ENEMY_SEARCH_MAX_NODES = 60_000;
+
+    /** @return the fewest tiles the search for the walk to an enemy may expand, whatever the size of the map */
+    static int enemySearchMinNodes() {
+        return ENEMY_SEARCH_MIN_NODES;
+    }
+
+    /** @return the most tiles the search for the walk to an enemy may expand, whatever the size of the map */
+    static int enemySearchMaxNodes() {
+        return ENEMY_SEARCH_MAX_NODES;
+    }
 
     /**
      * Gives the number of tiles the search for the walk to an enemy may expand, which is also its largest cost. It
@@ -91,7 +101,7 @@ public class InteractionManager {
      * Creates the manager.
      *
      * @param gameState         shared game state
-     * @param buildingManager   opens chests and toggles doors
+     * @param buildingManager   opens chests and toggles gates
      * @param resourceManager   hits resources
      * @param combatManager     swings at enemies
      * @param containerManager  tells whether an interaction opened a container
@@ -144,6 +154,16 @@ public class InteractionManager {
             return Outcome.REFUSED;
         }
 
+        return approach(player, map, tile, kind);
+    }
+
+    /**
+     * Plans the walk to a building or a resource and performs the interaction at once when the player is in reach.
+     * A walk that has to be made leaves the interaction pending.
+     */
+    private Outcome approach(Player player, TileMap map, Tile tile, Kind kind) {
+        final int tileX = tile.getX();
+        final int tileY = tile.getY();
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
         final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY,
@@ -184,10 +204,7 @@ public class InteractionManager {
         }
         final var player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
-        final var playerUnavailable = player == null || map == null || player.isDead();
-        final var gameNotExploring = gameState.isGamePaused()
-                || gameState.getCurrentGameMode() != GameMode.EXPLORATION;
-        if (playerUnavailable || gameNotExploring) {
+        if (cannotContinue(player, map)) {
             cancel();
             return;
         }
@@ -218,6 +235,14 @@ public class InteractionManager {
             // The walk ended short of the target, for example because something blocked the way
             cancel();
         }
+    }
+
+    /** Tells whether the player is gone or dead, or the game is paused or out of exploration, so nothing can go on. */
+    private boolean cannotContinue(Player player, TileMap map) {
+        final var playerUnavailable = player == null || map == null || player.isDead();
+        final var gameNotExploring = gameState.isGamePaused()
+                || gameState.getCurrentGameMode() != GameMode.EXPLORATION;
+        return playerUnavailable || gameNotExploring;
     }
 
     /**
@@ -329,26 +354,33 @@ public class InteractionManager {
         final int enemyY = enemy.getCurrentTileY();
         final PathNode origin = player.getWalkOrigin();
         if (InteractionPlanner.inReach(origin.x, origin.y, enemyX, enemyY)) {
-            player.stop();
-            if (!standsOn(player, origin)) {
-                // The step in progress ends next to the enemy: wait for the arrival before swinging
-                pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
-                return;
-            }
-            switch (combatManager.strikeEnemy(enemy)) {
-                case HIT -> pending = null;
-                case COOLDOWN -> pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
-                case REFUSED -> {
-                    pending = null;
-                    gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
-                }
-            }
+            swingWhenArrived(player, origin, enemy);
             return;
         }
         final boolean needsNewWalk = enemyX != pending.tileX() || enemyY != pending.tileY() || !player.isMoving();
         if (needsNewWalk && !chase(player, map, enemy)) {
             cancel();
             gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
+        }
+    }
+
+    /** Swings at an enemy in reach once the player stands still on a tile, and waits for the arrival before that. */
+    private void swingWhenArrived(Player player, PathNode origin, Enemy enemy) {
+        final int enemyX = enemy.getCurrentTileX();
+        final int enemyY = enemy.getCurrentTileY();
+        player.stop();
+        if (!standsOn(player, origin)) {
+            // The step in progress ends next to the enemy: wait for the arrival before swinging
+            pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+            return;
+        }
+        switch (combatManager.strikeEnemy(enemy)) {
+            case HIT -> pending = null;
+            case COOLDOWN -> pending = new Pending(enemyX, enemyY, Kind.ENEMY, enemy);
+            case REFUSED -> {
+                pending = null;
+                gameState.getClickFeedback().flash(enemyX, enemyY, false, gameState.getGameTime());
+            }
         }
     }
 

@@ -267,4 +267,22 @@ class PlayerInventoryTest {
         assertEquals(new Item(ItemType.STONE, 1), new Item(ItemType.STONE, 50));
         assertEquals("3x " + ItemType.STONE.getDisplayName(), new Item(ItemType.STONE, 3).toString());
     }
+
+    @Test
+    void addItemLeavesInTheGivenItemWhatDidNotFit() {
+        for (int slot = 0; slot < SLOTS; slot++) {
+            player.addItem(new Item(ItemType.STONE, STACK));
+        }
+        final Item surplus = new Item(ItemType.STONE, 7);
+
+        assertFalse(player.addItem(surplus), "nothing was stored");
+
+        assertEquals(7, surplus.getQuantity(), "the whole quantity is the leftover");
+        final Item almost = new Item(ItemType.STONE, STACK + 3);
+        player.setItemAt(0, null);
+
+        assertTrue(player.addItem(almost), "a slot was free");
+
+        assertEquals(3, almost.getQuantity(), "what did not fit stays in the item");
+    }
 }

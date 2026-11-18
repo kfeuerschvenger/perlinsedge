@@ -3,12 +3,35 @@ package com.feuerschvenger.perlinsedge.infra.fx.input;
 import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import javafx.scene.input.KeyCode;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * Maps JavaFX key codes to the framework-free {@link GameKey} values.
  */
 public final class FxKeyMapper {
+
+    /** The keys that map to one game key whatever modifiers are held. */
+    private static final Map<KeyCode, GameKey> PLAIN_KEYS = Map.ofEntries(
+            Map.entry(KeyCode.ESCAPE, GameKey.ESCAPE),
+            Map.entry(KeyCode.SPACE, GameKey.SPACE),
+            Map.entry(KeyCode.I, GameKey.I),
+            Map.entry(KeyCode.R, GameKey.ROTATE),
+            Map.entry(KeyCode.F1, GameKey.F1),
+            Map.entry(KeyCode.F2, GameKey.F2),
+            Map.entry(KeyCode.F3, GameKey.F3),
+            Map.entry(KeyCode.F4, GameKey.F4),
+            Map.entry(KeyCode.F5, GameKey.F5),
+            Map.entry(KeyCode.F7, GameKey.F7),
+            Map.entry(KeyCode.DIGIT1, GameKey.DIGIT_1),
+            Map.entry(KeyCode.DIGIT2, GameKey.DIGIT_2),
+            Map.entry(KeyCode.DIGIT3, GameKey.DIGIT_3),
+            Map.entry(KeyCode.DIGIT4, GameKey.DIGIT_4),
+            Map.entry(KeyCode.DIGIT5, GameKey.DIGIT_5),
+            Map.entry(KeyCode.DIGIT6, GameKey.DIGIT_6),
+            Map.entry(KeyCode.DIGIT7, GameKey.DIGIT_7),
+            Map.entry(KeyCode.DIGIT8, GameKey.DIGIT_8),
+            Map.entry(KeyCode.DIGIT9, GameKey.DIGIT_9));
 
     private FxKeyMapper() {
     }
@@ -33,26 +56,7 @@ public final class FxKeyMapper {
         return Optional.ofNullable(switch (code) {
             case Q -> dropKey(ctrlDown, shiftDown, altDown, metaDown);
             case E -> useKey(ctrlDown, shiftDown, altDown, metaDown);
-            case ESCAPE -> GameKey.ESCAPE;
-            case SPACE -> GameKey.SPACE;
-            case I -> GameKey.I;
-            case R -> GameKey.ROTATE;
-            case F1 -> GameKey.F1;
-            case F2 -> GameKey.F2;
-            case F3 -> GameKey.F3;
-            case F4 -> GameKey.F4;
-            case F5 -> GameKey.F5;
-            case F7 -> GameKey.F7;
-            case DIGIT1 -> GameKey.DIGIT_1;
-            case DIGIT2 -> GameKey.DIGIT_2;
-            case DIGIT3 -> GameKey.DIGIT_3;
-            case DIGIT4 -> GameKey.DIGIT_4;
-            case DIGIT5 -> GameKey.DIGIT_5;
-            case DIGIT6 -> GameKey.DIGIT_6;
-            case DIGIT7 -> GameKey.DIGIT_7;
-            case DIGIT8 -> GameKey.DIGIT_8;
-            case DIGIT9 -> GameKey.DIGIT_9;
-            default -> null;
+            default -> PLAIN_KEYS.get(code);
         });
     }
 

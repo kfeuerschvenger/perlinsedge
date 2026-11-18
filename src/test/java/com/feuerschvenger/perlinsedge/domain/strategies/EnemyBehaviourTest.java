@@ -79,20 +79,20 @@ class EnemyBehaviourTest {
         assertFalse(planner.findPath(map, 5, 5, 50, 50).reachable());
         assertTrue(planner.isBackingOff());
 
-        planner.tick(PathPlanner.INITIAL_BACKOFF_SECONDS - 0.01);
+        planner.tick(PathPlanner.initialBackoffSeconds() - 0.01);
         assertTrue(planner.isBackingOff());
         planner.tick(0.02);
         assertFalse(planner.isBackingOff());
 
         assertFalse(planner.findPath(map, 5, 5, 50, 50).reachable());
-        planner.tick(PathPlanner.INITIAL_BACKOFF_SECONDS + 0.01);
+        planner.tick(PathPlanner.initialBackoffSeconds() + 0.01);
         assertTrue(planner.isBackingOff(), "the second wait is longer than the first");
 
         for (int i = 0; i < 10; i++) {
-            planner.tick(PathPlanner.MAX_BACKOFF_SECONDS);
+            planner.tick(PathPlanner.maxBackoffSeconds());
             planner.findPath(map, 5, 5, 50, 50);
         }
-        planner.tick(PathPlanner.MAX_BACKOFF_SECONDS);
+        planner.tick(PathPlanner.maxBackoffSeconds());
         assertFalse(planner.isBackingOff(), "the wait never exceeds the limit");
     }
 
@@ -106,7 +106,7 @@ class EnemyBehaviourTest {
         assertFalse(planner.findPath(map, 5, 5, 6, 6).reachable(),
                 "a reachable target is not searched during the backoff");
 
-        planner.tick(PathPlanner.MAX_BACKOFF_SECONDS);
+        planner.tick(PathPlanner.maxBackoffSeconds());
         assertTrue(planner.findPath(map, 5, 5, 6, 6).reachable());
         assertFalse(planner.isBackingOff());
     }

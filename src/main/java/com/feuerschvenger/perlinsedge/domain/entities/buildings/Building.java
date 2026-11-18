@@ -18,7 +18,7 @@ public abstract class Building {
     protected final int tileY;
     /** Classification of the building. */
     protected final BuildingType type;
-    /** Whether the building blocks movement. Not final to allow toggling (e.g., for doors). */
+    /** Whether the building blocks movement. Not final to allow toggling (e.g., for gates). */
     protected boolean isSolid;
     /** Whether the building can be destroyed. */
     protected final boolean isDestructible;
@@ -59,8 +59,9 @@ public abstract class Building {
     }
 
     /**
-     * Takes health off the building. Nothing damages buildings yet; the method is the hook for enemies and other
-     * sources, and it decides what a hit does to the health: it never goes below 0.
+     * Takes health off the building. This is the entry point for every future source of damage, such as enemy attacks:
+     * the health bar and the partial refund of a demolition already follow the health, so a source only has to call
+     * it. It decides what a hit does to the health, which never goes below 0.
      *
      * @param amount health to remove, a negative amount removes nothing
      */
@@ -95,7 +96,7 @@ public abstract class Building {
     }
 
     /**
-     * Tells whether clicking the building does something, such as opening a door or a chest.
+     * Tells whether clicking the building does something, such as opening a gate or a chest.
      * The player walks up to an interactable building before the interaction happens.
      *
      * @return true when {@link #onInteract(Tile)} handles the interaction

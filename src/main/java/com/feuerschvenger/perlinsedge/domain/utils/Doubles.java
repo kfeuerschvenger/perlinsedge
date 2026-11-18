@@ -32,4 +32,16 @@ public final class Doubles {
     public static boolean areEqual(double first, double second) {
         return isZero(first - second) || (Double.compare(first, second) == 0 && !Double.isNaN(first));
     }
+
+    /**
+     * Tells whether two values are not the same number. Negative zero does not differ from positive zero, and
+     * not-a-number differs from everything, itself included.
+     *
+     * @param first  the first value
+     * @param second the second value
+     * @return true when {@code first != second}
+     */
+    public static boolean differs(double first, double second) {
+        return !areEqual(first, second);
+    }
 }

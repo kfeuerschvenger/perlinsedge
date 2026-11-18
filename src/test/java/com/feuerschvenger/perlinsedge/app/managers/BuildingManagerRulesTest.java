@@ -340,4 +340,39 @@ class BuildingManagerRulesTest {
         assertEquals(Rgba.LIME_GREEN.g(), green.g(), 1e-9);
         assertTrue(green.a() < 1.0, "the preview is translucent");
     }
+
+    @Test
+    void aDemolitionTellsTheViewsExactlyOnce() {
+        final Tile water = map.getTile(SIZE - 1, 3);
+        water.setFloor(BuildingFactory.create(BuildingType.BRIDGE, SIZE - 1, 3));
+
+        manager.removeBuilding(SIZE - 1, 3);
+
+        assertEquals(1, inventoryChanges);
+    }
+
+    @Test
+    void aChestDemolitionTellsTheViewsExactlyOnceToo() {
+        final Chest chest = (Chest) BuildingFactory.create(BuildingType.CHEST, 2, 2);
+        chest.setItemAt(0, new Item(ItemType.STONE, 5));
+        map.getTile(2, 2).setBuilding(chest);
+
+        manager.removeBuilding(2, 2);
+
+        assertEquals(1, inventoryChanges);
+    }
+
+    @Test
+    void whatTheInventoryCannotHoldOfARefundIsDroppedAsAPile() {
+        while (player.addItem(new Item(ItemType.STONE, ItemType.STONE.getMaxStackSize()))) {
+            // keeps filling until no slot is left
+        }
+        map.getTile(2, 2).setBuilding(BuildingFactory.create(BuildingType.CHEST, 2, 2));
+
+        manager.removeBuilding(2, 2);
+
+        final int refunded = recipes.getBuildingRecipeByType(BuildingType.CHEST).orElseThrow().ingredients().stream()
+                .mapToInt(CraftingIngredient::quantity).sum();
+        assertEquals(refunded, state.getDroppedItems().stream().mapToInt(pile -> pile.getItem().getQuantity()).sum());
+    }
 }

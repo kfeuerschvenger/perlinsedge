@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
@@ -153,6 +154,14 @@ public final class FxBuildingPainter {
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
             case FENCE -> drawFence(gc, building instanceof Fence fence ? fence.getConnections() : 0, screenX, screenY, zoom);
             case FENCE_GATE -> drawFenceGate(gc, (FenceGate) building, screenX, screenY, zoom);
+            default -> drawFurnishing(gc, building.getType(), screenX, screenY, zoom);
+        }
+    }
+
+    /** Draws the pieces that furnish a camp: the containers, the crafting stations, the lights and the bed. */
+    private static void drawFurnishing(GraphicsContext gc, BuildingType type, double screenX, double screenY,
+                                       double zoom) {
+        switch (type) {
             case CHEST -> drawChest(gc, screenX, screenY, zoom);
             case FURNACE -> drawFurnace(gc, screenX, screenY, zoom);
             case ANVIL -> drawAnvil(gc, screenX, screenY, zoom);
@@ -160,6 +169,7 @@ public final class FxBuildingPainter {
             case CAMPFIRE -> drawCampfire(gc, screenX, screenY, zoom);
             case STANDING_TORCH -> drawStandingTorch(gc, screenX, screenY, zoom);
             case BED -> drawBed(gc, screenX, screenY, zoom);
+            default -> throw new IllegalArgumentException("Not a furnishing: " + type);
         }
     }
 

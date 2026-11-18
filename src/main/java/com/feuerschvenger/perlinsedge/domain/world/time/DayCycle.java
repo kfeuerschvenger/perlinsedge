@@ -252,11 +252,13 @@ public final class DayCycle {
      * Returns the tint of the moment: the colour of the ambient sky tint and how strongly it is laid over the world. It
      * is worked out once per position of the clock and in place, so reading it any number of times in a frame costs one
      * calculation and allocates nothing, including in the middle of a transition. The object stays the same for the
-     * life of the cycle and holds the tint of the clock as it was last read, so read it in the frame it is wanted in.
+     * life of the cycle and holds the tint of the clock as it was last read, so it stays inside the cycle: callers
+     * outside the package read the tint through {@link #skyTintRed()}, {@link #skyTintGreen()},
+     * {@link #skyTintBlue()} and {@link #skyTintStrength()}.
      *
      * @return neutral with no strength at midday, warm orange at dawn and dusk and a cool moonlit blue at night
      */
-    public SkyTint tint() {
+    SkyTint tint() {
         if (!Doubles.areEqual(tintAt, elapsed)) {
             computeTint();
             tintAt = elapsed;
@@ -273,6 +275,21 @@ public final class DayCycle {
     public Rgba skyTint() {
         final SkyTint current = tint();
         return new Rgba(current.r(), current.g(), current.b(), 1.0);
+    }
+
+    /** @return the red channel of the sky tint, 0.0 to 1.0, which allocates nothing */
+    public double skyTintRed() {
+        return tint().r();
+    }
+
+    /** @return the green channel of the sky tint, 0.0 to 1.0, which allocates nothing */
+    public double skyTintGreen() {
+        return tint().g();
+    }
+
+    /** @return the blue channel of the sky tint, 0.0 to 1.0, which allocates nothing */
+    public double skyTintBlue() {
+        return tint().b();
     }
 
     /** @return how strongly the sky tint is laid over the world, 0 at midday and the most at night */

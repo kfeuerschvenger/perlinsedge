@@ -185,14 +185,14 @@ public class Player extends Entity implements Container {
             return false;
         }
 
+        if (isFreeStepTo(step, targetX, targetY, occupied)) {
+            startNewPath(List.of(step));
+            return true;
+        }
         // A player between two tiles plans from the tile it is approaching, so the new walk never starts with a
         // diagonal across a blocked corner from an off-grid position
         final int fromX = step != null ? step.x : currentTileX;
         final int fromY = step != null ? step.y : currentTileY;
-        if (step != null && fromX == targetX && fromY == targetY && !occupied.contains(step)) {
-            startNewPath(List.of(step));
-            return true;
-        }
 
         var pathfinder = new Pathfinder(map, occupied);
         var path = pathfinder.findPath(fromX, fromY, targetX, targetY).nodes();
@@ -205,6 +205,11 @@ public class Player extends Entity implements Container {
 
         startNewPath(path);
         return true;
+    }
+
+    /** Tells whether the step in progress already ends on the tile an order asks for, and that tile is not taken. */
+    private static boolean isFreeStepTo(PathNode step, int targetX, int targetY, Set<PathNode> occupied) {
+        return step != null && step.x == targetX && step.y == targetY && !occupied.contains(step);
     }
 
     /**
@@ -911,32 +916,32 @@ public class Player extends Entity implements Container {
         return currentTileX == x && currentTileY == y;
     }
 
+    /** Marks the pair of signs of a step that is no step at all, which leaves the direction as it is. */
+    private static final int KEEP_DIRECTION = -1;
+    /**
+     * The direction of a step by the signs of its two components, indexed by {@code (sign of dx + 1) * 3 + (sign of
+     * dy + 1)}: the columns run from up (negative dy) through level to down, the rows from left through level to right.
+     */
+    private static final int[] DIRECTION_BY_SIGNS = {
+            DIR_UP_LEFT, DIR_LEFT, DIR_DOWN_LEFT,
+            DIR_UP, KEEP_DIRECTION, DIR_DOWN,
+            DIR_UP_RIGHT, DIR_RIGHT, DIR_DOWN_RIGHT
+    };
+    private static final int SIGN_OFFSET = 1;
+    private static final int SIGN_COUNT = 3;
+
     private void updateDirection() {
         if (currentPath.isEmpty()) {
             return;
         }
 
         PathNode next = currentPath.peek();
-        double dx = next.x - posX;
-        double dy = next.y - posY;
-
-        // Calculate movement direction
-        if (dx > 0 && dy < 0) {
-            direction = DIR_UP_RIGHT;
-        } else if (dx > 0 && dy > 0) {
-            direction = DIR_DOWN_RIGHT;
-        } else if (dx < 0 && dy > 0) {
-            direction = DIR_DOWN_LEFT;
-        } else if (dx < 0 && dy < 0) {
-            direction = DIR_UP_LEFT;
-        } else if (dx > 0) {
-            direction = DIR_RIGHT;
-        } else if (dx < 0) {
-            direction = DIR_LEFT;
-        } else if (dy < 0) {
-            direction = DIR_UP;
-        } else if (dy > 0) {
-            direction = DIR_DOWN;
+        // A component that is not a number counts as no movement along its axis
+        final int signX = (int) Math.signum(next.x - posX);
+        final int signY = (int) Math.signum(next.y - posY);
+        final int facing = DIRECTION_BY_SIGNS[(signX + SIGN_OFFSET) * SIGN_COUNT + signY + SIGN_OFFSET];
+        if (facing != KEEP_DIRECTION) {
+            direction = facing;
         }
     }
 

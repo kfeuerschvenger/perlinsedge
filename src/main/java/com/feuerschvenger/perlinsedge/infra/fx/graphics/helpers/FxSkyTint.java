@@ -5,7 +5,6 @@ import com.feuerschvenger.perlinsedge.domain.utils.ColourChannels;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightRegistry;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
-import com.feuerschvenger.perlinsedge.domain.world.time.SkyTint;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.LightLayer;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.PixelSink;
 import javafx.scene.canvas.GraphicsContext;
@@ -60,6 +59,39 @@ public final class FxSkyTint {
     /** Largest value of an 8 bit channel, as a double. */
     private static final double CHANNEL_MAX = 255.0;
 
+    /**
+     * The tint of the frame as the sky reports it, copied into one object that this class owns so a frame allocates
+     * nothing and no caller holds the state of the clock.
+     */
+    private static final class SkyColour implements ColourChannels {
+        private double r;
+        private double g;
+        private double b;
+
+        private void read(DayCycle sky) {
+            r = sky.skyTintRed();
+            g = sky.skyTintGreen();
+            b = sky.skyTintBlue();
+        }
+
+        @Override
+        public double r() {
+            return r;
+        }
+
+        @Override
+        public double g() {
+            return g;
+        }
+
+        @Override
+        public double b() {
+            return b;
+        }
+    }
+
+    /** The colour of the sky in the frame being drawn. */
+    private final SkyColour skyColour = new SkyColour();
     /** How every light is drawn. */
     private final LightStyle style;
     /** The cells of the lit regions: the sky tint with a warm wash toward the light, the plain tint where none reaches. */
@@ -116,11 +148,12 @@ public final class FxSkyTint {
 
     private void layTint(GraphicsContext gc, DayCycle sky, LightRegistry lights, double gameTime, CanvasView view) {
         // The tint of the frame is read once and passed on to everything that needs it
-        final SkyTint tint = sky.tint();
-        final double strength = Math.min(1.0, tint.strength());
+        skyColour.read(sky);
+        final double strength = Math.min(1.0, sky.skyTintStrength());
         if (strength < DayCycle.MIN_VISIBLE_TINT_STRENGTH) {
             return;
         }
+        final ColourChannels tint = skyColour;
         useTint(tint, strength);
         gc.setFill(plainColour);
         final double artScale = view.artScale();

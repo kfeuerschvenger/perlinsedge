@@ -6,8 +6,11 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -263,11 +266,177 @@ class BuildingLayersTest {
     }
 
     @Test
-    void theGateCostsTwoPlanksAndFourSticks() {
-        var recipe = recipes.getBuildingRecipeByType(BuildingType.FENCE_GATE).orElseThrow();
+    void placingAGateConsumesExactlyTheIngredientsOfItsRecipe() {
+        final var ingredients = recipes.getBuildingRecipeByType(BuildingType.FENCE_GATE).orElseThrow().ingredients();
+        for (CraftingIngredient ingredient : ingredients) {
+            player.addItem(new Item(ingredient.itemType(), ingredient.quantity() + 1));
+        }
+        manager.setSelectedBuildingType(BuildingType.FENCE_GATE);
 
-        assertEquals(java.util.List.of(new CraftingIngredient(ItemType.WOOD_PLANK, 2),
-                new CraftingIngredient(ItemType.STICK, 4)), recipe.ingredients());
+        assertTrue(manager.placeBuilding(2, 3));
+
+        for (CraftingIngredient ingredient : ingredients) {
+            assertEquals(1, held(ingredient.itemType()), "only the spare " + ingredient.itemType() + " is left");
+        }
+    }
+
+    // ---- the player or an enemy in the tile ----
+
+    private void give(BuildingType type) {
+        for (CraftingIngredient ingredient : recipes.getBuildingRecipeByType(type).orElseThrow().ingredients()) {
+            player.addItem(new Item(ingredient.itemType(), ingredient.quantity()));
+        }
+    }
+
+    private void standPlayerOn(int x, int y) {
+        player.setCurrentTileX(x);
+        player.setCurrentTileY(y);
+        player.setTargetTileX(x);
+        player.setTargetTileY(y);
+    }
+
+    private Slime slimeOn(int x, int y) {
+        final Slime slime = new Slime(x, y);
+        state.setEnemies(List.of(slime));
+        return slime;
+    }
+
+    @Test
+    void aSolidPieceIsRefusedOnTheTileThePlayerStandsOnAndSaysSo() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        standPlayerOn(2, 2);
+        final BuildingType[] solidPieces = {BuildingType.FENCE, BuildingType.FENCE_GATE, BuildingType.CHEST,
+                BuildingType.FURNACE, BuildingType.WORKBENCH, BuildingType.BED, BuildingType.ANVIL};
+        for (BuildingType type : solidPieces) {
+            give(type);
+            manager.setSelectedBuildingType(type);
+
+            assertEquals(Rgba.RED.r(), manager.getPlacementPreviewColor(2, 2).r(), 1e-9, type + " ghost");
+            assertFalse(manager.placeBuilding(2, 2), type + " on the player");
+        }
+
+        assertEquals(solidPieces.length, hints.size());
+        assertFalse(map.getTile(2, 2).hasBuilding());
+    }
+
+    @Test
+    void aSolidPieceIsRefusedOnTheTileAnEnemyStandsOnOrIsSteppingTo() {
+        final Slime slime = slimeOn(3, 3);
+        give(BuildingType.FENCE);
+        give(BuildingType.FENCE);
+        give(BuildingType.FENCE);
+        manager.setSelectedBuildingType(BuildingType.FENCE);
+
+        assertFalse(manager.placeBuilding(3, 3), "where the enemy stands");
+
+        slime.setTargetTileX(3);
+        slime.setTargetTileY(4);
+        assertFalse(manager.placeBuilding(3, 4), "where the enemy is stepping to");
+        assertTrue(manager.placeBuilding(4, 4), "a free tile is still fine");
+    }
+
+    @Test
+    void aDeadEnemyDoesNotBlockAPlacement() {
+        final Slime slime = slimeOn(3, 3);
+        slime.takeDamage(Integer.MAX_VALUE);
+        give(BuildingType.FENCE);
+        manager.setSelectedBuildingType(BuildingType.FENCE);
+
+        assertTrue(manager.placeBuilding(3, 3));
+    }
+
+    @Test
+    void aPieceThatDoesNotBlockWalkingCanStandUnderTheWalker() {
+        standPlayerOn(2, 2);
+        give(BuildingType.CAMPFIRE);
+        manager.setSelectedBuildingType(BuildingType.CAMPFIRE);
+
+        assertTrue(manager.placeBuilding(2, 2));
+    }
+
+    @Test
+    void aBridgeIsNotDemolishedWhileThePlayerIsOnItAndSaysSo() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        build(BuildingType.BRIDGE, 5, 2);
+        standPlayerOn(5, 2);
+
+        assertFalse(manager.removeFloor(5, 2));
+
+        assertTrue(map.getTile(5, 2).hasFloor());
+        assertEquals(1, hints.size());
+        standPlayerOn(0, 0);
+        assertTrue(manager.removeFloor(5, 2));
+    }
+
+    @Test
+    void aBridgeIsNotDemolishedWhileAnEnemyIsSteppingToIt() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        build(BuildingType.BRIDGE, 5, 2);
+        final Slime slime = slimeOn(4, 2);
+        slime.setTargetTileX(5);
+        slime.setTargetTileY(2);
+
+        assertFalse(manager.removeFloor(5, 2));
+
+        assertTrue(map.getTile(5, 2).hasFloor());
+        assertEquals(1, hints.size());
+        state.setEnemies(List.of());
+        assertTrue(manager.removeFloor(5, 2));
+    }
+
+    @Test
+    void theRefundOfABridgeIsNotDroppedOnWater() {
+        build(BuildingType.BRIDGE, 5, 2);
+        // The inventory is full of something else, so the whole refund is left over, and the player stands in water
+        while (player.addItem(new Item(ItemType.STONE, ItemType.STONE.getMaxStackSize()))) {
+            // keeps filling until no slot is left
+        }
+        standPlayerOn(8, 5);
+
+        assertTrue(manager.removeFloor(5, 2));
+
+        assertFalse(state.getDroppedItems().isEmpty());
+        for (var pile : state.getDroppedItems()) {
+            assertTrue(map.getTile(pile.getTileX(), pile.getTileY()).isWalkable(),
+                    "the pile lies on (" + pile.getTileX() + ", " + pile.getTileY() + ")");
+        }
+    }
+
+    @Test
+    void aGateIsNotClosedOnThePlayerAndOpensFreely() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        final FenceGate gate = (FenceGate) build(BuildingType.FENCE_GATE, 2, 3);
+        standPlayerOn(2, 3);
+
+        assertTrue(manager.interactWithBuilding(2, 3), "opening it is allowed with the player in the tile");
+        assertTrue(gate.isOpen());
+        assertFalse(manager.interactWithBuilding(2, 3), "closing it on the player is refused");
+
+        assertTrue(gate.isOpen());
+        assertEquals(1, hints.size());
+        standPlayerOn(0, 0);
+        assertTrue(manager.interactWithBuilding(2, 3), "it closes once the tile is free");
+        assertFalse(gate.isOpen());
+    }
+
+    @Test
+    void aGateIsNotClosedOnAnEnemy() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        final FenceGate gate = (FenceGate) build(BuildingType.FENCE_GATE, 2, 3);
+        manager.interactWithBuilding(2, 3);
+        final Slime slime = slimeOn(1, 3);
+        slime.setTargetTileX(2);
+        slime.setTargetTileY(3);
+
+        assertFalse(manager.interactWithBuilding(2, 3));
+
+        assertTrue(gate.isOpen());
+        assertEquals(1, hints.size());
     }
 
     @Test

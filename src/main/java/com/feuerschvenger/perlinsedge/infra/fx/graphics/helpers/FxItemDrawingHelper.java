@@ -86,12 +86,12 @@ public final class FxItemDrawingHelper {
         final double floatingOffset = Math.sin(gameTime * FLOATING_SPEED) * FLOATING_AMPLITUDE_PIXELS * zoom
                 - flightLift;
 
-        // Calcula el tamaño objetivo para el ítem basado en el tile y el zoom
-        // Usamos el ancho del tile como referencia para el tamaño máximo
+        // Computes the target size for the item from the tile and the zoom
+        // The tile width is the reference for the maximum size
         double targetItemWidth = tileWidth * DROPPED_ITEM_TARGET_TILE_FRACTION;
-        double targetItemHeight = tileHeight * DROPPED_ITEM_TARGET_TILE_FRACTION; // Puedes ajustar si quieres que el alto sea diferente
+        double targetItemHeight = tileHeight * DROPPED_ITEM_TARGET_TILE_FRACTION; // The height may differ from the width if needed
 
-        // Calculate initial position (usando el tamaño del tile para el offset vertical)
+        // Calculate initial position (the tile size drives the vertical offset)
         double baseDrawY = tileTopY + (tileHeight * DROPPED_ITEM_BASE_VERTICAL_OFFSET);
 
         // Get sprite and render
@@ -116,11 +116,11 @@ public final class FxItemDrawingHelper {
 
             gc.drawImage(sprite, finalDrawX, finalDrawY, finalWidth, finalHeight);
         } else {
-            // Si no hay sprite, dibuja la forma de fallback con el tamaño objetivo
+            // With no sprite, the fallback shape is drawn at the target size
             finalWidth = targetItemWidth;
             finalHeight = targetItemHeight;
             finalDrawX = tileTopX - (finalWidth * HALF);
-            finalDrawY = baseDrawY - finalHeight + floatingOffset; // Sin offset del sprite para fallback
+            finalDrawY = baseDrawY - finalHeight + floatingOffset; // No sprite offset for the fallback
 
             drawFallbackShape(gc, finalDrawX, finalDrawY, finalWidth, finalHeight, itemType, zoom);
         }

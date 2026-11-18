@@ -11,6 +11,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.TextAlignment;
@@ -120,7 +121,7 @@ public final class BuildingPalettePanel extends HBox {
         card.cost.addAll(recipe.ingredients());
 
         Tooltip.install(card.node, new Tooltip(type.getDescription()));
-        card.node.setOnMousePressed(event -> {
+        card.node.setOnMousePressed((MouseEvent event) -> {
             choose(type);
             event.consume();
         });
@@ -241,7 +242,7 @@ public final class BuildingPalettePanel extends HBox {
         }
         selectionShown = true;
         shownSelected = selected;
-        cards.forEach((type, card) -> {
+        cards.forEach((BuildingType type, Card card) -> {
             UiTheme.setClass(card.node, UiTheme.SLOT_SELECTED, type == selected);
             if (card.rotateHint != null) {
                 final boolean shown = type == selected;

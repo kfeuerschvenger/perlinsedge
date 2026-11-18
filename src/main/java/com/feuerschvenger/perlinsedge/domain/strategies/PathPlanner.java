@@ -14,17 +14,27 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 final class PathPlanner {
 
     /** Largest number of tiles one search may expand. */
-    public static final int MAX_EXPANDED_NODES = 1_500;
+    private static final int MAX_EXPANDED_NODES = 1_500;
     /** Wait after the first failed search, in seconds. */
-    public static final double INITIAL_BACKOFF_SECONDS = 0.5;
+    private static final double INITIAL_BACKOFF_SECONDS = 0.5;
     /** Longest wait between searches, in seconds. */
-    public static final double MAX_BACKOFF_SECONDS = 4.0;
+    private static final double MAX_BACKOFF_SECONDS = 4.0;
     /** How much longer each failed search in a row makes the wait. */
     private static final double BACKOFF_GROWTH_FACTOR = 2.0;
 
     private double backoffSeconds;
     private double secondsUntilNextSearch;
     private int searches;
+
+    /** @return the wait after the first failed search, in seconds */
+    static double initialBackoffSeconds() {
+        return INITIAL_BACKOFF_SECONDS;
+    }
+
+    /** @return the longest wait between searches, in seconds */
+    static double maxBackoffSeconds() {
+        return MAX_BACKOFF_SECONDS;
+    }
 
     /** @return how many searches have run, not counting the calls refused while backing off */
     int searchCount() {

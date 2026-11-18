@@ -139,16 +139,9 @@ public final class Flicker {
      */
     private Flicker(double intensityAmplitude, double radiusAmplitude, double frequencyHz, long seed,
                     Shape shape, Drift drift) {
-        if (!isBelow(intensityAmplitude, AMPLITUDE_LIMIT)
-                || !isBelow(radiusAmplitude, AMPLITUDE_LIMIT)
-                || !isBelow(shape.amplitude(), SHAPE_AMPLITUDE_LIMIT)) {
-            throw new IllegalArgumentException("A flicker amplitude must be from 0 up to but excluding 1, "
-                    + "and the shape amplitude below one half");
-        }
         final double colourDriftHz = drift == null ? DEFAULT_HZ : drift.hz();
-        if (isNotAboveZero(frequencyHz) || isNotAboveZero(shape.driftHz()) || isNotAboveZero(colourDriftHz)) {
-            throw new IllegalArgumentException("A flicker frequency must be above zero");
-        }
+        requireAmplitudes(intensityAmplitude, radiusAmplitude, shape);
+        requireFrequencies(frequencyHz, shape, colourDriftHz);
         this.intensityAmplitude = intensityAmplitude;
         this.radiusAmplitude = radiusAmplitude;
         this.frequencyHz = frequencyHz;
@@ -162,6 +155,21 @@ public final class Flicker {
             for (var wave = 0; wave < RATIOS.length; wave++) {
                 phases[channel][wave] = FULL_TURN * unit(seed, channel * RATIOS.length + wave);
             }
+        }
+    }
+
+    private static void requireAmplitudes(double intensityAmplitude, double radiusAmplitude, Shape shape) {
+        if (!isBelow(intensityAmplitude, AMPLITUDE_LIMIT)
+                || !isBelow(radiusAmplitude, AMPLITUDE_LIMIT)
+                || !isBelow(shape.amplitude(), SHAPE_AMPLITUDE_LIMIT)) {
+            throw new IllegalArgumentException("A flicker amplitude must be from 0 up to but excluding 1, "
+                    + "and the shape amplitude below one half");
+        }
+    }
+
+    private static void requireFrequencies(double frequencyHz, Shape shape, double colourDriftHz) {
+        if (isNotAboveZero(frequencyHz) || isNotAboveZero(shape.driftHz()) || isNotAboveZero(colourDriftHz)) {
+            throw new IllegalArgumentException("A flicker frequency must be above zero");
         }
     }
 

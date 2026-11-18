@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowLayer;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import javafx.scene.canvas.GraphicsContext;
@@ -222,7 +223,7 @@ public final class FxShadowPass {
         // The canvas shows the window shifted by the whole cells of the camera offset plus where the window was placed;
         // it stays valid while the canvas lies inside the window, and a window that has to move is placed again around
         // the camera of this frame
-        final boolean sameCanvas = windowPlaced && !differs(artScale, windowScale) && cellsWide == windowCanvasWide
+        final boolean sameCanvas = windowPlaced && Doubles.areEqual(artScale, windowScale) && cellsWide == windowCanvasWide
                 && cellsHigh == windowCanvasHigh;
         final boolean insideWindow = Math.abs(windowCellX + wholeCellsX + marginX) <= marginX
                 && Math.abs(windowCellY + wholeCellsY + marginY) <= marginY;
@@ -346,21 +347,38 @@ public final class FxShadowPass {
         // is cast, so the lists do not matter
         final boolean everythingChanged = everythingChanged(view, sunShadow);
         // The static layer does not depend on the phase of the camera grid, only the dynamic one does
-        final boolean staticChanged = everythingChanged || windowFresh
-                || (visible && staticListChanged(staticShadows, staticVersion));
-        final boolean phaseChanged = differs(phaseX, lastPhaseX) || differs(phaseY, lastPhaseY);
-        final boolean dynamicChanged = everythingChanged || phaseChanged
-                || (visible && !dynamicShadows.sameShadowsAs(castDynamic));
+        final boolean staticChanged = staticLayerChanged(everythingChanged, visible, staticShadows, staticVersion);
+        final boolean dynamicChanged = dynamicLayerChanged(everythingChanged, visible, dynamicShadows);
         // The dynamic cells are lowered against the static layer, so they are worked out again when it moved against
         // them or when the opacity, which the lowering depends on, changed
-        final boolean loweringChanged = staticChanged || shiftX != shownShiftX || shiftY != shownShiftY
-                || differs(opacity, shownOpacity);
+        final boolean loweringChanged = staticChanged || loweringShifted(opacity);
         if (staticChanged || dynamicChanged || loweringChanged) {
             cast(staticShadows, dynamicShadows, staticChanged, dynamicChanged, view.artScale(), sunShadow);
         }
         if (visible) {
             layOver(gc, view.artScale(), opacity);
         }
+    }
+
+    /** Tells whether the static layer has to be cast again: it does not depend on the phase of the camera grid. */
+    private boolean staticLayerChanged(boolean everythingChanged, boolean visible, ShadowList staticShadows,
+                                       long staticVersion) {
+        return everythingChanged || windowFresh || (visible && staticListChanged(staticShadows, staticVersion));
+    }
+
+    /** Tells whether the dynamic layer has to be cast again: it also depends on the phase of the camera grid. */
+    private boolean dynamicLayerChanged(boolean everythingChanged, boolean visible, ShadowList dynamicShadows) {
+        return everythingChanged || phaseChanged() || (visible && !dynamicShadows.sameShadowsAs(castDynamic));
+    }
+
+    /** Tells whether the phase of the camera grid is not the one the last cast was made at. */
+    private boolean phaseChanged() {
+        return Doubles.differs(phaseX, lastPhaseX) || Doubles.differs(phaseY, lastPhaseY);
+    }
+
+    /** Tells whether the static layer moved against the dynamic one, or the opacity is not the one shown. */
+    private boolean loweringShifted(double opacity) {
+        return shiftX != shownShiftX || shiftY != shownShiftY || Doubles.differs(opacity, shownOpacity);
     }
 
     /** Tells whether something that both layers share changed since the last cast. */
@@ -370,17 +388,12 @@ public final class FxShadowPass {
 
     /** Tells whether the canvas grid has another size or art scale than the last cast was made at. */
     private boolean gridChanged(CanvasView view) {
-        return cellsWide != lastCellsWide || cellsHigh != lastCellsHigh || differs(view.artScale(), lastArtScale);
+        return cellsWide != lastCellsWide || cellsHigh != lastCellsHigh || Doubles.differs(view.artScale(), lastArtScale);
     }
 
     /** Tells whether the direction or the length of the shadows is not what the last cast was made at. */
     private boolean sunChanged(SunShadow sunShadow) {
-        return differs(sunShadow.angle(), lastAngle) || differs(sunShadow.length(), lastLength);
-    }
-
-    /** Tells whether two values are not the same number, by their exact bits, which is what a cast depends on. */
-    private static boolean differs(double a, double b) {
-        return Double.compare(a, b) != 0;
+        return Doubles.differs(sunShadow.angle(), lastAngle) || Doubles.differs(sunShadow.length(), lastLength);
     }
 
     /** Tells whether the static list differs from the one the static layer was last cast from. */

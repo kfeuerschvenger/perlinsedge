@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
+import javafx.event.ActionEvent;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -31,19 +32,19 @@ public final class MainMenuPanel extends VBox {
 
         loadGameButton.setDisable(true);
 
-        newGameButton.setOnAction(e -> {
+        newGameButton.setOnAction((ActionEvent e) -> {
             if (onNewGameAction != null) {
                 onNewGameAction.run();
             }
         });
 
-        loadGameButton.setOnAction(e -> {
+        loadGameButton.setOnAction((ActionEvent e) -> {
             if (onLoadGameAction != null) {
                 onLoadGameAction.run();
             }
         });
 
-        exitButton.setOnAction(e -> {
+        exitButton.setOnAction((ActionEvent e) -> {
             if (onExitAction != null) {
                 onExitAction.run();
             }

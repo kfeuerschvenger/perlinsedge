@@ -117,8 +117,9 @@ public final class TileFactory {
     private static float applyHeightVariation(int x, int y, float height, long seed) {
         // Create deterministic pseudo-random variation based on position and seed
         long hash = seed + VARIATION_HASH_X_WEIGHT * x + VARIATION_HASH_Y_WEIGHT * y;
-        float variation = (hash % VARIATION_STEPS) / VARIATION_LAST_STEP * VARIATION_RANGE - MAX_VARIATION;
-        return height + variation;
+        final double variation = (double) (hash % VARIATION_STEPS) / VARIATION_LAST_STEP * VARIATION_RANGE
+                - MAX_VARIATION;
+        return (float) (height + variation);
     }
 
     /**
@@ -211,17 +212,22 @@ public final class TileFactory {
         } else if (height < 0.0F) {
             return TileType.ICE; // Costa congelada
         } else if (height > TUNDRA_INLAND_THRESHOLD) {
-            if (temperature < TUNDRA_SNOW_TEMPERATURE || height > TUNDRA_SNOW_HEIGHT) {
-                return TileType.SNOW;
-            }
-            // Añadir bosques en tundra con suficiente humedad
-            if (moisture > TUNDRA_FOREST_MOISTURE && height < TUNDRA_FOREST_MAX_HEIGHT) {
-                return TileType.FOREST;
-            }
-            return TileType.GRASS;
+            return createInlandTundraTile(height, temperature, moisture);
         }
-        // Áreas de transición
+        // Transition areas
         return (temperature < TUNDRA_TRANSITION_SNOW_TEMPERATURE) ? TileType.SNOW : TileType.GRASS;
+    }
+
+    /** The tundra above the coast: snow where it is cold or high, forest where it is damp enough, grass otherwise. */
+    private static TileType createInlandTundraTile(float height, float temperature, float moisture) {
+        if (temperature < TUNDRA_SNOW_TEMPERATURE || height > TUNDRA_SNOW_HEIGHT) {
+            return TileType.SNOW;
+        }
+        // Add forests in tundra with enough moisture
+        if (moisture > TUNDRA_FOREST_MOISTURE && height < TUNDRA_FOREST_MAX_HEIGHT) {
+            return TileType.FOREST;
+        }
+        return TileType.GRASS;
     }
 
     /**

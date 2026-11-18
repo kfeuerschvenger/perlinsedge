@@ -517,4 +517,20 @@ class DayCycleTest {
         assertTrue(DayCycle.MIN_VISIBLE_TINT_STRENGTH > 0.0 && DayCycle.MIN_VISIBLE_TINT_STRENGTH < 0.05);
         assertEquals(0.0, at(DAWN + 10).skyTintStrength(), 1e-12, "midday is below the threshold");
     }
+
+    @Test
+    void aCycleThatOverflowsToInfinityIsRefusedAtConstruction() {
+        final double huge = Double.MAX_VALUE;
+
+        assertThrows(IllegalArgumentException.class, () -> new DayCycleSettings(huge, huge, huge, huge, 0, STEPS, 0.6, 2.0));
+    }
+
+    @Test
+    void theColourOfTheTintIsReadThroughTheAccessorsOfTheCycle() {
+        final DayCycle cycle = atCycleStart();
+
+        assertEquals(cycle.skyTint().r(), cycle.skyTintRed(), 0.0);
+        assertEquals(cycle.skyTint().g(), cycle.skyTintGreen(), 0.0);
+        assertEquals(cycle.skyTint().b(), cycle.skyTintBlue(), 0.0);
+    }
 }

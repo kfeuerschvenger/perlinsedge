@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.Silhouette;
 
 import java.util.Arrays;
@@ -169,7 +170,8 @@ public final class ShadowLayer {
         stampedBottom = 0;
         final double newCosine = Math.cos(angle);
         final double newSine = Math.sin(angle);
-        if (differs(newCosine, cosine) || differs(newSine, sine) || differs(length, this.length)) {
+        if (Doubles.differs(newCosine, cosine) || Doubles.differs(newSine, sine)
+                || Doubles.differs(length, this.length)) {
             masks.clear();
         }
         this.cosine = newCosine;
@@ -254,11 +256,6 @@ public final class ShadowLayer {
     /** Tells whether the width factor, the height factor or the ground row leaves nothing to cast. */
     private static boolean isEmptySize(double widthFactor, double heightFactor, double groundRow) {
         return widthFactor <= 0 || heightFactor <= 0 || groundRow <= 0;
-    }
-
-    /** Tells whether two values are not the same number, by their exact bits, which is what a mask depends on. */
-    private static boolean differs(double a, double b) {
-        return Double.compare(a, b) != 0;
     }
 
     /** Tells whether both coordinates of an anchor are finite numbers, which rules out NaN and the infinities. */

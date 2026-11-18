@@ -230,7 +230,7 @@ public class PerlinMapGenerator implements IMapGenerator {
     }
 
     private static float normalizeNoise(float value) {
-        return (value + 1) / NOISE_RANGE_SPAN;
+        return (float) (((double) value + 1) / NOISE_RANGE_SPAN);
     }
 
     private void initializeIslandCenters() {
@@ -238,8 +238,8 @@ public class PerlinMapGenerator implements IMapGenerator {
         islandCenters = new float[NUM_ISLANDS][ISLAND_CENTER_AXES];
 
         for (var i = 0; i < NUM_ISLANDS; i++) {
-            islandCenters[i][0] = ISLAND_CENTER_MIN + rand.nextFloat() * ISLAND_CENTER_SPAN; // x (20-80%)
-            islandCenters[i][1] = ISLAND_CENTER_MIN + rand.nextFloat() * ISLAND_CENTER_SPAN; // y (20-80%)
+            islandCenters[i][0] = (float) (ISLAND_CENTER_MIN + (double) rand.nextFloat() * ISLAND_CENTER_SPAN); // x (20-80%)
+            islandCenters[i][1] = (float) (ISLAND_CENTER_MIN + (double) rand.nextFloat() * ISLAND_CENTER_SPAN); // y (20-80%)
         }
     }
 
@@ -247,21 +247,20 @@ public class PerlinMapGenerator implements IMapGenerator {
         if (islandCenters == null) {
             return heightValue;
         }
-        float nx = (float) x / width;
-        float ny = (float) y / height;
-        var maxEffect = 0F;
+        final double nx = (double) x / width;
+        final double ny = (double) y / height;
+        var maxEffect = 0.0;
 
         for (float[] center : islandCenters) {
-            float dx = nx - center[0];
-            float dy = ny - center[1];
-            float distance = (float) Math.sqrt(dx * dx + dy * dy) * ISLAND_DISTANCE_SCALE;
+            final double dx = nx - center[0];
+            final double dy = ny - center[1];
+            final double distance = Math.sqrt(dx * dx + dy * dy) * ISLAND_DISTANCE_SCALE;
 
-            float effect = 1F - Math.min(1F, distance);
-            effect = (float) Math.pow(effect, ISLAND_FALLOFF_POWER);
+            final double effect = Math.pow(1.0 - Math.min(1.0, distance), ISLAND_FALLOFF_POWER);
             maxEffect = Math.max(maxEffect, effect);
         }
 
-        return heightValue * maxEffect * ISLAND_HEIGHT_GAIN + (maxEffect * ISLAND_LIFT - ISLAND_SEA_OFFSET);
+        return (float) (heightValue * maxEffect * ISLAND_HEIGHT_GAIN + (maxEffect * ISLAND_LIFT - ISLAND_SEA_OFFSET));
     }
 
     private void assignTileResource(Tile tile, int x, int y) {
@@ -289,21 +288,26 @@ public class PerlinMapGenerator implements IMapGenerator {
         }
 
         if (tile.getType().isFertile()) {
-            // Desert: the palms and cacti are placed after the water, by plantDesertTrees
-            if (config.getMapType() == MapType.DESERT) {
-                return;
-            }
-            float treeDensityFactor = switch (config.getMapType()) {
-                case MEDITERRANEAN -> TREE_FACTOR_MEDITERRANEAN;
-                case TUNDRA -> TREE_FACTOR_TUNDRA;
-                case ISLANDS -> TREE_FACTOR_ISLANDS;
-                default -> TREE_FACTOR_DEFAULT;
-            };
-            float treeValue = normalizeNoise(treeNoise.getNoise((float) x, (float) y));
-            float threshold = 1.0F - (config.getTreeDensity() * treeDensityFactor);
-            if (treeValue > threshold) {
-                tile.setWorldResource(new Resource(ResourceType.TREE, config.getRandom().nextLong()));
-            }
+            plantTreeOnFertileTile(tile, x, y);
+        }
+    }
+
+    /** Puts a tree on a fertile tile where the tree noise passes the threshold the density of the map type sets. */
+    private void plantTreeOnFertileTile(Tile tile, int x, int y) {
+        // Desert: the palms and cacti are placed after the water, by plantDesertTrees
+        if (config.getMapType() == MapType.DESERT) {
+            return;
+        }
+        float treeDensityFactor = switch (config.getMapType()) {
+            case MEDITERRANEAN -> TREE_FACTOR_MEDITERRANEAN;
+            case TUNDRA -> TREE_FACTOR_TUNDRA;
+            case ISLANDS -> TREE_FACTOR_ISLANDS;
+            default -> TREE_FACTOR_DEFAULT;
+        };
+        float treeValue = normalizeNoise(treeNoise.getNoise((float) x, (float) y));
+        double threshold = 1.0 - ((double) config.getTreeDensity() * treeDensityFactor);
+        if (treeValue > threshold) {
+            tile.setWorldResource(new Resource(ResourceType.TREE, config.getRandom().nextLong()));
         }
     }
 
@@ -371,15 +375,15 @@ public class PerlinMapGenerator implements IMapGenerator {
      */
     private void plantDesertTrees(TileMap map) {
         final var random = config.getRandom();
-        final float dryChance = Math.min(MAX_TREE_CHANCE, config.getTreeDensity() * DESERT_DRY_FACTOR);
-        final float wetChance = Math.min(MAX_TREE_CHANCE, config.getTreeDensity() * DESERT_WET_FACTOR);
+        final double dryChance = Math.min(MAX_TREE_CHANCE, (double) config.getTreeDensity() * DESERT_DRY_FACTOR);
+        final double wetChance = Math.min(MAX_TREE_CHANCE, (double) config.getTreeDensity() * DESERT_WET_FACTOR);
         for (var y = 0; y < map.getHeight(); y++) {
             for (var x = 0; x < map.getWidth(); x++) {
                 final var tile = map.getTile(x, y);
                 if (tile.getType() != TileType.SAND || tile.hasResource()) {
                     continue;
                 }
-                final float chance = hasWaterWithin(map, x, y, OASIS_PALM_REACH) ? wetChance : dryChance;
+                final double chance = hasWaterWithin(map, x, y, OASIS_PALM_REACH) ? wetChance : dryChance;
                 if (random.nextFloat() < chance) {
                     tile.setWorldResource(new Resource(ResourceType.TREE, random.nextLong()));
                 }
@@ -532,7 +536,7 @@ public class PerlinMapGenerator implements IMapGenerator {
     }
 
     private int calculateRiverCount(int potentialSources) {
-        return Math.max(1, (int) (potentialSources * config.getRiverDensity() * RIVER_SOURCE_SHARE));
+        return Math.max(1, (int) (potentialSources * (double) config.getRiverDensity() * RIVER_SOURCE_SHARE));
     }
 
     private static boolean isValidRiverStart(TileMap map, int[] source, Set<String> riverTiles) {
@@ -599,13 +603,10 @@ public class PerlinMapGenerator implements IMapGenerator {
     private int[] findNextRiverPoint(TileMap map, int x, int y, float currentHeight, Set<String> riverTiles) {
         float minHeight = currentHeight;
         List<int[]> candidates = new ArrayList<>();
-        int width = map.getWidth();
-        int height = map.getHeight();
-
         for (int[] dir : RIVER_DIRECTIONS) {
             int nx = x + dir[0];
             int ny = y + dir[1];
-            if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+            if (!map.isValidCoordinate(nx, ny)) {
                 continue;
             }
 
@@ -658,7 +659,7 @@ public class PerlinMapGenerator implements IMapGenerator {
         int radius = LAKE_RADIUS_MIN + config.getRandom().nextInt(LAKE_RADIUS_MAX - LAKE_RADIUS_MIN);
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
-                flood(map, x + dx, y + dy, endpoint.getHeight() + LAKE_DEPTH_TOLERANCE);
+                flood(map, x + dx, y + dy, (float) ((double) endpoint.getHeight() + LAKE_DEPTH_TOLERANCE));
             }
         }
         applyRiverSegment(map, segment);
