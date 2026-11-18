@@ -66,8 +66,8 @@ public class GameStateManager {
     private final DamageNumbers damageNumbers = new DamageNumbers();
     private boolean isGamePaused = false;
     private boolean isInventoryOpen = false;
-    @Getter(lombok.AccessLevel.NONE)
-    private boolean shouldCenterCamera = true;
+	@Getter(lombok.AccessLevel.NONE)
+    private boolean shouldCenterCamera = true; // true to center at the next update
 
     // Game Configuration
     private GameMode currentGameMode = GameMode.EXPLORATION;
@@ -187,15 +187,6 @@ public class GameStateManager {
     /** @return true when the camera should be centred on the player at the next update */
     public boolean shouldCenterCamera() {
         return shouldCenterCamera;
-    }
-
-    /**
-     * Requests or cancels centring the camera on the player.
-     *
-     * @param shouldCenterCamera true to centre at the next update
-     */
-    public void setShouldCenterCamera(boolean shouldCenterCamera) {
-        this.shouldCenterCamera = shouldCenterCamera;
     }
 
 }

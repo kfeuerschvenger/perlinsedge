@@ -48,7 +48,7 @@ public class InventoryManager {
             return false;
         }
 
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player == null) {
             log.warn("Crafting failed: Player is null");
             return false;

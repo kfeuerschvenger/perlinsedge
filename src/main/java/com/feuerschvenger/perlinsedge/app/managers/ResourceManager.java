@@ -47,7 +47,7 @@ public class ResourceManager {
      * @param gameState shared game state
      */
     public ResourceManager(GameStateManager gameState) {
-        this(gameState, message -> { });
+        this(gameState, (String _) -> { });
     }
 
     /**
@@ -72,7 +72,9 @@ public class ResourceManager {
      *         of reach or lacks the tool
      */
     public HitResult handleTileInteraction(Player player, Tile tile) {
-        if (!isValidInteraction(player, tile)) return HitResult.REFUSED;
+        if (!isValidInteraction(player, tile)) {
+            return HitResult.REFUSED;
+        }
         if (!hasToolFor(player, tile)) {
             hintMissingTool(tile);
             return HitResult.REFUSED;
@@ -91,7 +93,9 @@ public class ResourceManager {
      * @return true when the resource needs no tool or the item in the player's hand is that tool
      */
     public boolean hasToolFor(Player player, Tile tile) {
-        if (tile == null || !tile.hasResource()) return false;
+        if (tile == null || !tile.hasResource()) {
+            return false;
+        }
         return hasRequiredTool(player, tile.getWorldResource());
     }
 
@@ -101,10 +105,14 @@ public class ResourceManager {
      * @param tile tile with a resource that needs a tool; anything else does nothing
      */
     public void hintMissingTool(Tile tile) {
-        if (tile == null || !tile.hasResource()) return;
-        Resource resource = tile.getWorldResource();
+        if (tile == null || !tile.hasResource()) {
+            return;
+        }
+        var resource = tile.getWorldResource();
         ItemType tool = resource.getType().getRequiredTool();
-        if (tool == null) return;
+        if (tool == null) {
+            return;
+        }
         log.debug("Cannot harvest {} at ({}, {}): the player does not hold a {}",
                 resource.getType(), tile.getX(), tile.getY(), tool);
         hintSink.accept("Hold a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
@@ -134,7 +142,9 @@ public class ResourceManager {
         double currentTime = gameState.getGameTime();
         double cooldown = ToolStats.resourceCooldownMs(tool, resource.getType()) / MILLIS_PER_SECOND;
 
-        if (isOnCooldown(resource, currentTime, cooldown)) return false;
+        if (isOnCooldown(resource, currentTime, cooldown)) {
+            return false;
+        }
 
         resource.startFlashing(currentTime);
         updateHitTimestamp(resource, currentTime);
@@ -212,7 +222,7 @@ public class ResourceManager {
     private void removeResourceFromTile(int tileX, int tileY) {
         TileMap map = gameState.getCurrentMap();
         if (map != null) {
-            Tile tile = map.getTile(tileX, tileY);
+            var tile = map.getTile(tileX, tileY);
             if (tile != null) {
                 tile.setWorldResource(null);
             }

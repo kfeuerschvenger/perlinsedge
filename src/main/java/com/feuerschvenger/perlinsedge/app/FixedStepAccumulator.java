@@ -53,7 +53,7 @@ final class FixedStepAccumulator {
         lastTimestamp = nowNanos;
 
         accumulator += lastDelta;
-        int steps = 0;
+        var steps = 0;
         while (accumulator >= stepSeconds) {
             accumulator -= stepSeconds;
             steps++;
@@ -85,4 +85,5 @@ final class FixedStepAccumulator {
     double lastDelta() {
         return lastDelta;
     }
+
 }

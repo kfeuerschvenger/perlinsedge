@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
@@ -125,18 +124,18 @@ public class InteractionManager {
      */
     public Outcome interact(int tileX, int tileY) {
         cancel();
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
         if (player == null || map == null || player.isDead()) {
             return Outcome.REFUSED;
         }
         // An enemy on the tile is the target, ahead of whatever else the tile holds
-        final Enemy enemy = enemyAt(tileX, tileY);
+        final var enemy = enemyAt(tileX, tileY);
         if (enemy != null) {
             return attack(player, map, enemy);
         }
-        final Tile tile = map.getTile(tileX, tileY);
-        final Kind kind = kindOf(tile);
+        final var tile = map.getTile(tileX, tileY);
+        final var kind = kindOf(tile);
         if (kind == Kind.NONE) {
             return Outcome.REFUSED;
         }
@@ -157,7 +156,7 @@ public class InteractionManager {
             // A walk left over from an earlier order would carry the player away from the target
             player.stop();
             if (InteractionPlanner.inReach(player.getCurrentTileX(), player.getCurrentTileY(), tileX, tileY)) {
-                final Outcome outcome = perform(player, tile, kind);
+                final var outcome = perform(player, tile, kind);
                 if (outcome == Outcome.IGNORED) {
                     // The target was hit a moment ago: the interaction waits and lands when the cooldown ends, as it
                     // does for a player that arrives during the cooldown
@@ -183,7 +182,7 @@ public class InteractionManager {
         if (pending == null) {
             return;
         }
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         final TileMap map = gameState.getCurrentMap();
         if (player == null || map == null || player.isDead()
                 || gameState.isGamePaused() || gameState.getCurrentGameMode() != GameMode.EXPLORATION) {
@@ -194,8 +193,8 @@ public class InteractionManager {
             updateAttack(player, map);
             return;
         }
-        final Tile tile = map.getTile(pending.tileX(), pending.tileY());
-        final Kind kind = kindOf(tile);
+        final var tile = map.getTile(pending.tileX(), pending.tileY());
+        final var kind = kindOf(tile);
         if (kind != pending.kind()) {
             cancel();
             return;
@@ -204,7 +203,7 @@ public class InteractionManager {
                 pending.tileX(), pending.tileY())) {
             // The remaining steps only lead to the stand tile, which the interaction does not need
             player.stop();
-            final Outcome outcome = perform(player, tile, kind);
+            final var outcome = perform(player, tile, kind);
             if (outcome == Outcome.IGNORED) {
                 // The target was hit a moment ago: the interaction stays pending and lands when the cooldown ends
                 return;
@@ -228,7 +227,7 @@ public class InteractionManager {
             return;
         }
         pending = null;
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         if (player != null) {
             player.stop();
         }
@@ -319,7 +318,7 @@ public class InteractionManager {
      * is gone or cannot be reached.
      */
     private void updateAttack(Player player, TileMap map) {
-        final Enemy enemy = pending.enemy();
+        final var enemy = pending.enemy();
         if (enemy.isDead() || !gameState.getEnemies().contains(enemy)) {
             cancel();
             return;
@@ -398,10 +397,11 @@ public class InteractionManager {
         if (tile == null) {
             return Kind.NONE;
         }
-        final Building building = tile.getBuilding();
+        final var building = tile.getBuilding();
         if (building != null && building.isInteractable()) {
             return Kind.BUILDING;
         }
         return tile.hasResource() ? Kind.RESOURCE : Kind.NONE;
     }
+
 }

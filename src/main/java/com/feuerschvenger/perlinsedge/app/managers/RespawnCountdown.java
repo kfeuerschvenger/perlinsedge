@@ -30,4 +30,5 @@ public final class RespawnCountdown {
     public static String label(double timerSeconds) {
         return "Respawning in " + secondsRemaining(timerSeconds);
     }
+
 }

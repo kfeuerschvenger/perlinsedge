@@ -2,7 +2,6 @@ package com.feuerschvenger.perlinsedge.app;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.app.managers.ItemDropManager;
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +54,7 @@ public class DropKeyHandler {
             log.debug("DROP KEY: ignored, the player is dead or the game is paused");
             return;
         }
-        final GameMode mode = gameState.getCurrentGameMode();
+        final var mode = gameState.getCurrentGameMode();
         if (mode == GameMode.EXPLORATION) {
             dropFromHand(wholeStack);
             return;
@@ -79,7 +78,7 @@ public class DropKeyHandler {
 
     /** Throws from the hotbar slot held in hand, which is the only slot the player can see with no inventory open. */
     private void dropFromHand(boolean wholeStack) {
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         if (player == null) {
             return;
         }
@@ -91,4 +90,5 @@ public class DropKeyHandler {
     private static boolean isInventoryMode(GameMode mode) {
         return mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN;
     }
+
 }

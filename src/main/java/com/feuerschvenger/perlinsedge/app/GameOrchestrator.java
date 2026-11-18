@@ -4,6 +4,8 @@ import com.feuerschvenger.perlinsedge.app.managers.*;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
+import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
@@ -98,7 +100,7 @@ public class GameOrchestrator {
         combatManager = new CombatManager(this.gameState);
         inventoryManager = new InventoryManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
         mapManager = new MapManager(this.gameState, mapConfigPanel);
-        ResourceManager resourceManager = new ResourceManager(this.gameState, hintLabel::show);
+        var resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
         dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot,
                 inventoryPanel::isStackInHand, itemDropManager);
@@ -140,7 +142,7 @@ public class GameOrchestrator {
         gameState.resetGameState();
         AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
 
-        long newSeed = new Random().nextLong();
+        var newSeed = new Random().nextLong();
         MapGenerationContext newMapContext = mapManager.createMapContext(selectedMapType, newSeed);
         mapManager.generateNewMap(newMapContext);
 
@@ -187,7 +189,7 @@ public class GameOrchestrator {
 
     /** Centers the camera on the player position. */
     public void centerOnPlayer() {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player != null) {
             camera.centerOnTile(player.getCurrentTileX(), player.getCurrentTileY(), mainCanvas);
         }
@@ -231,7 +233,7 @@ public class GameOrchestrator {
     }
 
     private void setupInventoryCallbacks() {
-        inventoryPanel.setOnItemDroppedInside((srcSlot, srcContainer, tgtSlot, tgtContainer, item) -> {
+        inventoryPanel.setOnItemDroppedInside((int srcSlot, Container srcContainer, int tgtSlot, Container tgtContainer, Item item) -> {
             containerManager.transferBetweenSlots(srcContainer, srcSlot, tgtContainer, tgtSlot, item);
             Platform.runLater(inventoryPanel::updateInventoryDisplay);
         });
@@ -245,7 +247,7 @@ public class GameOrchestrator {
     }
 
     private KeyController createKeyController() {
-        KeyController controller = new KeyController(
+        var controller = new KeyController(
                 this::handleEscape,
                 this::centerOnPlayer,
                 this::regenerateMap,

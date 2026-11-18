@@ -54,7 +54,9 @@ public class PlayerManager {
      */
     public boolean handleRespawn(double deltaTime) {
         double currentTimer = gameState.getPlayerRespawnTimer();
-        if (currentTimer <= 0) return false;
+        if (currentTimer <= 0) {
+            return false;
+        }
 
         double newTimer = currentTimer - deltaTime;
         gameState.setPlayerRespawnTimer(newTimer);
@@ -83,7 +85,7 @@ public class PlayerManager {
             log.debug("Using fallback position: {},{}", startPosition[0], startPosition[1]);
         }
 
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player == null) {
             player = new Player(startPosition[0], startPosition[1]);
             gameState.setPlayer(player);
@@ -104,8 +106,10 @@ public class PlayerManager {
      * @param deltaTime Time elapsed since last update (in seconds)
      */
     public void updatePlayer(double deltaTime) {
-        Player player = getPlayer();
-        if (player == null) return;
+        var player = getPlayer();
+        if (player == null) {
+            return;
+        }
 
         advancePlayer(deltaTime);
         // Every hit the player took since the last tick becomes one floating number over the player
@@ -127,8 +131,10 @@ public class PlayerManager {
      * @param deltaTime Time since last update in seconds
      */
     void advancePlayer(double deltaTime) {
-        final Player player = getPlayer();
-        if (player == null) return;
+        final var player = getPlayer();
+        if (player == null) {
+            return;
+        }
         keepClearOfEnemies();
         player.update(deltaTime);
         keepClearOfEnemies();
@@ -139,7 +145,7 @@ public class PlayerManager {
      * planned. It does nothing while the player is not walking.
      */
     public void keepClearOfEnemies() {
-        final Player player = getPlayer();
+        final var player = getPlayer();
         if (player == null || !player.isMoving()) {
             return;
         }
@@ -208,8 +214,10 @@ public class PlayerManager {
      * Drops all player inventory items into the game world.
      */
     private void dropPlayerItems() {
-        Player player = getPlayer();
-        if (player == null) return;
+        var player = getPlayer();
+        if (player == null) {
+            return;
+        }
 
         List<Item> inventory = player.getInventory();
         log.debug("Dropping {} items", inventory.size());
@@ -234,13 +242,13 @@ public class PlayerManager {
      * Ensures walkable tile with no resources/buildings and safe distance from enemies.
      */
     private int[] findSafePosition(TileMap map) {
-        Random random = new Random();
+        var random = new Random();
         int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
         log.debug("Searching safe position (max attempts: {})", maxAttempts);
 
-        for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            int x = random.nextInt(map.getWidth());
-            int y = random.nextInt(map.getHeight());
+        for (var attempt = 0; attempt < maxAttempts; attempt++) {
+            var x = random.nextInt(map.getWidth());
+            var y = random.nextInt(map.getHeight());
 
             if (isValidRespawnPosition(map, x, y)) {
                 return new int[]{x, y};
@@ -258,7 +266,7 @@ public class PlayerManager {
         int centerY = map.getHeight() / 2;
         log.debug("Searching fallback position around center");
 
-        for (int radius = 0; radius < FALLBACK_SEARCH_RADIUS; radius++) {
+        for (var radius = 0; radius < FALLBACK_SEARCH_RADIUS; radius++) {
             for (int x = centerX - radius; x <= centerX + radius; x++) {
                 for (int y = centerY - radius; y <= centerY + radius; y++) {
                     // Check perimeter only for efficiency
@@ -301,14 +309,18 @@ public class PlayerManager {
      * - Sufficient walkable neighbors
      */
     private boolean isValidRespawnPosition(TileMap map, int x, int y) {
-        if (!isWithinMapBounds(x, y, map)) return false;
+        if (!isWithinMapBounds(x, y, map)) {
+            return false;
+        }
 
-        Tile tile = map.getTile(x, y);
+        var tile = map.getTile(x, y);
         if (!WALKABLE_CLEAR_VALIDATOR.test(tile)) {
             return false;
         }
 
-        if (isEnemyTooClose(x, y)) return false;
+        if (isEnemyTooClose(x, y)) {
+            return false;
+        }
         return !isPositionSurrounded(x, y, map);
     }
 
@@ -328,7 +340,9 @@ public class PlayerManager {
      * Checks if enemies are within minimum safe distance.
      */
     private boolean isEnemyTooClose(int x, int y) {
-        if (gameState.getEnemies() == null) return false;
+        if (gameState.getEnemies() == null) {
+            return false;
+        }
 
         return gameState.getEnemies().stream().anyMatch(enemy ->
                 Math.abs(enemy.getCurrentTileX() - x) < MIN_ENEMY_DISTANCE &&
@@ -363,7 +377,7 @@ public class PlayerManager {
      * Updates all player-related UI components.
      */
     private void updatePlayerUI() {
-        Player player = getPlayer();
+        var player = getPlayer();
         if (player != null) {
             healthBar.updateHealth(player.getHealth(), player.getMaxHealth());
             inventoryPanel.updateInventoryDisplay();

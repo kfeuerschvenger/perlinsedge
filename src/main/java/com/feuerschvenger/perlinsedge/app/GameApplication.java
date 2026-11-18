@@ -90,13 +90,13 @@ public class GameApplication extends Application {
         this.primaryStage = stage;
 
         // Create scene with root pane
-        Scene scene = new Scene(rootPane);
+        var scene = new Scene(rootPane);
         UiTheme.install(scene);
         primaryStage.setTitle("Perlin's Edge");
         primaryStage.setScene(scene);
 
         // Configure fullscreen settings
-        AppConfig config = AppConfig.getInstance();
+        var config = AppConfig.getInstance();
         primaryStage.setFullScreen(config.core().isFullscreen());
         primaryStage.setFullScreenExitHint("");
         primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
@@ -107,8 +107,8 @@ public class GameApplication extends Application {
      * Initializes the root application pane with proper dimensions.
      */
     private void initializeRootPane() {
-        AppConfig config = AppConfig.getInstance();
-        Dimension screenSize = getScreenDimensions(config);
+        var config = AppConfig.getInstance();
+        var screenSize = getScreenDimensions(config);
 
         rootPane = new StackPane();
         rootPane.setPrefSize(screenSize.getWidth(), screenSize.getHeight());
@@ -227,7 +227,7 @@ public class GameApplication extends Application {
      * Creates core rendering components and UI layers.
      */
     private void createCoreRenderingComponents() {
-        AppConfig config = AppConfig.getInstance();
+        var config = AppConfig.getInstance();
         double width = rootPane.getPrefWidth();
         double height = rootPane.getPrefHeight();
 
@@ -250,7 +250,7 @@ public class GameApplication extends Application {
      * Creates and configures the minimap component.
      */
     private void createMinimap(AppConfig config) {
-        Canvas minimapCanvas = new Canvas(
+        var minimapCanvas = new Canvas(
                 config.graphics().getMinimapWidth(),
                 config.graphics().getMinimapHeight()
         );
@@ -264,7 +264,7 @@ public class GameApplication extends Application {
      * Creates the game layer containing rendering canvases.
      */
     private Pane createGameLayer() {
-        Pane layer = new Pane(mainCanvas, minimapFrame);
+        var layer = new Pane(mainCanvas, minimapFrame);
         layer.setPrefSize(rootPane.getPrefWidth(), rootPane.getPrefHeight());
         return layer;
     }
@@ -273,7 +273,7 @@ public class GameApplication extends Application {
      * Creates the UI layer with game interface components.
      */
     private Pane createUILayer(AppConfig config) {
-        Pane layer = new Pane();
+        var layer = new Pane();
         layer.setPickOnBounds(false);
 
         // Create UI components
@@ -369,7 +369,7 @@ public class GameApplication extends Application {
     private void initializeGameOrchestrator() {
         if (gameOrchestrator == null) {
             // Create input handler
-            FxInputHandler inputHandler = new FxInputHandler(
+            var inputHandler = new FxInputHandler(
                     primaryStage.getScene(),
                     mainCanvas,
                     camera
@@ -402,7 +402,7 @@ public class GameApplication extends Application {
      * Configures and adds the pause menu to the UI.
      */
     private void configurePauseMenu() {
-        PauseMenuPanel pauseMenuPanel = new PauseMenuPanel();
+        var pauseMenuPanel = new PauseMenuPanel();
 
         // Center positioning
         pauseMenuPanel.layoutXProperty().bind(
@@ -435,4 +435,5 @@ public class GameApplication extends Application {
     public static void main(String[] args) {
         launch(args);
     }
+
 }

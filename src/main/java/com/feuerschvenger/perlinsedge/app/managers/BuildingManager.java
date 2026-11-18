@@ -7,10 +7,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.*;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
-import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
-
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,7 +33,7 @@ public class BuildingManager {
     private final ContainerManager containerManager;
     private final ItemDropManager itemDropManager;
     private final Runnable onInventoryChanged;
-    private Consumer<String> hintSink = message -> { };
+    private Consumer<String> hintSink = (String _) -> { };
 
     // Building mode state
     @Getter
@@ -84,7 +82,7 @@ public class BuildingManager {
      * @param hintSink receives the hint text
      */
     public void setHintSink(Consumer<String> hintSink) {
-        this.hintSink = hintSink != null ? hintSink : message -> { };
+        this.hintSink = hintSink != null ? hintSink : (String _) -> { };
     }
 
     /**
@@ -159,7 +157,7 @@ public class BuildingManager {
      * @return the building, or null when the tile is outside the map or has none
      */
     public Building getBuildingAt(int tileX, int tileY) {
-        TileMap tileMap = gameState.getCurrentMap();
+        var tileMap = gameState.getCurrentMap();
         Tile tile = tileMap != null ? tileMap.getTile(tileX, tileY) : null;
         return tile != null ? tile.getBuilding() : null;
     }
@@ -177,9 +175,9 @@ public class BuildingManager {
             return false;
         }
 
-        TileMap tileMap = gameState.getCurrentMap();
-        Player player = gameState.getPlayer();
-        Tile targetTile = tileMap.getTile(worldX, worldY);
+        var tileMap = gameState.getCurrentMap();
+        var player = gameState.getPlayer();
+        var targetTile = tileMap.getTile(worldX, worldY);
         Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
         BuildingRecipe existingRecipe = recipe.orElse(null);
 
@@ -188,7 +186,7 @@ public class BuildingManager {
             return false;
         }
 
-        Building newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY,
+        var newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY,
                 getRotation(selectedBuildingType));
         consumeResources(player, existingRecipe);
         // A bridge is the floor of the tile and every other piece stands on top of it
@@ -210,13 +208,13 @@ public class BuildingManager {
      * @return true when a building was demolished and refunded
      */
     public boolean removeBuilding(int worldX, int worldY) {
-        TileMap tileMap = gameState.getCurrentMap();
+        var tileMap = gameState.getCurrentMap();
         if (tileMap == null) {
             log.warn("Remove building failed: Map is null");
             return false;
         }
 
-        Tile targetTile = tileMap.getTile(worldX, worldY);
+        var targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null || (!targetTile.hasBuilding() && !targetTile.hasFloor())) {
             log.debug("No building at ({}, {})", worldX, worldY);
             return false;
@@ -226,7 +224,7 @@ public class BuildingManager {
             return removeFloor(worldX, worldY);
         }
 
-        Building building = targetTile.getBuilding();
+        var building = targetTile.getBuilding();
         if (!building.isDestructible()) {
             log.debug("Building not destructible: {}", building.getType().getDisplayName());
             return false;
@@ -249,7 +247,7 @@ public class BuildingManager {
      *         cannot be destroyed
      */
     public boolean removeFloor(int worldX, int worldY) {
-        final TileMap tileMap = gameState.getCurrentMap();
+        final var tileMap = gameState.getCurrentMap();
         final Tile tile = tileMap != null ? tileMap.getTile(worldX, worldY) : null;
         if (tile == null || !tile.hasFloor()) {
             return false;
@@ -284,14 +282,18 @@ public class BuildingManager {
             }
             onInventoryChanged.run();
         }
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(building.getType());
-        if (player == null || recipe.isEmpty()) return;
+        if (player == null || recipe.isEmpty()) {
+            return;
+        }
 
         for (CraftingIngredient ingredient : recipe.get().ingredients()) {
             int quantity = building.refundOf(ingredient.quantity());
-            if (quantity <= 0) continue;
-            Item refund = new Item(ingredient.itemType(), quantity);
+            if (quantity <= 0) {
+                continue;
+            }
+            var refund = new Item(ingredient.itemType(), quantity);
             player.addItem(refund);
             if (refund.getQuantity() > 0) {
                 itemDropManager.dropAtFeet(refund, player);
@@ -308,22 +310,22 @@ public class BuildingManager {
      * @return true if interaction occurred, false otherwise
      */
     public boolean interactWithBuilding(int worldX, int worldY) {
-        TileMap tileMap = gameState.getCurrentMap();
+        var tileMap = gameState.getCurrentMap();
         if (tileMap == null) {
             log.warn("Interaction failed: Map is null");
             return false;
         }
 
-        Tile targetTile = tileMap.getTile(worldX, worldY);
+        var targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null || !targetTile.hasBuilding()) {
             return false;
         }
 
-        Building building = targetTile.getBuilding();
+        var building = targetTile.getBuilding();
         boolean interacted = building.onInteract(targetTile);
 
-        if (interacted && building instanceof Container) {
-            containerManager.openContainer((Container) building);
+        if (interacted && building instanceof Container container) {
+            containerManager.openContainer(container);
             log.debug("Opened container: {}", building.getClass().getSimpleName());
         }
         return interacted;
@@ -340,15 +342,15 @@ public class BuildingManager {
             return false;
         }
 
-        TileMap tileMap = gameState.getCurrentMap();
-        Player player = gameState.getPlayer();
+        var tileMap = gameState.getCurrentMap();
+        var player = gameState.getPlayer();
 
         if (tileMap == null || player == null) {
             log.warn("Placement failed: Map or player is null");
             return false;
         }
 
-        Tile targetTile = tileMap.getTile(worldX, worldY);
+        var targetTile = tileMap.getTile(worldX, worldY);
         if (targetTile == null) {
             log.debug("Placement failed: Invalid tile coordinates");
             return false;
@@ -374,7 +376,9 @@ public class BuildingManager {
      * @return true if player has sufficient resources
      */
     private boolean playerHasResources(Player player, BuildingRecipe recipe) {
-        if (player == null || recipe == null) return false;
+        if (player == null || recipe == null) {
+            return false;
+        }
 
         for (CraftingIngredient ingredient : recipe.ingredients()) {
             if (!player.canTakeItem(new Item(ingredient.itemType(), 1), ingredient.quantity())) {
@@ -390,14 +394,15 @@ public class BuildingManager {
      * Precondition: playerHasResources() must return true.
      */
     private void consumeResources(Player player, BuildingRecipe recipe) {
-        if (player == null) return;
+        if (player == null) {
+            return;
+        }
 
         for (CraftingIngredient ingredient : recipe.ingredients()) {
             player.removeItem(new Item(ingredient.itemType(), 1), ingredient.quantity());
             log.debug("Consumed: {}x {}", ingredient.quantity(), ingredient.itemType().getDisplayName());
         }
     }
-
 
     /**
      * Determines if a building type can be placed on a tile.
@@ -408,7 +413,9 @@ public class BuildingManager {
      */
     public boolean canPlaceOnTile(BuildingType type, Tile tile) {
         // Nothing is built on a resource or on a piece that already stands there
-        if (tile == null || tile.hasResource() || tile.hasBuilding()) return false;
+        if (tile == null || tile.hasResource() || tile.hasBuilding()) {
+            return false;
+        }
 
         switch (type) {
             // A bridge is a floor over water that is next to land or to another bridge, so it grows out from
@@ -452,10 +459,12 @@ public class BuildingManager {
      * four diagonal ones do not.
      */
     private boolean touchesLandOrFloor(Tile tile) {
-        final TileMap tileMap = gameState.getCurrentMap();
-        if (tileMap == null) return false;
+        final var tileMap = gameState.getCurrentMap();
+        if (tileMap == null) {
+            return false;
+        }
         for (int[] edge : EDGE_NEIGHBOURS) {
-            final Tile neighbour = tileMap.getTile(tile.getX() + edge[0], tile.getY() + edge[1]);
+            final var neighbour = tileMap.getTile(tile.getX() + edge[0], tile.getY() + edge[1]);
             if (neighbour != null && (neighbour.getType().isLand() || neighbour.hasFloor())) {
                 return true;
             }
@@ -469,21 +478,35 @@ public class BuildingManager {
      * @return Color indicating placement feasibility or null when inactive
      */
     public Rgba getPlacementPreviewColor(int worldX, int worldY) {
-        if (!buildingModeActive) return null;
-        if (selectedBuildingType == null) return Rgba.YELLOW.withOpacityFactor(PREVIEW_OPACITY);
+        if (!buildingModeActive) {
+            return null;
+        }
+        if (selectedBuildingType == null) {
+            return Rgba.YELLOW.withOpacityFactor(PREVIEW_OPACITY);
+        }
 
-        TileMap tileMap = gameState.getCurrentMap();
-        Player player = gameState.getPlayer();
-        if (tileMap == null || player == null) return errorColor();
+        var tileMap = gameState.getCurrentMap();
+        var player = gameState.getPlayer();
+        if (tileMap == null || player == null) {
+            return errorColor();
+        }
 
-        Tile targetTile = tileMap.getTile(worldX, worldY);
-        if (targetTile == null || targetTile.hasBuilding()) return errorColor();
+        var targetTile = tileMap.getTile(worldX, worldY);
+        if (targetTile == null || targetTile.hasBuilding()) {
+            return errorColor();
+        }
 
         Optional<BuildingRecipe> recipe = recipeManager.getBuildingRecipeByType(selectedBuildingType);
-        if (recipe.isEmpty()) return errorColor();
+        if (recipe.isEmpty()) {
+            return errorColor();
+        }
 
-        if (!canPlaceOnTile(selectedBuildingType, targetTile)) return errorColor();
-        if (!playerHasResources(player, recipe.orElse(null))) return Rgba.ORANGE.withOpacityFactor(PREVIEW_OPACITY);
+        if (!canPlaceOnTile(selectedBuildingType, targetTile)) {
+            return errorColor();
+        }
+        if (!playerHasResources(player, recipe.orElse(null))) {
+            return Rgba.ORANGE.withOpacityFactor(PREVIEW_OPACITY);
+        }
 
         return Rgba.LIME_GREEN.withOpacityFactor(PREVIEW_OPACITY);
     }

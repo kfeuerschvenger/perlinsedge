@@ -45,11 +45,11 @@ public class ItemDropManager {
      * @return true when something was thrown
      */
     public boolean dropFromSlot(Container container, int slot, boolean wholeStack) {
-        Player player = gameState.getPlayer();
+        var player = gameState.getPlayer();
         if (player == null || player.isDead() || container == null) {
             return false;
         }
-        Item stack = container.getItemAt(slot);
+        var stack = container.getItemAt(slot);
         if (stack == null || stack.getQuantity() <= 0) {
             log.debug("DROP: slot {} is empty", slot);
             return false;
@@ -79,7 +79,7 @@ public class ItemDropManager {
         int[] landing = ItemThrow.landingTile(gameState.getCurrentMap(), fromX, fromY, player.getDirection());
         double now = gameState.getGameTime();
 
-        int remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(),
+        var remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(),
                 landing[0], landing[1], now);
         if (remaining > 0) {
             gameState.getDroppedItems().add(new DroppedItem(fromX, fromY, landing[0], landing[1],
@@ -108,9 +108,11 @@ public class ItemDropManager {
      * @param y    tile Y
      */
     public void dropAt(Item item, int x, int y) {
-        if (item == null || item.getQuantity() <= 0) return;
+        if (item == null || item.getQuantity() <= 0) {
+            return;
+        }
         double now = gameState.getGameTime();
-        int remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(), x, y, now);
+        var remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(), x, y, now);
         if (remaining > 0) {
             gameState.getDroppedItems().add(new DroppedItem(x, y,
                     new Item(item.getType(), remaining), now, DroppedItem.DropSource.PLAYER));
@@ -141,8 +143,10 @@ public class ItemDropManager {
     }
 
     private void checkItemPickup() {
-        Player player = gameState.getPlayer();
-        if (player == null || player.isDead()) return;
+        var player = gameState.getPlayer();
+        if (player == null || player.isDead()) {
+            return;
+        }
 
         List<DroppedItem> droppedItems = gameState.getDroppedItems();
         Iterator<DroppedItem> iterator = droppedItems.iterator();
@@ -161,7 +165,9 @@ public class ItemDropManager {
     private void processItemPickup(Player player, Iterator<DroppedItem> iterator, DroppedItem item) {
         int quantityPickedUp = player.pickUpItem(item.getItem());
 
-        if (quantityPickedUp <= 0) return;
+        if (quantityPickedUp <= 0) {
+            return;
+        }
 
         if (item.getItem().getQuantity() <= 0) {
             iterator.remove();

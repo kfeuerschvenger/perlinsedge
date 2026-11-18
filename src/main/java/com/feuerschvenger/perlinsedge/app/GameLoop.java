@@ -68,11 +68,12 @@ public final class GameLoop {
                 return;
             }
 
-            for (int i = 0; i < steps; i++) {
+            for (var i = 0; i < steps; i++) {
                 updateStep.accept(FIXED_TIME_STEP);
             }
 
             frameRenderer.render(stepper.alpha(), stepper.lastDelta());
         }
     }
+
 }
