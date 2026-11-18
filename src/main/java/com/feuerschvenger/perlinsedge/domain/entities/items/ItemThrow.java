@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**

@@ -655,7 +655,7 @@ public class InventoryPanel extends BorderPane {
         craftingListPanel.setManaged(false);
     }
 
-    private VBox createInventoryBox(String title, GridPane grid) {
+    private static VBox createInventoryBox(String title, GridPane grid) {
         var box = new VBox(INVENTORY_BOX_SPACING);
         box.getChildren().addAll(createTitle(title), grid);
         return box;

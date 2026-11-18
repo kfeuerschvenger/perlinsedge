@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics;
 
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TileDepths;
 
@@ -45,14 +44,11 @@ public final class TilePicker {
     public static boolean pick(TileMap map, double screenX, double screenY, View view, int[] out) {
         final double scaledHalfWidth = view.halfTileWidth() * view.zoom();
         final double scaledHalfHeight = view.halfTileHeight() * view.zoom();
-        final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(view.zoom());
 
         final double worldX = screenX - view.cameraX();
         final double worldY = screenY - view.cameraY();
         final int landX = cellX(worldX, worldY, scaledHalfWidth, scaledHalfHeight);
         final int landY = cellY(worldX, worldY, scaledHalfWidth, scaledHalfHeight);
-        final int waterX = cellX(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
-        final int waterY = cellY(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
 
         final var land = map.getTile(landX, landY);
         final boolean landShowsTop = land != null && !land.getType().isWater();
@@ -63,6 +59,9 @@ public final class TilePicker {
         if (landShowsTop) {
             return write(out, landX, landY);
         }
+        final double sheetDrop = TileDepths.SURFACE_PIXELS * ZoomSteps.integerArtScale(view.zoom());
+        final int waterX = cellX(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
+        final int waterY = cellY(worldX, worldY - sheetDrop, scaledHalfWidth, scaledHalfHeight);
         final var water = map.getTile(waterX, waterY);
         if (water != null) {
             // The water diamond, or the side face of the land tile above lower water

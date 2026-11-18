@@ -8,8 +8,7 @@ public final class PathNode implements Comparable<PathNode> {
     public final int x;
     public final int y;
     private double gCost;  // Cost from start node
-    private double hCost;  // Heuristic cost to target
-    private double fCost;  // Total cost (gCost + hCost)
+    private double fCost;  // Total cost (gCost plus the heuristic cost to the target)
 
     /**
      * Creates a new path node at the specified coordinates.
@@ -27,7 +26,6 @@ public final class PathNode implements Comparable<PathNode> {
      */
     public void setCosts(double gCost, double hCost) {
         this.gCost = gCost;
-        this.hCost = hCost;
         this.fCost = gCost + hCost;
     }
 

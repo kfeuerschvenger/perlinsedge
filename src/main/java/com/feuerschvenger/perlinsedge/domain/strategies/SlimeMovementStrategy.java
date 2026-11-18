@@ -296,7 +296,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /** A hop lands on a free tile, and a diagonal hop may not cut the corner of a blocked tile. */
-    private boolean canHop(TileMap map, int fromX, int fromY, int toX, int toY) {
+    private static boolean canHop(TileMap map, int fromX, int fromY, int toX, int toY) {
         if (!isValidMove(map, toX, toY)) {
             return false;
         }

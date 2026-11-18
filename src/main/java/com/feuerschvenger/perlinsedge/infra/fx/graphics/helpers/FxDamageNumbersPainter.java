@@ -82,7 +82,7 @@ public final class FxDamageNumbersPainter {
     public static void draw(GraphicsContext gc, DamageNumbers numbers, double gameTime, TileProjection projection,
                             double canvasWidth, double canvasHeight) {
         final double scale = ZoomSteps.integerArtScale(projection.zoom());
-        boolean prepared = false;
+        var prepared = false;
         for (int i = 0, count = numbers.size(); i < count; i++) {
             final var entry = numbers.get(i);
             if (!entry.isActive(gameTime)) {
@@ -90,14 +90,13 @@ public final class FxDamageNumbersPainter {
             }
             final var x = screenX(entry, projection, scale);
             final var y = screenY(entry, projection, scale, gameTime);
-            if (!isOnScreen(x, y, canvasWidth, canvasHeight)) {
-                continue;
+            if (isOnScreen(x, y, canvasWidth, canvasHeight)) {
+                if (!prepared) {
+                    prepare(gc, scale);
+                    prepared = true;
+                }
+                drawNumber(gc, entry, x, y, scale, gameTime);
             }
-            if (!prepared) {
-                prepare(gc, scale);
-                prepared = true;
-            }
-            drawNumber(gc, entry, x, y, scale, gameTime);
         }
         if (prepared) {
             gc.setGlobalAlpha(1.0);

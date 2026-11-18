@@ -1,7 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 

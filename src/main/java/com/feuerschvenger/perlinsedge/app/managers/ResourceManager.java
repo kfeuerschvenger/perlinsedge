@@ -187,7 +187,7 @@ public class ResourceManager {
      * - Tile exists and contains resource
      * - Player is within interaction distance
      */
-    private boolean isValidInteraction(Player player, Tile tile) {
+    private static boolean isValidInteraction(Player player, Tile tile) {
         return tile != null && tile.hasResource() && isWithinInteractionDistance(player, tile);
     }
 

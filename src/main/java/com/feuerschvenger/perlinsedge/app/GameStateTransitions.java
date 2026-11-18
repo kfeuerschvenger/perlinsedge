@@ -89,10 +89,10 @@ public class GameStateTransitions {
      * covers every way the selection can change: the number keys, the wheel, a click on a slot and moving items.
      */
     public void syncBuildModeWithHand() {
-        final Player player = gameState.getPlayer();
+        final var player = gameState.getPlayer();
         final boolean hammerInHand = player != null && player.getActiveItemType() == ItemType.HAMMER
                 && !gameState.isPlayerDead() && !gameState.isGamePaused();
-        final GameMode mode = gameState.getCurrentGameMode();
+        final var mode = gameState.getCurrentGameMode();
         if (mode == GameMode.BUILDING_MODE && !hammerInHand) {
             setGameMode(GameMode.EXPLORATION);
         } else if (mode == GameMode.EXPLORATION && hammerInHand) {
@@ -106,7 +106,7 @@ public class GameStateTransitions {
             return;
         }
 
-        GameMode mode = gameState.getCurrentGameMode();
+        var mode = gameState.getCurrentGameMode();
         if (mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN) {
             setGameMode(GameMode.EXPLORATION);
         } else {

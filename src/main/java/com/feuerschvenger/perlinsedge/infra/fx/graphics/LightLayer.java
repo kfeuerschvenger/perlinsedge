@@ -437,8 +437,8 @@ public final class LightLayer {
 
     /** Merges a region into another: the box that holds both, and the lights of the one are the lights of the other. */
     private void mergeRegion(int into, int from) {
-        final int intoBase = into * BOX_VALUES;
-        final int fromBase = from * BOX_VALUES;
+        final var intoBase = into * BOX_VALUES;
+        final var fromBase = from * BOX_VALUES;
         regionBoxes[intoBase + BOX_LEFT] = Math.min(regionBoxes[intoBase + BOX_LEFT], regionBoxes[fromBase + BOX_LEFT]);
         regionBoxes[intoBase + BOX_TOP] = Math.min(regionBoxes[intoBase + BOX_TOP], regionBoxes[fromBase + BOX_TOP]);
         regionBoxes[intoBase + BOX_RIGHT] = Math.max(regionBoxes[intoBase + BOX_RIGHT],
@@ -629,13 +629,14 @@ public final class LightLayer {
             final int sumRow = (y - sumTop) * sumWide + (boxLeft - sumLeft);
             for (var x = 0; x < boxWide; x++) {
                 final double share = shareAt(x, down, downSquare, scale, shaped);
-                if (share < 1.0) {
-                    final int level = (int) (Math.min(1.0, LightFalloff.level(share) * intensity) * LEVEL_SCALE + 0.5);
-                    if (sums) {
-                        addToSums(sumRow + x, level, red255, green255, blue255);
-                    } else {
-                        pixels[row + x] = litCells[level];
-                    }
+                if (share >= 1.0) {
+                    continue;
+                }
+                final int level = (int) (Math.min(1.0, LightFalloff.level(share) * intensity) * LEVEL_SCALE + 0.5);
+                if (sums) {
+                    addToSums(sumRow + x, level, red255, green255, blue255);
+                } else {
+                    pixels[row + x] = litCells[level];
                 }
             }
         }

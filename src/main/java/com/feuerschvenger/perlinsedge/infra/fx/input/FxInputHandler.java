@@ -75,10 +75,6 @@ public class FxInputHandler {
     }
 
     /**
-     * Forgets the held keys whenever the window gains or loses focus, since the release events of a key held across
-     * the change go to another window. The listener leaves the window the scene moves away from.
-     */
-    /**
      * Test seam: the listener that forgets the held keys, so the tests can drive a focus change without a window.
      *
      * @return the focus listener
@@ -87,6 +83,10 @@ public class FxInputHandler {
         return focusListener;
     }
 
+    /**
+     * Forgets the held keys whenever the window gains or loses focus, since the release events of a key held across
+     * the change go to another window. The listener leaves the window the scene moves away from.
+     */
     private void moveFocusWatch(Window oldWindow, Window newWindow) {
         if (oldWindow != null) {
             oldWindow.focusedProperty().removeListener(focusListener);

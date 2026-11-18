@@ -265,7 +265,7 @@ public final class ItemInfoPanel extends VBox {
     }
 
     /** Builds the node of one ingredient line, green when the player holds enough and red when not. */
-    private Text createIngredientLine(IngredientLine line) {
+    private static Text createIngredientLine(IngredientLine line) {
         var node = createStyledText(line.styleClass(), line.text());
         node.setWrappingWidth(CONTENT_WIDTH - SCROLL_BAR_ROOM);
         return node;

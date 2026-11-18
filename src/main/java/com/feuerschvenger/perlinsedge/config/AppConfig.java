@@ -325,7 +325,7 @@ public final class AppConfig {
     /**
      * Player-specific settings (sprite configuration)
      */
-    public static class PlayerConfig {
+    public static final class PlayerConfig {
         /**
          * The player sprite sheet: 8 direction columns by 3 frame rows of 16x24 cells.
          */

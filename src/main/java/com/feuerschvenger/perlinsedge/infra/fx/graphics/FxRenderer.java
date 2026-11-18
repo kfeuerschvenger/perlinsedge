@@ -796,8 +796,10 @@ public class FxRenderer {
      * map: another map, or one whose tiles changed since the list was built.
      */
     private boolean staticCastersStale(TileMap map, double zoom, double artScale, boolean grayscale, MapType type) {
-        return !staticCastersValid || sourceChanged(map, grayscale, type) || scaleChanged(zoom, artScale)
-                || reachChanged() || windowChanged();
+        if (!staticCastersValid || sourceChanged(map, grayscale, type) || scaleChanged(zoom, artScale)) {
+            return true;
+        }
+        return reachChanged() || windowChanged();
     }
 
     /** Tells whether the list was built from another map, or from the same one as it was, or for another look. */

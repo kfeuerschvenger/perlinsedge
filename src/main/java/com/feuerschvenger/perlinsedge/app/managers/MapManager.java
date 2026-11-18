@@ -223,7 +223,7 @@ public class MapManager implements IMapGenerationListener {
     /**
      * Validates a potential spawn position.
      */
-    private boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
+    private static boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
         var tile = map.getTile(x, y);
         if (tile == null || !tile.isWalkable()) {
             return false;

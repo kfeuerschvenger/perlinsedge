@@ -70,7 +70,7 @@ public final class FlatTiles {
      * @return true when the pixel is part of the block
      */
     public static boolean insideBlock(int x, int y) {
-        for (int drop = 0; drop <= FACE_HEIGHT; drop++) {
+        for (var drop = 0; drop <= FACE_HEIGHT; drop++) {
             if (GrayscaleTiles.insideDiamond(x, y - drop)) {
                 return true;
             }
