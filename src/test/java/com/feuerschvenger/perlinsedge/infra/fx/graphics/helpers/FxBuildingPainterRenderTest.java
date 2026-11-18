@@ -21,6 +21,8 @@ class FxBuildingPainterRenderTest {
     private static final int ANCHOR_X = SIZE / 2;
     private static final int ANCHOR_Y = SIZE / 2;
     private static final int TOLERANCE = 8;
+    /** Zoom of the bridge shot, where the plank stroke is two whole pixels wide. */
+    private static final double BRIDGE_ZOOM = 2.0;
 
     private static CanvasProbe draw(Building building, double zoom) {
         return CanvasProbe.render(SIZE, SIZE, gc -> FxBuildingPainter.draw(gc, building, ANCHOR_X, ANCHOR_Y, zoom));
@@ -63,7 +65,9 @@ class FxBuildingPainterRenderTest {
 
     @Test
     void theBridgeIsAWoodenDeckWithPlankLines() {
-        final CanvasProbe shot = draw(BuildingType.BRIDGE);
+        // Zoom 2 gives the plank lines a two pixel stroke that covers whole pixels; at zoom 1 the one pixel stroke on
+        // an integer coordinate straddles two pixels and the software pipelines in CI blend it into the deck
+        final CanvasProbe shot = draw(BuildingFactory.create(BuildingType.BRIDGE, 0, 0), BRIDGE_ZOOM);
 
         assertTrue(shot.near(Color.SADDLEBROWN, TOLERANCE) > 500, "deck");
         assertTrue(shot.near(Color.DARKGOLDENROD, TOLERANCE) > 0, "plank outline");
