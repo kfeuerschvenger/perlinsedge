@@ -198,8 +198,14 @@ public class BuildingManager {
         if (!playerHasResources(player, existingRecipe) || !canPlaceOnTile(selectedBuildingType, targetTile)) {
             return false;
         }
+        // Checked last, so the terrain or the missing materials are what the player is told about first
+        if (isBlockedByEntity(selectedBuildingType, worldX, worldY)) {
+            log.debug("Placement failed: The player or an enemy is on or moving to the tile");
+            hintSink.accept(HINT_IN_THE_WAY);
+            return false;
+        }
 
-        var newBuilding = BuildingFactory.create(selectedBuildingType, worldX, worldY,
+        var newBuilding =BuildingFactory.create(selectedBuildingType, worldX, worldY,
                 getRotation(selectedBuildingType));
         consumeResources(player, existingRecipe);
         // A bridge is the floor of the tile and every other piece stands on top of it
@@ -257,7 +263,8 @@ public class BuildingManager {
      * @param worldX tile X
      * @param worldY tile Y
      * @return true when the floor was demolished and refunded, false when there is none, a piece stands on it, the
-     *         player or a living enemy is on or stepping to the tile, or it cannot be destroyed
+     *         player or a living enemy is on or stepping to the tile, the tile is on the rest of the player's walk, so
+     *         the player never ends up in the water, or it cannot be destroyed
      */
     public boolean removeFloor(int worldX, int worldY) {
         final var tileMap = gameState.getCurrentMap();
@@ -274,8 +281,8 @@ public class BuildingManager {
         if (!floor.isDestructible()) {
             return false;
         }
-        if (isEntityOn(worldX, worldY)) {
-            log.debug("The floor at ({}, {}) has the player or an enemy on it", worldX, worldY);
+        if (isEntityOn(worldX, worldY) || isOnPlayerWalk(worldX, worldY)) {
+            log.debug("The floor at ({}, {}) has the player or an enemy on it, or is on the player's walk", worldX, worldY);
             hintSink.accept(HINT_IN_THE_WAY);
             return false;
         }
@@ -289,7 +296,8 @@ public class BuildingManager {
      * Gives the player back the share of the recipe that matches the health the building has left: for each
      * ingredient {@code floor(quantity * health / maxHealth)} items. What the inventory has no room for is dropped as a
      * pile on the player's tile, or on the nearest ground when that tile is none, and what a chest held falls out on
-     * its own tile. The views are told once, when everything has moved.
+     * its own tile. The views are told of the inventory once, when everything has moved, while every pile dropped on
+     * the ground is announced by the drop manager on its own.
      */
     private void refund(Building building) {
         // What a chest held falls out on its own tile, whole, whatever its health
@@ -425,11 +433,6 @@ public class BuildingManager {
             log.debug("Placement failed: No recipe for {}", selectedBuildingType.getDisplayName());
             return false;
         }
-        if (isBlockedByEntity(selectedBuildingType, worldX, worldY)) {
-            log.debug("Placement failed: The player or an enemy is on or moving to the tile");
-            hintSink.accept(HINT_IN_THE_WAY);
-            return false;
-        }
         return true;
     }
 
@@ -441,6 +444,12 @@ public class BuildingManager {
         return blocksWalking(type) && isEntityOn(tileX, tileY);
     }
 
+    /**
+     * Tells whether a piece of a type blocks walking, read from a sample piece of the type. This assumes that solidity
+     * depends on the type alone, not on the state of the piece. The one piece whose solidity changes is the gate, which
+     * is created closed and so counts as blocking here; opening it is always allowed, and closing it on someone is
+     * refused separately by {@link #interactWithBuilding}.
+     */
     private boolean blocksWalking(BuildingType type) {
         return blocksWalking.computeIfAbsent(type, t -> BuildingFactory.create(t, 0, 0).isSolid());
     }
@@ -463,6 +472,19 @@ public class BuildingManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Tells whether a tile is the one the player stands on or any tile the player's walk still has to enter. Taking
+     * the floor out from under any of them would leave the player in the water.
+     */
+    private boolean isOnPlayerWalk(int tileX, int tileY) {
+        final var player = gameState.getPlayer();
+        if (player == null || player.isDead()) {
+            return false;
+        }
+        final boolean standsThere = player.getCurrentTileX() == tileX && player.getCurrentTileY() == tileY;
+        return standsThere || player.walkPassesThrough(tileX, tileY);
     }
 
     private static boolean holds(Entity entity, int tileX, int tileY) {

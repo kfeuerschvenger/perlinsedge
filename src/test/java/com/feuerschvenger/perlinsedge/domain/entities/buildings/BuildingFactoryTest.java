@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuildingFactoryTest {
@@ -17,6 +18,14 @@ class BuildingFactoryTest {
             assertEquals(4, building.getTileX());
             assertEquals(7, building.getTileY());
             assertEquals(building.getMaxHealth(), building.getHealth());
+        }
+    }
+
+    @Test
+    void everyTypeHasABuildingToCreate() {
+        for (BuildingType type : BuildingType.values()) {
+            assertNotNull(BuildingFactory.create(type, 0, 0), type.name());
+            assertNotNull(BuildingFactory.create(type, 0, 0, 1), type.name());
         }
     }
 

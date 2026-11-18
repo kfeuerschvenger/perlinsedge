@@ -265,6 +265,22 @@ public class Player extends Entity implements Container {
     }
 
     /**
+     * Tells whether the walk in progress still has to enter a tile, the one it is heading to included.
+     *
+     * @param tileX tile X
+     * @param tileY tile Y
+     * @return true when a node of the remaining walk is that tile, false when it is not on it or there is no walk
+     */
+    public boolean walkPassesThrough(int tileX, int tileY) {
+        for (final PathNode node : currentPath) {
+            if (node.x == tileX && node.y == tileY) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Ends the walk when the next tile of it has become taken since the walk was planned, so the player never steps
      * onto it. A player standing on a tile stops there, a player between two tiles walks back to the tile it left.
      *

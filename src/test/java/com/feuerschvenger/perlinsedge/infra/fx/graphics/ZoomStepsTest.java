@@ -66,6 +66,16 @@ class ZoomStepsTest {
     }
 
     @Test
+    void aLowestZoomThatIsNotPositiveIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> ZoomSteps.requireValidRange(0.0, 2.0, 0.5));
+        assertThrows(IllegalArgumentException.class, () -> ZoomSteps.requireValidRange(-1.0, 2.0, 0.5));
+        assertThrows(IllegalArgumentException.class,
+                () -> ZoomSteps.requireValidRange(Double.NEGATIVE_INFINITY, 2.0, 0.5));
+        assertThrows(IllegalArgumentException.class, () -> ZoomSteps.requireValidRange(1.0, Double.NaN, 0.5));
+        assertThrows(IllegalArgumentException.class, () -> ZoomSteps.requireValidRange(1.0, 2.0, Double.NaN));
+    }
+
+    @Test
     void aBadRangeFailsWithAClearMessageInsteadOfLettingTheClampThrowLater() {
         assertThrows(IllegalArgumentException.class, () -> ZoomSteps.requireValidRange(2.0, 1.0, 0.5));
         assertThrows(IllegalArgumentException.class, () -> ZoomSteps.requireValidRange(1.0, 2.0, 0.0));

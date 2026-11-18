@@ -371,6 +371,54 @@ class BuildingLayersTest {
     }
 
     @Test
+    void aBridgeIsNotDemolishedWhileItIsAnywhereOnThePlayersRemainingWalk() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        build(BuildingType.BRIDGE, 5, 2);
+        build(BuildingType.BRIDGE, 6, 2);
+        player = new Player(4, 2);
+        state.setPlayer(player);
+        assertTrue(player.moveTo(map, 6, 2), "the walk crosses both bridges");
+
+        assertFalse(manager.removeFloor(6, 2), "the far end of the walk, not even the next tile");
+        assertFalse(manager.removeFloor(5, 2), "the next tile of the walk");
+
+        assertTrue(map.getTile(6, 2).hasFloor());
+        assertTrue(map.getTile(5, 2).hasFloor());
+        assertEquals(List.of("Something is standing there", "Something is standing there"), hints);
+        player.stop();
+        assertTrue(manager.removeFloor(6, 2), "it can go once the walk is over");
+    }
+
+    @Test
+    void theRealReasonIsShownBeforeSomethingIsStandingThere() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        standPlayerOn(2, 2);
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+
+        assertFalse(manager.placeBuilding(2, 2), "no materials, and the player in the way");
+        assertTrue(hints.isEmpty(), "the missing materials are the reason, not the player");
+
+        give(BuildingType.CHEST);
+        assertFalse(manager.placeBuilding(2, 2));
+        assertEquals(List.of("Something is standing there"), hints);
+    }
+
+    @Test
+    void badTerrainIsReportedBeforeSomethingIsStandingThere() {
+        final List<String> hints = new ArrayList<>();
+        manager.setHintSink(hints::add);
+        standPlayerOn(8, 5);
+        give(BuildingType.CHEST);
+        manager.setSelectedBuildingType(BuildingType.CHEST);
+
+        assertFalse(manager.placeBuilding(8, 5), "a chest does not stand on water");
+
+        assertTrue(hints.isEmpty());
+    }
+
+    @Test
     void aBridgeIsNotDemolishedWhileAnEnemyIsSteppingToIt() {
         final List<String> hints = new ArrayList<>();
         manager.setHintSink(hints::add);

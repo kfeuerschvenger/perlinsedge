@@ -21,13 +21,16 @@ public final class ZoomSteps {
      * @param min  the lowest zoom
      * @param max  the highest zoom
      * @param step the distance between two levels
-     * @throws IllegalArgumentException when a value is not a finite number, the step is not positive, or the lowest
-     *                                  zoom is above the highest
+     * @throws IllegalArgumentException when a value is not a finite number, the lowest zoom or the step is not
+     *                                  positive, or the lowest zoom is above the highest
      */
     public static void requireValidRange(double min, double max, double step) {
         if (!Double.isFinite(min) || !Double.isFinite(max) || !Double.isFinite(step)) {
             throw new IllegalArgumentException("The zoom range must be finite: min=" + min + ", max=" + max
                     + ", step=" + step);
+        }
+        if (min <= 0) {
+            throw new IllegalArgumentException("The lowest zoom must be positive: " + min);
         }
         if (step <= 0) {
             throw new IllegalArgumentException("The zoom step must be positive: " + step);

@@ -1,6 +1,8 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -176,6 +178,29 @@ class PlayerManagerTest {
         assertTrue(manager.movePlayer(grass, 6, 4));
         assertTrue(state.getPlayer().isMoving());
         assertFalse(manager.movePlayer(grass, 10, 4), "water cannot be walked to");
+    }
+
+    @Test
+    void aSolidPieceBuiltOnALaterTileOfTheWalkStopsThePlayerBeforeIt() {
+        final TileMap grass = map(TileType.GRASS);
+        state.setCurrentMap(grass);
+        final Player player = new Player(4, 4);
+        state.setPlayer(player);
+        assertTrue(manager.movePlayer(grass, 9, 4));
+        // A piece appears two tiles ahead, after the walk was planned
+        grass.getTile(6, 4).setBuilding(BuildingFactory.create(BuildingType.FENCE, 6, 4));
+
+        final double[] furthestX = {player.getPosX()};
+        onFx(() -> {
+            for (int tick = 0; tick < 400; tick++) {
+                manager.advancePlayer(0.05);
+                furthestX[0] = Math.max(furthestX[0], player.getPosX());
+            }
+        });
+
+        assertTrue(furthestX[0] < 6.0, "the player never entered the blocked tile: " + furthestX[0]);
+        assertEquals(5, player.getCurrentTileX());
+        assertFalse(player.isMoving(), "the walk ended before the piece");
     }
 
     @Test

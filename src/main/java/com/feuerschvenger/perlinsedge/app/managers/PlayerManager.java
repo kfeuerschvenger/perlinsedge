@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -148,6 +149,7 @@ public class PlayerManager {
 
     /**
      * Ends the player's walk before it steps onto a tile an enemy has moved onto or toward since the walk was
+     * planned, or onto a tile that is no longer walkable, such as one where a solid piece was built after the walk was
      * planned. It does nothing while the player is not walking.
      */
     public void keepClearOfEnemies() {
@@ -157,9 +159,21 @@ public class PlayerManager {
         }
         // The check runs every tick, so the set of taken tiles is only built on the rare tick that halts the walk
         final PathNode next = player.getNextTile();
-        if (next != null && OccupiedTiles.contains(gameState.getEnemies(), next.x, next.y)) {
-            player.haltBefore(OccupiedTiles.of(gameState.getEnemies()));
+        if (next == null) {
+            return;
         }
+        if (OccupiedTiles.contains(gameState.getEnemies(), next.x, next.y)) {
+            player.haltBefore(OccupiedTiles.of(gameState.getEnemies()));
+        } else if (isBlockedTerrain(next)) {
+            player.haltBefore(Set.of(next));
+        }
+    }
+
+    /** Tells whether a tile of the map has become impossible to walk on since the walk toward it was planned. */
+    private boolean isBlockedTerrain(PathNode node) {
+        final TileMap map = gameState.getCurrentMap();
+        final Tile tile = map != null ? map.getTile(node.x, node.y) : null;
+        return tile != null && !tile.isWalkable();
     }
 
     /**
