@@ -72,8 +72,8 @@ final class ColumnPainter {
         if (strip == null) {
             return;
         }
-        final Tile below = map.getTile(tile.getX(), tile.getY() + 1);
-        final Tile beside = map.getTile(tile.getX() + 1, tile.getY());
+        final var below = map.getTile(tile.getX(), tile.getY() + 1);
+        final var beside = map.getTile(tile.getX() + 1, tile.getY());
         final int left = TileDepths.stripsExposed(tile.getType(), below == null ? null : below.getType());
         final int right = TileDepths.stripsExposed(tile.getType(), beside == null ? null : beside.getType());
         if (left > 0) {

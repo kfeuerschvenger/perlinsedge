@@ -29,6 +29,15 @@ class KeyControllerTest {
     @AfterEach
     void tearDown() {
         AppConfig.getInstance().dayCycle().setFastTime(false);
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+        debug.setEnabled(false);
+        debug.setGrayscaleEnabled(false);
+        debug.setTextEnabled(false);
+    }
+
+    private KeyController withCallbacks(List<String> calls) {
+        return new KeyController(() -> calls.add("pause"), () -> calls.add("centre"), () -> calls.add("newMap"),
+                () -> calls.add("mapPanel"), () -> calls.add("inventory"), numbers::add);
     }
 
     @Test
@@ -214,5 +223,82 @@ class KeyControllerTest {
     @Test
     void theRotateKeyWithNoActionSetDoesNothing() {
         assertDoesNotThrow(() -> controller.onKeyAction(GameKey.ROTATE));
+    }
+
+    @Test
+    void theFixedKeysRunTheirOwnCallbacks() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController wired = withCallbacks(calls);
+
+        wired.onKeyAction(GameKey.ESCAPE);
+        wired.onKeyAction(GameKey.SPACE);
+        wired.onKeyAction(GameKey.I);
+
+        assertEquals(List.of("pause", "centre", "inventory"), calls);
+    }
+
+    @Test
+    void f1TogglesTheDebugMode() {
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        controller.onKeyAction(GameKey.F1);
+        assertTrue(debug.isEnabled());
+
+        controller.onKeyAction(GameKey.F1);
+        assertFalse(debug.isEnabled());
+    }
+
+    @Test
+    void f2TogglesTheGrayscaleView() {
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        controller.onKeyAction(GameKey.F2);
+        assertTrue(debug.isGrayscaleEnabled());
+
+        controller.onKeyAction(GameKey.F2);
+        assertFalse(debug.isGrayscaleEnabled());
+    }
+
+    @Test
+    void f3TogglesTheDebugTextOnlyWhileTheGrayscaleViewIsOn() {
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        controller.onKeyAction(GameKey.F3);
+        assertFalse(debug.isTextEnabled(), "the text belongs to the grayscale view");
+
+        controller.onKeyAction(GameKey.F2);
+        controller.onKeyAction(GameKey.F3);
+        assertTrue(debug.isTextEnabled());
+
+        controller.onKeyAction(GameKey.F3);
+        assertFalse(debug.isTextEnabled());
+    }
+
+    @Test
+    void theMapKeysOnlyActWhileTheDebugModeIsOn() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController wired = withCallbacks(calls);
+
+        wired.onKeyAction(GameKey.F4);
+        wired.onKeyAction(GameKey.F5);
+        assertTrue(calls.isEmpty(), "debug mode is off");
+
+        wired.onKeyAction(GameKey.F1);
+        wired.onKeyAction(GameKey.F4);
+        wired.onKeyAction(GameKey.F5);
+        assertEquals(List.of("mapPanel", "newMap"), calls);
+    }
+
+    @Test
+    void theMapKeysDoNothingWithoutCallbacksEvenInDebugMode() {
+        final KeyController bare = new KeyController(null, null, null, null, null, null);
+        bare.onKeyAction(GameKey.F1);
+
+        bare.onKeyAction(GameKey.F4);
+        bare.onKeyAction(GameKey.F5);
+        bare.onKeyAction(GameKey.ESCAPE);
+        bare.onKeyAction(GameKey.DIGIT_3);
+
+        assertTrue(AppConfig.getInstance().debug().isEnabled(), "only the debug toggle ran");
     }
 }

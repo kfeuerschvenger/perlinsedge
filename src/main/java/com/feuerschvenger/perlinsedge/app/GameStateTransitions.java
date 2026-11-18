@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
-import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
@@ -120,7 +119,7 @@ public class GameStateTransitions {
      * The mode becomes the inventory mode with the inventory flag set, so the inventory key closes it again.
      */
     public void showOpenContainer() {
-        Container container = containerManager.getOpenContainer();
+        var container = containerManager.getOpenContainer();
         if (container == null) {
             return;
         }
