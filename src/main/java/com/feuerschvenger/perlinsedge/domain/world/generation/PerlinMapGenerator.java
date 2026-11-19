@@ -102,13 +102,20 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final float TREE_FACTOR_TUNDRA = 1.5F;
     private static final float TREE_FACTOR_ISLANDS = 1.6F;
 
-    // Iron ore: hills and mountains only, in a thin contour of the normalised stone noise just under the stone veins,
-    // so it appears as a rim of ore around the rock. The band is absolute and ends below the lowest stone threshold
-    // the map panel offers, so it does not depend on that threshold. It is one hundredth wide because the noise is
-    // densest in the middle of its range: a wide band would give far more iron than stone on rocky ground, while this
-    // one gives roughly one ore for every three to five stones on the rockiest maps and less on the others.
-    private static final float IRON_BAND_MIN = 0.74F;
-    private static final float IRON_BAND_MAX = 0.75F;
+    // Iron ore and crystals: hills and mountains only, scattered thinly over the rock so they stay a find. Each rocky
+    // tile is ore with a chance of 6 in a thousand, which is about one ore for every hundred and seventy rocky tiles,
+    // and crystals need the crystal noise to pass its threshold first and then pass
+    // a chance of their own, which makes them about four times rarer than the ore. The chance is a hash of the tile and
+    // the seed, so a map is the same every time it is generated from a seed. Both are proportional to the rock of the
+    // map, so a map with a little rock still has a few and a mountain range has some dozens.
+    private static final int IRON_PER_MILLE = 6;
+    private static final int CRYSTALS_PER_MILLE = 50;
+    private static final int CHANCE_SCALE = 1000;
+    // Constants of the tile hash, odd 64 bit mixing constants
+    private static final long HASH_MIX_X = 0xC2B2AE3D27D4EB4FL;
+    private static final long HASH_MIX_Y = 0x165667B19E3779F9L;
+    private static final long HASH_MIX_SEED = 0x9E3779B97F4A7C15L;
+    private static final int HASH_FOLD = 32;
 
     // Desert: one oasis per this many tiles of map, each a pocket of shallow water of this radius in tiles
     private static final int OASIS_AREA = 5000;
@@ -268,28 +275,39 @@ public class PerlinMapGenerator implements IMapGenerator {
             return;
         }
 
-        // Resource assignment priority: Crystals > Stone > Trees
+        // Resource assignment priority: Crystals > Iron > Stone > Trees
         float crystalsValue = normalizeNoise(crystalsNoise.getNoise((float) x, (float) y));
-        if (crystalsValue > config.getCrystalsThreshold()) {
+        if (isRockyGround(tile.getType()) && crystalsValue > config.getCrystalsThreshold()
+                && chancePasses(x, y, CRYSTALS_PER_MILLE)) {
             tile.setWorldResource(new Resource(ResourceType.CRYSTALS, config.getRandom().nextLong()));
             return;
         }
 
-        // Iron only ever sits on rocky ground, in its own absolute noise band that ignores the stone threshold.
+        // Iron is placed before stone, so the stone threshold of the map panel never changes how much there is
+        if (isRockyGround(tile.getType()) && chancePasses(x, y, IRON_PER_MILLE)) {
+            tile.setWorldResource(new Resource(ResourceType.IRON_ORE, config.getRandom().nextLong()));
+            return;
+        }
+
         float stoneValue = normalizeNoise(stoneNoise.getNoise((float) x, (float) y));
         if (stoneValue > config.getStoneThreshold()) {
             tile.setWorldResource(new Resource(ResourceType.STONE, config.getRandom().nextLong()));
             return;
         }
 
-        if (isRockyGround(tile.getType()) && stoneValue >= IRON_BAND_MIN && stoneValue <= IRON_BAND_MAX) {
-            tile.setWorldResource(new Resource(ResourceType.IRON_ORE, config.getRandom().nextLong()));
-            return;
-        }
-
         if (tile.getType().isFertile()) {
             plantTreeOnFertileTile(tile, x, y);
         }
+    }
+
+    /**
+     * Tells whether a tile passes a chance given in thousandths. The answer is a hash of the tile and the seed rather
+     * than a draw from the shared random source, so it never moves the numbers the rest of the generation draws.
+     */
+    private boolean chancePasses(int x, int y, int perMille) {
+        long hash = x * HASH_MIX_X ^ y * HASH_MIX_Y ^ config.getSeed() * HASH_MIX_SEED;
+        hash ^= hash >>> HASH_FOLD;
+        return Math.floorMod(hash, (long) CHANCE_SCALE) < perMille;
     }
 
     /** Puts a tree on a fertile tile where the tree noise passes the threshold the density of the map type sets. */
