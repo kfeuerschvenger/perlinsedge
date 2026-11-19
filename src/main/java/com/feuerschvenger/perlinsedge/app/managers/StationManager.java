@@ -9,6 +9,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
  * tile in front of the station. When that tile cannot hold an item, such as a solid piece or a resource, the pile
  * goes to the next free edge neighbour, turning clockwise from the front, and to the tile of the station when the
  * four are blocked.
+ * The pile is a station pile, which never despawns and can be picked up at once.
  * The stations are the ones in the {@link GameStateManager}, which clears them with the world.
  */
 public class StationManager {
@@ -39,10 +40,13 @@ public class StationManager {
         if (map == null) {
             return;
         }
-        for (ProcessingStation station : gameState.getStations()) {
+        final var stations = gameState.getStations();
+        for (var i = 0; i < stations.size(); i++) {
+            final var station = stations.get(i);
             station.advance(deltaTime);
-            for (Item product : station.drainProducts()) {
-                dropInFront(map, station, product);
+            final var products = station.drainProducts();
+            for (var j = 0; j < products.size(); j++) {
+                dropInFront(map, station, products.get(j));
             }
         }
     }
@@ -54,10 +58,10 @@ public class StationManager {
             final var y = station.getTileY() + offset[1];
             final var tile = map.getTile(x, y);
             if (tile != null && tile.isWalkable()) {
-                itemDropManager.dropAt(product, x, y);
+                itemDropManager.dropStationOutputAt(product, x, y);
                 return;
             }
         }
-        itemDropManager.dropAt(product, station.getTileX(), station.getTileY());
+        itemDropManager.dropStationOutputAt(product, station.getTileX(), station.getTileY());
     }
 }

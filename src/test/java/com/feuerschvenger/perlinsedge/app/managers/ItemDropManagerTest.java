@@ -209,9 +209,49 @@ class ItemDropManagerTest {
         assertEquals(3, state.getDroppedItems().get(1).getQuantity());
     }
 
+    @Test
+    void aStationProductMergesOnlyIntoStationPilesAndKeepsTheStationSource() {
+        state.getDroppedItems().add(new DroppedItem(5, 2, new Item(ItemType.STONE, 10), 0, DroppedItem.DropSource.PLAYER));
+        state.getDroppedItems().add(new DroppedItem(5, 3, new Item(ItemType.STONE, 10), 0, DroppedItem.DropSource.STATION));
+
+        drops.dropStationOutputAt(new Item(ItemType.STONE, 2), 5, 3);
+
+        assertEquals(2, state.getDroppedItems().size());
+        assertEquals(10, state.getDroppedItems().get(0).getQuantity());
+        assertEquals(12, state.getDroppedItems().get(1).getQuantity());
+        assertEquals(DroppedItem.DropSource.STATION, state.getDroppedItems().get(1).getSource());
+    }
+
+    @Test
+    void aStationProductWithNoPileNearbyBecomesAStationPile() {
+        drops.dropStationOutputAt(new Item(ItemType.STONE, 2), 5, 3);
+
+        assertEquals(DroppedItem.DropSource.STATION, onlyDrop().getSource());
+    }
+
+    @Test
+    void aPlayerDropNeverMergesIntoAStationPile() {
+        state.getDroppedItems().add(new DroppedItem(5, 2, new Item(ItemType.STONE, 10), 0, DroppedItem.DropSource.STATION));
+
+        drops.dropFromSlot(player, 0, true);
+
+        assertEquals(2, state.getDroppedItems().size());
+        assertEquals(10, state.getDroppedItems().get(0).getQuantity());
+    }
+
     // ------------------------------------------------------------------
     //  Pickup delay
     // ------------------------------------------------------------------
+
+    @Test
+    void aStationProductIsCollectedAtOnceEvenOnThePlayersTile() {
+        drops.dropStationOutputAt(new Item(ItemType.STONE, 2), 4, 4);
+
+        drops.update();
+
+        assertTrue(state.getDroppedItems().isEmpty());
+        assertEquals(7, player.getItemCount(new Item(ItemType.STONE, 1)));
+    }
 
     @Test
     void anItemThrownOntoThePlayersOwnTileIsNotCollectedAgainUntilTheDelayHasPassed() {
@@ -269,6 +309,16 @@ class ItemDropManagerTest {
         drops.update();
 
         assertTrue(state.getDroppedItems().isEmpty());
+    }
+
+    @Test
+    void aStationProductStaysOnTheGroundForever() {
+        drops.dropStationOutputAt(new Item(ItemType.STONE, 2), 0, 0);
+
+        state.incrementGameTime(DroppedItem.LIFETIME_SECONDS * 10);
+        drops.update();
+
+        assertEquals(1, state.getDroppedItems().size());
     }
 
     @Test

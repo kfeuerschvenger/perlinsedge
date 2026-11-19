@@ -26,6 +26,7 @@ public class DroppedItem {
         PLAYER,      // Item dropped by the player
         RESOURCE,    // Item from harvested resources
         ENEMY,       // Item from defeated enemies
+        STATION,     // Product of a processing station, which waits for the player until it is taken
         OTHER        // Other sources
     }
 
@@ -186,13 +187,14 @@ public class DroppedItem {
 
     /**
      * Tells whether this item has been on the ground longer than {@link #LIFETIME_SECONDS}.
-     * The age is measured on the game clock, so time spent paused does not count.
+     * The age is measured on the game clock, so time spent paused does not count. The product of a station never
+     * expires: the player may come back for it whenever the work is done.
      *
      * @param gameTime current game time in seconds
      * @return true once the item must despawn
      */
     public boolean isExpired(double gameTime) {
-        return gameTime - timerStart > LIFETIME_SECONDS;
+        return source != DropSource.STATION && gameTime - timerStart > LIFETIME_SECONDS;
     }
 
     /**
@@ -216,7 +218,7 @@ public class DroppedItem {
     }
 
     /**
-     * Adds units dropped by the player to this pile.
+     * Adds units dropped by the same source to this pile.
      * Its pickup delay and its despawn timer start again. The pile keeps its source, its tile and its flight: a pile
      * still in the air goes on flying to the same landing tile. The caller keeps the pile within the maximum stack
      * size, see {@link #roomLeft()}.

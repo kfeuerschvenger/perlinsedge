@@ -71,6 +71,18 @@ class StationManagerTest {
     }
 
     @Test
+    void aProductIsAStationPileThatNeverDespawns() {
+        furnaceAt(3, 3, 0);
+        final var drops = new ItemDropManager(state, () -> { });
+
+        manager.update(SMELT);
+        state.incrementGameTime(DroppedItem.LIFETIME_SECONDS * 2);
+        drops.update();
+
+        assertEquals(DroppedItem.DropSource.STATION, onlyDrop().getSource());
+    }
+
+    @Test
     void whenTheFrontIsBlockedTheProductGoesToTheNextEdgeClockwise() {
         furnaceAt(3, 3, 0);
         map.getTile(4, 3).setBuilding(BuildingFactory.create(BuildingType.CHEST, 4, 3));
