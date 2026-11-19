@@ -90,17 +90,31 @@ public final class BuildingSprites {
      */
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
-            case CAMPFIRE -> building instanceof ProcessingStation station && !station.isLit() ? CAMPFIRE_UNLIT
-                    : FLAME_NAMES.get(BuildingType.CAMPFIRE)[Math.floorMod(frame, FLAME_FRAMES)];
+            case CAMPFIRE -> campfireName(building, frame);
             case STANDING_TORCH -> FLAME_NAMES.get(BuildingType.STANDING_TORCH)[Math.floorMod(frame, FLAME_FRAMES)];
             case COBBLESTONE_PATH -> PATH_NAMES[pathVariant(building.getTileX(), building.getTileY())];
-            case FURNACE, STONE_OVEN -> (building instanceof ProcessingStation station && station.isLit()
-                    ? STOVE_ON_NAMES : STOVE_OFF_NAMES).get(building.getType())
-                    [Math.floorMod(building.getRotation(), STOVE_ROTATIONS)];
-            case FENCE_GATE -> (building instanceof FenceGate gate && gate.isOpen() ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)
-                    [Math.floorMod(building.getRotation(), GATE_ROTATIONS)];
+            case FURNACE, STONE_OVEN -> stoveName(building);
+            case FENCE_GATE -> gateName(building);
             default -> restingName(building.getType(), building.getRotation());
         };
+    }
+
+    private static String campfireName(Building building, int frame) {
+        if (building instanceof ProcessingStation station && !station.isLit()) {
+            return CAMPFIRE_UNLIT;
+        }
+        return FLAME_NAMES.get(BuildingType.CAMPFIRE)[Math.floorMod(frame, FLAME_FRAMES)];
+    }
+
+    private static String stoveName(Building building) {
+        final boolean lit = building instanceof ProcessingStation station && station.isLit();
+        final var names = (lit ? STOVE_ON_NAMES : STOVE_OFF_NAMES).get(building.getType());
+        return names[Math.floorMod(building.getRotation(), STOVE_ROTATIONS)];
+    }
+
+    private static String gateName(Building building) {
+        final boolean open = building instanceof FenceGate gate && gate.isOpen();
+        return (open ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)[Math.floorMod(building.getRotation(), GATE_ROTATIONS)];
     }
 
     /**

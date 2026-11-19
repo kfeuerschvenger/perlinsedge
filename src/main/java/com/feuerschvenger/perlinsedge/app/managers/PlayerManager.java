@@ -212,7 +212,7 @@ public class PlayerManager {
      * @return the position, or {@link #NO_POSITION} when there is no usable bag
      */
     private int[] useSpawnBag(TileMap map) {
-        final SleepingBag bag = gameState.getSpawnBag();
+        final var bag = gameState.getSpawnBag();
         if (bag == null) {
             return NO_POSITION;
         }

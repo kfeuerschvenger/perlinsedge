@@ -416,12 +416,23 @@ public class BuildingManager {
         }
 
         var building = targetTile.getBuilding();
-        // Closing a gate on someone would trap them in it, so only opening is always allowed
+        if (isGateBlocked(building, worldX, worldY)) {
+            return false;
+        }
+        return interactWithPiece(building, targetTile);
+    }
+
+    /** Closing a gate on someone would trap them in it, so only opening is always allowed. */
+    private boolean isGateBlocked(Building building, int worldX, int worldY) {
         if (building instanceof FenceGate gate && gate.isOpen() && isEntityOn(worldX, worldY)) {
             log.debug("Gate at ({}, {}) cannot close with the player or an enemy in it", worldX, worldY);
             hintSink.accept(HINT_IN_THE_WAY);
-            return false;
+            return true;
         }
+        return false;
+    }
+
+    private boolean interactWithPiece(Building building, Tile targetTile) {
         if (building instanceof ProcessingStation station) {
             return interactWithStation(station);
         }

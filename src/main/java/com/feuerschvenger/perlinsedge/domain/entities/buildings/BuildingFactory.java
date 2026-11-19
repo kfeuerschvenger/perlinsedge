@@ -49,19 +49,26 @@ public final class BuildingFactory {
         };
     }
 
-    /** Creates the pieces that furnish a camp: the containers, the crafting stations and the light sources. */
+    /** Creates the pieces that furnish a camp: the container and the crafting stations, then the rest through {@link #createCampPiece}. */
     private static Building createFurnishing(BuildingType type, int x, int y) {
         return switch (type) {
             case CHEST -> new Chest(x, y, CHEST_CAPACITY);
             case FURNACE -> new Furnace(x, y);
             case STONE_OVEN -> new StoneOven(x, y);
-            case CAMPFIRE -> new Campfire(x, y);
-            case STANDING_TORCH -> new StandingTorch(x, y);
             case ANVIL -> new Anvil(x, y);
             case WORKBENCH -> new Workbench(x, y);
+            default -> createCampPiece(type, x, y);
+        };
+    }
+
+    /** Creates the light sources and the places to sleep. */
+    private static Building createCampPiece(BuildingType type, int x, int y) {
+        return switch (type) {
+            case CAMPFIRE -> new Campfire(x, y);
+            case STANDING_TORCH -> new StandingTorch(x, y);
             case BED -> new Bed(x, y);
             case SLEEPING_BAG -> new SleepingBag(x, y);
-            case BRIDGE, COBBLESTONE_PATH, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
+            default -> throw new IllegalArgumentException("Not a furnishing: " + type);
         };
     }
 }

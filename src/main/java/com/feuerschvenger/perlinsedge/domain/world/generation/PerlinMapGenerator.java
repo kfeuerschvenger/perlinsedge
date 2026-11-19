@@ -112,9 +112,9 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final int CRYSTALS_PER_MILLE = 50;
     private static final int CHANCE_SCALE = 1000;
     // Constants of the tile hash, odd 64 bit mixing constants
-    private static final long HASH_MIX_X = 0xC2B2AE3D27D4EB4FL;
-    private static final long HASH_MIX_Y = 0x165667B19E3779F9L;
-    private static final long HASH_MIX_SEED = 0x9E3779B97F4A7C15L;
+    private static final long HASH_MIX_X = 0xC2B2_AE3D_27D4_EB4FL;
+    private static final long HASH_MIX_Y = 0x1656_67B1_9E37_79F9L;
+    private static final long HASH_MIX_SEED = 0x9E37_79B9_7F4A_7C15L;
     private static final int HASH_FOLD = 32;
 
     // Desert: one oasis per this many tiles of map, each a pocket of shallow water of this radius in tiles
