@@ -81,6 +81,18 @@ class SleepingBagSpawnTest {
     }
 
     @Test
+    void clickingTheBagThatIsAlreadyTheSpawnPointSaysSo() {
+        final var bag = bagAt(FIRST_X, FIRST_Y);
+        buildings.interactWithBuilding(FIRST_X, FIRST_Y);
+        hints.clear();
+
+        assertTrue(buildings.interactWithBuilding(FIRST_X, FIRST_Y));
+
+        assertSame(bag, state.getSpawnBag());
+        assertEquals(List.of("Spawn point already here"), hints);
+    }
+
+    @Test
     void clickingAnotherBagMovesTheSpawnPoint() {
         bagAt(FIRST_X, FIRST_Y);
         final var second = bagAt(SECOND_X, SECOND_Y);

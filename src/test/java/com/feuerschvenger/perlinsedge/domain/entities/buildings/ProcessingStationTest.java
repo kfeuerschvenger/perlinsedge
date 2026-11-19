@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -130,7 +131,24 @@ class ProcessingStationTest {
         load(furnace, ItemType.WOOD_LOG, 2);
         load(furnace, ItemType.COAL, 3);
 
-        assertEquals("Input 5/20, Fuel 3/20", furnace.statusHint());
+        assertEquals("Input 5/20 (Iron ore 3, Wood log 2), Fuel 3/20 (Coal 3)", furnace.statusHint());
+    }
+
+    @Test
+    void theStatusHintOfARoleWithNothingLoadedShowsOnlyItsCap() {
+        load(furnace, ItemType.IRON_ORE, 1);
+
+        assertEquals("Input 1/20 (Iron ore 1), Fuel 0/20", furnace.statusHint());
+    }
+
+    @Test
+    void theLoadedItemsOfARoleAreNamedWithTheirUnits() {
+        load(furnace, ItemType.IRON_ORE, 3);
+        load(furnace, ItemType.WOOD_LOG, 2);
+        load(furnace, ItemType.CHARCOAL, 1);
+
+        assertEquals("Iron ore 3, Wood log 2", furnace.loadedNamesInRole(ItemType.WOOD_LOG));
+        assertEquals("Charcoal 1", furnace.loadedNamesInRole(ItemType.COAL));
     }
 
     @Test
@@ -426,6 +444,35 @@ class ProcessingStationTest {
         assertTrue(furnace.drainProducts().isEmpty());
         assertEquals(0, furnace.count(ItemType.IRON_ORE));
         assertFalse(furnace.isWorking());
+    }
+
+    @Test
+    void aStationWithNothingToTakeDrainsTheSameEmptyListEveryTime() {
+        assertTrue(furnace.drainProducts().isEmpty());
+        assertSame(furnace.drainProducts(), oven.drainProducts());
+    }
+
+    @Test
+    void anIdleStationStaysIdleThroughManyTicksAndStartsWhenLoaded() {
+        run(furnace, CONFIG.getFurnaceSmeltSeconds());
+        assertFalse(furnace.isLit());
+
+        load(furnace, ItemType.IRON_ORE, 1);
+        load(furnace, ItemType.COAL, 1);
+        run(furnace, CONFIG.getFurnaceSmeltSeconds());
+
+        assertEquals(1, units(furnace.drainProducts(), ItemType.IRON_INGOT));
+    }
+
+    @Test
+    void aCampfireWithNothingLoadedKeepsBurningTheLogItLit() {
+        load(campfire, ItemType.WOOD_LOG, 1);
+
+        run(campfire, CONFIG.getCampfireLogBurnSeconds() - 1);
+        assertTrue(campfire.isLit(), "the stock is empty but the log is still burning");
+        run(campfire, 1.5);
+
+        assertFalse(campfire.isLit());
     }
 
     @Test

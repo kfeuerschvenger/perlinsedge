@@ -43,6 +43,8 @@ public class BuildingManager {
     private static final String HINT_IN_THE_WAY = "Something is standing there";
     /** The hint of a click on a sleeping bag, which becomes the spawn point. */
     private static final String HINT_SPAWN_SET = "Spawn point set";
+    /** The hint of a click on the sleeping bag that already is the spawn point. */
+    private static final String HINT_SPAWN_KEPT = "Spawn point already here";
 
     // Dependencies
     private final GameStateManager gameState;
@@ -220,10 +222,7 @@ public class BuildingManager {
         } else {
             targetTile.setBuilding(newBuilding);
             FenceConnections.refresh(tileMap, worldX, worldY);
-            if (newBuilding instanceof ProcessingStation station) {
-                gameState.getStations().add(station);
-            }
-            addLight(newBuilding);
+            register(newBuilding);
         }
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
         return true;
@@ -312,12 +311,7 @@ public class BuildingManager {
      * the ground is announced by the drop manager on its own.
      */
     private void refund(Building building) {
-        if (building == gameState.getSpawnBag()) {
-            gameState.setSpawnBag(null);
-        }
-        if (building.getLight() != null) {
-            gameState.getLights().remove(building.getLight());
-        }
+        unregister(building);
         // What a chest held falls out on its own tile, whole, whatever its health
         if (building instanceof Chest chest) {
             for (Item content : chest.getItems()) {
@@ -327,7 +321,6 @@ public class BuildingManager {
             }
         }
         if (building instanceof ProcessingStation station) {
-            gameState.getStations().remove(station);
             for (Item content : station.emptyContents()) {
                 itemDropManager.dropAt(content, building.getTileX(), building.getTileY());
             }
@@ -336,12 +329,28 @@ public class BuildingManager {
         onInventoryChanged.run();
     }
 
-    /** Gives a building its light, if it gives one, and registers it. */
-    private void addLight(Building building) {
+    /** Enters a building that was just placed in the lists the game reads: the stations, which need time, and the lights. */
+    private void register(Building building) {
+        if (building instanceof ProcessingStation station) {
+            gameState.getStations().add(station);
+        }
         AppConfig.getInstance().lights().newBuildingLight(building).ifPresent((BuildingLight light) -> {
             building.setLight(light);
             gameState.getLights().add(light);
         });
+    }
+
+    /** Takes a building that comes down out of what {@link #register} entered it in, and out of the spawn point. */
+    private void unregister(Building building) {
+        if (building == gameState.getSpawnBag()) {
+            gameState.setSpawnBag(null);
+        }
+        if (building instanceof ProcessingStation station) {
+            gameState.getStations().remove(station);
+        }
+        if (building.getLight() != null) {
+            gameState.getLights().remove(building.getLight());
+        }
     }
 
     private void refundIngredients(Building building) {
@@ -437,8 +446,9 @@ public class BuildingManager {
             return interactWithStation(station);
         }
         if (building instanceof SleepingBag bag) {
+            final var alreadyActive = gameState.getSpawnBag() == bag;
             gameState.setSpawnBag(bag);
-            hintSink.accept(HINT_SPAWN_SET);
+            hintSink.accept(alreadyActive ? HINT_SPAWN_KEPT : HINT_SPAWN_SET);
             return true;
         }
         boolean interacted = building.onInteract(targetTile);
@@ -468,7 +478,8 @@ public class BuildingManager {
             player.consumeActiveItem();
             onInventoryChanged.run();
         } else {
-            hintSink.accept(station.roleName(held) + " is full, " + station.countInRole(held) + "/" + station.capOf(held));
+            hintSink.accept(station.roleName(held) + " is full, " + station.countInRole(held) + "/" + station.capOf(held)
+                    + " (" + station.loadedNamesInRole(held) + ")");
         }
         return true;
     }

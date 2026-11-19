@@ -165,7 +165,7 @@ class BuildingManagerStationTest {
 
         assertTrue(manager.interactWithBuilding(STATION_X, STATION_Y));
 
-        assertEquals(List.of("Input 1/20, Fuel 1/20"), hints);
+        assertEquals(List.of("Input 1/20 (Iron ore 1), Fuel 1/20 (Coal 1)"), hints);
         assertEquals(3, held(ItemType.STONE));
     }
 
@@ -190,7 +190,7 @@ class BuildingManagerStationTest {
 
         assertTrue(manager.interactWithBuilding(STATION_X, STATION_Y));
 
-        assertEquals(List.of("Fuel is full, 10/10"), hints);
+        assertEquals(List.of("Fuel is full, 10/10 (Wood log 10)"), hints);
         assertEquals(4, held(ItemType.WOOD_LOG));
     }
 

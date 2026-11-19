@@ -366,57 +366,57 @@ public final class AppConfig {
     }
 
     /**
-     * The processing stations: how long each item takes, how much a station holds and how long its fuel lasts.
+     * The processing stations: how long each item takes, how much a station holds and how long its fuel lasts. A cap belongs to a role, not to an item: all the inputs of a station share one cap and all its fuels share another.
      */
     public static class StationsConfig {
         /** Seconds the furnace takes to smelt one iron ore into an ingot. */
         private static final double FURNACE_SMELT_SECONDS = 10.0;
         /** Seconds the furnace takes to burn one log down to charcoal. */
         private static final double FURNACE_CHARCOAL_SECONDS = 8.0;
-        /** Units of each accepted ore or log the furnace holds. */
+        /** Units the furnace holds of its ore and its logs together, the cap its inputs share. */
         private static final int FURNACE_INPUT_CAP = 20;
-        /** Units of each accepted fuel the furnace holds. */
+        /** Units the furnace holds of its coal and its charcoal together, the cap its fuels share. */
         private static final int FURNACE_FUEL_CAP = 20;
         /** Seconds the stone oven takes to cook one piece of meat. */
         private static final double OVEN_COOK_SECONDS = 6.0;
         /** Pieces of meat the stone oven cooks with one log. */
         private static final int OVEN_PIECES_PER_LOG = 2;
-        /** Pieces of raw meat the stone oven holds. */
+        /** Pieces of raw meat the stone oven holds, the cap its inputs share. */
         private static final int OVEN_INPUT_CAP = 20;
-        /** Logs the stone oven holds. */
+        /** Logs the stone oven holds, the cap its fuels share. */
         private static final int OVEN_FUEL_CAP = 20;
         /** Seconds the campfire takes to cook one piece of meat. */
         private static final double CAMPFIRE_COOK_SECONDS = 15.0;
         /** Seconds one log keeps the campfire burning. */
         private static final double CAMPFIRE_LOG_BURN_SECONDS = 60.0;
-        /** Pieces of raw meat the campfire holds. */
+        /** Pieces of raw meat the campfire holds, the cap its inputs share. */
         private static final int CAMPFIRE_INPUT_CAP = 10;
-        /** Logs the campfire holds. */
+        /** Logs the campfire holds, the cap its fuels share. */
         private static final int CAMPFIRE_FUEL_CAP = 10;
 
         /** @return seconds to smelt one iron ore */
         public double getFurnaceSmeltSeconds() { return FURNACE_SMELT_SECONDS; }
         /** @return seconds to burn one log to charcoal in the furnace */
         public double getFurnaceCharcoalSeconds() { return FURNACE_CHARCOAL_SECONDS; }
-        /** @return units of each ore or log the furnace holds */
+        /** @return units the furnace holds of its ore and its logs together */
         public int getFurnaceInputCap() { return FURNACE_INPUT_CAP; }
-        /** @return units of each fuel the furnace holds */
+        /** @return units the furnace holds of its coal and its charcoal together */
         public int getFurnaceFuelCap() { return FURNACE_FUEL_CAP; }
         /** @return seconds the stone oven takes per piece */
         public double getOvenCookSeconds() { return OVEN_COOK_SECONDS; }
         /** @return pieces the stone oven cooks per log */
         public int getOvenPiecesPerLog() { return OVEN_PIECES_PER_LOG; }
-        /** @return pieces of meat the stone oven holds */
+        /** @return pieces of raw meat the stone oven holds, shared by every input */
         public int getOvenInputCap() { return OVEN_INPUT_CAP; }
-        /** @return logs the stone oven holds */
+        /** @return logs the stone oven holds, shared by every fuel */
         public int getOvenFuelCap() { return OVEN_FUEL_CAP; }
         /** @return seconds the campfire takes per piece */
         public double getCampfireCookSeconds() { return CAMPFIRE_COOK_SECONDS; }
         /** @return seconds one log burns in the campfire */
         public double getCampfireLogBurnSeconds() { return CAMPFIRE_LOG_BURN_SECONDS; }
-        /** @return pieces of meat the campfire holds */
+        /** @return pieces of raw meat the campfire holds, shared by every input */
         public int getCampfireInputCap() { return CAMPFIRE_INPUT_CAP; }
-        /** @return logs the campfire holds */
+        /** @return logs the campfire holds, shared by every fuel */
         public int getCampfireFuelCap() { return CAMPFIRE_FUEL_CAP; }
     }
 

@@ -7,14 +7,14 @@ import java.util.List;
 
 /**
  * Everything that makes one kind of processing station differ from another: what it processes, what it burns, how it
- * spends the fuel and how much of each it holds. The stations share one engine and are told apart by this table.
+ * spends the fuel and how much of each role it holds. The stations share one engine and are told apart by this table.
  * An item is either an input or a fuel of a station, never both: when it is listed as both, it counts as an input.
  *
  * @param recipes     what the station processes, in the order it looks for something to work on
  * @param fuels       the items the station burns, in the order it takes them
  * @param fuelMode    how the fuel is spent
- * @param inputCap    units held of each input item
- * @param fuelCap     units held of each fuel item
+ * @param inputCap    units held of all the input items together, the cap they share
+ * @param fuelCap     units held of all the fuel items together, the cap they share
  * @param burnSeconds seconds one unit of fuel burns, only used by {@link FuelMode#BURNING}
  */
 public record StationProfile(List<ProcessingRecipe> recipes, List<ItemType> fuels, FuelMode fuelMode, int inputCap,
