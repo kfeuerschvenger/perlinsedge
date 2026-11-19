@@ -12,6 +12,7 @@ import com.feuerschvenger.perlinsedge.app.managers.ItemUseManager;
 import com.feuerschvenger.perlinsedge.app.managers.MapManager;
 import com.feuerschvenger.perlinsedge.app.managers.PlayerManager;
 import com.feuerschvenger.perlinsedge.app.managers.ResourceManager;
+import com.feuerschvenger.perlinsedge.app.managers.StationManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
@@ -65,6 +66,7 @@ public class GameOrchestrator {
     private final InventoryManager inventoryManager;
     private final MapManager mapManager;
     private final ItemDropManager itemDropManager;
+    private final StationManager stationManager;
     private final ItemHotbarManager itemHotbarManager;
     private final ItemUseManager itemUseManager;
     private final ItemHotbarPanel itemHotbarPanel;
@@ -120,6 +122,7 @@ public class GameOrchestrator {
         mapManager = new MapManager(this.gameState, mapConfigPanel);
         var resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
+        stationManager = new StationManager(this.gameState, itemDropManager);
         dropKeys = new DropKeyHandler(this.gameState, inventoryPanel::getHoveredOrSelectedSlot,
                 inventoryPanel::isStackInHand, itemDropManager);
         containerManager = new ContainerManager();
@@ -134,7 +137,9 @@ public class GameOrchestrator {
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, buildingPalettePanel,
                 inventoryPanel, mapConfigPanel, recipes, gameLoop);
         interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
-                combatManager, containerManager, transitions::showOpenContainer, hintLabel::show);
+                combatManager, containerManager,
+                new InteractionManager.OpenViews(transitions::showOpenContainer, transitions::showStation),
+                hintLabel::show);
         transitions.setOnPaused(() -> {
             interactionManager.cancel();
             render(lastAlpha, 0);
@@ -365,6 +370,10 @@ public class GameOrchestrator {
             gameState.getClickFeedback().clear();
             // The lights belong to the map that is being replaced
             gameState.getLights().clear();
+            // So do the stations, which stand on that map
+            gameState.getStations().clear();
+            // And the spawn point, which is a bag lying on it
+            gameState.setSpawnBag(null);
             mapManager.generateNewMap(context);
             AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
             playerManager.initializePlayer();
@@ -450,6 +459,7 @@ public class GameOrchestrator {
             transitions.setGameMode(GameMode.EXPLORATION);
         }
         itemDropManager.update();
+        stationManager.update(deltaTime);
         combatManager.updateEnemies(deltaTime);
 
         if (gameState.shouldCenterCamera()) {

@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.world.light.LightSource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 public abstract class Building {
+    /** The tile offset of the front of the building for each rotation, see {@link #frontOffset()}. */
+    private static final int[][] FRONT_OFFSETS = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+
     /** X-coordinate in tile units. */
     protected final int tileX;
     /** Y-coordinate in tile units. */
@@ -28,6 +32,8 @@ public abstract class Building {
     protected int health;
     /** The way the building faces, from 0 up to but excluding {@link BuildingType#rotationCount()}, see there. */
     protected int rotation;
+    /** The light the building gives, or null for a building that gives none. It is registered while the building stands. */
+    protected LightSource light;
 
     /**
      * Creates a new building instance at the specified tile position.
@@ -49,6 +55,15 @@ public abstract class Building {
     }
 
     /**
+     * Sets the light the building gives.
+     *
+     * @param light the light, or null for a building that gives none
+     */
+    public void setLight(LightSource light) {
+        this.light = light;
+    }
+
+    /**
      * Sets the way the building faces. The value wraps around the number of ways its type can face, so any whole number
      * is a valid rotation and a type that cannot turn always keeps 0.
      *
@@ -56,6 +71,28 @@ public abstract class Building {
      */
     public void setRotation(int rotation) {
         this.rotation = Math.floorMod(rotation, type.rotationCount());
+    }
+
+    /**
+     * Gives the tile offset of the tile the building faces, which is where a station puts what it makes. Rotation 0
+     * faces the lower right edge of the tile, and each turn goes a quarter turn clockwise seen from above, see
+     * {@link BuildingType#rotationCount()}. A piece that cannot turn faces the lower right edge.
+     *
+     * @return {dx, dy} in tiles, a fresh array
+     */
+    public int[] frontOffset() {
+        return frontOffset(0);
+    }
+
+    /**
+     * Gives the tile offset of the edge neighbour a number of quarter turns clockwise, seen from above, from the tile
+     * the building faces.
+     *
+     * @param quarterTurns the quarter turns, any whole number
+     * @return {dx, dy} in tiles, a fresh array
+     */
+    public int[] frontOffset(int quarterTurns) {
+        return FRONT_OFFSETS[Math.floorMod(rotation + quarterTurns, FRONT_OFFSETS.length)].clone();
     }
 
     /**

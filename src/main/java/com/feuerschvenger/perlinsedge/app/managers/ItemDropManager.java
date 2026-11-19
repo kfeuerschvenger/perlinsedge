@@ -111,14 +111,30 @@ public class ItemDropManager {
      * @param y    tile Y
      */
     public void dropAt(Item item, int x, int y) {
+        dropAt(item, x, y, DroppedItem.DropSource.PLAYER);
+    }
+
+    /**
+     * Drops what a processing station made on a tile. The pile never despawns and can be picked up at once, and it
+     * merges only into the piles of the stations nearby.
+     *
+     * @param item the dropped units, it is not stored itself
+     * @param x    tile X
+     * @param y    tile Y
+     */
+    public void dropStationOutputAt(Item item, int x, int y) {
+        dropAt(item, x, y, DroppedItem.DropSource.STATION);
+    }
+
+    private void dropAt(Item item, int x, int y, DroppedItem.DropSource source) {
         if (item == null || item.getQuantity() <= 0) {
             return;
         }
         double now = gameState.getGameTime();
-        var remaining = DropMerger.mergeInto(gameState.getDroppedItems(), item.getType(), item.getQuantity(), x, y, now);
+        var remaining = DropMerger.mergeInto(gameState.getDroppedItems(), source, item.getType(), item.getQuantity(),
+                x, y, now);
         if (remaining > 0) {
-            gameState.getDroppedItems().add(new DroppedItem(x, y,
-                    new Item(item.getType(), remaining), now, DroppedItem.DropSource.PLAYER));
+            gameState.getDroppedItems().add(new DroppedItem(x, y, new Item(item.getType(), remaining), now, source));
         }
         onInventoryChanged.run();
     }

@@ -31,8 +31,11 @@ public class Recipe {
     // Input requirements
     private final List<CraftingIngredient> ingredients;
 
+    // Where the recipe can be crafted
+    private final CraftingStation station;
+
     /**
-     * Constructs a validated crafting recipe.
+     * Constructs a validated recipe that is crafted from the inventory.
      *
      * @param outputItemType Type of item produced (must not be null)
      * @param outputQuantity Quantity produced (must be positive)
@@ -41,8 +44,24 @@ public class Recipe {
      * @throws IllegalArgumentException for invalid quantities or empty ingredients
      */
     public Recipe(ItemType outputItemType, int outputQuantity, List<CraftingIngredient> ingredients) {
+        this(outputItemType, outputQuantity, ingredients, CraftingStation.INVENTORY);
+    }
+
+    /**
+     * Constructs a validated crafting recipe.
+     *
+     * @param outputItemType Type of item produced (must not be null)
+     * @param outputQuantity Quantity produced (must be positive)
+     * @param ingredients Required ingredients (must not be null/empty with valid quantities)
+     * @param station Place the recipe is crafted at (must not be null)
+     * @throws NullPointerException if outputItemType, ingredients or station is null
+     * @throws IllegalArgumentException for invalid quantities or empty ingredients
+     */
+    public Recipe(ItemType outputItemType, int outputQuantity, List<CraftingIngredient> ingredients,
+                  CraftingStation station) {
         // Validate core parameters
         this.outputItemType = Objects.requireNonNull(outputItemType, "Output item type must not be null");
+        this.station = Objects.requireNonNull(station, "Crafting station must not be null");
         this.ingredients = validateIngredients(ingredients);
 
         // Validate and set output quantity
@@ -124,6 +143,14 @@ public class Recipe {
     }
 
     /**
+     * Gets the place this recipe is crafted at.
+     * @return Crafting station
+     */
+    public CraftingStation getStation() {
+        return station;
+    }
+
+    /**
      * Gets the immutable list of required ingredients.
      * @return Unmodifiable list of ingredients
      */
@@ -159,6 +186,7 @@ public class Recipe {
                 Objects.equals(name, recipe.name) &&
                 Objects.equals(description, recipe.description) &&
                 outputItemType == recipe.outputItemType &&
+                station == recipe.station &&
                 Objects.equals(ingredients, recipe.ingredients);
     }
 
@@ -167,7 +195,7 @@ public class Recipe {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(name, description, outputItemType, outputQuantity, ingredients);
+        return Objects.hash(name, description, outputItemType, outputQuantity, station, ingredients);
     }
 
 }

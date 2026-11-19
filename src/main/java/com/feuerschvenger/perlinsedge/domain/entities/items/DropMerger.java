@@ -5,9 +5,11 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Merges items dropped by the player into the piles of the same type that the player dropped earlier and that still
- * lie nearby. Loot from resources and enemies is never merged into, so its source and timers stay as they were.
- * The loot a player leaves on death is a player pile and merges like one.
+ * Merges a drop into the nearby piles of the same type and the same source: a drop merges only into piles of its own
+ * source, so every pile keeps the pickup delay and despawn rule of its source.
+ * For the player, whose drops are the common case, that means the items the player dropped earlier. Loot from
+ * resources and enemies is never merged into, and the loot a player leaves on death is a player pile and merges like
+ * one. The products of the stations merge only into the piles of the stations.
  * A pile is nearby when it is on the landing tile or on one of the eight tiles around it. Piles take items up to the
  * maximum stack size of the type, the closest pile first, so a long row of drops does not leave a scatter of small
  * stacks behind.
@@ -31,9 +33,27 @@ public final class DropMerger {
      */
     public static int mergeInto(List<DroppedItem> drops, ItemType type, int quantity, int tileX, int tileY,
                                 double gameTime) {
+        return mergeInto(drops, DroppedItem.DropSource.PLAYER, type, quantity, tileX, tileY, gameTime);
+    }
+
+    /**
+     * Adds as much of a drop as fits into the nearby piles of the same type and the same source. A pile never takes
+     * a drop of another source, so it keeps its own pickup delay and despawn rule.
+     *
+     * @param drops    the dropped items in the world
+     * @param source   the source of the drop, which only merges into piles of that source
+     * @param type     type of the dropped items
+     * @param quantity how many units are dropped, positive
+     * @param tileX    landing tile X
+     * @param tileY    landing tile Y
+     * @param gameTime current game time in seconds
+     * @return the units that did not fit into any nearby pile, 0 when everything merged
+     */
+    public static int mergeInto(List<DroppedItem> drops, DroppedItem.DropSource source, ItemType type, int quantity,
+                                int tileX, int tileY, double gameTime) {
         List<DroppedItem> nearby = new ArrayList<>();
         for (DroppedItem pile : drops) {
-            if (pile.getSource() == DroppedItem.DropSource.PLAYER && pile.getItemType() == type
+            if (pile.getSource() == source && pile.getItemType() == type
                     && pile.roomLeft() > 0 && isNear(pile, tileX, tileY)) {
                 nearby.add(pile);
             }

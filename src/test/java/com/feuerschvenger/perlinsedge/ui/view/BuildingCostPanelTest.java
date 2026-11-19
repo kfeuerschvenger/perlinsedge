@@ -86,21 +86,21 @@ class BuildingCostPanelTest {
     @Test
     void itListsEveryIngredientOfTheSelectedPieceWithItsQuantity() {
         enable(true);
-        update(BuildingType.BED);
+        update(BuildingType.FURNACE);
 
-        assertEquals(List.of("WOOD PLANK x3 (HAVE 0)", "FIBER x5 (HAVE 0)"), lines());
+        assertEquals(List.of("STONE x8 (HAVE 0)", "COAL x2 (HAVE 0)"), lines());
     }
 
     @Test
     void aLineThePlayerLacksIsMarkedRedAndOneHeldIsGreen() {
-        player.addItem(new Item(ItemType.WOOD_PLANK, 5));
+        player.addItem(new Item(ItemType.STONE, 9));
         enable(true);
-        update(BuildingType.BED);
+        update(BuildingType.FURNACE);
 
-        assertEquals("WOOD PLANK x3", lines().get(0));
+        assertEquals("STONE x8", lines().get(0));
         assertTrue(has(0, UiTheme.TEXT_GOOD));
         assertFalse(has(0, UiTheme.TEXT_BAD));
-        assertEquals("FIBER x5 (HAVE 0)", lines().get(1));
+        assertEquals("COAL x2 (HAVE 0)", lines().get(1));
         assertTrue(has(1, UiTheme.TEXT_BAD));
         assertFalse(has(1, UiTheme.TEXT_GOOD));
     }
@@ -116,7 +116,7 @@ class BuildingCostPanelTest {
         assertEquals(List.of("WOOD LOG x2"), lines());
         assertTrue(has(0, UiTheme.TEXT_GOOD));
 
-        update(BuildingType.BED);
+        update(BuildingType.FURNACE);
         assertEquals(2, lines().size());
     }
 

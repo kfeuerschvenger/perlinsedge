@@ -37,12 +37,6 @@ final class WalkingChaser {
     /** Shortest and longest first wait for a next tile that another enemy holds, so a crowd does not act in step. */
     private static final double HELD_WAIT_MIN_SECONDS = 0.15;
     private static final double HELD_WAIT_MAX_SECONDS = 0.45;
-    /** Longest wait for a held tile: the wait doubles while the same tile stays held, up to this. */
-    private static final double MAX_HELD_WAIT_SECONDS = 1.5;
-    /** How much longer each repeated wait for the same held tile is. */
-    private static final double HELD_WAIT_GROWTH_FACTOR = 2.0;
-    /** Marks that no step of the path is blocked. */
-    private static final int NO_STEP = Integer.MIN_VALUE;
 
     private final double speedTilesPerSecond;
     private final ChaseLeash leash;
@@ -50,14 +44,13 @@ final class WalkingChaser {
     private final PathPlanner pathPlanner = new PathPlanner();
     private double secondsUntilRepath;
     private double secondsOfPlayerBlockWait;
-    /** The step of the path another enemy holds, the wait the chaser last gave it and the time left of it. */
-    private int blockedStepX = NO_STEP;
-    private int blockedStepY = NO_STEP;
-    private double blockedWaitSeconds;
+    /** The step of the path another enemy holds and the wait the chaser last gave it. */
+    private final HeldStepBackoff heldStep = new HeldStepBackoff();
+    /** Time left of the wait for the held step. */
     private double secondsOfStepWait;
     private int plannedPlayerX = Integer.MIN_VALUE;
     private int plannedPlayerY = Integer.MIN_VALUE;
-    private final Random random = new Random();
+    private final Random random;
     /** Which enemy holds which tile, set on every update. */
     private EnemyOccupancy occupancy;
 
@@ -66,9 +59,12 @@ final class WalkingChaser {
      *
      * @param speedTilesPerSecond walking speed
      * @param range               aggro, leash and lose distances
+     * @param seed                seed of the first wait for a held tile, such as a hash of the tile the enemy spawned
+     *                            on, so the same seed always gives the same waits
      */
-    WalkingChaser(double speedTilesPerSecond, ChaseRange range) {
+    WalkingChaser(double speedTilesPerSecond, ChaseRange range, long seed) {
         this.speedTilesPerSecond = speedTilesPerSecond;
+        this.random = new Random(seed);
         this.leash = new ChaseLeash(range);
     }
 
@@ -136,34 +132,29 @@ final class WalkingChaser {
 
     /** @return true while the path is kept because its next step is held by another enemy */
     private boolean isWaitingOnHeldStep() {
-        return blockedStepX != NO_STEP && !path.isEmpty();
+        return heldStep.isBlocked() && !path.isEmpty();
     }
 
     private void clearBlockedStep() {
-        blockedStepX = NO_STEP;
-        blockedStepY = NO_STEP;
-        blockedWaitSeconds = 0;
+        heldStep.clear();
         secondsOfStepWait = 0;
     }
 
     /**
      * Waits for a tile another enemy holds. The first wait is random, so a crowd does not act in step, and it doubles,
-     * up to {@link #MAX_HELD_WAIT_SECONDS}, each time the same tile is still held when it is tried again.
+     * up to {@link HeldStepBackoff#MAX_WAIT_SECONDS}, each time the same tile is still held when it is tried again.
      *
      * @return true when the tile was already held after an earlier wait, which means its holder is not passing through
      */
     private boolean waitForHeldStep(PathNode step) {
-        final boolean repeated = step.x == blockedStepX && step.y == blockedStepY;
-        if (repeated) {
-            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * HELD_WAIT_GROWTH_FACTOR);
-        } else {
-            blockedStepX = step.x;
-            blockedStepY = step.y;
-            blockedWaitSeconds = HELD_WAIT_MIN_SECONDS
-                    + (HELD_WAIT_MAX_SECONDS - HELD_WAIT_MIN_SECONDS) * random.nextDouble();
-        }
-        secondsOfStepWait = blockedWaitSeconds;
+        final boolean repeated = heldStep.isBlockedAt(step);
+        secondsOfStepWait = heldStep.waitFor(step, this::firstHeldWaitSeconds);
         return repeated;
+    }
+
+    /** @return a random first wait, so a crowd does not act in step */
+    private double firstHeldWaitSeconds() {
+        return HELD_WAIT_MIN_SECONDS + (HELD_WAIT_MAX_SECONDS - HELD_WAIT_MIN_SECONDS) * random.nextDouble();
     }
 
     private void replan(Enemy enemy, TileMap map, Player player) {
@@ -176,6 +167,8 @@ final class WalkingChaser {
         final var result = pathPlanner.findPath(map, originX, originY, plannedPlayerX,
                 plannedPlayerY, occupancy.penaltyFor(enemy, HELD_TILE_PENALTY));
         if (!result.reachable()) {
+            // Nothing to wait for on a path that is not there
+            clearBlockedStep();
             return;
         }
         final var found = result.nodes();
@@ -191,8 +184,9 @@ final class WalkingChaser {
 
     /** Forgets the step that was blocked when the new path no longer starts with it. */
     private void forgetBlockedStepOffThePath() {
-        if (path.isEmpty() || path.peek().x != blockedStepX || path.peek().y != blockedStepY) {
-            clearBlockedStep();
+        heldStep.keepOnlyIfFirstStepOf(path.peek());
+        if (!heldStep.isBlocked()) {
+            secondsOfStepWait = 0;
         }
     }
 

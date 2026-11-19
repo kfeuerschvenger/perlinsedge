@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+
 /**
  * Represents a workbench building where players can craft items.
  * Workbenches are solid structures that block movement.
@@ -14,5 +16,15 @@ public class Workbench extends Building {
      */
     public Workbench(int tileX, int tileY) {
         super(tileX, tileY, BuildingType.WORKBENCH, true, true);
+    }
+
+    @Override
+    public boolean isInteractable() {
+        return true;
+    }
+
+    @Override
+    public boolean onInteract(Tile tile) {
+        return true;
     }
 }

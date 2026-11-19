@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
@@ -66,6 +67,7 @@ class InventoryManagerTest {
         player.setItemAt(5, new Item(ItemType.STONE, 1));
         player.setItemAt(9, new Item(ItemType.STICK, 2));
 
+        state.setCraftingStation(CraftingStation.WORKBENCH);
         assertTrue(crafting.handleCraftRecipe(recipeFor(ItemType.AXE)));
 
         assertEquals(0, count(ItemType.STONE));
@@ -81,6 +83,7 @@ class InventoryManagerTest {
                 player.addItem(new Item(ingredient.itemType(), ingredient.quantity()));
             }
 
+            state.setCraftingStation(recipe.getStation());
             assertTrue(crafting.handleCraftRecipe(recipe), recipe.getName());
 
             assertEquals(recipe.getOutputQuantity(), count(recipe.getOutputItemType()), recipe.getName());
@@ -90,6 +93,7 @@ class InventoryManagerTest {
     @Test
     void missingIngredientsChangeNothingAndTellThePlayer() {
         player.addItem(new Item(ItemType.STONE, 2));
+        state.setCraftingStation(CraftingStation.WORKBENCH);
 
         assertFalse(crafting.handleCraftRecipe(recipeFor(ItemType.AXE)));
 
@@ -125,6 +129,34 @@ class InventoryManagerTest {
 
         assertEquals(4, count(ItemType.WOOD_PLANK));
         assertEquals(0, count(ItemType.WOOD_LOG));
+    }
+
+    @Test
+    void aRecipeOfAnotherStationIsRefusedEvenWithEveryIngredientAndChangesNothing() {
+        player.addItem(new Item(ItemType.STONE, 3));
+        player.addItem(new Item(ItemType.STICK, 2));
+
+        assertFalse(crafting.handleCraftRecipe(recipeFor(ItemType.AXE)), "the inventory does not craft workbench recipes");
+
+        assertEquals(3, count(ItemType.STONE));
+        assertEquals(0, count(ItemType.AXE));
+        assertEquals(List.of("Craft this at the Workbench"), hints);
+        assertEquals(0, refreshes.get());
+    }
+
+    @Test
+    void aStationDoesNotCraftTheBasicRecipesNorTheRecipesOfAnotherStation() {
+        player.addItem(new Item(ItemType.WOOD_LOG, 1));
+        player.addItem(new Item(ItemType.IRON_INGOT, 3));
+        player.addItem(new Item(ItemType.STICK, 2));
+        state.setCraftingStation(CraftingStation.WORKBENCH);
+
+        assertFalse(crafting.handleCraftRecipe(recipeFor(ItemType.WOOD_PLANK)));
+        assertFalse(crafting.handleCraftRecipe(recipeFor(ItemType.IRON_AXE)));
+        assertEquals(List.of("Craft this at the Inventory", "Craft this at the Anvil"), hints);
+
+        state.setCraftingStation(CraftingStation.ANVIL);
+        assertTrue(crafting.handleCraftRecipe(recipeFor(ItemType.IRON_AXE)));
     }
 
     @Test

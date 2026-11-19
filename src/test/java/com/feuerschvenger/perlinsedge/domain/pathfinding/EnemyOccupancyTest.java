@@ -5,7 +5,10 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -209,5 +212,145 @@ class EnemyOccupancyTest {
 
         assertSame(first, second);
         assertEquals(2.0, second.extraCost(5, 5), "the latest penalty applies");
+    }
+
+    @Test
+    void negativeAndLargeCoordinatesAreHeldApart() {
+        final int[][] tiles = {{-1, -1}, {-1, 0}, {0, -1}, {-5, -7}, {Integer.MAX_VALUE, Integer.MAX_VALUE},
+                {Integer.MIN_VALUE, Integer.MIN_VALUE}, {Integer.MAX_VALUE, Integer.MIN_VALUE},
+                {Integer.MIN_VALUE, Integer.MAX_VALUE}, {1_000_000, -1_000_000}, {-1_000_000, 1_000_000}};
+        final List<Skeleton> skeletons = new ArrayList<>();
+        for (int[] tile : tiles) {
+            final Skeleton skeleton = new Skeleton(tile[0], tile[1]);
+            skeletons.add(skeleton);
+            occupancy.sync(skeleton);
+        }
+
+        assertEquals(tiles.length, occupancy.heldTileCount());
+        for (int i = 0; i < tiles.length; i++) {
+            assertSame(skeletons.get(i), occupancy.ownerOf(tiles[i][0], tiles[i][1]), "tile " + i);
+        }
+        assertNull(occupancy.ownerOf(1, 1));
+        assertNull(occupancy.ownerOf(Integer.MAX_VALUE, 0));
+
+        for (int i = 0; i < tiles.length; i += 2) {
+            occupancy.release(skeletons.get(i));
+        }
+        for (int i = 0; i < tiles.length; i++) {
+            assertSame(i % 2 == 0 ? null : skeletons.get(i), occupancy.ownerOf(tiles[i][0], tiles[i][1]), "tile " + i);
+        }
+    }
+
+    /** The slot the occupancy table gives a tile, repeated here to build tiles that crowd into one probe run. */
+    private static int slotOf(int x, int y, int mask) {
+        final long key = ((long) x << 32) | (y & 0xFFFF_FFFFL);
+        return (int) ((key * 0x9E37_79B9_7F4A_7C15L) >>> 32) & mask;
+    }
+
+    @Test
+    void tilesThatCollideInTheTableAreHeldAndLetGoWithoutLosingTheOthers() {
+        // The same slot for every table size from 64 to 256 slots, so the cluster survives the table growing
+        final int mask = 255;
+        final List<int[]> cluster = new ArrayList<>();
+        for (int x = 0; cluster.size() < 40 && x < 100_000; x++) {
+            if (slotOf(x, 3, mask) == 7) {
+                cluster.add(new int[]{x, 3});
+            }
+        }
+        assertEquals(40, cluster.size(), "precondition: enough colliding tiles");
+        final List<Skeleton> skeletons = new ArrayList<>();
+        for (int[] tile : cluster) {
+            final Skeleton skeleton = new Skeleton(tile[0], tile[1]);
+            skeletons.add(skeleton);
+            occupancy.sync(skeleton);
+        }
+
+        // Let go from the middle of the run, the end and the start: each backward shift has to keep the rest findable
+        final int[] releaseOrder = {20, 0, 39, 10, 30, 5, 25, 15, 35, 1};
+        final boolean[] released = new boolean[cluster.size()];
+        for (int index : releaseOrder) {
+            occupancy.release(skeletons.get(index));
+            released[index] = true;
+            for (int i = 0; i < cluster.size(); i++) {
+                assertSame(released[i] ? null : skeletons.get(i), occupancy.ownerOf(cluster.get(i)[0], cluster.get(i)[1]),
+                        "tile " + i + " after releasing " + index);
+            }
+        }
+        assertEquals(cluster.size() - releaseOrder.length, occupancy.heldTileCount());
+    }
+
+    @Test
+    void aRandomSequenceOfMovesAndReleasesAgreesWithAHashMapOracle() {
+        final int enemyCount = 20;
+        final int side = 8;
+        final Random random = new Random(20_251_117L);
+        final List<Skeleton> enemies = new ArrayList<>();
+        for (int i = 0; i < enemyCount; i++) {
+            enemies.add(new Skeleton(0, 0));
+        }
+        final Map<Long, Skeleton> oracle = new HashMap<>();
+        final Map<Skeleton, List<Long>> held = new HashMap<>();
+
+        for (int step = 0; step < 3_000; step++) {
+            final Skeleton enemy = enemies.get(random.nextInt(enemyCount));
+            if (random.nextInt(4) == 0) {
+                occupancy.release(enemy);
+                oracleRelease(oracle, held, enemy);
+            } else {
+                moveWhenFree(enemy, random, side, oracle, held);
+            }
+            assertAgreesWith(oracle, side, step);
+        }
+    }
+
+    /** Moves the enemy to a random tile and target when both are free in the oracle, and leaves it where it is otherwise. */
+    private void moveWhenFree(Skeleton enemy, Random random, int side, Map<Long, Skeleton> oracle,
+                              Map<Skeleton, List<Long>> held) {
+        final int cx = random.nextInt(side) - side / 2;
+        final int cy = random.nextInt(side) - side / 2;
+        final int tx = random.nextBoolean() ? cx : random.nextInt(side) - side / 2;
+        final int ty = tx == cx ? cy : random.nextInt(side) - side / 2;
+        if (!isFreeInOracle(oracle, enemy, cx, cy) || !isFreeInOracle(oracle, enemy, tx, ty)) {
+            return;
+        }
+        oracleRelease(oracle, held, enemy);
+        enemy.setCurrentTileX(cx);
+        enemy.setCurrentTileY(cy);
+        enemy.setTargetTileX(tx);
+        enemy.setTargetTileY(ty);
+        occupancy.sync(enemy);
+        final List<Long> tiles = new ArrayList<>();
+        for (long key : new long[]{tileKey(cx, cy), tileKey(tx, ty)}) {
+            if (!tiles.contains(key)) {
+                tiles.add(key);
+                oracle.put(key, enemy);
+            }
+        }
+        held.put(enemy, tiles);
+    }
+
+    private static long tileKey(int x, int y) {
+        return ((long) x << 32) | (y & 0xFFFF_FFFFL);
+    }
+
+    private static boolean isFreeInOracle(Map<Long, Skeleton> oracle, Skeleton enemy, int x, int y) {
+        final Skeleton owner = oracle.get(tileKey(x, y));
+        return owner == null || owner == enemy;
+    }
+
+    private static void oracleRelease(Map<Long, Skeleton> oracle, Map<Skeleton, List<Long>> held, Skeleton enemy) {
+        final List<Long> tiles = held.remove(enemy);
+        if (tiles != null) {
+            tiles.forEach(oracle::remove);
+        }
+    }
+
+    private void assertAgreesWith(Map<Long, Skeleton> oracle, int side, int step) {
+        assertEquals(oracle.size(), occupancy.heldTileCount(), "held tiles at step " + step);
+        for (int x = -side / 2; x < side / 2; x++) {
+            for (int y = -side / 2; y < side / 2; y++) {
+                assertSame(oracle.get(tileKey(x, y)), occupancy.ownerOf(x, y), "tile " + x + "," + y + " at step " + step);
+            }
+        }
     }
 }

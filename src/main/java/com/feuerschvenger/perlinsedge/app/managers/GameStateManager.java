@@ -1,7 +1,10 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.SleepingBag;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
@@ -39,6 +42,10 @@ public class GameStateManager {
     private TileMap currentMap;
     /** The game time in seconds of the last hit on each resource, which the hit cooldown is measured from. */
     private final Map<Resource, Double> resourceHitTimes = new HashMap<>();
+    /** The processing stations standing on the map, which are the ones that need time to pass. */
+    private final List<ProcessingStation> stations = new ArrayList<>();
+    /** The sleeping bag the player respawns at, or null when none was chosen. Only one is active at a time. */
+    private SleepingBag spawnBag;
     /** The seed the current map was generated from, which also scatters the cosmetic ground decals. */
     private long worldSeed;
 
@@ -66,6 +73,8 @@ public class GameStateManager {
     private final DamageNumbers damageNumbers = new DamageNumbers();
     private boolean isGamePaused;
     private boolean isInventoryOpen;
+    /** The place of crafting the open inventory belongs to: the inventory itself, or the station that was clicked. */
+    private CraftingStation craftingStation = CraftingStation.INVENTORY;
 	@Getter(lombok.AccessLevel.NONE)
     private boolean shouldCenterCamera = true; // true to center at the next update
 
@@ -85,6 +94,8 @@ public class GameStateManager {
 
         // World reset
         currentMap = null;
+        stations.clear();
+        spawnBag = null;
         resourceHitTimes.clear();
 
         // The lights belong to the world that is gone
@@ -104,6 +115,7 @@ public class GameStateManager {
         damageNumbers.clear();
         isGamePaused = false;
         isInventoryOpen = false;
+        craftingStation = CraftingStation.INVENTORY;
         shouldCenterCamera = false;
         currentGameMode = GameMode.EXPLORATION;
     }

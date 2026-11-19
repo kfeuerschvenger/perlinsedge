@@ -13,18 +13,28 @@ import java.util.Map;
  * A bare hand and any item that is not listed, such as a stone or a potion, act as a hand. A tool that is listed but
  * has no entry for a resource acts as a hand on it, so a sword swung at a tree is a slow hand, not a tool.
  * <p>
- * Damage per hit, and the hits it takes with the resource health in {@code AppConfig}:
+ * Damage per hit of the stone tools, and the hits it takes with the resource health in {@code AppConfig}:
  * <pre>
  *                    health   hand (4)        axe (10)       pickaxe
  *   TREE               30     8 hits, slow    3 hits         hand
  *   STONE              30     8 hits, slow    hand           10 dmg, 3 hits
  *   IRON_ORE           36     needs pickaxe   needs pickaxe  12 dmg, 3 hits
- *   CRYSTALS           25     needs pickaxe   needs pickaxe  9 dmg, 3 hits
+ *   CRYSTALS           25     needs the iron pickaxe, see below
+ * </pre>
+ * An iron tool counts as its stone counterpart for every resource that needs one, and deals twice its damage on
+ * resources and on enemies alike. Crystals are the one resource that a stone pickaxe cannot break, so they need the
+ * iron pickaxe:
+ * <pre>
+ *                    iron axe       iron pickaxe
+ *   TREE               2 hits         hand
+ *   STONE              hand           2 hits
+ *   IRON_ORE           needs pickaxe  2 hits
+ *   CRYSTALS           needs pickaxe  2 hits
  * </pre>
  * A hit with the right tool lands every {@value #TOOL_COOLDOWN_MS} ms and a hand swings every
- * {@value #HAND_COOLDOWN_MS} ms, so a bare hand takes about three times the hits at half the pace.
- * Against enemies a hand and a pickaxe deal {@value #HAND_COMBAT_DAMAGE}, the axe 12 and the sword twice as much as a
- * hand. Only the item in the hotbar slot held in hand counts: a tool elsewhere in the hotbar or the inventory does nothing.
+ * {@value #HAND_COOLDOWN_MS} ms, so a bare hand takes about three times the hits at half the pace. Against enemies a
+ * hand and a pickaxe deal {@value #HAND_COMBAT_DAMAGE}, the axe 12 and the sword twice as much as a hand. Only the
+ * item in the hotbar slot held in hand counts: a tool elsewhere in the hotbar or the inventory does nothing.
  */
 public final class ToolStats {
     /** Milliseconds between two hits on the same resource with the right tool. */
@@ -43,6 +53,9 @@ public final class ToolStats {
      * @param combatDamage   damage per hit on an enemy
      */
     private record Profile(Map<ResourceType, Integer> resourceDamage, double combatDamage) { }
+
+    /** How many times the damage of a stone tool an iron tool of the same kind deals. */
+    private static final int IRON_DAMAGE_FACTOR = 2;
 
     /** Damage per hit of each tool on the resources it suits. */
     private static final int AXE_TREE_DAMAGE = 10;
@@ -80,8 +93,18 @@ public final class ToolStats {
      * @return true when the tool has an entry for the resource
      */
     static boolean isRightTool(ItemType tool, ResourceType target) {
-        final Profile profile = tool != null ? PROFILES.get(tool) : null;
+        final var profile = profileOf(tool);
         return profile != null && profile.resourceDamage().containsKey(target);
+    }
+
+    /** The profile of a tool, which for an iron tool is the one of its stone counterpart, or null for a hand or a non tool. */
+    private static Profile profileOf(ItemType tool) {
+        return tool != null ? PROFILES.get(tool.baseTool()) : null;
+    }
+
+    /** The factor an iron tool multiplies the damage of its stone counterpart by, 1 for every other item. */
+    private static int tierFactor(ItemType tool) {
+        return tool != null && tool.toolTier() == ItemType.IRON_TIER ? IRON_DAMAGE_FACTOR : 1;
     }
 
     /**
@@ -92,7 +115,9 @@ public final class ToolStats {
      * @return the damage of the tool when it suits the resource, the damage of a hand otherwise
      */
     public static int resourceDamage(ItemType tool, ResourceType target) {
-        return isRightTool(tool, target) ? PROFILES.get(tool).resourceDamage().get(target) : HAND_RESOURCE_DAMAGE;
+        return isRightTool(tool, target)
+                ? profileOf(tool).resourceDamage().get(target) * tierFactor(tool)
+                : HAND_RESOURCE_DAMAGE;
     }
 
     /**
@@ -113,7 +138,7 @@ public final class ToolStats {
      * @return the damage of the tool when it is listed, the damage of a hand otherwise
      */
     public static double combatDamage(ItemType tool) {
-        final Profile profile = tool != null ? PROFILES.get(tool) : null;
-        return profile != null ? profile.combatDamage() : HAND_COMBAT_DAMAGE;
+        final var profile = profileOf(tool);
+        return profile != null ? profile.combatDamage() * tierFactor(tool) : HAND_COMBAT_DAMAGE;
     }
 }

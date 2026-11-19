@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -156,6 +157,25 @@ class RecipeTest {
         assertEquals(ItemType.AXE.getDisplayName(), axe.getName());
         assertEquals(ItemType.AXE.getDescription(), axe.getDescription());
         assertTrue(axe.getIngredientsString().startsWith("Requires: "));
+    }
+
+    @Test
+    void aRecipeIsCraftedFromTheInventoryUnlessItNamesAStation() {
+        List<CraftingIngredient> ingredients = List.of(new CraftingIngredient(ItemType.STONE, 1));
+
+        assertEquals(CraftingStation.INVENTORY, new Recipe(ItemType.FLINT, 1, ingredients).getStation());
+        assertEquals(CraftingStation.ANVIL,
+                new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.ANVIL).getStation());
+        assertThrows(NullPointerException.class, () -> new Recipe(ItemType.FLINT, 1, ingredients, null));
+    }
+
+    @Test
+    void theStationIsPartOfTheIdentityOfARecipe() {
+        List<CraftingIngredient> ingredients = List.of(new CraftingIngredient(ItemType.STONE, 1));
+        Recipe atBench = new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.WORKBENCH);
+
+        assertEquals(atBench, new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.WORKBENCH));
+        assertNotEquals(atBench, new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.ANVIL));
     }
 
     @Test

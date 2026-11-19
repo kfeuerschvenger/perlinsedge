@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.SlotRef;
@@ -64,6 +65,8 @@ public class InventoryPanel extends BorderPane {
     private GridPane playerInventoryGrid;
     private GridPane secondaryInventoryGrid;
     private Label secondaryInventoryLabel;
+    /** The title above the player grid: the inventory, or the name of the station the view was opened from. */
+    private String playerTitle = PLAYER_INVENTORY_TITLE;
     private ItemInfoPanel itemInfoPanel;
     private CraftingListPanel craftingListPanel;
     /** The item that follows the mouse while a stack is dragged, or null. */
@@ -125,9 +128,8 @@ public class InventoryPanel extends BorderPane {
         BorderPane.setMargin(itemInfoPanel, new Insets(0, ITEM_SPACING, 0, 0));
 
         // Player inventory grid (center section)
-        VBox centerContainer = createCenterContainer();
-        setCenter(centerContainer);
-        BorderPane.setMargin(centerContainer, new Insets(0, ITEM_SPACING, 0, ITEM_SPACING));
+        createPlayerGrid();
+        showPlayerColumn();
 
         // Crafting list and secondary inventory (right section)
         VBox rightContainer = createRightContainer();
@@ -135,19 +137,22 @@ public class InventoryPanel extends BorderPane {
         BorderPane.setMargin(rightContainer, new Insets(0, 0, 0, ITEM_SPACING));
     }
 
-    private VBox createCenterContainer() {
-        var container = new VBox(ITEM_SPACING);
-        container.setAlignment(Pos.CENTER);
-
+    private void createPlayerGrid() {
         // The grid holds the inventory slots only: the hotbar slots come first in the storage and have their own row
         List<StackPane> slots = new ArrayList<>(Player.INVENTORY_SIZE);
         for (int i = Player.HOTBAR_SIZE; i < Player.HOTBAR_SIZE + Player.INVENTORY_SIZE; i++) {
             slots.add(createInventorySlot(i, gameState.getPlayer()));
         }
         playerInventoryGrid = GridUtils.createPlayerGrid(slots);
+    }
 
-        container.getChildren().addAll(createTitle(PLAYER_INVENTORY_TITLE), playerInventoryGrid);
-        return container;
+    /** Puts the player grid in the centre under the current title, which the grid keeps its slots through. */
+    private void showPlayerColumn() {
+        var column = new VBox(ITEM_SPACING);
+        column.setAlignment(Pos.CENTER);
+        column.getChildren().addAll(createTitle(playerTitle), playerInventoryGrid);
+        setCenter(column);
+        BorderPane.setMargin(column, new Insets(0, ITEM_SPACING, 0, ITEM_SPACING));
     }
 
     /** Creates the slots of the grid of an open chest, indexed from zero. */
@@ -614,7 +619,19 @@ public class InventoryPanel extends BorderPane {
 
     /** Opens the player inventory display. */
     public void openPlayerInventory() {
+        openStation(CraftingStation.INVENTORY);
+    }
+
+    /**
+     * Opens the player inventory as the crafting view of a station: the title above the inventory is the name of the
+     * station, and the crafting list shows the recipes it was given. The inventory itself keeps its own title.
+     *
+     * @param station the place of crafting the view belongs to
+     */
+    public void openStation(CraftingStation station) {
         this.secondaryContainer = null;
+        playerTitle = station == CraftingStation.INVENTORY ? PLAYER_INVENTORY_TITLE : station.getDisplayName();
+        showPlayerColumn();
         forgetShownState();
         cleanRightContainer();
         setVisible(true);
@@ -623,12 +640,23 @@ public class InventoryPanel extends BorderPane {
     }
 
     /**
-     * Opens a dual inventory display (player + secondary container).
+     * Opens a dual inventory display (player + secondary container) titled as a chest.
      *
      * @param otherContainer the secondary container, such as a chest
      */
     public void openDualInventory(Container otherContainer) {
+        openDualInventory(otherContainer, CHEST_INVENTORY_TITLE);
+    }
+
+    /**
+     * Opens a dual inventory display (player + secondary container).
+     *
+     * @param otherContainer the secondary container, such as a chest
+     * @param title          the title above the grid of the secondary container
+     */
+    public void openDualInventory(Container otherContainer, String title) {
         this.secondaryContainer = Objects.requireNonNull(otherContainer, "Secondary container cannot be null");
+        secondaryInventoryLabel.setText(UiTheme.caps(Objects.requireNonNull(title, "Title cannot be null")));
         forgetShownState();
         initializeSecondaryInventory();
         configureDualInventoryLayout();
@@ -651,7 +679,7 @@ public class InventoryPanel extends BorderPane {
         centerContainer.setAlignment(Pos.CENTER);
         centerContainer.getChildren().addAll(
                 createInventoryBox(PLAYER_INVENTORY_TITLE, playerInventoryGrid),
-                createInventoryBox(CHEST_INVENTORY_TITLE, secondaryInventoryGrid)
+                createInventoryBox(secondaryInventoryLabel.getText(), secondaryInventoryGrid)
         );
         setCenter(centerContainer);
 
@@ -677,10 +705,8 @@ public class InventoryPanel extends BorderPane {
     }
 
     private void resetLayout() {
-        var centerContainer = new VBox(ITEM_SPACING);
-        centerContainer.setAlignment(Pos.CENTER);
-        centerContainer.getChildren().addAll(createTitle(PLAYER_INVENTORY_TITLE), playerInventoryGrid);
-        setCenter(centerContainer);
+        playerTitle = PLAYER_INVENTORY_TITLE;
+        showPlayerColumn();
 
         cleanRightContainer();
         craftingListPanel.setVisible(true);

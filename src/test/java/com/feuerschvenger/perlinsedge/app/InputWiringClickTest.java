@@ -69,7 +69,7 @@ class InputWiringClickTest {
         recipes = new RecipeManager();
         buildings = new BuildingManager(state, recipes, containers);
         interactions = new InteractionManager(state, buildings, new ResourceManager(state), new CombatManager(state),
-                containers, () -> { }, message -> { });
+                containers, InteractionManager.OpenViews.containerOnly(() -> { }), message -> { });
         InputWiring wiring = new InputWiring(state, buildings, new PlayerManager(state, null, null), interactions,
                 new GameView(null, camera, null, new FxMinimapDrawer(minimapCanvas, camera, canvas), canvas));
         wiring.registerMouseHandlers();

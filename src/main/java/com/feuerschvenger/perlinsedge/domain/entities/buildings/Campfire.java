@@ -1,10 +1,12 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.crafting.processing.StationProfiles;
+
 /**
- * Represents a Campfire building in the game.
- * Campfires are non-solid structures that can provide light or a cooking point.
+ * A campfire that cooks meat slowly, one piece at a time. It burns logs with time, lit only while it has fuel, and
+ * lies on the ground, so it does not block movement.
  */
-public class Campfire extends Building {
+public class Campfire extends ProcessingStation {
 
     /**
      * Creates a new campfire at the specified tile position.
@@ -13,6 +15,6 @@ public class Campfire extends Building {
      * @param tileY Y-coordinate in tile units
      */
     public Campfire(int tileX, int tileY) {
-        super(tileX, tileY, BuildingType.CAMPFIRE, false, true);
+        super(tileX, tileY, BuildingType.CAMPFIRE, false, StationProfiles.campfire());
     }
 }

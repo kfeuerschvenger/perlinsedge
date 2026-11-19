@@ -48,7 +48,7 @@ class AttackClickTest {
         interactions = new InteractionManager(state,
                 new BuildingManager(state, new RecipeManager(), containers),
                 new ResourceManager(state, hints::add), new CombatManager(state), containers,
-                () -> { }, hints::add);
+                InteractionManager.OpenViews.containerOnly(() -> { }), hints::add);
     }
 
     private Slime slimeAt(int x, int y) {

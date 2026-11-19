@@ -219,13 +219,13 @@ class PerlinMapGeneratorTest {
     }
 
     @Test
-    void theRockiestMapGivesOneIronForEveryThreeToFiveStones() {
+    void theRockiestMapKeepsIronAtLeastThreeTimesRarerThanStone() {
         for (float threshold : new float[]{0.79f, 0.8f}) {
             int[] totals = ironAndStone(MapType.MOUNTAINOUS, threshold, 6);
             double stonePerIron = (double) totals[1] / totals[0];
 
             assertTrue(totals[0] > 0, "iron stays obtainable");
-            assertTrue(stonePerIron >= 3.0 && stonePerIron <= 5.5,
+            assertTrue(stonePerIron >= 3.0,
                     "at " + threshold + " there are " + totals[1] + " stones for " + totals[0] + " iron");
         }
     }

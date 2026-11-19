@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import java.util.Random;
 
@@ -29,16 +30,6 @@ public class Slime extends Enemy {
     /** Weights of the tile coordinates in the rest of a slime: the reciprocals of the golden and the plastic ratio. */
     private static final double REST_WEIGHT_X = 0.6180339887498949;
     private static final double REST_WEIGHT_Y = 0.7548776662466927;
-
-    /** Layout and constants of the splitmix64 finalizer that turns a spawn tile into a seed. */
-    private static final int SEED_X_SHIFT = 32;
-    private static final long SEED_LOW_MASK = 0xFFFF_FFFFL;
-    private static final long SEED_GAMMA = 0x9E37_79B9_7F4A_7C15L;
-    private static final long SEED_MIX_FIRST = 0xBF58_476D_1CE4_E5B9L;
-    private static final long SEED_MIX_SECOND = 0x94D0_49BB_1331_11EBL;
-    private static final int SEED_SHIFT_FIRST = 30;
-    private static final int SEED_SHIFT_SECOND = 27;
-    private static final int SEED_SHIFT_FINAL = 31;
 
     /** Hash primes that mix the tile coordinates into a breath phase, and the number of phases it spreads over. */
     private static final int BREATH_HASH_PRIME_X = 73_856_093;
@@ -69,7 +60,7 @@ public class Slime extends Enemy {
                 MAX_HEALTH,
                 ATTACK_DAMAGE,
                 ATTACK_COOLDOWN,
-                new SlimeMovementStrategy(spawnSeed(startX, startY), restFractionAt(startX, startY)),
+                new SlimeMovementStrategy(SpawnSeed.of(startX, startY), restFractionAt(startX, startY)),
                 new SlimeAttackStrategy()
         );
         setColor(selectRandomColor());
@@ -87,21 +78,11 @@ public class Slime extends Enemy {
     }
 
     /**
-     * The seed of the idle hops of a slime: the tile it spawned on, packed and run through the splitmix64 finalizer,
-     * so the same tile always gives the same seed and tiles that differ by one coordinate give unrelated seeds.
-     */
-    private static long spawnSeed(int tileX, int tileY) {
-        var z = (((long) tileX << SEED_X_SHIFT) | (tileY & SEED_LOW_MASK)) + SEED_GAMMA;
-        z = (z ^ (z >>> SEED_SHIFT_FIRST)) * SEED_MIX_FIRST;
-        z = (z ^ (z >>> SEED_SHIFT_SECOND)) * SEED_MIX_SECOND;
-        return z ^ (z >>> SEED_SHIFT_FINAL);
-    }
-
-    /**
      * Where the rest between hops of a slime falls in its range. It is the fractional part of a weighted sum of the
      * coordinates with two irrational weights, so the rest of any tile differs from that of each of the eight
-     * tiles around it by at least 0.137 of the range, about 25 ms, which is more than a tick at 60 updates per second.
-     * Slimes on neighbouring tiles therefore never hop in lockstep.
+     * tiles around it by at least 0.1368 of the range, about 25 ms, which is more than a tick at 60 updates per second.
+     * Slimes that spawned on neighbouring tiles therefore never hop in lockstep. The rest is fixed at spawn, so the
+     * guarantee is about spawn tiles only: slimes that have moved can stand next to each other with any two rests.
      */
     private static double restFractionAt(int tileX, int tileY) {
         final double sum = tileX * REST_WEIGHT_X + tileY * REST_WEIGHT_Y;

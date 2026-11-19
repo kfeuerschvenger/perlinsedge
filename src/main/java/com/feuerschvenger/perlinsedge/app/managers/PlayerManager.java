@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.SleepingBag;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
@@ -187,7 +188,10 @@ public class PlayerManager {
             return;
         }
 
-        int[] respawnPosition = findSafePosition(map);
+        int[] respawnPosition = useSpawnBag(map);
+        if (respawnPosition.length == 0) {
+            respawnPosition = findSafePosition(map);
+        }
         if (respawnPosition.length == 0) {
             respawnPosition = getFallbackPosition(map);
             log.debug("Using fallback respawn position");
@@ -198,6 +202,31 @@ public class PlayerManager {
         gameState.setShouldCenterCamera(true);
         updatePlayerUI();
         log.info("Player respawned at {},{}", respawnPosition[0], respawnPosition[1]);
+    }
+
+    /**
+     * Respawns at the active sleeping bag, on its tile: a bag lies flat and is only built on walkable land, so its
+     * tile always holds the player. The bag breaks and disappears with no refund, and the spawn point is cleared. A bag
+     * that is gone from its tile is not used and is forgotten.
+     *
+     * @return the position, or {@link #NO_POSITION} when there is no usable bag
+     */
+    private int[] useSpawnBag(TileMap map) {
+        final var bag = gameState.getSpawnBag();
+        if (bag == null) {
+            return NO_POSITION;
+        }
+        final var tile = map.getTile(bag.getTileX(), bag.getTileY());
+        if (tile == null || tile.getBuilding() != bag) {
+            gameState.setSpawnBag(null);
+            return NO_POSITION;
+        }
+        // The bag is used up: no refund, as if it had lost all its health
+        bag.damage(bag.getMaxHealth());
+        tile.setBuilding(null);
+        gameState.setSpawnBag(null);
+        log.info("Spawn bag used at {},{}", bag.getTileX(), bag.getTileY());
+        return new int[]{bag.getTileX(), bag.getTileY()};
     }
 
     /**

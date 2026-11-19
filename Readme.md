@@ -8,7 +8,8 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 
 - **Procedural World Generation**: Every playthrough offers a unique landscape thanks to Perlin noise.
 - **Isometric Perspective**: Classic visual style for exploration and building.
-- **Crafting System**: Combine recipes to make tools, weapons, and more.
+- **Crafting System**: Combine recipes to make tools, weapons, and more, at the inventory, the workbench or the anvil.
+- **Processing Stations**: Smelt iron in a furnace, cook meat in a stone oven or on a campfire, and watch each one light up while it works.
 - **Base Building**: Construct fortresses, huts, or your dream treehouse.
 - **Inventory Management**: Organized chaos: your call.
 - **Basic Combat**: Swing or smash your way through enemies.
@@ -48,7 +49,7 @@ Each map not only looks different but also features unique resources and special
 
 - **Move**: Right-click where you want to go. The walk goes around enemies and a tile an enemy stands on is refused.
 - **Attack**: Left-click an enemy to hit it with the item in your hand. Next to it you swing at once, subject to the swing cooldown, and otherwise you walk after it, following it as it moves, and swing when you are next to it. A right-click, pausing or the enemy dying ends the chase.
-- **Gather and use**: Left-click trees, rocks, chests, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore and crystals need a pickaxe in your hand, see Tools below.
+- **Gather and use**: Left-click trees, rocks, chests, and other goodies. Out of reach, you walk to the nearest free tile next to it and it happens once when you arrive, and when you are already next to it, it happens at once. A new click that is refused, pausing, a mode change, or the target disappearing cancels the walk and you stop on the tile you were stepping to, while a move order replaces it with its own walk. A target that was hit a moment before is hit again as soon as it can be, whether you walked up to it during that moment or were already next to it when you clicked. Iron ore needs a pickaxe in your hand and crystals an iron pickaxe, see Tools below. Both appear only on rocky ground and are scarce, crystals rarer than iron, so a map with no rocky ground has neither.
 - **Cursor feedback**: The crosshair on the tile under the mouse breathes slowly and is dark over light ground like sand and snow, light elsewhere. When you click, the tile flashes green if the order was accepted, and red if it was refused: water, a tile you cannot reach, nothing to do there, an enemy on the tile of a move order, or a missing tool.
 - **Hotbar**: Nine slots of their own are always on the bar at the bottom of the screen, in addition to the 18 slots of the inventory, so you carry 27 stacks. Keys `1` to `9` or the mouse wheel pick the slot you hold in hand, and the choice stays put while the items in the slots change. `Q` throws one item from the slot in hand and `Ctrl+Q` throws the whole stack. An empty slot means a bare hand. In building mode the hotbar stays on screen and the number keys and the wheel still pick the slot in hand, while `Q` and `Ctrl+Q` do nothing.
 - **Torch**: Select a torch in the hotbar and it lights a circle of about four and a half tiles around you at night, at dusk and at dawn. It does nothing at midday, when there is no darkness to push back, and the flame crackles a little. Outside its light the night stays dark, but not black.
@@ -67,25 +68,26 @@ Each map not only looks different but also features unique resources and special
 
 What you hold in hand decides how you gather and fight. Only the slot you hold counts, a tool that sits elsewhere in the bag does nothing. A tool that does not suit the target works like a bare hand.
 
-| Target | Health | Bare hand | Right tool |
-|---|---|---|---|
-| Tree | 30 | 8 hits, one every 0.6 s | Axe: 3 hits, one every 0.3 s |
-| Stone | 30 | 8 hits, one every 0.6 s | Pickaxe: 3 hits, one every 0.3 s |
-| Iron ore | 36 | Cannot be mined | Pickaxe: 3 hits, one every 0.3 s |
-| Crystals | 25 | Cannot be mined | Pickaxe: 3 hits, one every 0.3 s |
+| Target | Health | Bare hand | Stone tool | Iron tool |
+|---|---|---|---|---|
+| Tree | 30 | 8 hits, one every 0.6 s | Stone axe: 3 hits, one every 0.3 s | Iron axe: 2 hits, one every 0.3 s |
+| Stone | 30 | 8 hits, one every 0.6 s | Stone pickaxe: 3 hits, one every 0.3 s | Iron pickaxe: 2 hits, one every 0.3 s |
+| Iron ore | 36 | Cannot be mined | Stone pickaxe: 3 hits, one every 0.3 s | Iron pickaxe: 2 hits, one every 0.3 s |
+| Crystals | 25 | Cannot be mined | Cannot be mined | Iron pickaxe: 2 hits, one every 0.3 s |
 
-Against enemies a bare hand, a pickaxe and the hammer deal 10 damage per hit, the axe 12 and the sword 20. The hammer suits no resource and works like a bare hand on them, see Building Mode below. Without the pickaxe in hand, iron ore and crystals show a hint and flash red.
+Iron tools deal double the damage of their stone counterparts, to resources and to enemies. Against enemies a bare hand, a pickaxe and the hammer deal 10 damage per hit, the axe 12 and the sword 20, and the iron pickaxe, axe and sword deal 20, 24 and 40. The hammer suits no resource and works like a bare hand on them, see Building Mode below. Without a pickaxe in hand, iron ore and crystals show a hint and flash red. A stone pickaxe on crystals shows a hint that it is too hard and that you need an iron pickaxe.
 
 ### Building Mode
 
 Build mode is the hammer in your hand. Craft a hammer from 2 sticks and 2 stones in the inventory, no station needed, and put it in a hotbar slot. Selecting that slot, with a number key, the wheel or a click, enters build mode, and selecting any other slot leaves it. You cannot build while you are dead or the game is paused, and opening the inventory or a chest closes the palette until you close it again.
 
-- **Palette**: A row of every building piece appears above the hotbar, each with its icon, its name and its cost. Each ingredient reads `held/needed`, in green when you have enough and red when you do not, the way the crafting list does. Click a piece to choose it, which does not place anything in the world. The piece stays chosen until you choose another, `ESC` drops it with the hammer still in hand, and the hammer remembers your last piece when you pick it up again.
+- **Palette**: A row of every building piece appears above the hotbar, each with its icon, its name and its cost. It includes the stone oven, the cobblestone path and the straw sleeping bag. Each ingredient reads `held/needed`, in green when you have enough and red when you do not, the way the crafting list does. Click a piece to choose it, which does not place anything in the world. The piece stays chosen until you choose another, `ESC` drops it with the hammer still in hand, and the hammer remembers your last piece when you pick it up again.
 - **Place**: Left-click a tile to place the chosen piece, which uses up the cost. The tile flashes green when the piece was placed and red when it was refused. The ghost of the piece is green where it fits, red where the tile refuses it and amber when you lack the resources.
-- **Rotate**: `R` turns the ghost a quarter turn clockwise before you place it, and the palette card shows the way it faces. Chests, furnaces, anvils, workbenches and beds face four ways, bridges and fence gates run along one of two diagonals, and the campfire, the standing torch and the fence do not turn. Each piece type remembers its rotation while the hammer stays in hand.
-- **Where pieces go**: Most pieces stand on land only. A bridge goes on water that shares an edge with land or another bridge, so it grows out from the shore one tile at a time, and a diagonal neighbour does not count. A bridge is the floor of the tile and makes the water walkable, and the only piece that can stand on top of a floor is the standing torch. The campfire is land only.
+- **Rotate**: `R` turns the ghost a quarter turn clockwise before you place it, and the palette card shows the way it faces. Chests, furnaces, stone ovens, anvils, workbenches and sleeping bags face four ways, bridges and fence gates run along one of two diagonals, and the campfire, the standing torch, the fence and the cobblestone path do not turn. Each piece type remembers its rotation while the hammer stays in hand.
+- **Where pieces go**: Most pieces stand on land only. A bridge goes on water that shares an edge with land or another bridge, so it grows out from the shore one tile at a time, and a diagonal neighbour does not count. A bridge is the floor of the tile and makes the water walkable. The cobblestone path is a floor piece too, for walkable land, and costs 1 stone brick. The standing torch can stand on any floor, and the chests, furnaces, stone ovens, campfires, anvils, workbenches, sleeping bags and fences can stand on a path but not on a bridge. The campfire is land only.
 - **Fences and gates**: A fence is a post with a half rail toward each neighbouring fence, and toward a gate that runs along the line between the two, so fences join up by themselves. A gate costs 2 planks and 4 sticks. Without the hammer, click a gate to walk up to it and swing it open or shut. A closed gate and every fence block you and the enemies, and the enemies never open a gate. An open gate can be walked through.
 - **Demolish**: Right-click a building to take it down. The piece on top of a tile comes down first, and the bridge under it only once nothing stands on it. You get back, for each ingredient of the piece, its quantity times the share of health the building has left, rounded down, and what does not fit in your bags is dropped at your feet. A building at full health returns everything. A chest drops everything it held as piles on its tile.
+- **Sleeping bag**: The straw sleeping bag costs 6 fiber. Click a bag to make it your spawn point. When you die you wake up on it and the bag is used up. Only one bag is active at a time, and demolishing it clears the spawn point.
 - **Health**: Every building has health that depends on its kind. While you hold the hammer over a damaged building, a small health bar floats above it. Nothing damages buildings yet.
 - **Guides**: A faint grid of outlines fades out around the tile under the mouse, and a see-through ghost of the chosen piece stands on that tile:
     - **Green**: Good to go.
@@ -105,9 +107,29 @@ Build mode is the hammer in your hand. Craft a hammer from 2 sticks and 2 stones
 
 ### Crafting
 
-1. Press `I` for inventory.
+1. Press `I` for inventory, or click a workbench or an anvil to open the inventory with that station's recipes and its name.
 2. Head to the Crafting list on the right.
 3. Click an item, then **Craft**... voilà! The ingredients are used up and the result goes into your bag. The recipes you can craft come first and the Craft button is off for the others. If the result does not fit, nothing is consumed and a hint says why.
+
+Every recipe belongs to a station:
+
+- **Inventory**: the basics, which are the stick, the wood plank, flint, the torch and the hammer.
+- **Workbench**: the stone axe, pickaxe and sword, the stone brick and the health potion.
+- **Anvil**: the iron axe, pickaxe and sword.
+
+### Processing Stations
+
+The furnace, the stone oven and the campfire work on what you load into them. With an accepted item in hand, click the station to load one unit per click, up to a cap for each role, input or fuel. Click it with anything else and a hint shows the status, for example `Input 5/20 (Iron ore 3, Wood log 2), Fuel 3/20 (Coal 3)`.
+
+| Station | Does | Time per unit | Fuel | Caps |
+|---|---|---|---|---|
+| Furnace | Iron ore to iron ingot | 10 s | One coal or charcoal per ingot | 20 input, 20 fuel |
+| Furnace | Wood log to charcoal | 8 s | None | 20 input, 20 fuel |
+| Stone oven | Raw meat to cooked meat | 6 s | One log per two pieces | 20 input, 20 fuel |
+| Campfire | Raw meat to cooked meat, one piece at a time | 15 s | A log burns for 60 s whether it cooks or not | 10 input, 10 fuel |
+
+- The product drops on the tile in front of the station, following its rotation, as a pile that never despawns and can be picked up at once. Demolishing a station drops what it holds.
+- The furnace and the stone oven show their lit sprite and a small glow only while working. The campfire shows flames and a larger light only while it has fuel.
 
 ## System Requirements
 
@@ -178,7 +200,7 @@ perlins-edge/
 
 ## Things to Improve / Add
 
-The bigger ideas, such as digging and farming, a player bow, fishing, placed light sources, damage to structures, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
+The bigger ideas, such as digging and farming, a player bow, fishing, shadows from light sources, damage to structures, and magic and sinister biomes, live in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 - **Better sprites!!!**
 - **Save/Load** game progress
@@ -191,7 +213,6 @@ The bigger ideas, such as digging and farming, a player bow, fishing, placed lig
 - Dropped items despawn timer
 - Enemies respawn after a while
 - Multiplayer support (local or online)
-- Working furnace for smelting ores
 - More crafting recipes
 
 ## Big Changes to Consider

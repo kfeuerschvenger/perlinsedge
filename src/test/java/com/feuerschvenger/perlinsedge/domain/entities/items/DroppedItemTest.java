@@ -77,6 +77,16 @@ class DroppedItemTest {
     }
 
     @Test
+    void aStationProductNeverDespawnsAndIsCollectableAtOnce() {
+        DroppedItem item = drop(DroppedItem.DropSource.STATION, 100);
+
+        assertTrue(item.canBePickedUp(4, 4, 100));
+        assertEquals(0.0, item.pickupDelaySeconds());
+        assertFalse(item.isExpired(100 + DroppedItem.LIFETIME_SECONDS + 1));
+        assertFalse(item.isExpired(1_000_000));
+    }
+
+    @Test
     void theLifetimeIsFiveMinutes() {
         assertEquals(300.0, DroppedItem.LIFETIME_SECONDS);
     }

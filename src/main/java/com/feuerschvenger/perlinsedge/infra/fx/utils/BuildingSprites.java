@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import javafx.scene.image.Image;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,10 +18,10 @@ import java.util.function.Function;
 
 /**
  * Loads the building art once and hands it out by building. The files live in {@code assets/buildings} and are named
- * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off},
- * {@code anvil}, {@code workbench}, and {@code bed}, and {@code bridge_0} and {@code bridge_1}. The
+ * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off} and
+ * {@code stone_oven_off}, which have a lit twin named {@code furnace_on} and {@code stone_oven_on}, {@code anvil}, {@code workbench}, and {@code bed}, and {@code bridge_0} and {@code bridge_1}. The
  * campfire and the standing torch do not turn and have four flame frames, {@code campfire_0} to {@code campfire_3} and
- * {@code standing_torch_0} to {@code standing_torch_3}. A piece with no file answers null, and the caller draws the
+ * {@code standing_torch_0} to {@code standing_torch_3}, and a campfire with no fuel shows {@code campfire_unlit}. A piece with no file answers null, and the caller draws the
  * procedural shape instead.
  * <p>
  * Building art is 32 px wide and its bottom 16 rows are the footprint of the tile, a 32 by 16 diamond, so the bottom
@@ -42,13 +43,15 @@ public final class BuildingSprites {
     private static final int FENCE_MASK_COUNT = 16;
     /** Ways a fence gate faces. */
     private static final int GATE_ROTATIONS = 2;
-    /** Ways a furnace faces. */
-    private static final int FURNACE_ROTATIONS = 4;
+    /** Ways a furnace or a stone oven faces. */
+    private static final int STOVE_ROTATIONS = 4;
     /** Positions of the half rails in {@code FENCE_RAILS}. */
     private static final int RAIL_UPPER_LEFT = 0;
     private static final int RAIL_UPPER_RIGHT = 1;
     private static final int RAIL_LOWER_LEFT = 2;
     private static final int RAIL_LOWER_RIGHT = 3;
+    /** The change of the path variant for a step along X, odd so it never repeats the look of the tile before. */
+    private static final int PATH_STEP_X = 3;
     /** The divisor that puts the centre of an image on a point. */
     private static final double CENTERING_DIVISOR = 2.0;
 
@@ -87,16 +90,36 @@ public final class BuildingSprites {
      */
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
-            case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
-            case FENCE_GATE -> (building instanceof FenceGate gate && gate.isOpen() ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)
-                    [Math.floorMod(building.getRotation(), GATE_ROTATIONS)];
+            case CAMPFIRE -> campfireName(building, frame);
+            case STANDING_TORCH -> FLAME_NAMES.get(BuildingType.STANDING_TORCH)[Math.floorMod(frame, FLAME_FRAMES)];
+            case COBBLESTONE_PATH -> PATH_NAMES[pathVariant(building.getTileX(), building.getTileY())];
+            case FURNACE, STONE_OVEN -> stoveName(building);
+            case FENCE_GATE -> gateName(building);
             default -> restingName(building.getType(), building.getRotation());
         };
     }
 
+    private static String campfireName(Building building, int frame) {
+        if (building instanceof ProcessingStation station && !station.isLit()) {
+            return CAMPFIRE_UNLIT;
+        }
+        return FLAME_NAMES.get(BuildingType.CAMPFIRE)[Math.floorMod(frame, FLAME_FRAMES)];
+    }
+
+    private static String stoveName(Building building) {
+        final boolean lit = building instanceof ProcessingStation station && station.isLit();
+        final var names = (lit ? STOVE_ON_NAMES : STOVE_OFF_NAMES).get(building.getType());
+        return names[Math.floorMod(building.getRotation(), STOVE_ROTATIONS)];
+    }
+
+    private static String gateName(Building building) {
+        final boolean open = building instanceof FenceGate gate && gate.isOpen();
+        return (open ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)[Math.floorMod(building.getRotation(), GATE_ROTATIONS)];
+    }
+
     /**
      * Gives the file name of the art of a type at rest, which is what the palette and the placement ghost show. The
-     * furnace has no lit state yet, so it is always shown cold.
+     * furnace and the stone oven are shown cold.
      *
      * @param type     the building type
      * @param rotation the way the piece faces
@@ -106,8 +129,9 @@ public final class BuildingSprites {
         return switch (type) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(type)[0];
             case FENCE -> FENCE_POST;
+            case COBBLESTONE_PATH -> PATH_NAMES[0];
             case FENCE_GATE -> GATE_CLOSED_NAMES[Math.floorMod(rotation, GATE_ROTATIONS)];
-            case FURNACE -> FURNACE_NAMES[Math.floorMod(rotation, FURNACE_NAMES.length)];
+            case FURNACE, STONE_OVEN -> STOVE_OFF_NAMES.get(type)[Math.floorMod(rotation, STOVE_ROTATIONS)];
             default -> {
                 final String[] names = NAMES.get(type);
                 yield names[Math.floorMod(rotation, names.length)];
@@ -118,7 +142,15 @@ public final class BuildingSprites {
     /** The names are built once, so naming a building every frame allocates nothing. */
     private static final Map<BuildingType, String[]> NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> FLAME_NAMES = new EnumMap<>(BuildingType.class);
-    private static final String[] FURNACE_NAMES = new String[FURNACE_ROTATIONS];
+    /** The art of the furnace and the stone oven, cold and lit, one name for each way they face. */
+    private static final Map<BuildingType, String[]> STOVE_OFF_NAMES = new EnumMap<>(BuildingType.class);
+    private static final Map<BuildingType, String[]> STOVE_ON_NAMES = new EnumMap<>(BuildingType.class);
+    /** The four looks of a cobblestone path tile, one of which is picked by the coordinates of the tile. */
+    private static final String[] PATH_NAMES = {
+        "cobblestone_path_0", "cobblestone_path_1", "cobblestone_path_2", "cobblestone_path_3"
+    };
+    /** The campfire with no fire: logs and ash. */
+    private static final String CAMPFIRE_UNLIT = "campfire_unlit";
     private static final String[] GATE_CLOSED_NAMES = {"fence_gate_closed_0", "fence_gate_closed_1"};
     private static final String[] GATE_OPEN_NAMES = {"fence_gate_open_0", "fence_gate_open_1"};
     /** The post of a fence and its four half rails, in the order they are drawn: the back ones, the post, the front ones. */
@@ -139,9 +171,29 @@ public final class BuildingSprites {
             }
             FLAME_NAMES.put(type, frames);
         }
-        for (var i = 0; i < FURNACE_NAMES.length; i++) {
-            FURNACE_NAMES[i] = "furnace_off_" + i;
+        for (BuildingType stove : new BuildingType[]{BuildingType.FURNACE, BuildingType.STONE_OVEN}) {
+            final var base = stove.name().toLowerCase(Locale.ROOT);
+            final var off = new String[STOVE_ROTATIONS];
+            final var on = new String[STOVE_ROTATIONS];
+            for (var i = 0; i < STOVE_ROTATIONS; i++) {
+                off[i] = base + "_off_" + i;
+                on[i] = base + "_on_" + i;
+            }
+            STOVE_OFF_NAMES.put(stove, off);
+            STOVE_ON_NAMES.put(stove, on);
         }
+    }
+
+    /**
+     * Picks the look of a cobblestone path tile from its coordinates, so a tile always looks the same and the tiles next
+     * to it never share its look: a step along either axis changes the variant.
+     *
+     * @param tileX tile X
+     * @param tileY tile Y
+     * @return the variant from 0 to the number of looks minus one
+     */
+    public static int pathVariant(int tileX, int tileY) {
+        return Math.floorMod(PATH_STEP_X * tileX + tileY, PATH_NAMES.length);
     }
 
     /**

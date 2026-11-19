@@ -3,6 +3,8 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -51,19 +54,97 @@ class BuildingSpritesTest {
     }
 
     @Test
-    void theFurnaceIsAlwaysShownColdUntilItCanBeLit() {
+    void theFurnaceAndTheStoneOvenAreShownColdWhileTheyDoNotWork() {
         assertEquals("furnace_off_0", BuildingSprites.spriteName(of(BuildingType.FURNACE), 2));
+        assertEquals("stone_oven_off_0", BuildingSprites.spriteName(of(BuildingType.STONE_OVEN), 2));
+        assertEquals("stone_oven_off_1", BuildingSprites.restingName(BuildingType.STONE_OVEN, 1));
+    }
+
+    @Test
+    void theFurnaceAndTheStoneOvenAreShownLitWhileTheyWorkWhicheverWayTheyFace() {
+        for (int rotation = 0; rotation < 4; rotation++) {
+            final var furnace = (ProcessingStation) BuildingFactory.create(BuildingType.FURNACE, 1, 1, rotation);
+            furnace.load(ItemType.WOOD_LOG);
+            final var oven = (ProcessingStation) BuildingFactory.create(BuildingType.STONE_OVEN, 1, 1, rotation);
+            oven.load(ItemType.RAW_MEAT);
+            oven.load(ItemType.WOOD_LOG);
+
+            assertEquals("furnace_on_" + rotation, BuildingSprites.spriteName(furnace, 0));
+            assertEquals("stone_oven_on_" + rotation, BuildingSprites.spriteName(oven, 0));
+        }
+    }
+
+    @Test
+    void aCampfireShowsFlamesOnlyWhileItHasFuel() {
+        final var campfire = (ProcessingStation) BuildingFactory.create(BuildingType.CAMPFIRE, 1, 1, 0);
+
+        assertEquals("campfire_unlit", BuildingSprites.spriteName(campfire, 2));
+
+        campfire.load(ItemType.WOOD_LOG);
+
+        assertEquals("campfire_2", BuildingSprites.spriteName(campfire, 2));
+    }
+
+    @Test
+    void theUnlitCampfireArtIsShipped() {
+        assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/campfire_unlit.png"));
+    }
+
+    @Test
+    void theLitAndTheColdArtOfEveryStoveIsShipped() {
+        for (String base : new String[]{"furnace", "stone_oven"}) {
+            for (String state : new String[]{"off", "on"}) {
+                for (int rotation = 0; rotation < 4; rotation++) {
+                    final var name = base + "_" + state + "_" + rotation;
+                    assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/" + name + ".png"), name);
+                }
+            }
+        }
+    }
+
+    @Test
+    void aPathTilePicksItsLookFromItsCoordinatesAndKeepsIt() {
+        for (int x = 0; x < 6; x++) {
+            for (int y = 0; y < 6; y++) {
+                final var path = BuildingFactory.create(BuildingType.COBBLESTONE_PATH, x, y);
+                final String name = BuildingSprites.spriteName(path, 0);
+
+                assertEquals("cobblestone_path_" + BuildingSprites.pathVariant(x, y), name);
+                assertEquals(name, BuildingSprites.spriteName(path, 7), "the frame changes nothing");
+                assertNotEquals(name, BuildingSprites.spriteName(
+                        BuildingFactory.create(BuildingType.COBBLESTONE_PATH, x + 1, y), 0), "next along X");
+                assertNotEquals(name, BuildingSprites.spriteName(
+                        BuildingFactory.create(BuildingType.COBBLESTONE_PATH, x, y + 1), 0), "next along Y");
+            }
+        }
+        assertEquals("cobblestone_path_0", BuildingSprites.restingName(BuildingType.COBBLESTONE_PATH, 0));
+    }
+
+    @Test
+    void theFourPathLooksAreAllUsedAndShipped() {
+        final var seen = new java.util.HashSet<Integer>();
+        for (int x = 0; x < 4; x++) {
+            seen.add(BuildingSprites.pathVariant(x, 0));
+        }
+        assertEquals(4, seen.size());
+        for (int variant : seen) {
+            assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/cobblestone_path_" + variant + ".png"));
+        }
     }
 
     @Test
     void theCampfireAndTheStandingTorchAnimateFourFramesAndWrap() {
         for (BuildingType type : new BuildingType[]{BuildingType.CAMPFIRE, BuildingType.STANDING_TORCH}) {
             final String base = type.name().toLowerCase();
-            for (int frame = 0; frame < 4; frame++) {
-                assertEquals(base + "_" + frame, BuildingSprites.spriteName(of(type), frame));
+            final Building piece = of(type);
+            if (piece instanceof ProcessingStation station) {
+                station.load(ItemType.WOOD_LOG);
             }
-            assertEquals(base + "_0", BuildingSprites.spriteName(of(type), 4));
-            assertEquals(base + "_3", BuildingSprites.spriteName(of(type), -1));
+            for (int frame = 0; frame < 4; frame++) {
+                assertEquals(base + "_" + frame, BuildingSprites.spriteName(piece, frame));
+            }
+            assertEquals(base + "_0", BuildingSprites.spriteName(piece, 4));
+            assertEquals(base + "_3", BuildingSprites.spriteName(piece, -1));
         }
     }
 

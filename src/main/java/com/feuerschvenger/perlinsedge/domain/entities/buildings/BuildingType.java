@@ -1,8 +1,10 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Defines all building types available in the game with their properties.
@@ -18,6 +20,10 @@ public enum BuildingType {
     BRIDGE(
             "A bridge block, connecting distant lands and making travel a breeze.",
             Rgba.DARK_GOLDENROD
+    ),
+    COBBLESTONE_PATH(
+            "A cobblestone path: paves the ground for looks only, and you walk on it just the same.",
+            Rgba.DIM_GRAY.brighter()
     ),
     FENCE_GATE(
             "A gate in your fence: click it to swing it open for yourself or shut against the critters.",
@@ -36,8 +42,12 @@ public enum BuildingType {
             Rgba.BROWN.darker()
     ),
     FURNACE(
-            "A blazing furnace, ready to melt down ore or cook a midnight snack.",
+            "A blazing furnace, ready to melt down ore and burn logs into charcoal.",
             Rgba.DARK_RED
+    ),
+    STONE_OVEN(
+            "A stone oven that turns raw meat into a proper meal, one log for every couple of pieces.",
+            Rgba.DIM_GRAY.brighter()
     ),
     ANVIL(
             "The trusty anvil for forging weapons, tools, and heroic dreams.",
@@ -66,6 +76,10 @@ public enum BuildingType {
     BED(
             "A soft bed that guarantees rest after a long day of exploration.",
             Rgba.LIGHT_PINK
+    ),
+    SLEEPING_BAG(
+            "A straw sleeping bag. Not much, but it beats waking up in the wild.",
+            Rgba.PERU.brighter()
     );
 
     /** Rotation count of a piece whose front turns through the four edges of its tile. */
@@ -115,7 +129,7 @@ public enum BuildingType {
      */
     public int rotationCount() {
         return switch (this) {
-            case CHEST, FURNACE, ANVIL, WORKBENCH, BED -> FOUR_WAY_ROTATIONS;
+            case CHEST, FURNACE, STONE_OVEN, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> FOUR_WAY_ROTATIONS;
             case BRIDGE, FENCE_GATE -> TWO_WAY_ROTATIONS;
             default -> 1;
         };
@@ -123,17 +137,35 @@ public enum BuildingType {
 
     /**
      * Tells whether a piece of this type is a floor, which lies in its own layer of the tile under the other pieces. A
-     * bridge is a floor, it makes water walkable, and of the other pieces only the standing torch can be put on one.
+     * bridge is a floor that makes water walkable, and of the other pieces only the standing torch can be put on one. A
+     * cobblestone path is a floor that only changes how land looks, so every piece that stands on land can stand on it.
      *
-     * @return true for the bridge
+     * @return true for the bridge and the cobblestone path
      */
     public boolean isFloor() {
-        return this == BRIDGE;
+        return this == BRIDGE || this == COBBLESTONE_PATH;
     }
 
     /** @return true when the rotation key changes how a piece of this type faces */
     public boolean isRotatable() {
         return rotationCount() > 1;
+    }
+
+    // ==================================================================
+    //  Crafting
+    // ==================================================================
+
+    /**
+     * Gives the place of crafting a piece of this type opens when it is clicked.
+     *
+     * @return the workbench or the anvil station, empty for a piece that is no crafting station
+     */
+    public Optional<CraftingStation> craftingStation() {
+        return switch (this) {
+            case WORKBENCH -> Optional.of(CraftingStation.WORKBENCH);
+            case ANVIL -> Optional.of(CraftingStation.ANVIL);
+            default -> Optional.empty();
+        };
     }
 
     // ==================================================================

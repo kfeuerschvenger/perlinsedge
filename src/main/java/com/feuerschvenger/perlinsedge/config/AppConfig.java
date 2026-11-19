@@ -6,13 +6,19 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.world.light.BuildingLight;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.HeldTorch;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycleSettings;
 
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
+import java.util.function.BooleanSupplier;
 
 /**
  * Centralized configuration hub with nested configuration classes.
@@ -30,6 +36,7 @@ public final class AppConfig {
     private final GraphicsConfig graphics = new GraphicsConfig();
     private final DayCycleConfig dayCycle = new DayCycleConfig();
     private final LightsConfig lights = new LightsConfig();
+    private final StationsConfig stations = new StationsConfig();
     private final PlayerConfig player = new PlayerConfig();
     private final DebugConfig debug = new DebugConfig();
     private final GameMechanicsConfig gameMechanics = new GameMechanicsConfig();
@@ -51,6 +58,7 @@ public final class AppConfig {
     public GraphicsConfig graphics() { return graphics; }
     public DayCycleConfig dayCycle() { return dayCycle; }
     public LightsConfig lights() { return lights; }
+    public StationsConfig stations() { return stations; }
     public PlayerConfig player() { return player; }
     public DebugConfig debug() { return debug; }
     public GameMechanicsConfig gameMechanics() { return gameMechanics; }
@@ -276,6 +284,14 @@ public final class AppConfig {
         private static final double TORCH_FLICKER_HZ = 3.2;
         /** What the phases of the flame of the held torch are worked out from. */
         private static final long TORCH_FLICKER_SEED = 0x70C4L;
+        /** How far the light of a burning campfire reaches in tiles, more than a torch. */
+        private static final double CAMPFIRE_RADIUS = 6.5;
+        /** How strongly a burning campfire pushes back the dark at its brightest. */
+        private static final double CAMPFIRE_INTENSITY = 1.0;
+        /** How far the glow of a furnace or a stone oven at work reaches in tiles. */
+        private static final double STOVE_RADIUS = 2.5;
+        /** How strongly the glow of a furnace or a stone oven at work pushes back the dark. */
+        private static final double STOVE_INTENSITY = 0.7;
         /** The deeper orange the colour of the flame drifts to. */
         private static final Rgba FLAME_ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
         /** The yellow the colour of the flame drifts to. */
@@ -304,6 +320,33 @@ public final class AppConfig {
         }
 
         /**
+         * Creates the light of a building that stands on the map. The standing torch is always on like the held torch,
+         * a campfire is on while it has fuel and a furnace or a stone oven while it works.
+         *
+         * @param building the building
+         * @return its light, empty for a building that gives none
+         */
+        public Optional<BuildingLight> newBuildingLight(Building building) {
+            final var seed = TORCH_FLICKER_SEED ^ Objects.hash(building.getTileX(), building.getTileY());
+            final var flicker = newFlameFlicker(seed);
+            final var x = building.getTileX();
+            final var y = building.getTileY();
+            return switch (building.getType()) {
+                case STANDING_TORCH -> Optional.of(new BuildingLight(x, y, TORCH_RADIUS, TORCH_COLOUR,
+                        TORCH_INTENSITY, flicker, () -> true));
+                case CAMPFIRE -> Optional.of(new BuildingLight(x, y, CAMPFIRE_RADIUS, TORCH_COLOUR,
+                        CAMPFIRE_INTENSITY, flicker, litStation(building)));
+                case FURNACE, STONE_OVEN -> Optional.of(new BuildingLight(x, y, STOVE_RADIUS, TORCH_COLOUR,
+                        STOVE_INTENSITY, flicker, litStation(building)));
+                case BRIDGE, COBBLESTONE_PATH, FENCE_GATE, FENCE, CHEST, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> Optional.empty();
+            };
+        }
+
+        private static BooleanSupplier litStation(Building building) {
+            return () -> building instanceof ProcessingStation station && station.isLit();
+        }
+
+        /**
          * Creates the flicker of a flame: the intensity and the radius crackle, the colour drifts between a deeper
          * orange and a yellow and the edge of the light breathes. Other fire sources reuse it with a seed of their own.
          *
@@ -320,6 +363,61 @@ public final class AppConfig {
         public LightStyle style() {
             return style;
         }
+    }
+
+    /**
+     * The processing stations: how long each item takes, how much a station holds and how long its fuel lasts. A cap belongs to a role, not to an item: all the inputs of a station share one cap and all its fuels share another.
+     */
+    public static class StationsConfig {
+        /** Seconds the furnace takes to smelt one iron ore into an ingot. */
+        private static final double FURNACE_SMELT_SECONDS = 10.0;
+        /** Seconds the furnace takes to burn one log down to charcoal. */
+        private static final double FURNACE_CHARCOAL_SECONDS = 8.0;
+        /** Units the furnace holds of its ore and its logs together, the cap its inputs share. */
+        private static final int FURNACE_INPUT_CAP = 20;
+        /** Units the furnace holds of its coal and its charcoal together, the cap its fuels share. */
+        private static final int FURNACE_FUEL_CAP = 20;
+        /** Seconds the stone oven takes to cook one piece of meat. */
+        private static final double OVEN_COOK_SECONDS = 6.0;
+        /** Pieces of meat the stone oven cooks with one log. */
+        private static final int OVEN_PIECES_PER_LOG = 2;
+        /** Pieces of raw meat the stone oven holds, the cap its inputs share. */
+        private static final int OVEN_INPUT_CAP = 20;
+        /** Logs the stone oven holds, the cap its fuels share. */
+        private static final int OVEN_FUEL_CAP = 20;
+        /** Seconds the campfire takes to cook one piece of meat. */
+        private static final double CAMPFIRE_COOK_SECONDS = 15.0;
+        /** Seconds one log keeps the campfire burning. */
+        private static final double CAMPFIRE_LOG_BURN_SECONDS = 60.0;
+        /** Pieces of raw meat the campfire holds, the cap its inputs share. */
+        private static final int CAMPFIRE_INPUT_CAP = 10;
+        /** Logs the campfire holds, the cap its fuels share. */
+        private static final int CAMPFIRE_FUEL_CAP = 10;
+
+        /** @return seconds to smelt one iron ore */
+        public double getFurnaceSmeltSeconds() { return FURNACE_SMELT_SECONDS; }
+        /** @return seconds to burn one log to charcoal in the furnace */
+        public double getFurnaceCharcoalSeconds() { return FURNACE_CHARCOAL_SECONDS; }
+        /** @return units the furnace holds of its ore and its logs together */
+        public int getFurnaceInputCap() { return FURNACE_INPUT_CAP; }
+        /** @return units the furnace holds of its coal and its charcoal together */
+        public int getFurnaceFuelCap() { return FURNACE_FUEL_CAP; }
+        /** @return seconds the stone oven takes per piece */
+        public double getOvenCookSeconds() { return OVEN_COOK_SECONDS; }
+        /** @return pieces the stone oven cooks per log */
+        public int getOvenPiecesPerLog() { return OVEN_PIECES_PER_LOG; }
+        /** @return pieces of raw meat the stone oven holds, shared by every input */
+        public int getOvenInputCap() { return OVEN_INPUT_CAP; }
+        /** @return logs the stone oven holds, shared by every fuel */
+        public int getOvenFuelCap() { return OVEN_FUEL_CAP; }
+        /** @return seconds the campfire takes per piece */
+        public double getCampfireCookSeconds() { return CAMPFIRE_COOK_SECONDS; }
+        /** @return seconds one log burns in the campfire */
+        public double getCampfireLogBurnSeconds() { return CAMPFIRE_LOG_BURN_SECONDS; }
+        /** @return pieces of raw meat the campfire holds, shared by every input */
+        public int getCampfireInputCap() { return CAMPFIRE_INPUT_CAP; }
+        /** @return logs the campfire holds, shared by every fuel */
+        public int getCampfireFuelCap() { return CAMPFIRE_FUEL_CAP; }
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
@@ -93,31 +94,52 @@ public class InteractionManager {
     private final CombatManager combatManager;
     private final ContainerManager containerManager;
     private final Runnable onContainerOpened;
+    private final Consumer<CraftingStation> onStationOpened;
     private final Consumer<String> hintSink;
 
     private Pending pending;
 
     /**
+     * What happens on screen once an interaction opened a building.
+     *
+     * @param onContainerOpened called after an interaction opened a container, it shows the container
+     * @param onStationOpened   called after an interaction opened a crafting station, it shows the crafting view
+     */
+    public record OpenViews(Runnable onContainerOpened, Consumer<CraftingStation> onStationOpened) {
+
+        /**
+         * Gives views that show a container and ignore a crafting station.
+         *
+         * @param onContainerOpened called after an interaction opened a container
+         * @return the views
+         */
+        public static OpenViews containerOnly(Runnable onContainerOpened) {
+            return new OpenViews(onContainerOpened, (CraftingStation station) -> { });
+        }
+    }
+
+    /**
      * Creates the manager.
      *
-     * @param gameState         shared game state
-     * @param buildingManager   opens chests and toggles gates
-     * @param resourceManager   hits resources
-     * @param combatManager     swings at enemies
-     * @param containerManager  tells whether an interaction opened a container
-     * @param onContainerOpened called after an interaction opened a container, it shows the container
-     * @param hintSink          receives the short message shown when the target cannot be reached
+     * @param gameState        shared game state
+     * @param buildingManager  opens chests and crafting stations and toggles gates
+     * @param resourceManager  hits resources
+     * @param combatManager    swings at enemies
+     * @param containerManager tells whether an interaction opened a container
+     * @param openViews        shows the container or the crafting station an interaction opened
+     * @param hintSink         receives the short message shown when the target cannot be reached
      */
     public InteractionManager(GameStateManager gameState, BuildingManager buildingManager,
                               ResourceManager resourceManager, CombatManager combatManager,
-                              ContainerManager containerManager,
-                              Runnable onContainerOpened, Consumer<String> hintSink) {
+                              ContainerManager containerManager, OpenViews openViews,
+                              Consumer<String> hintSink) {
         this.gameState = gameState;
+        this.onStationOpened = openViews.onStationOpened();
         this.buildingManager = buildingManager;
         this.resourceManager = resourceManager;
         this.combatManager = combatManager;
         this.containerManager = containerManager;
-        this.onContainerOpened = onContainerOpened;
+        this.onContainerOpened = openViews.onContainerOpened();
         this.hintSink = hintSink;
     }
 
@@ -150,7 +172,7 @@ public class InteractionManager {
             return Outcome.REFUSED;
         }
         if (kind == Kind.RESOURCE && !resourceManager.hasToolFor(player, tile)) {
-            resourceManager.hintMissingTool(tile);
+            resourceManager.hintMissingTool(player, tile);
             return Outcome.REFUSED;
         }
 
@@ -417,6 +439,8 @@ public class InteractionManager {
             final boolean interacted = buildingManager.interactWithBuilding(tile.getX(), tile.getY());
             if (interacted && containerManager.isContainerOpen()) {
                 onContainerOpened.run();
+            } else if (interacted) {
+                tile.getBuilding().getType().craftingStation().ifPresent(onStationOpened);
             }
             return interacted ? Outcome.ACCEPTED : Outcome.REFUSED;
         }

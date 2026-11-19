@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
@@ -30,7 +31,7 @@ public class Skeleton extends Enemy {
      * @param startY Initial y-coordinate (tile position)
      */
     public Skeleton(int startX, int startY) {
-        this(startX, startY, new SkeletonMovementStrategy(), new SkeletonAttackStrategy());
+        this(startX, startY, new SkeletonMovementStrategy(SpawnSeed.of(startX, startY)), new SkeletonAttackStrategy());
     }
 
     /**

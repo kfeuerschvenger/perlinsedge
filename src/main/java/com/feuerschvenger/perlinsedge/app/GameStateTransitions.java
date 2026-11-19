@@ -4,8 +4,11 @@ import com.feuerschvenger.perlinsedge.app.managers.BuildingManager;
 import com.feuerschvenger.perlinsedge.app.managers.ContainerManager;
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
@@ -68,6 +71,7 @@ public class GameStateTransitions {
         inventoryPanel.closeInventory();
         hidePauseMenu();
         gameState.setInventoryOpen(false);
+        gameState.setCraftingStation(CraftingStation.INVENTORY);
         gameState.setGamePaused(false);
         gameState.setCurrentGameMode(GameMode.EXPLORATION);
     }
@@ -109,7 +113,8 @@ public class GameStateTransitions {
         if (mode == GameMode.INVENTORY_OPEN || mode == GameMode.CRAFTING_OPEN) {
             setGameMode(GameMode.EXPLORATION);
         } else {
-            inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
+            gameState.setCraftingStation(CraftingStation.INVENTORY);
+            inventoryPanel.setCraftingRecipes(recipeManager.getItemRecipesFor(CraftingStation.INVENTORY));
             setGameMode(GameMode.INVENTORY_OPEN);
         }
     }
@@ -125,8 +130,31 @@ public class GameStateTransitions {
         }
 
         palette.hidePalette();
-        inventoryPanel.setCraftingRecipes(recipeManager.getAllItemRecipes());
-        inventoryPanel.openDualInventory(container);
+        gameState.setCraftingStation(CraftingStation.INVENTORY);
+        inventoryPanel.setCraftingRecipes(recipeManager.getItemRecipesFor(CraftingStation.INVENTORY));
+        inventoryPanel.openDualInventory(container, containerTitle(container));
+        gameState.setInventoryOpen(true);
+        gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
+    }
+
+    /** The title of a container view: the name of the building that holds it, or a plain name for any other. */
+    private static String containerTitle(Container container) {
+        final var name = container instanceof Building building ? building.getType().getDisplayName() : "Container";
+        return name + " Inventory";
+    }
+
+    /**
+     * Opens the inventory as the crafting view of a station the player clicked: the title of the inventory becomes the
+     * name of the station and the crafting list holds the recipes of that station only. The station stays the one
+     * recipes are crafted at until the view closes.
+     *
+     * @param station the station that was clicked
+     */
+    public void showStation(CraftingStation station) {
+        palette.hidePalette();
+        gameState.setCraftingStation(station);
+        inventoryPanel.setCraftingRecipes(recipeManager.getItemRecipesFor(station));
+        inventoryPanel.openStation(station);
         gameState.setInventoryOpen(true);
         gameState.setCurrentGameMode(GameMode.INVENTORY_OPEN);
     }
@@ -157,6 +185,7 @@ public class GameStateTransitions {
                 containerManager.closeContainer();
                 inventoryPanel.closeInventory();
                 gameState.setInventoryOpen(false);
+                gameState.setCraftingStation(CraftingStation.INVENTORY);
                 break;
             default:
                 break;

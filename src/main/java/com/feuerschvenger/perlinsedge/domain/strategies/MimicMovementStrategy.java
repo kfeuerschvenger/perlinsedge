@@ -15,8 +15,16 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
 
     private static final double MOVE_SPEED_AGGRO = 3.0; // Tiles per second when aggroed
 
-    private final WalkingChaser chaser =
-            new WalkingChaser(MOVE_SPEED_AGGRO, AppConfig.getInstance().enemies().mimic());
+    private final WalkingChaser chaser;
+
+    /**
+     * Creates a mimic movement that waits as a chest and chases the player once it is woken by the aggro range or by a hit.
+     *
+     * @param seed seed of its waits for a tile another enemy holds, such as {@link SpawnSeed#of(int, int)}
+     */
+    public MimicMovementStrategy(long seed) {
+        this.chaser = new WalkingChaser(MOVE_SPEED_AGGRO, AppConfig.getInstance().enemies().mimic(), seed);
+    }
 
     @Override
     public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {

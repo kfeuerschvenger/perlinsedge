@@ -5,14 +5,18 @@ import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.SleepingBag;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.world.light.BuildingLight;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -37,6 +41,10 @@ public class BuildingManager {
     private static final int REFUND_SEARCH_RADIUS = 4;
     /** The hint of a piece, a demolition or a closing gate that is refused because someone is in the tile. */
     private static final String HINT_IN_THE_WAY = "Something is standing there";
+    /** The hint of a click on a sleeping bag, which becomes the spawn point. */
+    private static final String HINT_SPAWN_SET = "Spawn point set";
+    /** The hint of a click on the sleeping bag that already is the spawn point. */
+    private static final String HINT_SPAWN_KEPT = "Spawn point already here";
 
     // Dependencies
     private final GameStateManager gameState;
@@ -214,6 +222,7 @@ public class BuildingManager {
         } else {
             targetTile.setBuilding(newBuilding);
             FenceConnections.refresh(tileMap, worldX, worldY);
+            register(newBuilding);
         }
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
         return true;
@@ -281,7 +290,9 @@ public class BuildingManager {
         if (!floor.isDestructible()) {
             return false;
         }
-        if (isEntityOn(worldX, worldY) || isOnPlayerWalk(worldX, worldY)) {
+        // Only a floor that carries the walk over water can leave someone in it; the ground under a path stays walkable
+        final boolean carriesTheWalk = !tile.getType().isWalkable();
+        if (carriesTheWalk && (isEntityOn(worldX, worldY) || isOnPlayerWalk(worldX, worldY))) {
             log.debug("The floor at ({}, {}) has the player or an enemy on it, or is on the player's walk", worldX, worldY);
             hintSink.accept(HINT_IN_THE_WAY);
             return false;
@@ -300,6 +311,7 @@ public class BuildingManager {
      * the ground is announced by the drop manager on its own.
      */
     private void refund(Building building) {
+        unregister(building);
         // What a chest held falls out on its own tile, whole, whatever its health
         if (building instanceof Chest chest) {
             for (Item content : chest.getItems()) {
@@ -308,8 +320,37 @@ public class BuildingManager {
                 }
             }
         }
+        if (building instanceof ProcessingStation station) {
+            for (Item content : station.emptyContents()) {
+                itemDropManager.dropAt(content, building.getTileX(), building.getTileY());
+            }
+        }
         refundIngredients(building);
         onInventoryChanged.run();
+    }
+
+    /** Enters a building that was just placed in the lists the game reads: the stations, which need time, and the lights. */
+    private void register(Building building) {
+        if (building instanceof ProcessingStation station) {
+            gameState.getStations().add(station);
+        }
+        AppConfig.getInstance().lights().newBuildingLight(building).ifPresent((BuildingLight light) -> {
+            building.setLight(light);
+            gameState.getLights().add(light);
+        });
+    }
+
+    /** Takes a building that comes down out of what {@link #register} entered it in, and out of the spawn point. */
+    private void unregister(Building building) {
+        if (building == gameState.getSpawnBag()) {
+            gameState.setSpawnBag(null);
+        }
+        if (building instanceof ProcessingStation station) {
+            gameState.getStations().remove(station);
+        }
+        if (building.getLight() != null) {
+            gameState.getLights().remove(building.getLight());
+        }
     }
 
     private void refundIngredients(Building building) {
@@ -384,11 +425,31 @@ public class BuildingManager {
         }
 
         var building = targetTile.getBuilding();
-        // Closing a gate on someone would trap them in it, so only opening is always allowed
+        if (isGateBlocked(building, worldX, worldY)) {
+            return false;
+        }
+        return interactWithPiece(building, targetTile);
+    }
+
+    /** Closing a gate on someone would trap them in it, so only opening is always allowed. */
+    private boolean isGateBlocked(Building building, int worldX, int worldY) {
         if (building instanceof FenceGate gate && gate.isOpen() && isEntityOn(worldX, worldY)) {
             log.debug("Gate at ({}, {}) cannot close with the player or an enemy in it", worldX, worldY);
             hintSink.accept(HINT_IN_THE_WAY);
-            return false;
+            return true;
+        }
+        return false;
+    }
+
+    private boolean interactWithPiece(Building building, Tile targetTile) {
+        if (building instanceof ProcessingStation station) {
+            return interactWithStation(station);
+        }
+        if (building instanceof SleepingBag bag) {
+            final var alreadyActive = gameState.getSpawnBag() == bag;
+            gameState.setSpawnBag(bag);
+            hintSink.accept(alreadyActive ? HINT_SPAWN_KEPT : HINT_SPAWN_SET);
+            return true;
         }
         boolean interacted = building.onInteract(targetTile);
 
@@ -397,6 +458,30 @@ public class BuildingManager {
             log.debug("Opened container: {}", building.getClass().getSimpleName());
         }
         return interacted;
+    }
+
+    /**
+     * Loads a station from the hand: an item the station takes goes in one unit per click, and a click with anything
+     * else tells what the station holds. A click is always handled, so the player walks up to the station either way.
+     */
+    private boolean interactWithStation(ProcessingStation station) {
+        final var player = gameState.getPlayer();
+        if (player == null) {
+            return false;
+        }
+        final var held = player.getActiveItemType();
+        if (held == null || !station.accepts(held)) {
+            hintSink.accept(station.statusHint());
+            return true;
+        }
+        if (station.load(held) == ProcessingStation.LoadResult.LOADED) {
+            player.consumeActiveItem();
+            onInventoryChanged.run();
+        } else {
+            hintSink.accept(station.roleName(held) + " is full, " + station.countInRole(held) + "/" + station.capOf(held)
+                    + " (" + station.loadedNamesInRole(held) + ")");
+        }
+        return true;
     }
 
     /**
@@ -543,10 +628,12 @@ public class BuildingManager {
 
         return switch (type) {
             case BRIDGE -> canPlaceBridge(type, tile);
+            // A path only repaves free walkable land
+            case COBBLESTONE_PATH -> canPlaceOnLand(type, tile);
             // The torch is the one piece that also stands on a floor
             case STANDING_TORCH -> tile.hasFloor() || isWalkableLand(tile);
             // Every other piece stands on land and never on a floor
-            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> canPlaceOnLand(type, tile);
+            case FENCE, FENCE_GATE, CHEST, FURNACE, STONE_OVEN, CAMPFIRE, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> canPlaceOnLand(type, tile);
         };
     }
 
@@ -564,11 +651,15 @@ public class BuildingManager {
     }
 
     private static boolean canPlaceOnLand(BuildingType type, Tile tile) {
-        boolean valid = !tile.hasFloor() && isWalkableLand(tile);
+        boolean valid = isWalkableLand(tile) && (!tile.hasFloor() || (!type.isFloor() && isPath(tile.getFloor())));
         if (!valid) {
-            log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
+            log.debug("Invalid terrain for {}: Requires walkable land with no floor but a path", type.getDisplayName());
         }
         return valid;
+    }
+
+    private static boolean isPath(Building floor) {
+        return floor.getType() == BuildingType.COBBLESTONE_PATH;
     }
 
     private static boolean isWalkableLand(Tile tile) {

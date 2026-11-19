@@ -76,7 +76,7 @@ public class ResourceManager {
             return HitResult.REFUSED;
         }
         if (!hasToolFor(player, tile)) {
-            hintMissingTool(tile);
+            hintMissingTool(player, tile);
             return HitResult.REFUSED;
         }
         return handleResourceHit(player.getActiveItemType(), tile.getWorldResource(), tile.getX(), tile.getY())
@@ -85,7 +85,7 @@ public class ResourceManager {
 
     /**
      * Checks that the player holds in hand the tool the resource on a tile needs. It only answers: the caller decides
-     * whether to tell the player, with {@link #hintMissingTool(Tile)}.
+     * whether to tell the player, with {@link #hintMissingTool(Player, Tile)}.
      * The distance is not checked, so it can be asked before the player walks up to the resource.
      *
      * @param player the player
@@ -100,11 +100,14 @@ public class ResourceManager {
     }
 
     /**
-     * Tells the player which tool the resource on a tile needs.
+     * Tells the player which tool the resource on a tile needs: the kind of tool when the item in hand is not one, and
+     * that it is too hard for the tool in hand when it is the right kind but of a lower tier, such as a stone pickaxe
+     * on crystals.
      *
-     * @param tile tile with a resource that needs a tool; anything else does nothing
+     * @param player the player
+     * @param tile   tile with a resource that needs a tool; anything else does nothing
      */
-    public void hintMissingTool(Tile tile) {
+    public void hintMissingTool(Player player, Tile tile) {
         if (tile == null || !tile.hasResource()) {
             return;
         }
@@ -113,18 +116,23 @@ public class ResourceManager {
         if (tool == null) {
             return;
         }
-        log.debug("Cannot harvest {} at ({}, {}): the player does not hold a {}",
-                resource.getType(), tile.getX(), tile.getY(), tool);
-        hintSink.accept("Hold a " + tool.getDisplayName().toLowerCase(Locale.ROOT) + " to mine this");
+        var held = player.getActiveItemType();
+        log.debug("Cannot harvest {} at ({}, {}): the player holds {}",
+                resource.getType(), tile.getX(), tile.getY(), held);
+        if (resource.getType().isToolKind(held)) {
+            hintSink.accept("Too hard for a " + held.getDisplayName().toLowerCase(Locale.ROOT)
+                    + ", you need an iron " + tool.name().toLowerCase(Locale.ROOT));
+            return;
+        }
+        hintSink.accept("Hold a " + tool.name().toLowerCase(Locale.ROOT) + " to mine this");
     }
 
     /**
-     * Checks that the item in hand is the tool a resource needs, such as the pickaxe for iron ore. A tool in the bag
-     * outside the hotbar slot held in hand does not count.
+     * Checks that the item in hand is a tool good enough for a resource, such as a pickaxe for iron ore or an iron
+     * pickaxe for crystals. A tool in the bag outside the hotbar slot held in hand does not count.
      */
     private static boolean hasRequiredTool(Player player, Resource resource) {
-        ItemType tool = resource.getType().getRequiredTool();
-        return tool == null || player.getActiveItemType() == tool;
+        return resource.getType().canBeHarvestedWith(player.getActiveItemType());
     }
 
     /**

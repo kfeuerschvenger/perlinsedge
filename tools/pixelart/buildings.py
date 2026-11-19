@@ -322,6 +322,26 @@ def bed_boxes():
     ]
 
 
+def sleeping_bag_paint(face, x, y, z, shade):
+    """A straw roll: a darker seam down the middle of the top and a pale pillow end."""
+    if face == "top":
+        if x < -4.2:
+            return CREAM[2]
+        if abs(y) < 0.7:
+            return SAND[1]
+    return None
+
+
+def sleeping_bag_boxes():
+    """A low straw mat with a rolled edge on each long side and a small pillow at the head."""
+    return [
+        box(-7, 7, -4.5, 4.5, 0, 1.5, SAND, sleeping_bag_paint),
+        box(-7, 7, -5, -4, 0, 2.6, SAND),
+        box(-7, 7, 4, 5, 0, 2.6, SAND),
+        box(-6.8, -4, -3, 3, 1.5, 3, CREAM),
+    ]
+
+
 def bridge_boxes():
     return [
         box(-8, 8, -8, 8, 0, 3, PLANK, deck_paint),
@@ -438,7 +458,17 @@ def flame(cv, cx, base, frame, scale=1.0):
     px(cv, cx + [3, -3, 2, -2][frame], base - top - [1, 2, 0, 1][frame], FIRE[3])
 
 
-def campfire(frame):
+def ash(cv, cy):
+    """Grey ash and a few dull embers between the logs of a campfire that is out."""
+    for (x, y) in ((13, cy), (15, cy + 1), (17, cy), (19, cy + 1), (16, cy - 1), (14, cy + 2), (18, cy + 2)):
+        rect(cv, x, y, x + 1, y, STONE[1])
+    for (x, y) in ((15, cy), (18, cy + 1), (13, cy + 1)):
+        px(cv, x, y, STONE[2])
+    px(cv, 16, cy + 1, STONE[0])
+
+
+def campfire(frame=None):
+    """The campfire ring with its logs; a frame number adds that flame frame, None leaves the fire out and burnt."""
     h = 32
     cv = Canvas(WIDTH, h)
     cy = h - DIAMOND_H // 2
@@ -463,7 +493,10 @@ def campfire(frame):
             rect(cv, x, y - 1, x, y, WOOD[2])
             px(cv, x, y + 1, WOOD[0])
     rect(cv, 22, cy - 1, 23, cy + 3, WOOD[3])
-    flame(cv, 16, cy + 1, frame)
+    if frame is None:
+        ash(cv, cy)
+    else:
+        flame(cv, 16, cy + 1, frame)
     cv.outline()
     return cv.image()
 
@@ -498,6 +531,7 @@ FOUR_WAY = {
     "anvil": anvil_boxes,
     "workbench": workbench_boxes,
     "bed": bed_boxes,
+    "sleeping_bag": sleeping_bag_boxes,
 }
 TWO_WAY = {
     "bridge": bridge_boxes,
@@ -522,8 +556,10 @@ def draw_all():
         sprites.append((f"fence_rail_{edge}", family(rail_boxes(edge), [0], FENCE_H)[0]))
     for i in range(4):
         sprites.append((f"campfire_{i}", campfire(i)))
+    sprites.append(("campfire_unlit", campfire()))
     for i in range(4):
         sprites.append((f"standing_torch_{i}", standing_torch(i)))
+    sprites.extend(oven_and_path_sprites())
     return sprites
 
 
@@ -655,6 +691,87 @@ def orient(path):
         for k in range(4):
             scene.put(2 * i, 2 * k, f"{name}_{k}")
     scene.render(path)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# stone oven and cobblestone path
+# ----------------------------------------------------------------------------------------------------------------
+
+OVEN_H = 34
+PATH_VARIANTS = 4
+# cobble tones, dark mortar first; every colour is in palette.hex
+COBBLE = ["#4a4868", "#7d7a8c", "#aeadb8", "#7d7a8c", "#aeadb8", "#dcecf8"]
+
+
+def oven_paint(lit):
+    """Terracotta bricks with an arched mouth in the front face: dark when cold, glowing when lit."""
+    brick = bricks(RED, 3.0, 5.0)
+
+    def paint(face, x, y, z, shade):
+        if face == "+x":
+            top = 3.0 + math.sqrt(max(0.0, 16.0 - y * y))
+            if abs(y) < 4.0 and 1.5 <= z < top:
+                if not lit:
+                    return IRON[0] if z > 2.4 else WOOD[0]
+                if z < 3.0:
+                    return FIRE[3]
+                return FIRE[2] if z < 5.0 else FIRE[1]
+            if abs(y) < 5.2 and 1.0 <= z < top + 1.1:
+                return STONE[1] if shade else STONE[0]
+        return brick(face, x, y, z, shade)
+    return paint
+
+
+def oven_boxes(lit):
+    """A domed bread oven: a stone plinth, a brick body, three shrinking tiers for the dome and a back chimney."""
+    return [
+        box(-7, 7, -7, 7, 0, 1.5, STONE),
+        box(-6, 6, -6, 6, 1.5, 8, RED, oven_paint(lit)),
+        box(-5, 5, -5, 5, 8, 11, RED, bricks(RED, 3.0, 5.0)),
+        box(-3.6, 3.6, -3.6, 3.6, 11, 13.2, RED, bricks(RED, 3.0, 5.0)),
+        box(-2, 2, -2, 2, 13.2, 14.6, RED),
+        box(-5.5, -3, -1.5, 1.5, 11, 18, STONE, chimney_paint),
+    ]
+
+
+def cobble_path(variant):
+    """A flat 32x16 tile top of irregular cobbles with dark joints, the bottom vertex on the bottom centre pixel."""
+    cv = Canvas(WIDTH, DIAMOND_H)
+    seeds = []
+    state = 7919 * (variant + 1)
+    for gy in range(-1, 6):
+        for gx in range(-1, 8):
+            state = (state * 1103515245 + 12345) & 0x7FFFFFFF
+            jx, jy = (state >> 8) % 3 - 1, (state >> 14) % 3 - 1
+            offset = 2 if gy % 2 else 0
+            seeds.append((gx * 5 + offset + jx, gy * 3 + jy + 1, (state >> 4) % len(COBBLE[1:])))
+    owner = {}
+    for y in range(DIAMOND_H):
+        for x in range(WIDTH):
+            if abs(x + 0.5 - 16) / 16 + abs(y + 0.5 - 8) / 8 > 1.0:
+                continue
+            owner[(x, y)] = min(range(len(seeds)), key=lambda i: (x - 3 - seeds[i][0]) ** 2 * 0.5
+                                + (y - seeds[i][1]) ** 2 * 1.4)
+    for (x, y), i in owner.items():
+        edge = any(owner.get((x + dx, y + dy), i) != i for dx, dy in ((1, 0), (0, 1)))
+        tone = COBBLE[1 + seeds[i][2]]
+        if edge:
+            tone = COBBLE[0]
+        elif owner.get((x - 1, y), i) != i or owner.get((x, y - 1), i) != i:
+            tone = COBBLE[5] if tone == COBBLE[2] else COBBLE[2]
+        cv.set(x, y, hexc(tone))
+    return cv.image()
+
+
+def oven_and_path_sprites():
+    """The stone oven (off and lit, 4 orientations each, the furnace convention) and the cobblestone path variants."""
+    sprites = []
+    for name, lit in (("stone_oven_off", False), ("stone_oven_on", True)):
+        for k, img in enumerate(family(oven_boxes(lit), range(4), OVEN_H)):
+            sprites.append((f"{name}_{k}", img))
+    for v in range(PATH_VARIANTS):
+        sprites.append((f"cobblestone_path_{v}", cobble_path(v)))
+    return sprites
 
 
 def main():

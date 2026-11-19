@@ -2,7 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -260,6 +261,67 @@ class SlimeHopTest {
         assertTrue(scene.movement.isHovering());
         assertTrue(scene.movement.hoverChecks() - checks <= 8,
                 "looked " + (scene.movement.hoverChecks() - checks) + " times in three seconds");
+    }
+
+    /** Floods the take-off area and puts the player on the only other free tile, so the slime has nowhere to land. */
+    private static void blockEveryLanding(Scene scene, int targetX, int targetY) {
+        scene.player.setPosition(targetX, targetY);
+        scene.player.setTargetTileX(TAKE_OFF_X);
+        scene.player.setTargetTileY(TAKE_OFF_Y);
+    }
+
+    @Test
+    void aHoveringSlimeStopsHoveringAndGoesOnWithTheHopOnceATileFreesUp() {
+        Scene scene = new Scene();
+        scene.takeOff();
+        final int targetX = scene.slime.getTargetTileX();
+        final int targetY = scene.slime.getTargetTileY();
+        floodAroundTakeOff(scene.map, targetX, targetY);
+        scene.tick(10);
+        blockEveryLanding(scene, targetX, targetY);
+        scene.tick(2);
+        assertTrue(scene.movement.isHovering(), "precondition: hanging with no tile to land on");
+
+        scene.player.setPosition(16, 10);
+        // The longest wait of a hovering slime is a second, so it looks again within a second and a bit
+        for (int i = 0; i < 90 && scene.movement.isHovering(); i++) {
+            scene.tick();
+        }
+
+        assertFalse(scene.movement.isHovering(), "it left the hover when a tile was free");
+        assertTrue(scene.movement.isJumping(), "and the hop goes on in the air");
+        assertTrue(scene.movement.getJumpPhase() > 0.0 && scene.movement.getJumpPhase() < 1.0);
+    }
+
+    @Test
+    void theHoverBackoffStartsOverAfterTheSlimeHasLeftTheHover() {
+        Scene scene = new Scene();
+        scene.takeOff();
+        final int targetX = scene.slime.getTargetTileX();
+        final int targetY = scene.slime.getTargetTileY();
+        floodAroundTakeOff(scene.map, targetX, targetY);
+        scene.tick(10);
+        blockEveryLanding(scene, targetX, targetY);
+        // Long enough for the wait to grow to its longest, a second
+        scene.tick(240);
+        assertTrue(scene.movement.isHovering(), "precondition: still hanging");
+
+        scene.player.setPosition(16, 10);
+        for (int i = 0; i < 90 && scene.movement.isHovering(); i++) {
+            scene.tick();
+        }
+        assertFalse(scene.movement.isHovering(), "precondition: left the hover");
+
+        // The tile it now aims at is the take-off tile or the other free one, and the player takes both again
+        blockEveryLanding(scene, targetX, targetY);
+        scene.tick(1);
+        assertTrue(scene.movement.isHovering(), "precondition: hanging again");
+        final int checks = scene.movement.hoverChecks();
+        scene.tick(33);
+
+        // A backoff that started over looks after 0.1 s and again after 0.2 s more; one that kept its second would not
+        assertTrue(scene.movement.hoverChecks() - checks >= 2,
+                "looked " + (scene.movement.hoverChecks() - checks) + " times in a bit over half a second");
     }
 
     @Test

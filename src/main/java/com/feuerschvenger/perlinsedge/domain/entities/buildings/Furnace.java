@@ -1,10 +1,12 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.crafting.processing.StationProfiles;
+
 /**
- * Represents a furnace building where players can smelt ores.
- * Furnaces are solid structures that block movement.
+ * A furnace that smelts iron ore into ingots with coal or charcoal and burns logs down to charcoal. It is a solid
+ * structure that blocks movement.
  */
-public class Furnace extends Building {
+public class Furnace extends ProcessingStation {
 
     /**
      * Creates a new furnace at the specified tile position.
@@ -13,6 +15,6 @@ public class Furnace extends Building {
      * @param tileY Y-coordinate in tile units
      */
     public Furnace(int tileX, int tileY) {
-        super(tileX, tileY, BuildingType.FURNACE, true, true);
+        super(tileX, tileY, BuildingType.FURNACE, true, StationProfiles.furnace());
     }
 }

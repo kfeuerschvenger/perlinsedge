@@ -73,13 +73,48 @@ class ResourceManagerToolsTest {
     }
 
     @Test
-    void aPickaxeInHandBreaksStoneIronOreAndCrystalsInThreeHits() {
+    void aPickaxeInHandBreaksStoneAndIronOreInThreeHits() {
         player.setItemAt(0, new Item(ItemType.PICKAXE, 1));
-        for (ResourceType type : new ResourceType[]{ResourceType.STONE, ResourceType.IRON_ORE, ResourceType.CRYSTALS}) {
+        for (ResourceType type : new ResourceType[]{ResourceType.STONE, ResourceType.IRON_ORE}) {
             tile.setWorldResource(new Resource(type, 1));
 
             assertEquals(3, hitsUntilGone(), type.name());
         }
+    }
+
+    @Test
+    void anIronPickaxeBreaksEveryRockInFewerHitsAndIsTheOnlyOneThatMinesCrystals() {
+        player.setItemAt(0, new Item(ItemType.IRON_PICKAXE, 1));
+        for (ResourceType type : new ResourceType[]{ResourceType.STONE, ResourceType.IRON_ORE, ResourceType.CRYSTALS}) {
+            tile.setWorldResource(new Resource(type, 1));
+
+            assertEquals(ToolHits.hitsToBreak(ItemType.IRON_PICKAXE, type), hitsUntilGone(), type.name());
+            assertTrue(ToolHits.hitsToBreak(ItemType.IRON_PICKAXE, type) < ToolHits.hitsToBreak(ItemType.PICKAXE, type),
+                    type.name());
+        }
+    }
+
+    @Test
+    void aStonePickaxeOnCrystalsIsRefusedWithATooHardHint() {
+        player.setItemAt(0, new Item(ItemType.PICKAXE, 1));
+        tile.setWorldResource(new Resource(ResourceType.CRYSTALS, 1));
+
+        assertFalse(manager.hasToolFor(player, tile));
+        assertEquals(ResourceManager.HitResult.REFUSED, manager.handleTileInteraction(player, tile));
+
+        assertEquals(1, hints.size());
+        assertTrue(hints.getFirst().startsWith("Too hard"), hints.getFirst());
+        assertTrue(hints.getFirst().contains("iron pickaxe"), hints.getFirst());
+        assertTrue(tile.hasResource());
+    }
+
+    @Test
+    void withNoPickaxeTheCrystalsHintAsksForAPickaxeNotForTheIronOne() {
+        tile.setWorldResource(new Resource(ResourceType.CRYSTALS, 1));
+
+        manager.handleTileInteraction(player, tile);
+
+        assertEquals(List.of("Hold a pickaxe to mine this"), hints);
     }
 
     @Test

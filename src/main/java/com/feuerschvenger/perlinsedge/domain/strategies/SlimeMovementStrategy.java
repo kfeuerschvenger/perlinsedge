@@ -26,24 +26,18 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     // Configuration constants (specific to Slime movement)
     private static final double IDLE_JUMP_INTERVAL_MIN = 2.0;
     private static final double IDLE_JUMP_INTERVAL_MAX = 4.0;
-    private static final double JUMP_SPEED_AGGRO = 0.5; // Duration of jump
-    private static final double JUMP_SPEED_IDLE = 0.8;  // Duration of jump
+    private static final double JUMP_SECONDS_AGGRO = 0.5; // Duration of a hop towards the player
+    private static final double JUMP_SECONDS_IDLE = 0.8;  // Duration of an idle hop
     public static final double JUMP_HEIGHT_FACTOR = 50.0; // Public for rendering
     /** Wait before searching again after the next step of the path turned out to be unusable. */
     private static final double REPLAN_WAIT_SECONDS = 0.15;
     /** Longest random addition to the first wait when the step was blocked by another enemy, so a crowd does not act in step. */
     private static final double HELD_WAIT_SPREAD_SECONDS = 0.3;
-    /** Longest wait for a step another enemy holds: the wait doubles while the same step stays blocked, up to this. */
-    private static final double MAX_HELD_WAIT_SECONDS = 1.5;
-    /** How much longer each repeated wait for the same held step is. */
-    private static final double HELD_WAIT_GROWTH_FACTOR = 2.0;
     /** First wait before a hovering slime looks for a tile to land on again, doubled up to the longest after each miss. */
     private static final double HOVER_RETRY_SECONDS = 0.1;
     private static final double MAX_HOVER_RETRY_SECONDS = 1.0;
     /** How much longer each failed look for a landing tile makes the wait. */
     private static final double HOVER_RETRY_GROWTH_FACTOR = 2.0;
-    /** Marks that no step of the path is blocked. */
-    private static final int NO_STEP = Integer.MIN_VALUE;
     /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
     private static final double HELD_TILE_PENALTY = 6.0;
     /** Rest on the ground between two hops of a chase, shortest and longest. Each slime has one fixed value. */
@@ -80,10 +74,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * taken.
      */
     private double secondsOfReplanWait;
-    /** The step of the path another enemy holds and the wait the slime last gave it, or {@link #NO_STEP}. */
-    private int blockedStepX = NO_STEP;
-    private int blockedStepY = NO_STEP;
-    private double blockedWaitSeconds;
+    /** The step of the path another enemy holds and the wait the slime last gave it. */
+    private final HeldStepBackoff heldStep = new HeldStepBackoff();
     /** Time left before a hovering slime looks for a tile to land on again, and the wait it gives the next miss. */
     private double secondsOfHoverWait;
     private double hoverRetrySeconds;
@@ -219,7 +211,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
                 removeCurrentPositionFromPath(enemy);
                 forgetBlockedStepUnlessAhead();
             } else {
-                moveRandomly(enemy, map, player, JUMP_SPEED_AGGRO); // Fallback to random move if no path
+                // Nothing to wait for on a path that is not there
+                clearBlockedStep();
+                moveRandomly(enemy, map, player, JUMP_SECONDS_AGGRO); // Fallback to random move if no path
             }
         }
     }
@@ -245,19 +239,23 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /**
-     * Counts the idle timer down and hops at random when it runs out. A hop that falls due while the slime is in the
-     * air or resting after a landing is kept pending and taken once it can start, instead of being dropped.
+     * Counts the idle timer down and tries a hop to a random free tile when it runs out. A hop that falls due while
+     * the slime is in the air or resting after a landing is kept pending and tried once it can start, instead of being
+     * dropped. The next idle hop is scheduled whenever one was tried, even when no tile was free to hop to.
      */
     private void handleIdleBehavior(Enemy enemy, TileMap map, Player player, double deltaTime) {
         idleTimer -= deltaTime;
 
         if (idleTimer <= 0 && !isJumping && secondsOfRest <= 0) {
-            moveRandomly(enemy, map, player, JUMP_SPEED_IDLE);
+            moveRandomly(enemy, map, player, JUMP_SECONDS_IDLE);
             resetIdleTimer();
         }
     }
 
-    /** Hops to a random free tile around the slime, with the given hop duration, unless it is already in the air. */
+    /**
+     * Hops to a random free tile around the slime, with the given hop duration, unless it is in the air or resting.
+     * Nothing happens when no tile is free or another enemy took the chosen one first.
+     */
     private void moveRandomly(Enemy enemy, TileMap map, Player player, double duration) {
         if (isJumping || secondsOfRest > 0) {
             return;
@@ -430,10 +428,14 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /**
      * Hangs in the air with the target moved back to the take-off tile, so the tile that was the target is no longer
-     * held, and schedules the next look for a tile to land on.
+     * held, and schedules the next look for a tile to land on. The take-off tile is the slime's own: reserving it
+     * only lets go of the old target, and the answer does not change what the slime does. It can be no only when
+     * another enemy took the tile, and then the slime has nowhere else to go and the occupancy gives the tile back to
+     * it on a later sync, so the slime hangs on either way.
      */
     private void hover(Enemy enemy, int fromX, int fromY) {
         hovering = true;
+        // The target is set below in this same update, as the contract of tryReserve asks
         occupancy.tryReserve(enemy, fromX, fromY);
         enemy.setTargetTileX(fromX);
         enemy.setTargetTileY(fromY);
@@ -470,35 +472,25 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** Forgets the blocked step and the wait it earned, once the slime moves on or the step is no longer ahead. */
     private void clearBlockedStep() {
-        blockedStepX = NO_STEP;
-        blockedStepY = NO_STEP;
-        blockedWaitSeconds = 0;
+        heldStep.clear();
     }
 
     /** Keeps the memory of a blocked step only while a new path still starts with it. */
     private void forgetBlockedStepUnlessAhead() {
-        if (currentPath.isEmpty() || currentPath.getFirst().x != blockedStepX || currentPath.getFirst().y != blockedStepY) {
-            clearBlockedStep();
-        }
+        heldStep.keepOnlyIfFirstStepOf(currentPath.peekFirst());
     }
 
     /**
      * Waits for a step that another enemy holds, with no search meanwhile. The first wait is random, between the replan
      * wait and the replan wait plus its spread, so a crowd does not act in step; the wait doubles, up to
-     * {@link #MAX_HELD_WAIT_SECONDS}, each time the same step is still held when it is tried again.
+     * {@link HeldStepBackoff#MAX_WAIT_SECONDS}, each time the same step is still held when it is tried again.
      *
      * @return true when the step was already held after an earlier wait, which means its holder is not passing through
      */
     private boolean waitForHeldStep(PathNode step) {
-        final boolean repeated = step.x == blockedStepX && step.y == blockedStepY;
-        if (repeated) {
-            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * HELD_WAIT_GROWTH_FACTOR);
-        } else {
-            blockedStepX = step.x;
-            blockedStepY = step.y;
-            blockedWaitSeconds = REPLAN_WAIT_SECONDS + HELD_WAIT_SPREAD_SECONDS * random.nextDouble();
-        }
-        secondsOfReplanWait = blockedWaitSeconds;
+        final boolean repeated = heldStep.isBlockedAt(step);
+        secondsOfReplanWait = heldStep.waitFor(step,
+                () -> REPLAN_WAIT_SECONDS + HELD_WAIT_SPREAD_SECONDS * random.nextDouble());
         return repeated;
     }
 
@@ -539,7 +531,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         enemy.setTargetTileY(nextStep.y);
 
         if (!enemy.reachedPathTarget()) {
-            startJump(enemy, JUMP_SPEED_AGGRO);
+            startJump(enemy, JUMP_SECONDS_AGGRO);
         } else {
             // If the path just has the current tile (e.g., path of 1), just complete it immediately
             completeJump(enemy);

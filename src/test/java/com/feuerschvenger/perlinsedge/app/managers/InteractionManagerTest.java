@@ -1,10 +1,13 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Anvil;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Workbench;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -40,6 +43,7 @@ class InteractionManagerTest {
     private TileMap map;
     private final List<String> hints = new ArrayList<>();
     private final AtomicInteger containerShown = new AtomicInteger();
+    private final List<CraftingStation> stationsShown = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -57,7 +61,7 @@ class InteractionManagerTest {
         BuildingManager buildings = new BuildingManager(state, new RecipeManager(), containers);
         ResourceManager resources = new ResourceManager(state, hints::add);
         interactions = new InteractionManager(state, buildings, resources, new CombatManager(state), containers,
-                containerShown::incrementAndGet, hints::add);
+                new InteractionManager.OpenViews(containerShown::incrementAndGet, stationsShown::add), hints::add);
     }
 
     /** Runs the game ticks a walk needs, the way the game loop does, until nothing is pending or the ticks run out. */
@@ -174,6 +178,37 @@ class InteractionManagerTest {
 
         assertTrue(containers.isContainerOpen());
         assertEquals(1, containerShown.get(), "the container was shown once");
+    }
+
+    @Test
+    void aFarWorkbenchOpensItsCraftingViewOnArrival() {
+        map.getTile(8, 5).setBuilding(new Workbench(8, 5));
+
+        assertTrue(interactions.interact(8, 5).isAccepted());
+        assertTrue(stationsShown.isEmpty(), "the view stays shut while the player walks");
+        tickUntilIdle();
+
+        assertEquals(List.of(CraftingStation.WORKBENCH), stationsShown);
+        assertFalse(containers.isContainerOpen(), "a station holds no items");
+    }
+
+    @Test
+    void anAnvilInReachOpensItsCraftingViewAtOnce() {
+        map.getTile(1, 5).setBuilding(new Anvil(1, 5));
+
+        assertTrue(interactions.interact(1, 5).isAccepted());
+
+        assertEquals(List.of(CraftingStation.ANVIL), stationsShown);
+    }
+
+    @Test
+    void aChestOpensNoCraftingView() {
+        map.getTile(1, 5).setBuilding(new Chest(1, 5, 9));
+
+        interactions.interact(1, 5);
+
+        assertTrue(stationsShown.isEmpty());
+        assertEquals(1, containerShown.get());
     }
 
     @Test

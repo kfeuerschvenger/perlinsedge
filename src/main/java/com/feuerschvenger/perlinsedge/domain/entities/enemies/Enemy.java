@@ -63,8 +63,9 @@ public abstract class Enemy extends Entity {
 
     /**
      * Updates the enemy among the others: it moves only to tiles no other enemy holds, and the occupancy is brought
-     * in line with its tiles before and after the move. This is the single update of every enemy, so subclasses add
-     * behaviour through {@link #afterUpdate(Player)} and cannot be skipped by a caller choosing another overload.
+     * in line with its tiles before and after the move. This is the single update of every enemy and it is final, so
+     * subclasses add behaviour through {@link #afterUpdate(Player)} and every enemy runs in the same order: cooldown,
+     * movement, attack, hook.
      *
      * @param deltaTime Time since last update (seconds)
      * @param map       Current game map
