@@ -150,7 +150,7 @@ public class InteractionManager {
             return Outcome.REFUSED;
         }
         if (kind == Kind.RESOURCE && !resourceManager.hasToolFor(player, tile)) {
-            resourceManager.hintMissingTool(tile);
+            resourceManager.hintMissingTool(player, tile);
             return Outcome.REFUSED;
         }
 

@@ -61,6 +61,11 @@ public enum ItemType {
             "A chunk of fuel. Burns hot and long, " +
                     "your campfire will thank you."
     ),
+    CHARCOAL(
+            64,
+            "Wood burnt down to a light, hot fuel. " +
+                    "Smells like a good barbecue."
+    ),
     FIBER(
             64,
             "Soft and flexible threads. Perfect for ropes, " +
@@ -95,16 +100,6 @@ public enum ItemType {
     // ==================================================================
     //  Food Items
     // ==================================================================
-    RAW_FISH(
-            64,
-            "Fresh from the lake. Might be tasty when cooked, " +
-                    "or a cat's best friend."
-    ),
-    COOKED_FISH(
-            64,
-            "Cooked to perfection. A delicious and " +
-                    "filling treat for long adventures."
-    ),
     RAW_MEAT(
             64,
             "Fresh meat. Cook it soon, unless you're starting " +
@@ -141,6 +136,21 @@ public enum ItemType {
             "A trusted companion for adventurers. " +
                     "Sharp, strong, and always ready."
     ),
+    IRON_PICKAXE(
+            1,
+            "Iron where the stone one gives up: " +
+                    "it hits twice as hard and even breaks crystals."
+    ),
+    IRON_AXE(
+            1,
+            "Chops twice as fast as the stone axe, " +
+                    "and so does everything else it hits."
+    ),
+    IRON_SWORD(
+            1,
+            "Forged iron with a proper edge. " +
+                    "Hits twice as hard as the stone sword."
+    ),
     HAMMER(
             1,
             "Hold it to raise fences, chests and workbenches, " +
@@ -152,6 +162,11 @@ public enum ItemType {
                     "or when a dragon disagrees.",
             50
     );
+
+    /** Tier of the tools made of stone. */
+    public static final int STONE_TIER = 1;
+    /** Tier of the tools made of iron. */
+    public static final int IRON_TIER = 2;
 
     // ==================================================================
     //  Instance Properties
@@ -190,11 +205,54 @@ public enum ItemType {
 
         // Generate display name from enum constant
         String name = name();
-        this.displayName = name.charAt(0) +
-                name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
+        this.displayName = displayNameOf(name);
 
         // Generate sprite path from enum constant
         this.spritePath = name.toLowerCase(Locale.ROOT);
+    }
+
+    // ==================================================================
+    //  Naming and tool tiers
+    // ==================================================================
+
+    /**
+     * Builds the display name of a constant: the name in sentence case, with the plain tools called after the stone they
+     * are made of, since the iron tier has constants of its own.
+     */
+    private static String displayNameOf(String name) {
+        final String generated = name.charAt(0) + name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
+        return switch (name) {
+            case "AXE", "PICKAXE", "SWORD" -> "Stone " + generated.toLowerCase(Locale.ROOT);
+            default -> generated;
+        };
+    }
+
+    /**
+     * Gives the tool of the stone tier this tool is a better version of, which is what decides what the tool is used
+     * for: an iron pickaxe is a pickaxe wherever a pickaxe is asked for.
+     *
+     * @return the stone tier tool, or the item itself when it is not an iron tool
+     */
+    public ItemType baseTool() {
+        return switch (this) {
+            case IRON_PICKAXE -> PICKAXE;
+            case IRON_AXE -> AXE;
+            case IRON_SWORD -> SWORD;
+            default -> this;
+        };
+    }
+
+    /**
+     * Gives how good the tool is as a tool of its kind.
+     *
+     * @return {@value #IRON_TIER} for the iron tools, {@value #STONE_TIER} for the stone ones and 0 for any other item
+     */
+    public int toolTier() {
+        return switch (this) {
+            case IRON_PICKAXE, IRON_AXE, IRON_SWORD -> IRON_TIER;
+            case PICKAXE, AXE, SWORD -> STONE_TIER;
+            default -> 0;
+        };
     }
 
     // ==================================================================

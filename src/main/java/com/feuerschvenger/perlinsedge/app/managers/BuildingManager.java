@@ -546,7 +546,7 @@ public class BuildingManager {
             // The torch is the one piece that also stands on a floor
             case STANDING_TORCH -> tile.hasFloor() || isWalkableLand(tile);
             // Every other piece stands on land and never on a floor
-            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED -> canPlaceOnLand(type, tile);
+            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> canPlaceOnLand(type, tile);
         };
     }
 

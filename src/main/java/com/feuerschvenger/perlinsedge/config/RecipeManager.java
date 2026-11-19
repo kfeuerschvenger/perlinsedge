@@ -23,6 +23,9 @@ public class RecipeManager {
     private static final int PICKAXE_STONE_COST = 3;
     private static final int PICKAXE_STICK_COST = 2;
     private static final int SWORD_STONE_COST = 2;
+    private static final int IRON_AXE_INGOT_COST = 3;
+    private static final int IRON_PICKAXE_INGOT_COST = 3;
+    private static final int IRON_SWORD_INGOT_COST = 2;
     private static final int HAMMER_STICK_COST = 2;
     private static final int HAMMER_STONE_COST = 2;
     private static final int FLINT_STONE_COST = 2;
@@ -46,8 +49,7 @@ public class RecipeManager {
     private static final int ANVIL_IRON_COST = 5;
     private static final int ANVIL_STONE_COST = 3;
     private static final int WORKBENCH_PLANK_COST = 4;
-    private static final int BED_PLANK_COST = 3;
-    private static final int BED_FIBER_COST = 5;
+    private static final int SLEEPING_BAG_FIBER_COST = 6;
 
     // Recipe collections
     private final List<Recipe> itemRecipes = new ArrayList<>();
@@ -114,6 +116,22 @@ public class RecipeManager {
 
         itemRecipes.add(createToolRecipe(ItemType.SWORD,
                 new CraftingIngredient(ItemType.STONE, SWORD_STONE_COST),
+                new CraftingIngredient(ItemType.STICK, 1))
+        );
+
+        // Iron tools
+        itemRecipes.add(createToolRecipe(ItemType.IRON_AXE,
+                new CraftingIngredient(ItemType.IRON_INGOT, IRON_AXE_INGOT_COST),
+                new CraftingIngredient(ItemType.STICK, AXE_STICK_COST))
+        );
+
+        itemRecipes.add(createToolRecipe(ItemType.IRON_PICKAXE,
+                new CraftingIngredient(ItemType.IRON_INGOT, IRON_PICKAXE_INGOT_COST),
+                new CraftingIngredient(ItemType.STICK, PICKAXE_STICK_COST))
+        );
+
+        itemRecipes.add(createToolRecipe(ItemType.IRON_SWORD,
+                new CraftingIngredient(ItemType.IRON_INGOT, IRON_SWORD_INGOT_COST),
                 new CraftingIngredient(ItemType.STICK, 1))
         );
 
@@ -214,9 +232,9 @@ public class RecipeManager {
                 new CraftingIngredient(ItemType.STICK, 1),
                 new CraftingIngredient(ItemType.COAL, 1)));
 
-        buildingRecipes.add(createBuildingRecipe(BuildingType.BED,
-                new CraftingIngredient(ItemType.WOOD_PLANK, BED_PLANK_COST),
-                new CraftingIngredient(ItemType.FIBER, BED_FIBER_COST)));
+        // The bed has no recipe until leather exists, the sleeping bag is the basic one
+        buildingRecipes.add(createBuildingRecipe(BuildingType.SLEEPING_BAG,
+                new CraftingIngredient(ItemType.FIBER, SLEEPING_BAG_FIBER_COST)));
     }
 
     /**

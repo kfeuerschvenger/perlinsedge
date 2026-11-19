@@ -27,18 +27,19 @@ WOOD = ["#4e2f36", "#7a4a3a", "#a0643f", "#c4925a"]
 PLANK = ["#7a4a3a", "#a0643f", "#c4925a", "#dba867"]
 STONE = ["#4a4868", "#7d7a8c", "#aeadb8", "#dcecf8"]
 COAL = ["#1d1830", "#4a4868", "#4a4868", "#7d7a8c"]
+CHARCOAL = ["#1d1830", "#4e2f36", "#55432f", "#7b6040"]
 IRON = ["#4a4868", "#7d7a8c", "#aeadb8", "#dcecf8"]
 SLIME = ["#337a47", "#459b4c", "#76b04c", "#b3d05e"]
 CRYSTAL = ["#2a4f94", "#3fa0cc", "#8ad6e6", "#dcecf8"]
 GEM = ["#6c3fc4", "#a96af0", "#a96af0", "#fcf4e4"]
 LEATHER = ["#7a4a3a", "#a0643f", "#c4925a", "#dba867"]
 BONE = ["#aeadb8", "#dcecf8", "#fcf4e4", "#fcf4e4"]
-FISH = ["#38607f", "#5f7fa8", "#9fb4e0", "#dcecf8"]
-FISH_COOKED = ["#7a4a3a", "#a0643f", "#dba867", "#f4d890"]
 MEAT_RAW = ["#9c4247", "#d4705c", "#d4705c", "#f4bf9a"]
 MEAT_COOKED = ["#4e2f36", "#7a4a3a", "#a0643f", "#c4925a"]
 HAY = ["#a2825a", "#c4925a", "#dba867", "#f4d890"]
 FLINT = ["#1d1830", "#4a4868", "#7d7a8c", "#aeadb8"]
+# the steel of the iron tools: bluer and brighter than the grey stone of the stone tools
+STEEL = ["#2a4f94", "#5f7fa8", "#9fb4e0", "#dcecf8"]
 
 
 def px(cv, x, y, colour):
@@ -211,6 +212,17 @@ def coal():
     return finish(cv)
 
 
+def charcoal():
+    cv = Canvas(SIZE, SIZE)
+    # a charred log end and a splinter: brown-black wood with a faint ember glow, not the grey lump of coal
+    blob(cv, 7.5, 9, 6.0, 4.5, CHARCOAL, flat_bottom=0.5)
+    blob(cv, 5.5, 6.5, 3.0, 2.2, CHARCOAL)
+    line(cv, 4, 11, 10, 11, CHARCOAL[0])
+    pixels(cv, [(9, 8), (10, 9)], "#9c4247")
+    pixels(cv, [(5, 6), (6, 6)], CHARCOAL[3])
+    return finish(cv)
+
+
 def fiber():
     cv = Canvas(SIZE, SIZE)
     # a bunch of long strands fanning out from a red tie
@@ -289,32 +301,6 @@ def flint():
 # food
 # ----------------------------------------------------------------------------------------------------------------
 
-def fish(ramp, belly, eye, cooked):
-    cv = Canvas(SIZE, SIZE)
-    blob(cv, 7, 8, 5.5, 3.6, ramp)
-    # the tail fans out to the right
-    for i, y in enumerate(range(4, 13)):
-        reach = 13 - abs(8 - y) // 2
-        rect(cv, 11, y, reach, y, ramp[1])
-    px(cv, 11, 8, ramp[1])
-    rect(cv, 4, 9, 9, 10, belly)
-    px(cv, 4, 7, eye)
-    if cooked:
-        for x in (6, 8, 10):
-            line(cv, x, 5, x + 1, 11, MEAT_COOKED[1])
-    else:
-        pixels(cv, [(6, 6), (7, 6)], ramp[3])
-    return finish(cv)
-
-
-def raw_fish():
-    return fish(FISH, "#dcecf8", "#1d1830", cooked=False)
-
-
-def cooked_fish():
-    return fish(FISH_COOKED, "#f4d890", "#1d1830", cooked=True)
-
-
 def raw_meat():
     cv = Canvas(SIZE, SIZE)
     # a steak with a rim of fat and a little marbling
@@ -362,20 +348,20 @@ def torch():
     return finish(cv)
 
 
-def pickaxe():
+def pickaxe(head_ramp=STONE):
     cv = Canvas(SIZE, SIZE)
     handle(cv, 2, 14, 11, 5)
     # a curved head across the top of the handle
     head = [(3, 5), (4, 4), (5, 3), (6, 3), (7, 3), (8, 3), (9, 4), (10, 4), (11, 5), (12, 6), (13, 7), (13, 8), (14, 9)]
     for x, y in head:
-        px(cv, x, y, STONE[2])
-        px(cv, x, y + 1, STONE[1])
-    pixels(cv, [(4, 4), (5, 3), (6, 3), (7, 3), (8, 3)], STONE[3])
-    pixels(cv, [(3, 5), (3, 6), (14, 9), (14, 10)], STONE[1])
+        px(cv, x, y, head_ramp[2])
+        px(cv, x, y + 1, head_ramp[1])
+    pixels(cv, [(4, 4), (5, 3), (6, 3), (7, 3), (8, 3)], head_ramp[3])
+    pixels(cv, [(3, 5), (3, 6), (14, 9), (14, 10)], head_ramp[1])
     return finish(cv)
 
 
-def axe():
+def axe(head_ramp=STONE):
     cv = Canvas(SIZE, SIZE)
     # a wooden haft rising from the lower left whose tip shows above the head
     handle(cv, 2, 14, 12, 3)
@@ -390,10 +376,10 @@ def axe():
             s = dx * along[0] + dy * along[1]
             t = dx * across[0] + dy * across[1]
             if 0.4 < t < 5.2 and abs(s) < 0.9 + 0.5 * t:
-                colour = STONE[3] if t > 4.0 else STONE[1] if t < 1.4 else STONE[2]
+                colour = head_ramp[3] if t > 4.0 else head_ramp[1] if t < 1.4 else head_ramp[2]
                 px(cv, x, y, colour)
             elif -2.2 < t <= 0.4 and abs(s) < 0.9:
-                px(cv, x, y, STONE[1])
+                px(cv, x, y, head_ramp[1])
     return finish(cv)
 
 
@@ -423,12 +409,12 @@ def hammer():
     return finish(cv)
 
 
-def sword():
+def sword(blade_ramp=STONE):
     cv = Canvas(SIZE, SIZE)
     # a blade from the lower left to the upper right tip, a guard across it and a pommel
-    line(cv, 5, 10, 13, 2, STONE[3])
-    line(cv, 4, 10, 12, 2, STONE[2])
-    line(cv, 5, 11, 13, 3, STONE[1])
+    line(cv, 5, 10, 13, 2, blade_ramp[3])
+    line(cv, 4, 10, 12, 2, blade_ramp[2])
+    line(cv, 5, 11, 13, 3, blade_ramp[1])
     px(cv, 14, 1, "#fcf4e4")
     # the guard
     line(cv, 3, 8, 7, 12, "#ffa02a")
@@ -438,6 +424,18 @@ def sword():
     line(cv, 5, 11, 3, 13, WOOD[1])
     pixels(cv, [(1, 14), (2, 14), (1, 13)], "#ffa02a")
     return finish(cv)
+
+
+def iron_pickaxe():
+    return pickaxe(STEEL)
+
+
+def iron_axe():
+    return axe(STEEL)
+
+
+def iron_sword():
+    return sword(STEEL)
 
 
 def potion_health():
@@ -466,20 +464,22 @@ ICONS = {
     "crystals": crystals,
     "refined_crystals": refined_crystals,
     "coal": coal,
+    "charcoal": charcoal,
     "fiber": fiber,
     "slime_ball": slime_ball,
     "stick": stick,
     "leather": leather,
     "bone": bone,
     "flint": flint,
-    "raw_fish": raw_fish,
-    "cooked_fish": cooked_fish,
     "raw_meat": raw_meat,
     "cooked_meat": cooked_meat,
     "torch": torch,
     "pickaxe": pickaxe,
     "axe": axe,
     "sword": sword,
+    "iron_pickaxe": iron_pickaxe,
+    "iron_axe": iron_axe,
+    "iron_sword": iron_sword,
     "hammer": hammer,
     "potion_health": potion_health,
 }

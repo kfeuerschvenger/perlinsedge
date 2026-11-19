@@ -38,7 +38,7 @@ Buildings that span several tiles as one structure, such as a house or a windmil
 
 ## Fishing
 
-Rod, bait and a short catch mechanic at the water's edge, feeding the raw and cooked fish items that already exist.
+Rod, bait and a short catch mechanic at the water's edge, and the raw and cooked fish items it would bring.
 
 ## Light sources and darkness
 

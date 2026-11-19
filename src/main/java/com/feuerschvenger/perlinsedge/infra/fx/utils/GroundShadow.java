@@ -59,7 +59,7 @@ public final class GroundShadow {
      */
     public static double widthFor(BuildingType type) {
         return switch (type) {
-            case BRIDGE -> 0.0;
+            case BRIDGE, SLEEPING_BAG -> 0.0;
             case STANDING_TORCH -> TORCH_SHADOW_WIDTH;
             case FENCE, FENCE_GATE, ANVIL -> LOW_PIECE_SHADOW_WIDTH;
             case CHEST, CAMPFIRE -> MID_PIECE_SHADOW_WIDTH;

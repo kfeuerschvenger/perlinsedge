@@ -19,6 +19,7 @@ public final class BuildingStats {
     private static final int STANDING_TORCH_HEALTH = 20;
     private static final int CAMPFIRE_HEALTH = 30;
     private static final int BED_HEALTH = 50;
+    private static final int SLEEPING_BAG_HEALTH = 30;
 
     private static final Map<BuildingType, Integer> MAX_HEALTH = new EnumMap<>(BuildingType.class);
 
@@ -33,6 +34,7 @@ public final class BuildingStats {
         MAX_HEALTH.put(BuildingType.STANDING_TORCH, STANDING_TORCH_HEALTH);
         MAX_HEALTH.put(BuildingType.CAMPFIRE, CAMPFIRE_HEALTH);
         MAX_HEALTH.put(BuildingType.BED, BED_HEALTH);
+        MAX_HEALTH.put(BuildingType.SLEEPING_BAG, SLEEPING_BAG_HEALTH);
     }
 
     /** Not instantiable: the class only holds the table. */

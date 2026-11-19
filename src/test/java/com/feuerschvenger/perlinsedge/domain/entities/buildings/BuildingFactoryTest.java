@@ -39,9 +39,18 @@ class BuildingFactoryTest {
     }
 
     @Test
+    void aSleepingBagLiesFlatSoItDoesNotBlockMovement() {
+        final Building bag = BuildingFactory.create(BuildingType.SLEEPING_BAG, 1, 1);
+
+        assertFalse(bag.isSolid());
+        assertTrue(bag.isDestructible());
+        assertEquals("Sleeping Bag", BuildingType.SLEEPING_BAG.getDisplayName());
+    }
+
+    @Test
     void fourWayPiecesTwoWayPiecesAndPiecesThatDoNotTurn() {
         for (BuildingType type : new BuildingType[]{BuildingType.CHEST, BuildingType.FURNACE, BuildingType.ANVIL,
-                BuildingType.WORKBENCH, BuildingType.BED}) {
+                BuildingType.WORKBENCH, BuildingType.BED, BuildingType.SLEEPING_BAG}) {
             assertEquals(4, type.rotationCount(), type.name());
             assertTrue(type.isRotatable());
         }

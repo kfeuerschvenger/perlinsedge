@@ -157,7 +157,8 @@ public final class FxItemDrawingHelper {
         gc.setLineWidth(lineWidth);
 
         // Render based on item type
-        switch (itemType) {
+        // An iron tool is drawn as its stone counterpart
+        switch (itemType.baseTool()) {
             case WOOD_LOG -> drawWoodLog(gc, x, y, width, height, margin);
             case WOOD_PLANK -> drawWoodPlank(gc, x, y, width, height);
             case STONE -> drawStone(gc, x, y, width, height, margin);

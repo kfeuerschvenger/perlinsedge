@@ -151,26 +151,26 @@ class BuildingManagerTest {
 
     @Test
     void demolishingAFullHealthPieceReturnsTheWholeRecipe() {
-        build(BuildingType.BED, 2, 2);
-        assertEquals(0, held(ItemType.WOOD_PLANK));
+        build(BuildingType.FURNACE, 2, 2);
+        assertEquals(0, held(ItemType.STONE));
 
         manager.removeBuilding(2, 2);
 
         assertFalse(map.getTile(2, 2).hasBuilding());
-        assertEquals(3, held(ItemType.WOOD_PLANK));
-        assertEquals(5, held(ItemType.FIBER));
+        assertEquals(8, held(ItemType.STONE));
+        assertEquals(2, held(ItemType.COAL));
     }
 
     @Test
     void demolishingADamagedPieceReturnsTheShareOfTheHealthLeftRoundedDown() {
-        Building bed = build(BuildingType.BED, 2, 2);
-        bed.damage(bed.getMaxHealth() / 2);
+        Building furnace = build(BuildingType.FURNACE, 2, 2);
+        furnace.damage(furnace.getMaxHealth() / 2);
 
         manager.removeBuilding(2, 2);
 
-        // Half of 3 planks is 1, half of 5 fiber is 2
-        assertEquals(1, held(ItemType.WOOD_PLANK));
-        assertEquals(2, held(ItemType.FIBER));
+        // Half of 8 stone is 4, half of 2 coal is 1
+        assertEquals(4, held(ItemType.STONE));
+        assertEquals(1, held(ItemType.COAL));
     }
 
     @Test

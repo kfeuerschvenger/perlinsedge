@@ -103,7 +103,7 @@ class ResourceManagerTest {
         assertFalse(manager.hasToolFor(player, tile));
         assertTrue(hints.isEmpty(), "the query alone shows nothing");
 
-        manager.hintMissingTool(tile);
+        manager.hintMissingTool(player, tile);
 
         assertEquals(1, hints.size());
         assertTrue(hints.get(0).toLowerCase().contains("pickaxe"), hints.get(0));
@@ -115,7 +115,7 @@ class ResourceManagerTest {
         manager = new ResourceManager(state, hints::add);
         tile.setWorldResource(new Resource(ResourceType.STONE, 1));
 
-        manager.hintMissingTool(tile);
+        manager.hintMissingTool(player, tile);
 
         assertTrue(hints.isEmpty());
     }

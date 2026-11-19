@@ -119,6 +119,12 @@ public final class FxBuildingPainter {
     /** How much narrower and shorter than the bed the blanket is, the inset of both sides. */
     private static final int BED_BLANKET_SHRINK = 4;
 
+    // Sleeping bag
+    private static final int SLEEPING_BAG_WIDTH = 20;
+    private static final int SLEEPING_BAG_LENGTH = 40;
+    /** Share of the bag length the pillow end spans. */
+    private static final double SLEEPING_BAG_PILLOW_SHARE = 0.3;
+
     // Chest
     private static final double CHEST_SIZE_FACTOR = 0.6;
     private static final double CHEST_VISUAL_HEIGHT_FACTOR = 1.2;
@@ -154,7 +160,8 @@ public final class FxBuildingPainter {
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
             case FENCE -> drawFence(gc, building instanceof Fence fence ? fence.getConnections() : 0, screenX, screenY, zoom);
             case FENCE_GATE -> drawFenceGate(gc, (FenceGate) building, screenX, screenY, zoom);
-            default -> drawFurnishing(gc, building.getType(), screenX, screenY, zoom);
+            case CHEST, FURNACE, ANVIL, WORKBENCH, CAMPFIRE, STANDING_TORCH, BED, SLEEPING_BAG ->
+                    drawFurnishing(gc, building.getType(), screenX, screenY, zoom);
         }
     }
 
@@ -169,7 +176,8 @@ public final class FxBuildingPainter {
             case CAMPFIRE -> drawCampfire(gc, screenX, screenY, zoom);
             case STANDING_TORCH -> drawStandingTorch(gc, screenX, screenY, zoom);
             case BED -> drawBed(gc, screenX, screenY, zoom);
-            default -> throw new IllegalArgumentException("Not a furnishing: " + type);
+            case SLEEPING_BAG -> drawSleepingBag(gc, screenX, screenY, zoom);
+            case BRIDGE, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
         }
     }
 
@@ -406,6 +414,24 @@ public final class FxBuildingPainter {
         gc.setLineWidth(THIN_OUTLINE * zoom);
         gc.strokeOval(screenX - baseWidth / HALF_DIVISOR, screenY - baseHeight / HALF_DIVISOR + woodHeight, baseWidth,
                 baseHeight);
+    }
+
+    /** The stand-in of the sleeping bag: a flat straw roll with a pale pillow end, drawn when its art is missing. */
+    private static void drawSleepingBag(GraphicsContext gc, double screenX, double screenY, double zoom) {
+        double width = SLEEPING_BAG_WIDTH * zoom;
+        double length = SLEEPING_BAG_LENGTH * zoom;
+        double left = screenX - width / HALF_DIVISOR;
+        double top = screenY - length / HALF_DIVISOR;
+
+        gc.setFill(Color.BURLYWOOD);
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(THIN_OUTLINE * zoom);
+        gc.fillRect(left, top, width, length);
+        gc.strokeRect(left, top, width, length);
+
+        gc.setFill(Color.IVORY);
+        gc.fillRect(left, top, width, length * SLEEPING_BAG_PILLOW_SHARE);
+        gc.strokeRect(left, top, width, length * SLEEPING_BAG_PILLOW_SHARE);
     }
 
     private static void drawBed(GraphicsContext gc, double screenX, double screenY, double zoom) {

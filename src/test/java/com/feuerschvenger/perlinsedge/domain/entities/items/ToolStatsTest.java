@@ -67,6 +67,51 @@ class ToolStatsTest {
     }
 
     @Test
+    void theIronToolsDoubleTheDamageOfTheirStoneCounterparts() {
+        for (ResourceType type : new ResourceType[]{ResourceType.STONE, ResourceType.IRON_ORE, ResourceType.CRYSTALS}) {
+            assertEquals(2 * ToolStats.resourceDamage(ItemType.PICKAXE, type),
+                    ToolStats.resourceDamage(ItemType.IRON_PICKAXE, type), type.name());
+            assertTrue(ToolStats.isRightTool(ItemType.IRON_PICKAXE, type), type.name());
+        }
+        assertEquals(2 * ToolStats.resourceDamage(ItemType.AXE, ResourceType.TREE),
+                ToolStats.resourceDamage(ItemType.IRON_AXE, ResourceType.TREE));
+        assertEquals(2 * ToolStats.combatDamage(ItemType.SWORD), ToolStats.combatDamage(ItemType.IRON_SWORD), 1e-9);
+        assertEquals(2 * ToolStats.combatDamage(ItemType.AXE), ToolStats.combatDamage(ItemType.IRON_AXE), 1e-9);
+        assertEquals(ToolStats.resourceCooldownMs(ItemType.AXE, ResourceType.TREE),
+                ToolStats.resourceCooldownMs(ItemType.IRON_AXE, ResourceType.TREE));
+        assertFalse(ToolStats.isRightTool(ItemType.IRON_AXE, ResourceType.STONE));
+    }
+
+    @Test
+    void theToolsHaveTheirTierAndTheirStoneBase() {
+        assertEquals(ItemType.PICKAXE, ItemType.IRON_PICKAXE.baseTool());
+        assertEquals(ItemType.AXE, ItemType.IRON_AXE.baseTool());
+        assertEquals(ItemType.SWORD, ItemType.IRON_SWORD.baseTool());
+        assertEquals(ItemType.HAMMER, ItemType.HAMMER.baseTool());
+        assertEquals(ItemType.IRON_TIER, ItemType.IRON_SWORD.toolTier());
+        assertEquals(ItemType.STONE_TIER, ItemType.PICKAXE.toolTier());
+        assertEquals(0, ItemType.HAMMER.toolTier());
+        assertEquals("Stone axe", ItemType.AXE.getDisplayName());
+        assertEquals("Stone pickaxe", ItemType.PICKAXE.getDisplayName());
+        assertEquals("Stone sword", ItemType.SWORD.getDisplayName());
+        assertEquals("Iron pickaxe", ItemType.IRON_PICKAXE.getDisplayName());
+        assertEquals("Charcoal", ItemType.CHARCOAL.getDisplayName());
+    }
+
+    @Test
+    void onlyAnIronPickaxeCanMineCrystalsWhileAnyPickaxeMinesIronOre() {
+        assertFalse(ResourceType.CRYSTALS.canBeHarvestedWith(ItemType.PICKAXE));
+        assertTrue(ResourceType.CRYSTALS.canBeHarvestedWith(ItemType.IRON_PICKAXE));
+        assertFalse(ResourceType.CRYSTALS.canBeHarvestedWith(ItemType.IRON_AXE));
+        assertFalse(ResourceType.CRYSTALS.canBeHarvestedWith(null));
+        assertTrue(ResourceType.IRON_ORE.canBeHarvestedWith(ItemType.PICKAXE));
+        assertTrue(ResourceType.IRON_ORE.canBeHarvestedWith(ItemType.IRON_PICKAXE));
+        assertFalse(ResourceType.IRON_ORE.canBeHarvestedWith(ItemType.IRON_AXE));
+        assertTrue(ResourceType.STONE.canBeHarvestedWith(null));
+        assertTrue(ResourceType.CRYSTALS.isToolKind(ItemType.PICKAXE));
+    }
+
+    @Test
     void theHammerIsTheRightToolForNothingAndHitsLikeABareHand() {
         for (ResourceType type : ResourceType.values()) {
             assertFalse(ToolStats.isRightTool(ItemType.HAMMER, type), type.name());

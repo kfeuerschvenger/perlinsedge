@@ -58,7 +58,8 @@ public final class BuildingFactory {
             case ANVIL -> new Anvil(x, y);
             case WORKBENCH -> new Workbench(x, y);
             case BED -> new Bed(x, y);
-            default -> throw new IllegalArgumentException("Not a piece that can be placed: " + type);
+            case SLEEPING_BAG -> new SleepingBag(x, y);
+            case BRIDGE, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
         };
     }
 }

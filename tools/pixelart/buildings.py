@@ -322,6 +322,26 @@ def bed_boxes():
     ]
 
 
+def sleeping_bag_paint(face, x, y, z, shade):
+    """A straw roll: a darker seam down the middle of the top and a pale pillow end."""
+    if face == "top":
+        if x < -4.2:
+            return CREAM[2]
+        if abs(y) < 0.7:
+            return SAND[1]
+    return None
+
+
+def sleeping_bag_boxes():
+    """A low straw mat with a rolled edge on each long side and a small pillow at the head."""
+    return [
+        box(-7, 7, -4.5, 4.5, 0, 1.5, SAND, sleeping_bag_paint),
+        box(-7, 7, -5, -4, 0, 2.6, SAND),
+        box(-7, 7, 4, 5, 0, 2.6, SAND),
+        box(-6.8, -4, -3, 3, 1.5, 3, CREAM),
+    ]
+
+
 def bridge_boxes():
     return [
         box(-8, 8, -8, 8, 0, 3, PLANK, deck_paint),
@@ -498,6 +518,7 @@ FOUR_WAY = {
     "anvil": anvil_boxes,
     "workbench": workbench_boxes,
     "bed": bed_boxes,
+    "sleeping_bag": sleeping_bag_boxes,
 }
 TWO_WAY = {
     "bridge": bridge_boxes,

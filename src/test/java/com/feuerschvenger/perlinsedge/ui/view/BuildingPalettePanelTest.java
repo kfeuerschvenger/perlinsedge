@@ -109,7 +109,8 @@ class BuildingPalettePanelTest {
         update(null);
 
         assertNull(FxToolkitSupport.onFx(panel::getShownSelected));
-        for (BuildingType type : BuildingType.values()) {
+        for (BuildingRecipe recipe : recipes.getAllBuildingRecipes()) {
+            final BuildingType type = recipe.buildingType();
             assertFalse(FxToolkitSupport.onFx(() -> panel.cardNode(type).getStyleClass().contains(UiTheme.SLOT_SELECTED)), type.name());
         }
     }
@@ -142,15 +143,15 @@ class BuildingPalettePanelTest {
 
     @Test
     void aPieceIsAffordableOnlyWhenEveryIngredientIsHeld() {
-        player.addItem(new Item(ItemType.WOOD_PLANK, 5));
+        player.addItem(new Item(ItemType.STONE, 8));
         update(null);
 
-        assertFalse(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.BED)), "fiber is missing");
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.FURNACE)), "coal is missing");
 
-        player.addItem(new Item(ItemType.FIBER, 5));
+        player.addItem(new Item(ItemType.COAL, 2));
         update(null);
 
-        assertTrue(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.BED)));
+        assertTrue(FxToolkitSupport.onFx(() -> panel.isAffordable(BuildingType.FURNACE)));
     }
 
     @Test
@@ -192,7 +193,7 @@ class BuildingPalettePanelTest {
     void theRotateHintShowsOnlyOnTheSelectedCardOfAPieceThatCanTurn() {
         update(BuildingType.CHEST);
         assertTrue(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.CHEST)));
-        assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.BED)), "not selected");
+        assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.FURNACE)), "not selected");
 
         update(BuildingType.CAMPFIRE);
         assertFalse(FxToolkitSupport.onFx(() -> panel.isRotateHintShown(BuildingType.CHEST)));
@@ -206,13 +207,15 @@ class BuildingPalettePanelTest {
     void theCardsShowTheRotationTheyAreGiven() {
         final java.util.List<BuildingType> asked = new ArrayList<>();
         FxToolkitSupport.onFx(() -> {
-            panel.update(player, BuildingType.BED, type -> {
+            panel.update(player, BuildingType.FURNACE, type -> {
                 asked.add(type);
-                return type == BuildingType.BED ? 2 : 0;
+                return type == BuildingType.FURNACE ? 2 : 0;
             });
             return null;
         });
 
-        assertTrue(asked.containsAll(List.of(BuildingType.values())), "every card is asked for its rotation");
+        final List<BuildingType> cards = new ArrayList<>(List.of(BuildingType.values()));
+        cards.remove(BuildingType.BED);
+        assertTrue(asked.containsAll(cards), "every card is asked for its rotation");
     }
 }

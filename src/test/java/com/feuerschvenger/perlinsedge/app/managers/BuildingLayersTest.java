@@ -133,7 +133,7 @@ class BuildingLayersTest {
         build(BuildingType.BRIDGE, 5, 2);
 
         for (BuildingType type : new BuildingType[]{BuildingType.CHEST, BuildingType.FURNACE, BuildingType.ANVIL,
-                BuildingType.WORKBENCH, BuildingType.BED, BuildingType.FENCE}) {
+                BuildingType.WORKBENCH, BuildingType.SLEEPING_BAG, BuildingType.FENCE}) {
             assertFalse(canPlace(type, 5, 2), type + " on a bridge");
             assertFalse(canPlace(type, 7, 4), type + " on water");
             assertTrue(canPlace(type, 2, 2), type + " on land");
@@ -142,12 +142,12 @@ class BuildingLayersTest {
 
     @Test
     void aRefusedPlacementConsumesNothing() {
-        player.addItem(new Item(ItemType.WOOD_PLANK, 3));
-        manager.setSelectedBuildingType(BuildingType.BED);
+        player.addItem(new Item(ItemType.FIBER, 6));
+        manager.setSelectedBuildingType(BuildingType.SLEEPING_BAG);
 
         assertFalse(manager.placeBuilding(7, 4));
 
-        assertEquals(3, held(ItemType.WOOD_PLANK));
+        assertEquals(6, held(ItemType.FIBER));
     }
 
     @Test
@@ -307,7 +307,7 @@ class BuildingLayersTest {
         manager.setHintSink(hints::add);
         standPlayerOn(2, 2);
         final BuildingType[] solidPieces = {BuildingType.FENCE, BuildingType.FENCE_GATE, BuildingType.CHEST,
-                BuildingType.FURNACE, BuildingType.WORKBENCH, BuildingType.BED, BuildingType.ANVIL};
+                BuildingType.FURNACE, BuildingType.WORKBENCH, BuildingType.ANVIL};
         for (BuildingType type : solidPieces) {
             give(type);
             manager.setSelectedBuildingType(type);

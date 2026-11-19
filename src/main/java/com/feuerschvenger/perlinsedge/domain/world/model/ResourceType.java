@@ -7,20 +7,22 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
  */
 public enum ResourceType {
     STONE,
-    /** Crystals in rocky ground, only a pickaxe held in hand can mine them. */
-    CRYSTALS(ItemType.PICKAXE),
+    /** Crystals in rocky ground, only an iron pickaxe held in hand can mine them. */
+    CRYSTALS(ItemType.PICKAXE, ItemType.IRON_TIER),
     TREE,
     /** Iron ore in rocky ground, only a pickaxe held in hand can mine it. */
-    IRON_ORE(ItemType.PICKAXE);
+    IRON_ORE(ItemType.PICKAXE, ItemType.STONE_TIER);
 
     private final ItemType requiredTool;
+    private final int minimumTier;
 
     ResourceType() {
-        this(null);
+        this(null, 0);
     }
 
-    ResourceType(ItemType requiredTool) {
+    ResourceType(ItemType requiredTool, int minimumTier) {
         this.requiredTool = requiredTool;
+        this.minimumTier = minimumTier;
     }
 
     /**
@@ -30,6 +32,28 @@ public enum ResourceType {
      */
     public ItemType getRequiredTool() {
         return requiredTool;
+    }
+
+    /**
+     * Tells whether an item held in hand is the kind of tool this resource needs, whatever its tier. An iron pickaxe is
+     * a pickaxe as much as a stone one.
+     *
+     * @param held the item in hand, null for a bare hand
+     * @return true when the resource needs no tool or the item is a tool of the needed kind
+     */
+    public boolean isToolKind(ItemType held) {
+        return requiredTool == null || (held != null && held.baseTool() == requiredTool);
+    }
+
+    /**
+     * Tells whether an item held in hand can harvest this resource: it is the tool of the needed kind and its tier
+     * reaches the one the resource asks for.
+     *
+     * @param held the item in hand, null for a bare hand
+     * @return true when the resource needs no tool or the item is a strong enough tool of the needed kind
+     */
+    public boolean canBeHarvestedWith(ItemType held) {
+        return requiredTool == null || (isToolKind(held) && held.toolTier() >= minimumTier);
     }
 
     /**

@@ -66,6 +66,10 @@ public enum BuildingType {
     BED(
             "A soft bed that guarantees rest after a long day of exploration.",
             Rgba.LIGHT_PINK
+    ),
+    SLEEPING_BAG(
+            "A straw sleeping bag. Not much, but it beats waking up in the wild.",
+            Rgba.PERU.brighter()
     );
 
     /** Rotation count of a piece whose front turns through the four edges of its tile. */
@@ -115,7 +119,7 @@ public enum BuildingType {
      */
     public int rotationCount() {
         return switch (this) {
-            case CHEST, FURNACE, ANVIL, WORKBENCH, BED -> FOUR_WAY_ROTATIONS;
+            case CHEST, FURNACE, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> FOUR_WAY_ROTATIONS;
             case BRIDGE, FENCE_GATE -> TWO_WAY_ROTATIONS;
             default -> 1;
         };
