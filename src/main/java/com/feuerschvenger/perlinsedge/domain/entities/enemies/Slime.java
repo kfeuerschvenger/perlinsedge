@@ -80,8 +80,9 @@ public class Slime extends Enemy {
     /**
      * Where the rest between hops of a slime falls in its range. It is the fractional part of a weighted sum of the
      * coordinates with two irrational weights, so the rest of any tile differs from that of each of the eight
-     * tiles around it by at least 0.137 of the range, about 25 ms, which is more than a tick at 60 updates per second.
-     * Slimes on neighbouring tiles therefore never hop in lockstep.
+     * tiles around it by at least 0.1368 of the range, about 25 ms, which is more than a tick at 60 updates per second.
+     * Slimes that spawned on neighbouring tiles therefore never hop in lockstep. The rest is fixed at spawn, so the
+     * guarantee is about spawn tiles only: slimes that have moved can stand next to each other with any two rests.
      */
     private static double restFractionAt(int tileX, int tileY) {
         final double sum = tileX * REST_WEIGHT_X + tileY * REST_WEIGHT_Y;
