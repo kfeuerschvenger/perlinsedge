@@ -1,6 +1,8 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
+import java.util.EnumMap;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Defines all item types available in the game with their properties.
@@ -172,7 +174,6 @@ public enum ItemType {
     //  Instance Properties
     // ==================================================================
     private final int maxStackSize;
-    private final String displayName;
     private final String spritePath;
     private final String description;
     private final int healAmount;
@@ -203,12 +204,8 @@ public enum ItemType {
         this.description = description;
         this.healAmount = healAmount;
 
-        // Generate display name from enum constant
-        String name = name();
-        this.displayName = displayNameOf(name);
-
         // Generate sprite path from enum constant
-        this.spritePath = name.toLowerCase(Locale.ROOT);
+        this.spritePath = name().toLowerCase(Locale.ROOT);
     }
 
     // ==================================================================
@@ -219,12 +216,33 @@ public enum ItemType {
      * Builds the display name of a constant: the name in sentence case, with the plain tools called after the stone they
      * are made of, since the iron tier has constants of its own.
      */
-    private static String displayNameOf(String name) {
-        final String generated = name.charAt(0) + name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
-        return switch (name) {
-            case "AXE", "PICKAXE", "SWORD" -> "Stone " + generated.toLowerCase(Locale.ROOT);
-            default -> generated;
+    private static String displayNameOf(ItemType type) {
+        final var name = type.name();
+        final var generated = name.charAt(0) + name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
+        return switch (type) {
+            case AXE, PICKAXE, SWORD -> "Stone " + generated.toLowerCase(Locale.ROOT);
+            case WOOD_LOG, WOOD_PLANK, STONE, STONE_BRICK, IRON_ORE, IRON_INGOT, CRYSTALS, REFINED_CRYSTALS, COAL,
+                 CHARCOAL, FIBER, SLIME_BALL, STICK, LEATHER, BONE, FLINT, RAW_MEAT, COOKED_MEAT, TORCH, IRON_PICKAXE,
+                 IRON_AXE, IRON_SWORD, HAMMER, POTION_HEALTH -> generated;
         };
+    }
+
+    /**
+     * Holds the display names, built on first use. A name cannot be built in the constructor of the constants: the
+     * switch that reads the constants runs before they all exist, and this class is only loaded once the enum is
+     * complete.
+     */
+    private static final class DisplayNames {
+        private static final Map<ItemType, String> BY_TYPE = new EnumMap<>(ItemType.class);
+
+        static {
+            for (ItemType type : ItemType.values()) {
+                BY_TYPE.put(type, displayNameOf(type));
+            }
+        }
+
+        private DisplayNames() {
+        }
     }
 
     /**
@@ -271,7 +289,7 @@ public enum ItemType {
 
     /** @return Human-readable name for UI display */
     public String getDisplayName() {
-        return displayName;
+        return DisplayNames.BY_TYPE.get(this);
     }
 
     /** @return Descriptive text explaining the item's purpose */

@@ -18,7 +18,7 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
     private final WalkingChaser chaser;
 
     /**
-     * Creates a mimic movement that stays still.
+     * Creates a mimic movement that waits as a chest and chases the player once it is woken by the aggro range or by a hit.
      *
      * @param seed seed of its waits for a tile another enemy holds, such as {@link SpawnSeed#of(int, int)}
      */

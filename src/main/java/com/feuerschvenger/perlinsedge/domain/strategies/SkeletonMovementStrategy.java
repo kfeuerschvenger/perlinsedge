@@ -19,7 +19,7 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
     private final WalkingChaser chaser;
 
     /**
-     * Creates a skeleton movement that stands still.
+     * Creates a skeleton movement that waits where it stands and chases the player once it is woken by the aggro range or by a hit.
      *
      * @param seed seed of its waits for a tile another enemy holds, such as {@link SpawnSeed#of(int, int)}
      */
