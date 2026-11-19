@@ -31,7 +31,7 @@ public interface LightSource {
     /**
      * Returns how far the light reaches on the ground.
      *
-     * @return the radius in tiles, above zero, before the flicker moves it
+     * @return the radius in tiles before the flicker moves it, zero for a light that is off
      */
     double radius();
 
@@ -46,7 +46,7 @@ public interface LightSource {
     /**
      * Returns how strongly the light pushes back the dark at its brightest.
      *
-     * @return the intensity from 0 to 1, before the flicker moves it
+     * @return the intensity from 0 to 1 before the flicker moves it, zero for a light that is off
      */
     double intensity();
 

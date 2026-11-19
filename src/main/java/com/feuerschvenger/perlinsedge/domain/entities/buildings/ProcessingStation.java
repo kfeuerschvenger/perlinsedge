@@ -47,6 +47,8 @@ public abstract class ProcessingStation extends Building {
     /** The units held of each input and each fuel. */
     private final Map<ItemType, Integer> stock = new EnumMap<>(ItemType.class);
     private final List<Item> products = new ArrayList<>();
+    /** Whether the station shows its fire, kept up to date by everything that changes it so reading it costs nothing. */
+    private boolean lit;
     /** The recipe being worked on, or null while the station has not started a unit. */
     private ProcessingRecipe active;
     /** Seconds spent on the unit being worked on. */
@@ -109,6 +111,7 @@ public abstract class ProcessingStation extends Building {
             return LoadResult.FULL;
         }
         stock.merge(type, 1, Integer::sum);
+        refreshLit();
         return LoadResult.LOADED;
     }
 
@@ -189,10 +192,11 @@ public abstract class ProcessingStation extends Building {
      * @return true when the lit art and the light apply
      */
     public boolean isLit() {
-        if (profile.fuelMode() == FuelMode.BURNING) {
-            return hasBurningFuel();
-        }
-        return isWorking();
+        return lit;
+    }
+
+    private void refreshLit() {
+        lit = profile.fuelMode() == FuelMode.BURNING ? hasBurningFuel() : isWorking();
     }
 
     /**
@@ -220,6 +224,7 @@ public abstract class ProcessingStation extends Building {
             igniteIfNeeded();
             left -= work(left);
         }
+        refreshLit();
     }
 
     /** Works for as much of a slice as nothing changes in, and gives the time it took. */
@@ -351,6 +356,7 @@ public abstract class ProcessingStation extends Building {
         progress = 0;
         paidOutputs = 0;
         burnRemaining = 0;
+        refreshLit();
         return contents;
     }
 }

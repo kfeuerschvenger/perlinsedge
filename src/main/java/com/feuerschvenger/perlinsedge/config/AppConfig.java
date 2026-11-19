@@ -6,13 +6,19 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.world.light.BuildingLight;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.HeldTorch;
 import com.feuerschvenger.perlinsedge.domain.world.light.LightStyle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycleSettings;
 
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
+import java.util.function.BooleanSupplier;
 
 /**
  * Centralized configuration hub with nested configuration classes.
@@ -278,6 +284,14 @@ public final class AppConfig {
         private static final double TORCH_FLICKER_HZ = 3.2;
         /** What the phases of the flame of the held torch are worked out from. */
         private static final long TORCH_FLICKER_SEED = 0x70C4L;
+        /** How far the light of a burning campfire reaches in tiles, more than a torch. */
+        private static final double CAMPFIRE_RADIUS = 6.5;
+        /** How strongly a burning campfire pushes back the dark at its brightest. */
+        private static final double CAMPFIRE_INTENSITY = 1.0;
+        /** How far the glow of a furnace or a stone oven at work reaches in tiles. */
+        private static final double STOVE_RADIUS = 2.5;
+        /** How strongly the glow of a furnace or a stone oven at work pushes back the dark. */
+        private static final double STOVE_INTENSITY = 0.7;
         /** The deeper orange the colour of the flame drifts to. */
         private static final Rgba FLAME_ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
         /** The yellow the colour of the flame drifts to. */
@@ -303,6 +317,33 @@ public final class AppConfig {
          */
         public HeldTorch newHeldTorch() {
             return new HeldTorch(TORCH_RADIUS, TORCH_COLOUR, TORCH_INTENSITY, newFlameFlicker(TORCH_FLICKER_SEED));
+        }
+
+        /**
+         * Creates the light of a building that stands on the map. The standing torch is always on like the held torch,
+         * a campfire is on while it has fuel and a furnace or a stone oven while it works.
+         *
+         * @param building the building
+         * @return its light, empty for a building that gives none
+         */
+        public Optional<BuildingLight> newBuildingLight(Building building) {
+            final var seed = TORCH_FLICKER_SEED ^ Objects.hash(building.getTileX(), building.getTileY());
+            final var flicker = newFlameFlicker(seed);
+            final var x = building.getTileX();
+            final var y = building.getTileY();
+            return switch (building.getType()) {
+                case STANDING_TORCH -> Optional.of(new BuildingLight(x, y, TORCH_RADIUS, TORCH_COLOUR,
+                        TORCH_INTENSITY, flicker, () -> true));
+                case CAMPFIRE -> Optional.of(new BuildingLight(x, y, CAMPFIRE_RADIUS, TORCH_COLOUR,
+                        CAMPFIRE_INTENSITY, flicker, litStation(building)));
+                case FURNACE, STONE_OVEN -> Optional.of(new BuildingLight(x, y, STOVE_RADIUS, TORCH_COLOUR,
+                        STOVE_INTENSITY, flicker, litStation(building)));
+                case BRIDGE, FENCE_GATE, FENCE, CHEST, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> Optional.empty();
+            };
+        }
+
+        private static BooleanSupplier litStation(Building building) {
+            return () -> building instanceof ProcessingStation station && station.isLit();
         }
 
         /**

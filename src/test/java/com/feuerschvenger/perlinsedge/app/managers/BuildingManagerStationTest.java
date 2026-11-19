@@ -4,10 +4,12 @@ import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.config.RecipeManager;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.world.light.BuildingLight;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -225,5 +227,59 @@ class BuildingManagerStationTest {
         state.resetGameState();
 
         assertTrue(state.getStations().isEmpty());
+    }
+
+    @Test
+    void aPlacedLightPieceRegistersItsLightAndDemolishingItTakesTheLightOut() {
+        final var torch = placeTorch();
+
+        assertEquals(1, state.getLights().size());
+        assertTrue(state.getLights().contains(torch.getLight()));
+
+        assertTrue(manager.removeBuilding(STATION_X, STATION_Y));
+
+        assertTrue(state.getLights().isEmpty());
+    }
+
+    @Test
+    void aPieceThatGivesNoLightRegistersNone() {
+        player.addItem(new Item(ItemType.WOOD_LOG, 2));
+        manager.setSelectedBuildingType(BuildingType.FENCE);
+
+        assertTrue(manager.placeBuilding(STATION_X, STATION_Y));
+
+        assertTrue(state.getLights().isEmpty());
+    }
+
+    @Test
+    void aStationLightFollowsTheStateOfTheStationWithoutBeingRegisteredAgain() {
+        final var campfire = build(BuildingType.CAMPFIRE);
+        final var light = (BuildingLight) campfire.getLight();
+        assertEquals(1, state.getLights().size());
+        assertFalse(light.isOn());
+
+        campfire.load(ItemType.WOOD_LOG);
+
+        assertTrue(light.isOn());
+        assertEquals(1, state.getLights().size());
+    }
+
+    @Test
+    void resettingTheGameClearsThePlacedLights() {
+        placeTorch();
+
+        state.resetGameState();
+
+        assertTrue(state.getLights().isEmpty());
+    }
+
+    private Building placeTorch() {
+        for (CraftingIngredient ingredient : recipes.getBuildingRecipeByType(BuildingType.STANDING_TORCH).orElseThrow()
+                .ingredients()) {
+            player.addItem(new Item(ingredient.itemType(), ingredient.quantity()));
+        }
+        manager.setSelectedBuildingType(BuildingType.STANDING_TORCH);
+        assertTrue(manager.placeBuilding(STATION_X, STATION_Y));
+        return map.getTile(STATION_X, STATION_Y).getBuilding();
     }
 }

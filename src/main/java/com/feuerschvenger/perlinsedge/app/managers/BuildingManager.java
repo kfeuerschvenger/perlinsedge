@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
@@ -14,6 +15,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
+import com.feuerschvenger.perlinsedge.domain.world.light.BuildingLight;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -218,6 +220,7 @@ public class BuildingManager {
             if (newBuilding instanceof ProcessingStation station) {
                 gameState.getStations().add(station);
             }
+            addLight(newBuilding);
         }
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
         return true;
@@ -304,6 +307,9 @@ public class BuildingManager {
      * the ground is announced by the drop manager on its own.
      */
     private void refund(Building building) {
+        if (building.getLight() != null) {
+            gameState.getLights().remove(building.getLight());
+        }
         // What a chest held falls out on its own tile, whole, whatever its health
         if (building instanceof Chest chest) {
             for (Item content : chest.getItems()) {
@@ -320,6 +326,14 @@ public class BuildingManager {
         }
         refundIngredients(building);
         onInventoryChanged.run();
+    }
+
+    /** Gives a building its light, if it gives one, and registers it. */
+    private void addLight(Building building) {
+        AppConfig.getInstance().lights().newBuildingLight(building).ifPresent((BuildingLight light) -> {
+            building.setLight(light);
+            gameState.getLights().add(light);
+        });
     }
 
     private void refundIngredients(Building building) {

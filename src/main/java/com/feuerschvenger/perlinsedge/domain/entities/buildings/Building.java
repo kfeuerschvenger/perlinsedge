@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.world.light.LightSource;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,8 @@ public abstract class Building {
     protected int health;
     /** The way the building faces, from 0 up to but excluding {@link BuildingType#rotationCount()}, see there. */
     protected int rotation;
+    /** The light the building gives, or null for a building that gives none. It is registered while the building stands. */
+    protected LightSource light;
 
     /**
      * Creates a new building instance at the specified tile position.
@@ -49,6 +52,15 @@ public abstract class Building {
         this.isDestructible = isDestructible;
         this.maxHealth = BuildingStats.maxHealth(type);
         this.health = maxHealth;
+    }
+
+    /**
+     * Sets the light the building gives.
+     *
+     * @param light the light, or null for a building that gives none
+     */
+    public void setLight(LightSource light) {
+        this.light = light;
     }
 
     /**
