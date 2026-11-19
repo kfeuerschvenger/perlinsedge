@@ -3,7 +3,7 @@ package com.feuerschvenger.perlinsedge.domain.world.generation;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.generation.util.TileFactory;
 import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
-import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
+import com.feuerschvenger.perlinsedge.domain.utils.Hashes;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -109,8 +109,9 @@ public class PerlinMapGenerator implements IMapGenerator {
     // on the rocky tiles of those patches, and a tile that passes both is crystals, not ore. They are rarer than the
     // ore while the patches cover less than about an eighth of the rock, which the threshold of the map panel decides.
     // The chance is a hash of the tile, the seed and a salt of each resource, so a map is the same every time it is
-    // generated from a seed and the two resources never share the tiles they pass. Both counts are proportional to
-    // the area of rocky terrain, so a map with a little rock still has a few and a mountain range has some dozens.
+    // generated from a seed. The salts make the two chances independent of each other, and a tile that passes both
+    // becomes crystals. Both counts are proportional to the area of rocky terrain, so a map with a little rock still
+    // has a few and a mountain range has some dozens.
     private static final int IRON_PER_MILLE = 6;
     private static final int CRYSTALS_PER_MILLE = 50;
     private static final int CHANCE_SCALE = 1000;
@@ -307,13 +308,12 @@ public class PerlinMapGenerator implements IMapGenerator {
     /**
      * Tells whether a tile passes a chance given in thousandths. The answer is a hash of the tile, the seed and the
      * salt of the resource rather than a draw from the shared random source, so it never moves the numbers the rest of
-     * the generation draws. The tile goes through the splitmix64 finalizer of {@link SpawnSeed} twice, the second time
-     * together with the seed and the salt, so the neighbouring tiles, the seeds and the resources give unrelated
-     * answers.
+     * the generation draws. The tile goes through {@link Hashes#mix(int, int)} twice, the second time together with
+     * the seed and the salt, so the neighbouring tiles, the seeds and the resources give unrelated answers.
      */
     private boolean chancePasses(int x, int y, long salt, int perMille) {
-        final long tileHash = SpawnSeed.of(x, y) ^ (config.getSeed() + salt) * HASH_MIX_SEED;
-        final long hash = SpawnSeed.of((int) (tileHash >>> HASH_FOLD), (int) tileHash);
+        final long tileHash = Hashes.mix(x, y) ^ (config.getSeed() + salt) * HASH_MIX_SEED;
+        final long hash = Hashes.mix((int) (tileHash >>> HASH_FOLD), (int) tileHash);
         return Math.floorMod(hash, (long) CHANCE_SCALE) < perMille;
     }
 
