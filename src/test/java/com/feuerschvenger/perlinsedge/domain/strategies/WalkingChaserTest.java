@@ -24,6 +24,9 @@ class WalkingChaserTest {
 
     private static final double STEP = 1.0 / 60.0;
 
+    /** Shared by every update of a test, as in the game, where one occupancy lives as long as the map. */
+    private final EnemyOccupancy occupancy = new EnemyOccupancy();
+
     private static TileMap grass(int width, int height) {
         TileMap map = new TileMap(width, height);
         for (int x = 0; x < width; x++) {
@@ -34,9 +37,9 @@ class WalkingChaserTest {
         return map;
     }
 
-    private static void run(Skeleton enemy, TileMap map, Player player, double seconds) {
+    private void run(Skeleton enemy, TileMap map, Player player, double seconds) {
         for (int i = 0; i < Math.round(seconds / STEP); i++) {
-            enemy.update(STEP, map, player, new EnemyOccupancy());
+            enemy.update(STEP, map, player, occupancy);
         }
     }
 
@@ -55,14 +58,14 @@ class WalkingChaserTest {
         assertEquals(6, skeleton.getTargetTileX(), "precondition: walking to the tile that gets blocked");
 
         map.getTile(6, 5).setWorldResource(new Resource(ResourceType.STONE, 1));
-        skeleton.update(STEP, map, player, new EnemyOccupancy());
+        skeleton.update(STEP, map, player, occupancy);
 
         assertFalse(OccupiedTiles.of(List.of(skeleton)).contains(new PathNode(6, 5)),
                 "the blocked tile is no longer reported as the one it steps to");
 
         boolean wasOnATileCentre = false;
         for (int i = 0; i < 60 * 5; i++) {
-            skeleton.update(STEP, map, player, new EnemyOccupancy());
+            skeleton.update(STEP, map, player, occupancy);
             assertFalse(Math.round(skeleton.getPosX()) == 6 && Math.round(skeleton.getPosY()) == 5,
                     "drawn over the blocked tile");
             wasOnATileCentre |= skeleton.getPosX() == skeleton.getCurrentTileX()
@@ -92,7 +95,7 @@ class WalkingChaserTest {
         assertTrue(player.walkAlong(List.of(new PathNode(9, 10))), "precondition: the player steps toward the enemy");
 
         for (int i = 0; i < 60; i++) {
-            skeleton.update(STEP, map, player, new EnemyOccupancy());
+            skeleton.update(STEP, map, player, occupancy);
             assertEquals(8.0, skeleton.getPosX(), 1e-9, "stepped toward the player's tile at update " + i);
             assertEquals(8, skeleton.getTargetTileX());
         }
