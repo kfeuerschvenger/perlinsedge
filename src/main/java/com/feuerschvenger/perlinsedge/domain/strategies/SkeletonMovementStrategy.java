@@ -16,8 +16,16 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
 
     private static final double MOVE_SPEED = 2.5; // Tiles per second
 
-    private final WalkingChaser chaser =
-            new WalkingChaser(MOVE_SPEED, AppConfig.getInstance().enemies().skeleton());
+    private final WalkingChaser chaser;
+
+    /**
+     * Creates a skeleton movement that stands still.
+     *
+     * @param seed seed of its waits for a tile another enemy holds, such as {@link SpawnSeed#of(int, int)}
+     */
+    public SkeletonMovementStrategy(long seed) {
+        this.chaser = new WalkingChaser(MOVE_SPEED, AppConfig.getInstance().enemies().skeleton(), seed);
+    }
 
     @Override
     public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {

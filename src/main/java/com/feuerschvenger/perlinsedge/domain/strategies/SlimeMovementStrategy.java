@@ -33,17 +33,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     private static final double REPLAN_WAIT_SECONDS = 0.15;
     /** Longest random addition to the first wait when the step was blocked by another enemy, so a crowd does not act in step. */
     private static final double HELD_WAIT_SPREAD_SECONDS = 0.3;
-    /** Longest wait for a step another enemy holds: the wait doubles while the same step stays blocked, up to this. */
-    private static final double MAX_HELD_WAIT_SECONDS = 1.5;
-    /** How much longer each repeated wait for the same held step is. */
-    private static final double HELD_WAIT_GROWTH_FACTOR = 2.0;
     /** First wait before a hovering slime looks for a tile to land on again, doubled up to the longest after each miss. */
     private static final double HOVER_RETRY_SECONDS = 0.1;
     private static final double MAX_HOVER_RETRY_SECONDS = 1.0;
     /** How much longer each failed look for a landing tile makes the wait. */
     private static final double HOVER_RETRY_GROWTH_FACTOR = 2.0;
-    /** Marks that no step of the path is blocked. */
-    private static final int NO_STEP = Integer.MIN_VALUE;
     /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
     private static final double HELD_TILE_PENALTY = 6.0;
     /** Rest on the ground between two hops of a chase, shortest and longest. Each slime has one fixed value. */
@@ -80,10 +74,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * taken.
      */
     private double secondsOfReplanWait;
-    /** The step of the path another enemy holds and the wait the slime last gave it, or {@link #NO_STEP}. */
-    private int blockedStepX = NO_STEP;
-    private int blockedStepY = NO_STEP;
-    private double blockedWaitSeconds;
+    /** The step of the path another enemy holds and the wait the slime last gave it. */
+    private final HeldStepBackoff heldStep = new HeldStepBackoff();
     /** Time left before a hovering slime looks for a tile to land on again, and the wait it gives the next miss. */
     private double secondsOfHoverWait;
     private double hoverRetrySeconds;
@@ -219,6 +211,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
                 removeCurrentPositionFromPath(enemy);
                 forgetBlockedStepUnlessAhead();
             } else {
+                // Nothing to wait for on a path that is not there
+                clearBlockedStep();
                 moveRandomly(enemy, map, player, JUMP_SPEED_AGGRO); // Fallback to random move if no path
             }
         }
@@ -470,35 +464,25 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** Forgets the blocked step and the wait it earned, once the slime moves on or the step is no longer ahead. */
     private void clearBlockedStep() {
-        blockedStepX = NO_STEP;
-        blockedStepY = NO_STEP;
-        blockedWaitSeconds = 0;
+        heldStep.clear();
     }
 
     /** Keeps the memory of a blocked step only while a new path still starts with it. */
     private void forgetBlockedStepUnlessAhead() {
-        if (currentPath.isEmpty() || currentPath.getFirst().x != blockedStepX || currentPath.getFirst().y != blockedStepY) {
-            clearBlockedStep();
-        }
+        heldStep.keepOnlyIfFirstStepOf(currentPath.peekFirst());
     }
 
     /**
      * Waits for a step that another enemy holds, with no search meanwhile. The first wait is random, between the replan
      * wait and the replan wait plus its spread, so a crowd does not act in step; the wait doubles, up to
-     * {@link #MAX_HELD_WAIT_SECONDS}, each time the same step is still held when it is tried again.
+     * {@link HeldStepBackoff#MAX_WAIT_SECONDS}, each time the same step is still held when it is tried again.
      *
      * @return true when the step was already held after an earlier wait, which means its holder is not passing through
      */
     private boolean waitForHeldStep(PathNode step) {
-        final boolean repeated = step.x == blockedStepX && step.y == blockedStepY;
-        if (repeated) {
-            blockedWaitSeconds = Math.min(MAX_HELD_WAIT_SECONDS, blockedWaitSeconds * HELD_WAIT_GROWTH_FACTOR);
-        } else {
-            blockedStepX = step.x;
-            blockedStepY = step.y;
-            blockedWaitSeconds = REPLAN_WAIT_SECONDS + HELD_WAIT_SPREAD_SECONDS * random.nextDouble();
-        }
-        secondsOfReplanWait = blockedWaitSeconds;
+        final boolean repeated = heldStep.isBlockedAt(step);
+        secondsOfReplanWait = heldStep.waitFor(step,
+                () -> REPLAN_WAIT_SECONDS + HELD_WAIT_SPREAD_SECONDS * random.nextDouble());
         return repeated;
     }
 

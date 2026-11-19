@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
@@ -36,7 +37,7 @@ public class Mimic extends Enemy {
                 MAX_HEALTH,
                 ATTACK_DAMAGE,
                 ATTACK_COOLDOWN,
-                new MimicMovementStrategy(),
+                new MimicMovementStrategy(SpawnSeed.of(startX, startY)),
                 new MimicAttackStrategy()
         );
         this.setColor(BASE_COLOR);
