@@ -50,6 +50,8 @@ public final class BuildingSprites {
     private static final int RAIL_UPPER_RIGHT = 1;
     private static final int RAIL_LOWER_LEFT = 2;
     private static final int RAIL_LOWER_RIGHT = 3;
+    /** The change of the path variant for a step along X, odd so it never repeats the look of the tile before. */
+    private static final int PATH_STEP_X = 3;
     /** The divisor that puts the centre of an image on a point. */
     private static final double CENTERING_DIVISOR = 2.0;
 
@@ -91,6 +93,7 @@ public final class BuildingSprites {
             case CAMPFIRE -> building instanceof ProcessingStation station && !station.isLit() ? CAMPFIRE_UNLIT
                     : FLAME_NAMES.get(BuildingType.CAMPFIRE)[Math.floorMod(frame, FLAME_FRAMES)];
             case STANDING_TORCH -> FLAME_NAMES.get(BuildingType.STANDING_TORCH)[Math.floorMod(frame, FLAME_FRAMES)];
+            case COBBLESTONE_PATH -> PATH_NAMES[pathVariant(building.getTileX(), building.getTileY())];
             case FURNACE, STONE_OVEN -> (building instanceof ProcessingStation station && station.isLit()
                     ? STOVE_ON_NAMES : STOVE_OFF_NAMES).get(building.getType())
                     [Math.floorMod(building.getRotation(), STOVE_ROTATIONS)];
@@ -112,6 +115,7 @@ public final class BuildingSprites {
         return switch (type) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(type)[0];
             case FENCE -> FENCE_POST;
+            case COBBLESTONE_PATH -> PATH_NAMES[0];
             case FENCE_GATE -> GATE_CLOSED_NAMES[Math.floorMod(rotation, GATE_ROTATIONS)];
             case FURNACE, STONE_OVEN -> STOVE_OFF_NAMES.get(type)[Math.floorMod(rotation, STOVE_ROTATIONS)];
             default -> {
@@ -127,6 +131,10 @@ public final class BuildingSprites {
     /** The art of the furnace and the stone oven, cold and lit, one name for each way they face. */
     private static final Map<BuildingType, String[]> STOVE_OFF_NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> STOVE_ON_NAMES = new EnumMap<>(BuildingType.class);
+    /** The four looks of a cobblestone path tile, one of which is picked by the coordinates of the tile. */
+    private static final String[] PATH_NAMES = {
+        "cobblestone_path_0", "cobblestone_path_1", "cobblestone_path_2", "cobblestone_path_3"
+    };
     /** The campfire with no fire: logs and ash. */
     private static final String CAMPFIRE_UNLIT = "campfire_unlit";
     private static final String[] GATE_CLOSED_NAMES = {"fence_gate_closed_0", "fence_gate_closed_1"};
@@ -160,6 +168,18 @@ public final class BuildingSprites {
             STOVE_OFF_NAMES.put(stove, off);
             STOVE_ON_NAMES.put(stove, on);
         }
+    }
+
+    /**
+     * Picks the look of a cobblestone path tile from its coordinates, so a tile always looks the same and the tiles next
+     * to it never share its look: a step along either axis changes the variant.
+     *
+     * @param tileX tile X
+     * @param tileY tile Y
+     * @return the variant from 0 to the number of looks minus one
+     */
+    public static int pathVariant(int tileX, int tileY) {
+        return Math.floorMod(PATH_STEP_X * tileX + tileY, PATH_NAMES.length);
     }
 
     /**

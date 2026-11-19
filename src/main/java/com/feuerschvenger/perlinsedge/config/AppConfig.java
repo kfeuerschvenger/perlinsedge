@@ -338,7 +338,7 @@ public final class AppConfig {
                         CAMPFIRE_INTENSITY, flicker, litStation(building)));
                 case FURNACE, STONE_OVEN -> Optional.of(new BuildingLight(x, y, STOVE_RADIUS, TORCH_COLOUR,
                         STOVE_INTENSITY, flicker, litStation(building)));
-                case BRIDGE, FENCE_GATE, FENCE, CHEST, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> Optional.empty();
+                case BRIDGE, COBBLESTONE_PATH, FENCE_GATE, FENCE, CHEST, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> Optional.empty();
             };
         }
 

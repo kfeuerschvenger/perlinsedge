@@ -10,6 +10,7 @@ import java.util.Map;
  */
 public final class BuildingStats {
     private static final int BRIDGE_HEALTH = 80;
+    private static final int COBBLESTONE_PATH_HEALTH = 60;
     private static final int FENCE_HEALTH = 40;
     private static final int FENCE_GATE_HEALTH = 50;
     private static final int CHEST_HEALTH = 70;
@@ -26,6 +27,7 @@ public final class BuildingStats {
 
     static {
         MAX_HEALTH.put(BuildingType.BRIDGE, BRIDGE_HEALTH);
+        MAX_HEALTH.put(BuildingType.COBBLESTONE_PATH, COBBLESTONE_PATH_HEALTH);
         MAX_HEALTH.put(BuildingType.FENCE, FENCE_HEALTH);
         MAX_HEALTH.put(BuildingType.FENCE_GATE, FENCE_GATE_HEALTH);
         MAX_HEALTH.put(BuildingType.CHEST, CHEST_HEALTH);

@@ -40,6 +40,7 @@ public class RecipeManager {
 
     // Ingredient counts of the building recipes
     private static final int BRIDGE_PLANK_COST = 10;
+    private static final int COBBLESTONE_PATH_BRICK_COST = 1;
     private static final int FENCE_LOG_COST = 2;
     private static final int FENCE_GATE_PLANK_COST = 2;
     private static final int FENCE_GATE_STICK_COST = 4;
@@ -217,6 +218,9 @@ public class RecipeManager {
         // Structural buildings
         buildingRecipes.add(createBuildingRecipe(BuildingType.BRIDGE,
                 new CraftingIngredient(ItemType.WOOD_PLANK, BRIDGE_PLANK_COST)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.COBBLESTONE_PATH,
+                new CraftingIngredient(ItemType.STONE_BRICK, COBBLESTONE_PATH_BRICK_COST)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.FENCE,
                 new CraftingIngredient(ItemType.WOOD_LOG, FENCE_LOG_COST)));

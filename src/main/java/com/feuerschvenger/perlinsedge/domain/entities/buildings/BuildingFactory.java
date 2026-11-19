@@ -42,6 +42,7 @@ public final class BuildingFactory {
     private static Building createUnrotated(BuildingType type, int x, int y) {
         return switch (type) {
             case BRIDGE -> new Bridge(x, y);
+            case COBBLESTONE_PATH -> new CobblestonePath(x, y);
             case FENCE -> new Fence(x, y);
             case FENCE_GATE -> new FenceGate(x, y);
             default -> createFurnishing(type, x, y);
@@ -60,7 +61,7 @@ public final class BuildingFactory {
             case WORKBENCH -> new Workbench(x, y);
             case BED -> new Bed(x, y);
             case SLEEPING_BAG -> new SleepingBag(x, y);
-            case BRIDGE, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
+            case BRIDGE, COBBLESTONE_PATH, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
         };
     }
 }

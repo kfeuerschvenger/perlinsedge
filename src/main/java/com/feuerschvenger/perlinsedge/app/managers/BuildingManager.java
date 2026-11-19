@@ -291,7 +291,9 @@ public class BuildingManager {
         if (!floor.isDestructible()) {
             return false;
         }
-        if (isEntityOn(worldX, worldY) || isOnPlayerWalk(worldX, worldY)) {
+        // Only a floor that carries the walk over water can leave someone in it; the ground under a path stays walkable
+        final boolean carriesTheWalk = !tile.getType().isWalkable();
+        if (carriesTheWalk && (isEntityOn(worldX, worldY) || isOnPlayerWalk(worldX, worldY))) {
             log.debug("The floor at ({}, {}) has the player or an enemy on it, or is on the player's walk", worldX, worldY);
             hintSink.accept(HINT_IN_THE_WAY);
             return false;
@@ -604,6 +606,8 @@ public class BuildingManager {
 
         return switch (type) {
             case BRIDGE -> canPlaceBridge(type, tile);
+            // A path only repaves free walkable land
+            case COBBLESTONE_PATH -> canPlaceOnLand(type, tile);
             // The torch is the one piece that also stands on a floor
             case STANDING_TORCH -> tile.hasFloor() || isWalkableLand(tile);
             // Every other piece stands on land and never on a floor
@@ -625,11 +629,15 @@ public class BuildingManager {
     }
 
     private static boolean canPlaceOnLand(BuildingType type, Tile tile) {
-        boolean valid = !tile.hasFloor() && isWalkableLand(tile);
+        boolean valid = isWalkableLand(tile) && (!tile.hasFloor() || (!type.isFloor() && isPath(tile.getFloor())));
         if (!valid) {
-            log.debug("Invalid terrain for {}: Requires walkable land", type.getDisplayName());
+            log.debug("Invalid terrain for {}: Requires walkable land with no floor but a path", type.getDisplayName());
         }
         return valid;
+    }
+
+    private static boolean isPath(Building floor) {
+        return floor.getType() == BuildingType.COBBLESTONE_PATH;
     }
 
     private static boolean isWalkableLand(Tile tile) {

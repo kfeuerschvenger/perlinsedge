@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -98,6 +99,36 @@ class BuildingSpritesTest {
                     assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/" + name + ".png"), name);
                 }
             }
+        }
+    }
+
+    @Test
+    void aPathTilePicksItsLookFromItsCoordinatesAndKeepsIt() {
+        for (int x = 0; x < 6; x++) {
+            for (int y = 0; y < 6; y++) {
+                final var path = BuildingFactory.create(BuildingType.COBBLESTONE_PATH, x, y);
+                final String name = BuildingSprites.spriteName(path, 0);
+
+                assertEquals("cobblestone_path_" + BuildingSprites.pathVariant(x, y), name);
+                assertEquals(name, BuildingSprites.spriteName(path, 7), "the frame changes nothing");
+                assertNotEquals(name, BuildingSprites.spriteName(
+                        BuildingFactory.create(BuildingType.COBBLESTONE_PATH, x + 1, y), 0), "next along X");
+                assertNotEquals(name, BuildingSprites.spriteName(
+                        BuildingFactory.create(BuildingType.COBBLESTONE_PATH, x, y + 1), 0), "next along Y");
+            }
+        }
+        assertEquals("cobblestone_path_0", BuildingSprites.restingName(BuildingType.COBBLESTONE_PATH, 0));
+    }
+
+    @Test
+    void theFourPathLooksAreAllUsedAndShipped() {
+        final var seen = new java.util.HashSet<Integer>();
+        for (int x = 0; x < 4; x++) {
+            seen.add(BuildingSprites.pathVariant(x, 0));
+        }
+        assertEquals(4, seen.size());
+        for (int variant : seen) {
+            assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/cobblestone_path_" + variant + ".png"));
         }
     }
 

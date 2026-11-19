@@ -120,6 +120,8 @@ public final class FxBuildingPainter {
     private static final int BED_BLANKET_SHRINK = 4;
 
     // Sleeping bag
+    private static final int PATH_WIDTH = 32;
+    private static final int PATH_HEIGHT = 16;
     private static final int SLEEPING_BAG_WIDTH = 20;
     private static final int SLEEPING_BAG_LENGTH = 40;
     /** Share of the bag length the pillow end spans. */
@@ -158,6 +160,7 @@ public final class FxBuildingPainter {
     public static void draw(GraphicsContext gc, Building building, double screenX, double screenY, double zoom) {
         switch (building.getType()) {
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
+            case COBBLESTONE_PATH -> drawCobblestonePath(gc, screenX, screenY, zoom);
             case FENCE -> drawFence(gc, building instanceof Fence fence ? fence.getConnections() : 0, screenX, screenY, zoom);
             case FENCE_GATE -> drawFenceGate(gc, (FenceGate) building, screenX, screenY, zoom);
             case CHEST, FURNACE, STONE_OVEN, ANVIL, WORKBENCH, CAMPFIRE, STANDING_TORCH, BED, SLEEPING_BAG ->
@@ -177,7 +180,7 @@ public final class FxBuildingPainter {
             case STANDING_TORCH -> drawStandingTorch(gc, screenX, screenY, zoom);
             case BED -> drawBed(gc, screenX, screenY, zoom);
             case SLEEPING_BAG -> drawSleepingBag(gc, screenX, screenY, zoom);
-            case BRIDGE, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
+            case BRIDGE, COBBLESTONE_PATH, FENCE, FENCE_GATE -> throw new IllegalArgumentException("Not a furnishing: " + type);
         }
     }
 
@@ -208,6 +211,19 @@ public final class FxBuildingPainter {
                 postTopY - flameHeight * TORCH_CORE_TIP, postTopY - flameHeight * TORCH_CORE_SHOULDER, postTopY,
                 postTopY - flameHeight * TORCH_CORE_SHOULDER
         }, DIAMOND_POINTS);
+    }
+
+    /** The stand-in of the cobblestone path: a flat grey tile top, drawn when its art is missing. */
+    private static void drawCobblestonePath(GraphicsContext gc, double screenX, double screenY, double zoom) {
+        final double halfWidth = PATH_WIDTH * zoom / HALF_DIVISOR;
+        final double halfHeight = PATH_HEIGHT * zoom / HALF_DIVISOR;
+        gc.setFill(Color.GRAY);
+        gc.setStroke(Color.DIMGRAY);
+        gc.setLineWidth(THIN_OUTLINE * zoom);
+        final double[] xs = {screenX, screenX + halfWidth, screenX, screenX - halfWidth};
+        final double[] ys = {screenY - halfHeight, screenY, screenY + halfHeight, screenY};
+        gc.fillPolygon(xs, ys, DIAMOND_POINTS);
+        gc.strokePolygon(xs, ys, DIAMOND_POINTS);
     }
 
     private static void drawBridge(GraphicsContext gc, double screenX, double screenY, double zoom) {

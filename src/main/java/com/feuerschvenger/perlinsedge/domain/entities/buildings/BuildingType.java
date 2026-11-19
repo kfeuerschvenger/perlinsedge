@@ -21,6 +21,10 @@ public enum BuildingType {
             "A bridge block, connecting distant lands and making travel a breeze.",
             Rgba.DARK_GOLDENROD
     ),
+    COBBLESTONE_PATH(
+            "A cobblestone path: paves the ground for looks only, and you walk on it just the same.",
+            Rgba.DIM_GRAY.brighter()
+    ),
     FENCE_GATE(
             "A gate in your fence: click it to swing it open for yourself or shut against the critters.",
             Rgba.BROWN
@@ -133,12 +137,13 @@ public enum BuildingType {
 
     /**
      * Tells whether a piece of this type is a floor, which lies in its own layer of the tile under the other pieces. A
-     * bridge is a floor, it makes water walkable, and of the other pieces only the standing torch can be put on one.
+     * bridge is a floor that makes water walkable, and of the other pieces only the standing torch can be put on one. A
+     * cobblestone path is a floor that only changes how land looks, so every piece that stands on land can stand on it.
      *
-     * @return true for the bridge
+     * @return true for the bridge and the cobblestone path
      */
     public boolean isFloor() {
-        return this == BRIDGE;
+        return this == BRIDGE || this == COBBLESTONE_PATH;
     }
 
     /** @return true when the rotation key changes how a piece of this type faces */
