@@ -3,6 +3,8 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
@@ -51,8 +53,36 @@ class BuildingSpritesTest {
     }
 
     @Test
-    void theFurnaceIsAlwaysShownColdUntilItCanBeLit() {
+    void theFurnaceAndTheStoneOvenAreShownColdWhileTheyDoNotWork() {
         assertEquals("furnace_off_0", BuildingSprites.spriteName(of(BuildingType.FURNACE), 2));
+        assertEquals("stone_oven_off_0", BuildingSprites.spriteName(of(BuildingType.STONE_OVEN), 2));
+        assertEquals("stone_oven_off_1", BuildingSprites.restingName(BuildingType.STONE_OVEN, 1));
+    }
+
+    @Test
+    void theFurnaceAndTheStoneOvenAreShownLitWhileTheyWorkWhicheverWayTheyFace() {
+        for (int rotation = 0; rotation < 4; rotation++) {
+            final var furnace = (ProcessingStation) BuildingFactory.create(BuildingType.FURNACE, 1, 1, rotation);
+            furnace.load(ItemType.WOOD_LOG);
+            final var oven = (ProcessingStation) BuildingFactory.create(BuildingType.STONE_OVEN, 1, 1, rotation);
+            oven.load(ItemType.RAW_MEAT);
+            oven.load(ItemType.WOOD_LOG);
+
+            assertEquals("furnace_on_" + rotation, BuildingSprites.spriteName(furnace, 0));
+            assertEquals("stone_oven_on_" + rotation, BuildingSprites.spriteName(oven, 0));
+        }
+    }
+
+    @Test
+    void theLitAndTheColdArtOfEveryStoveIsShipped() {
+        for (String base : new String[]{"furnace", "stone_oven"}) {
+            for (String state : new String[]{"off", "on"}) {
+                for (int rotation = 0; rotation < 4; rotation++) {
+                    final var name = base + "_" + state + "_" + rotation;
+                    assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/" + name + ".png"), name);
+                }
+            }
+        }
     }
 
     @Test

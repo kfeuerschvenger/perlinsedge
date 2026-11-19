@@ -53,6 +53,7 @@ public final class BuildingFactory {
         return switch (type) {
             case CHEST -> new Chest(x, y, CHEST_CAPACITY);
             case FURNACE -> new Furnace(x, y);
+            case STONE_OVEN -> new StoneOven(x, y);
             case CAMPFIRE -> new Campfire(x, y);
             case STANDING_TORCH -> new StandingTorch(x, y);
             case ANVIL -> new Anvil(x, y);

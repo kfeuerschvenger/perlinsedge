@@ -12,6 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 public abstract class Building {
+    /** The tile offset of the front of the building for each rotation, see {@link #frontOffset()}. */
+    private static final int[][] FRONT_OFFSETS = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+
     /** X-coordinate in tile units. */
     protected final int tileX;
     /** Y-coordinate in tile units. */
@@ -56,6 +59,28 @@ public abstract class Building {
      */
     public void setRotation(int rotation) {
         this.rotation = Math.floorMod(rotation, type.rotationCount());
+    }
+
+    /**
+     * Gives the tile offset of the tile the building faces, which is where a station puts what it makes. Rotation 0
+     * faces the lower right edge of the tile, and each turn goes a quarter turn clockwise seen from above, see
+     * {@link BuildingType#rotationCount()}. A piece that cannot turn faces the lower right edge.
+     *
+     * @return {dx, dy} in tiles, a fresh array
+     */
+    public int[] frontOffset() {
+        return frontOffset(0);
+    }
+
+    /**
+     * Gives the tile offset of the edge neighbour a number of quarter turns clockwise, seen from above, from the tile
+     * the building faces.
+     *
+     * @param quarterTurns the quarter turns, any whole number
+     * @return {dx, dy} in tiles, a fresh array
+     */
+    public int[] frontOffset(int quarterTurns) {
+        return FRONT_OFFSETS[Math.floorMod(rotation + quarterTurns, FRONT_OFFSETS.length)].clone();
     }
 
     /**

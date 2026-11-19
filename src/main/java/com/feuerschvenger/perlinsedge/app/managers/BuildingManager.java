@@ -11,6 +11,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
@@ -214,6 +215,9 @@ public class BuildingManager {
         } else {
             targetTile.setBuilding(newBuilding);
             FenceConnections.refresh(tileMap, worldX, worldY);
+            if (newBuilding instanceof ProcessingStation station) {
+                gameState.getStations().add(station);
+            }
         }
         log.info("Placed {} at ({}, {})", selectedBuildingType.getDisplayName(), worldX, worldY);
         return true;
@@ -308,6 +312,12 @@ public class BuildingManager {
                 }
             }
         }
+        if (building instanceof ProcessingStation station) {
+            gameState.getStations().remove(station);
+            for (Item content : station.emptyContents()) {
+                itemDropManager.dropAt(content, building.getTileX(), building.getTileY());
+            }
+        }
         refundIngredients(building);
         onInventoryChanged.run();
     }
@@ -390,6 +400,9 @@ public class BuildingManager {
             hintSink.accept(HINT_IN_THE_WAY);
             return false;
         }
+        if (building instanceof ProcessingStation station) {
+            return interactWithStation(station);
+        }
         boolean interacted = building.onInteract(targetTile);
 
         if (interacted && building instanceof Container container) {
@@ -397,6 +410,29 @@ public class BuildingManager {
             log.debug("Opened container: {}", building.getClass().getSimpleName());
         }
         return interacted;
+    }
+
+    /**
+     * Loads a station from the hand: an item the station takes goes in one unit per click, and a click with anything
+     * else tells what the station holds. A click is always handled, so the player walks up to the station either way.
+     */
+    private boolean interactWithStation(ProcessingStation station) {
+        final var player = gameState.getPlayer();
+        if (player == null) {
+            return false;
+        }
+        final var held = player.getActiveItemType();
+        if (held == null || !station.accepts(held)) {
+            hintSink.accept(station.statusHint());
+            return true;
+        }
+        if (station.load(held) == ProcessingStation.LoadResult.LOADED) {
+            player.consumeActiveItem();
+            onInventoryChanged.run();
+        } else {
+            hintSink.accept(held.getDisplayName() + " is full, " + station.count(held) + "/" + station.capOf(held));
+        }
+        return true;
     }
 
     /**
@@ -546,7 +582,7 @@ public class BuildingManager {
             // The torch is the one piece that also stands on a floor
             case STANDING_TORCH -> tile.hasFloor() || isWalkableLand(tile);
             // Every other piece stands on land and never on a floor
-            case FENCE, FENCE_GATE, CHEST, FURNACE, CAMPFIRE, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> canPlaceOnLand(type, tile);
+            case FENCE, FENCE_GATE, CHEST, FURNACE, STONE_OVEN, CAMPFIRE, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> canPlaceOnLand(type, tile);
         };
     }
 

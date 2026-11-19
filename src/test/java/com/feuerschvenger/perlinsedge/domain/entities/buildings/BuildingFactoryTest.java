@@ -61,4 +61,37 @@ class BuildingFactoryTest {
             assertFalse(type.isRotatable());
         }
     }
+
+    @Test
+    void theStationsAreProcessingStationsAndTheFrontFollowsTheRotation() {
+        final int[][] fronts = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+        for (BuildingType type : new BuildingType[]{BuildingType.FURNACE, BuildingType.STONE_OVEN}) {
+            for (int rotation = 0; rotation < fronts.length; rotation++) {
+                final var station = BuildingFactory.create(type, 0, 0, rotation);
+
+                assertTrue(station instanceof ProcessingStation, type.name());
+                assertEquals(fronts[rotation][0], station.frontOffset()[0]);
+                assertEquals(fronts[rotation][1], station.frontOffset()[1]);
+            }
+        }
+        assertTrue(BuildingFactory.create(BuildingType.CAMPFIRE, 0, 0) instanceof ProcessingStation);
+    }
+
+    @Test
+    void theEdgesAfterTheFrontTurnClockwise() {
+        final var oven = BuildingFactory.create(BuildingType.STONE_OVEN, 0, 0, 1);
+
+        assertEquals(-1, oven.frontOffset(1)[0]);
+        assertEquals(0, oven.frontOffset(1)[1]);
+        assertEquals(1, oven.frontOffset(3)[0]);
+        assertEquals(0, oven.frontOffset(3)[1]);
+        assertEquals(oven.frontOffset()[1], oven.frontOffset(4)[1]);
+    }
+
+    @Test
+    void theStoneOvenIsSolidAndTheCampfireIsNot() {
+        assertTrue(BuildingFactory.create(BuildingType.STONE_OVEN, 0, 0).isSolid());
+        assertTrue(BuildingFactory.create(BuildingType.FURNACE, 0, 0).isSolid());
+        assertFalse(BuildingFactory.create(BuildingType.CAMPFIRE, 0, 0).isSolid());
+    }
 }

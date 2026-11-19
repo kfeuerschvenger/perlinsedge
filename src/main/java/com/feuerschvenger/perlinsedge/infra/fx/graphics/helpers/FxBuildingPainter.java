@@ -160,7 +160,7 @@ public final class FxBuildingPainter {
             case BRIDGE -> drawBridge(gc, screenX, screenY, zoom);
             case FENCE -> drawFence(gc, building instanceof Fence fence ? fence.getConnections() : 0, screenX, screenY, zoom);
             case FENCE_GATE -> drawFenceGate(gc, (FenceGate) building, screenX, screenY, zoom);
-            case CHEST, FURNACE, ANVIL, WORKBENCH, CAMPFIRE, STANDING_TORCH, BED, SLEEPING_BAG ->
+            case CHEST, FURNACE, STONE_OVEN, ANVIL, WORKBENCH, CAMPFIRE, STANDING_TORCH, BED, SLEEPING_BAG ->
                     drawFurnishing(gc, building.getType(), screenX, screenY, zoom);
         }
     }
@@ -170,7 +170,7 @@ public final class FxBuildingPainter {
                                        double zoom) {
         switch (type) {
             case CHEST -> drawChest(gc, screenX, screenY, zoom);
-            case FURNACE -> drawFurnace(gc, screenX, screenY, zoom);
+            case FURNACE, STONE_OVEN -> drawFurnace(gc, screenX, screenY, zoom);
             case ANVIL -> drawAnvil(gc, screenX, screenY, zoom);
             case WORKBENCH -> drawWorkbench(gc, screenX, screenY, zoom);
             case CAMPFIRE -> drawCampfire(gc, screenX, screenY, zoom);

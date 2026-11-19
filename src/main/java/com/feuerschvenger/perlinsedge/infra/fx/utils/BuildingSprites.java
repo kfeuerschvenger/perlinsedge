@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import javafx.scene.image.Image;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,8 +18,8 @@ import java.util.function.Function;
 
 /**
  * Loads the building art once and hands it out by building. The files live in {@code assets/buildings} and are named
- * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off},
- * {@code anvil}, {@code workbench}, and {@code bed}, and {@code bridge_0} and {@code bridge_1}. The
+ * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off} and
+ * {@code stone_oven_off}, which have a lit twin named {@code furnace_on} and {@code stone_oven_on}, {@code anvil}, {@code workbench}, and {@code bed}, and {@code bridge_0} and {@code bridge_1}. The
  * campfire and the standing torch do not turn and have four flame frames, {@code campfire_0} to {@code campfire_3} and
  * {@code standing_torch_0} to {@code standing_torch_3}. A piece with no file answers null, and the caller draws the
  * procedural shape instead.
@@ -42,8 +43,8 @@ public final class BuildingSprites {
     private static final int FENCE_MASK_COUNT = 16;
     /** Ways a fence gate faces. */
     private static final int GATE_ROTATIONS = 2;
-    /** Ways a furnace faces. */
-    private static final int FURNACE_ROTATIONS = 4;
+    /** Ways a furnace or a stone oven faces. */
+    private static final int STOVE_ROTATIONS = 4;
     /** Positions of the half rails in {@code FENCE_RAILS}. */
     private static final int RAIL_UPPER_LEFT = 0;
     private static final int RAIL_UPPER_RIGHT = 1;
@@ -88,6 +89,9 @@ public final class BuildingSprites {
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
+            case FURNACE, STONE_OVEN -> (building instanceof ProcessingStation station && station.isLit()
+                    ? STOVE_ON_NAMES : STOVE_OFF_NAMES).get(building.getType())
+                    [Math.floorMod(building.getRotation(), STOVE_ROTATIONS)];
             case FENCE_GATE -> (building instanceof FenceGate gate && gate.isOpen() ? GATE_OPEN_NAMES : GATE_CLOSED_NAMES)
                     [Math.floorMod(building.getRotation(), GATE_ROTATIONS)];
             default -> restingName(building.getType(), building.getRotation());
@@ -96,7 +100,7 @@ public final class BuildingSprites {
 
     /**
      * Gives the file name of the art of a type at rest, which is what the palette and the placement ghost show. The
-     * furnace has no lit state yet, so it is always shown cold.
+     * furnace and the stone oven are shown cold.
      *
      * @param type     the building type
      * @param rotation the way the piece faces
@@ -107,7 +111,7 @@ public final class BuildingSprites {
             case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(type)[0];
             case FENCE -> FENCE_POST;
             case FENCE_GATE -> GATE_CLOSED_NAMES[Math.floorMod(rotation, GATE_ROTATIONS)];
-            case FURNACE -> FURNACE_NAMES[Math.floorMod(rotation, FURNACE_NAMES.length)];
+            case FURNACE, STONE_OVEN -> STOVE_OFF_NAMES.get(type)[Math.floorMod(rotation, STOVE_ROTATIONS)];
             default -> {
                 final String[] names = NAMES.get(type);
                 yield names[Math.floorMod(rotation, names.length)];
@@ -118,7 +122,9 @@ public final class BuildingSprites {
     /** The names are built once, so naming a building every frame allocates nothing. */
     private static final Map<BuildingType, String[]> NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> FLAME_NAMES = new EnumMap<>(BuildingType.class);
-    private static final String[] FURNACE_NAMES = new String[FURNACE_ROTATIONS];
+    /** The art of the furnace and the stone oven, cold and lit, one name for each way they face. */
+    private static final Map<BuildingType, String[]> STOVE_OFF_NAMES = new EnumMap<>(BuildingType.class);
+    private static final Map<BuildingType, String[]> STOVE_ON_NAMES = new EnumMap<>(BuildingType.class);
     private static final String[] GATE_CLOSED_NAMES = {"fence_gate_closed_0", "fence_gate_closed_1"};
     private static final String[] GATE_OPEN_NAMES = {"fence_gate_open_0", "fence_gate_open_1"};
     /** The post of a fence and its four half rails, in the order they are drawn: the back ones, the post, the front ones. */
@@ -139,8 +145,16 @@ public final class BuildingSprites {
             }
             FLAME_NAMES.put(type, frames);
         }
-        for (var i = 0; i < FURNACE_NAMES.length; i++) {
-            FURNACE_NAMES[i] = "furnace_off_" + i;
+        for (BuildingType stove : new BuildingType[]{BuildingType.FURNACE, BuildingType.STONE_OVEN}) {
+            final var base = stove.name().toLowerCase(Locale.ROOT);
+            final var off = new String[STOVE_ROTATIONS];
+            final var on = new String[STOVE_ROTATIONS];
+            for (var i = 0; i < STOVE_ROTATIONS; i++) {
+                off[i] = base + "_off_" + i;
+                on[i] = base + "_on_" + i;
+            }
+            STOVE_OFF_NAMES.put(stove, off);
+            STOVE_ON_NAMES.put(stove, on);
         }
     }
 

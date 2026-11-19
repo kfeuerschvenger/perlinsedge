@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
@@ -40,6 +41,8 @@ public class GameStateManager {
     private TileMap currentMap;
     /** The game time in seconds of the last hit on each resource, which the hit cooldown is measured from. */
     private final Map<Resource, Double> resourceHitTimes = new HashMap<>();
+    /** The processing stations standing on the map, which are the ones that need time to pass. */
+    private final List<ProcessingStation> stations = new ArrayList<>();
     /** The seed the current map was generated from, which also scatters the cosmetic ground decals. */
     private long worldSeed;
 
@@ -88,6 +91,7 @@ public class GameStateManager {
 
         // World reset
         currentMap = null;
+        stations.clear();
         resourceHitTimes.clear();
 
         // The lights belong to the world that is gone

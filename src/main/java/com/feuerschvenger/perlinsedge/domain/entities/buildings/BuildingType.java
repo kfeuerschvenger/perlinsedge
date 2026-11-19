@@ -38,8 +38,12 @@ public enum BuildingType {
             Rgba.BROWN.darker()
     ),
     FURNACE(
-            "A blazing furnace, ready to melt down ore or cook a midnight snack.",
+            "A blazing furnace, ready to melt down ore and burn logs into charcoal.",
             Rgba.DARK_RED
+    ),
+    STONE_OVEN(
+            "A stone oven that turns raw meat into a proper meal, one log for every couple of pieces.",
+            Rgba.DIM_GRAY.brighter()
     ),
     ANVIL(
             "The trusty anvil for forging weapons, tools, and heroic dreams.",
@@ -121,7 +125,7 @@ public enum BuildingType {
      */
     public int rotationCount() {
         return switch (this) {
-            case CHEST, FURNACE, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> FOUR_WAY_ROTATIONS;
+            case CHEST, FURNACE, STONE_OVEN, ANVIL, WORKBENCH, BED, SLEEPING_BAG -> FOUR_WAY_ROTATIONS;
             case BRIDGE, FENCE_GATE -> TWO_WAY_ROTATIONS;
             default -> 1;
         };

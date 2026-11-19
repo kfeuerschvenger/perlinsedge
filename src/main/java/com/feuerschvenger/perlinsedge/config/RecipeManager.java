@@ -46,6 +46,8 @@ public class RecipeManager {
     private static final int CHEST_PLANK_COST = 6;
     private static final int FURNACE_STONE_COST = 8;
     private static final int FURNACE_COAL_COST = 2;
+    private static final int STONE_OVEN_BRICK_COST = 6;
+    private static final int STONE_OVEN_COAL_COST = 2;
     private static final int CAMPFIRE_LOG_COST = 3;
     private static final int ANVIL_IRON_COST = 5;
     private static final int ANVIL_STONE_COST = 3;
@@ -231,6 +233,10 @@ public class RecipeManager {
         buildingRecipes.add(createBuildingRecipe(BuildingType.FURNACE,
                 new CraftingIngredient(ItemType.STONE, FURNACE_STONE_COST),
                 new CraftingIngredient(ItemType.COAL, FURNACE_COAL_COST)));
+
+        buildingRecipes.add(createBuildingRecipe(BuildingType.STONE_OVEN,
+                new CraftingIngredient(ItemType.STONE_BRICK, STONE_OVEN_BRICK_COST),
+                new CraftingIngredient(ItemType.COAL, STONE_OVEN_COAL_COST)));
 
         buildingRecipes.add(createBuildingRecipe(BuildingType.CAMPFIRE,
                 new CraftingIngredient(ItemType.WOOD_LOG, CAMPFIRE_LOG_COST),
