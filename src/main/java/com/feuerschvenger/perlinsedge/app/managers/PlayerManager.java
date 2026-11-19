@@ -205,9 +205,9 @@ public class PlayerManager {
     }
 
     /**
-     * Respawns at the active sleeping bag: on its tile, or on a walkable tile next to it when the tile cannot hold the
-     * player. The bag breaks and disappears with no refund, and the spawn point is cleared. A bag that is gone from
-     * its tile, or with no walkable tile at or around it, is not used and stays as it is.
+     * Respawns at the active sleeping bag, on its tile: a bag lies flat and is only built on walkable land, so its
+     * tile always holds the player. The bag breaks and disappears with no refund, and the spawn point is cleared. A bag
+     * that is gone from its tile is not used and is forgotten.
      *
      * @return the position, or {@link #NO_POSITION} when there is no usable bag
      */
@@ -221,19 +221,12 @@ public class PlayerManager {
             gameState.setSpawnBag(null);
             return NO_POSITION;
         }
-        final int[] position = IsometricUtils.findAdjacentPosition(bag.getTileX(), bag.getTileY(), map,
-                WALKABLE_CLEAR_VALIDATOR, IsometricUtils.allDirections());
-        final boolean standable = tile.isWalkable()
-                || WALKABLE_CLEAR_VALIDATOR.test(map.getTile(position[0], position[1]));
-        if (!standable) {
-            return NO_POSITION;
-        }
         // The bag is used up: no refund, as if it had lost all its health
         bag.damage(bag.getMaxHealth());
         tile.setBuilding(null);
         gameState.setSpawnBag(null);
         log.info("Spawn bag used at {},{}", bag.getTileX(), bag.getTileY());
-        return tile.isWalkable() ? new int[]{bag.getTileX(), bag.getTileY()} : position;
+        return new int[]{bag.getTileX(), bag.getTileY()};
     }
 
     /**
