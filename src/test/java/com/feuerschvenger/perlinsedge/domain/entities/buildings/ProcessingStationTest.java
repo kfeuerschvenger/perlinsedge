@@ -70,12 +70,39 @@ class ProcessingStationTest {
     }
 
     @Test
-    void aUnitIsLoadedPerCallUpToTheCapOfEachItem() {
+    void aUnitIsLoadedPerCallUpToTheCapOfItsRole() {
         load(furnace, ItemType.IRON_ORE, CONFIG.getFurnaceInputCap());
 
         assertEquals(LoadResult.FULL, furnace.load(ItemType.IRON_ORE));
         assertEquals(CONFIG.getFurnaceInputCap(), furnace.count(ItemType.IRON_ORE));
-        assertEquals(LoadResult.LOADED, furnace.load(ItemType.COAL), "the cap is of each item, not of the station");
+        assertEquals(LoadResult.LOADED, furnace.load(ItemType.COAL), "the fuel has a cap of its own");
+    }
+
+    @Test
+    void theInputsOfAStationShareOneCap() {
+        load(furnace, ItemType.IRON_ORE, CONFIG.getFurnaceInputCap() - 2);
+        load(furnace, ItemType.WOOD_LOG, 2);
+
+        assertEquals(LoadResult.FULL, furnace.load(ItemType.IRON_ORE));
+        assertEquals(LoadResult.FULL, furnace.load(ItemType.WOOD_LOG));
+        assertEquals(CONFIG.getFurnaceInputCap(), furnace.countInRole(ItemType.IRON_ORE));
+    }
+
+    @Test
+    void theFuelsOfAStationShareOneCap() {
+        load(furnace, ItemType.COAL, CONFIG.getFurnaceFuelCap() - 1);
+        load(furnace, ItemType.CHARCOAL, 1);
+
+        assertEquals(LoadResult.FULL, furnace.load(ItemType.COAL));
+        assertEquals(LoadResult.FULL, furnace.load(ItemType.CHARCOAL));
+        assertEquals(LoadResult.LOADED, furnace.load(ItemType.IRON_ORE), "the inputs have a cap of their own");
+    }
+
+    @Test
+    void theRolesAreNamedForTheHints() {
+        assertEquals("Input", furnace.roleName(ItemType.WOOD_LOG));
+        assertEquals("Fuel", furnace.roleName(ItemType.CHARCOAL));
+        assertEquals("Fuel", oven.roleName(ItemType.WOOD_LOG));
     }
 
     @Test
@@ -98,11 +125,12 @@ class ProcessingStationTest {
     }
 
     @Test
-    void theStatusHintListsWhatIsLoadedWithItsCap() {
-        load(furnace, ItemType.IRON_ORE, 5);
+    void theStatusHintGivesTheUnitsOfTheInputsAndOfTheFuelsWithTheirCaps() {
+        load(furnace, ItemType.IRON_ORE, 3);
+        load(furnace, ItemType.WOOD_LOG, 2);
         load(furnace, ItemType.COAL, 3);
 
-        assertEquals("Iron ore 5/20, Coal 3/20", furnace.statusHint());
+        assertEquals("Input 5/20, Fuel 3/20", furnace.statusHint());
     }
 
     @Test

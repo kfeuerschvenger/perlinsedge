@@ -17,7 +17,8 @@ import java.util.StringJoiner;
  * A building that turns the items loaded into it into others over time, such as the furnace, the stone oven and the
  * campfire. One engine serves them all, and a {@link StationProfile} says what each one processes and burns.
  * <p>
- * The player loads one unit at a time, up to a cap for each accepted item. The station works on one unit at a time,
+ * The player loads one unit at a time. The caps belong to a role, not to an item: the inputs share one cap and the
+ * fuels share another, so a furnace holds at most 20 units of iron ore and logs together. The station works on one unit at a time,
  * and the unit being processed stays loaded until its time is up: only then are the input and the fuel it costs used
  * up and the product made. The products wait in {@link #drainProducts()} for the caller to put them on the ground.
  * <p>
@@ -25,6 +26,10 @@ import java.util.StringJoiner;
  * another, and waits while the fuel is out.
  */
 public abstract class ProcessingStation extends Building {
+    /** The name of the role of the items a recipe processes. */
+    private static final String ROLE_INPUT = "Input";
+    /** The name of the role of the items the station burns. */
+    private static final String ROLE_FUEL = "Fuel";
     /** What is left of a slice of time below which a unit counts as finished, absorbing the error of adding fractions. */
     private static final double COMPLETION_EPSILON = 1e-9;
 
@@ -100,7 +105,7 @@ public abstract class ProcessingStation extends Building {
         if (cap == 0) {
             return LoadResult.REJECTED;
         }
-        if (count(type) >= cap) {
+        if (countInRole(type) >= cap) {
             return LoadResult.FULL;
         }
         stock.merge(type, 1, Integer::sum);
@@ -118,31 +123,59 @@ public abstract class ProcessingStation extends Building {
     }
 
     /**
-     * Gives how many units of an item the station holds at most.
+     * Gives how many units the station holds at most of the role an item plays, input or fuel.
      *
      * @param type the item
-     * @return the cap, 0 for an item the station does not take
+     * @return the cap shared by every item of that role, 0 for an item the station does not take
      */
     public int capOf(ItemType type) {
         return profile.capOf(type);
     }
 
     /**
-     * Describes what is loaded, for the hint shown when the player clicks the station with nothing to load, such as
-     * {@code Iron Ore 5/20, Coal 3/20}.
+     * Gives the units loaded of every item that plays the same role as an item, which is what the cap limits.
      *
-     * @return the loaded items with their caps, or what the station takes when it is empty
+     * @param type the item
+     * @return the units of the inputs when the item is an input, of the fuels when it is a fuel, 0 otherwise
+     */
+    public int countInRole(ItemType type) {
+        if (profile.isInput(type)) {
+            return totalOf(profile.inputs());
+        }
+        return profile.isFuel(type) ? totalOf(profile.fuels()) : 0;
+    }
+
+    /**
+     * Names the role an item plays in the station.
+     *
+     * @param type the item
+     * @return {@code Input} or {@code Fuel}
+     */
+    public String roleName(ItemType type) {
+        return profile.isInput(type) ? ROLE_INPUT : ROLE_FUEL;
+    }
+
+    private int totalOf(List<ItemType> types) {
+        return types.stream().mapToInt(this::count).sum();
+    }
+
+    /**
+     * Describes what is loaded, for the hint shown when the player clicks the station with nothing to load, such as
+     * {@code Input 5/20, Fuel 3/20}.
+     *
+     * @return the units loaded of the inputs and of the fuels with their caps, or what the station takes when it is
+     * empty
      */
     public String statusHint() {
-        final var loaded = new StringJoiner(", ");
-        final var accepted = new StringJoiner(", ");
-        for (ItemType type : profile.accepted()) {
-            accepted.add(type.getDisplayName());
-            if (count(type) > 0) {
-                loaded.add(type.getDisplayName() + " " + count(type) + "/" + profile.capOf(type));
-            }
+        final var inputs = totalOf(profile.inputs());
+        final var fuels = totalOf(profile.fuels());
+        if (inputs == 0 && fuels == 0) {
+            final var accepted = new StringJoiner(", ");
+            profile.accepted().forEach((ItemType type) -> accepted.add(type.getDisplayName()));
+            return "Empty, takes " + accepted;
         }
-        return loaded.length() == 0 ? "Empty, takes " + accepted : loaded.toString();
+        return ROLE_INPUT + " " + inputs + "/" + profile.inputCap() + ", " + ROLE_FUEL + " " + fuels + "/"
+                + profile.fuelCap();
     }
 
     // ==================================================================

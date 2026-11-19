@@ -430,7 +430,7 @@ public class BuildingManager {
             player.consumeActiveItem();
             onInventoryChanged.run();
         } else {
-            hintSink.accept(held.getDisplayName() + " is full, " + station.count(held) + "/" + station.capOf(held));
+            hintSink.accept(station.roleName(held) + " is full, " + station.countInRole(held) + "/" + station.capOf(held));
         }
         return true;
     }
