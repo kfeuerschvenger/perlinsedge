@@ -216,7 +216,7 @@ public class PlayerManager {
         if (bag == null) {
             return NO_POSITION;
         }
-        final Tile tile = map.getTile(bag.getTileX(), bag.getTileY());
+        final var tile = map.getTile(bag.getTileX(), bag.getTileY());
         if (tile == null || tile.getBuilding() != bag) {
             gameState.setSpawnBag(null);
             return NO_POSITION;
