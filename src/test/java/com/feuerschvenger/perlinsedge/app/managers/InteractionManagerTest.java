@@ -61,7 +61,7 @@ class InteractionManagerTest {
         BuildingManager buildings = new BuildingManager(state, new RecipeManager(), containers);
         ResourceManager resources = new ResourceManager(state, hints::add);
         interactions = new InteractionManager(state, buildings, resources, new CombatManager(state), containers,
-                containerShown::incrementAndGet, stationsShown::add, hints::add);
+                new InteractionManager.OpenViews(containerShown::incrementAndGet, stationsShown::add), hints::add);
     }
 
     /** Runs the game ticks a walk needs, the way the game loop does, until nothing is pending or the ticks run out. */

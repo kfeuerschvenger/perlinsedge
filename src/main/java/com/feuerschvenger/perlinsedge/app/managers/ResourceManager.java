@@ -116,7 +116,7 @@ public class ResourceManager {
         if (tool == null) {
             return;
         }
-        ItemType held = player.getActiveItemType();
+        var held = player.getActiveItemType();
         log.debug("Cannot harvest {} at ({}, {}): the player holds {}",
                 resource.getType(), tile.getX(), tile.getY(), held);
         if (resource.getType().isToolKind(held)) {

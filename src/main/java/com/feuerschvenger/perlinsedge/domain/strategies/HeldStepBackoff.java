@@ -12,7 +12,7 @@ import java.util.function.DoubleSupplier;
 final class HeldStepBackoff {
 
     /** Longest wait for a held step. */
-    static final double MAX_WAIT_SECONDS = 1.5;
+    public static final double MAX_WAIT_SECONDS = 1.5;
     /** How much longer each repeated wait for the same held step is. */
     private static final double GROWTH_FACTOR = 2.0;
     /** Marks that no step is blocked. */

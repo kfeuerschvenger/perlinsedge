@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -174,7 +175,7 @@ class RecipeTest {
         Recipe atBench = new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.WORKBENCH);
 
         assertEquals(atBench, new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.WORKBENCH));
-        assertFalse(atBench.equals(new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.ANVIL)));
+        assertNotEquals(atBench, new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.ANVIL));
     }
 
     @Test

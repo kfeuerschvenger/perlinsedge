@@ -49,7 +49,8 @@ class EnemyTilesTest {
         final ContainerManager containers = new ContainerManager();
         final List<String> hints = new ArrayList<>();
         interactions = new InteractionManager(state, new BuildingManager(state, new RecipeManager(), containers),
-                new ResourceManager(state, hints::add), combat, containers, () -> { }, hints::add);
+                new ResourceManager(state, hints::add), combat, containers,
+                InteractionManager.OpenViews.containerOnly(() -> { }), hints::add);
     }
 
     @Test

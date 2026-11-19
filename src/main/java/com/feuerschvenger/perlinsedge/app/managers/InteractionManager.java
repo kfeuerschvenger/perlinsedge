@@ -100,48 +100,46 @@ public class InteractionManager {
     private Pending pending;
 
     /**
-     * Creates the manager.
+     * What happens on screen once an interaction opened a building.
      *
-     * @param gameState         shared game state
-     * @param buildingManager   opens chests and toggles gates
-     * @param resourceManager   hits resources
-     * @param combatManager     swings at enemies
-     * @param containerManager  tells whether an interaction opened a container
      * @param onContainerOpened called after an interaction opened a container, it shows the container
-     * @param hintSink          receives the short message shown when the target cannot be reached
+     * @param onStationOpened   called after an interaction opened a crafting station, it shows the crafting view
      */
-    public InteractionManager(GameStateManager gameState, BuildingManager buildingManager,
-                              ResourceManager resourceManager, CombatManager combatManager,
-                              ContainerManager containerManager,
-                              Runnable onContainerOpened, Consumer<String> hintSink) {
-        this(gameState, buildingManager, resourceManager, combatManager, containerManager, onContainerOpened,
-                station -> { }, hintSink);
+    public record OpenViews(Runnable onContainerOpened, Consumer<CraftingStation> onStationOpened) {
+
+        /**
+         * Gives views that show a container and ignore a crafting station.
+         *
+         * @param onContainerOpened called after an interaction opened a container
+         * @return the views
+         */
+        public static OpenViews containerOnly(Runnable onContainerOpened) {
+            return new OpenViews(onContainerOpened, (CraftingStation station) -> { });
+        }
     }
 
     /**
      * Creates the manager.
      *
-     * @param gameState         shared game state
-     * @param buildingManager   opens chests and crafting stations and toggles gates
-     * @param resourceManager   hits resources
-     * @param combatManager     swings at enemies
-     * @param containerManager  tells whether an interaction opened a container
-     * @param onContainerOpened called after an interaction opened a container, it shows the container
-     * @param onStationOpened   called after an interaction opened a crafting station, it shows the crafting view
-     * @param hintSink          receives the short message shown when the target cannot be reached
+     * @param gameState        shared game state
+     * @param buildingManager  opens chests and crafting stations and toggles gates
+     * @param resourceManager  hits resources
+     * @param combatManager    swings at enemies
+     * @param containerManager tells whether an interaction opened a container
+     * @param openViews        shows the container or the crafting station an interaction opened
+     * @param hintSink         receives the short message shown when the target cannot be reached
      */
     public InteractionManager(GameStateManager gameState, BuildingManager buildingManager,
                               ResourceManager resourceManager, CombatManager combatManager,
-                              ContainerManager containerManager,
-                              Runnable onContainerOpened, Consumer<CraftingStation> onStationOpened,
+                              ContainerManager containerManager, OpenViews openViews,
                               Consumer<String> hintSink) {
         this.gameState = gameState;
-        this.onStationOpened = onStationOpened;
+        this.onStationOpened = openViews.onStationOpened();
         this.buildingManager = buildingManager;
         this.resourceManager = resourceManager;
         this.combatManager = combatManager;
         this.containerManager = containerManager;
-        this.onContainerOpened = onContainerOpened;
+        this.onContainerOpened = openViews.onContainerOpened();
         this.hintSink = hintSink;
     }
 

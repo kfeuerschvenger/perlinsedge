@@ -84,8 +84,8 @@ public final class ToolStats {
      * @return true when the tool has an entry for the resource
      */
     static boolean isRightTool(ItemType tool, ResourceType target) {
-        final Profile profile = profileOf(tool);
-        return profile != null && profile.resourceDamage().containsKey(target);
+        final var profile = profileOf(tool);
+        return profile != null &&profile.resourceDamage().containsKey(target);
     }
 
     /** The profile of a tool, which for an iron tool is the one of its stone counterpart, or null for a hand or a non tool. */
@@ -129,7 +129,7 @@ public final class ToolStats {
      * @return the damage of the tool when it is listed, the damage of a hand otherwise
      */
     public static double combatDamage(ItemType tool) {
-        final Profile profile = profileOf(tool);
-        return profile != null ? profile.combatDamage() * tierFactor(tool) : HAND_COMBAT_DAMAGE;
+        final var profile = profileOf(tool);
+        return profile != null ?profile.combatDamage() * tierFactor(tool) : HAND_COMBAT_DAMAGE;
     }
 }
