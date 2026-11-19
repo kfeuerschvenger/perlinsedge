@@ -13,6 +13,7 @@ flowchart LR
     survival --> large[Large multi-tile buildings with interiors]
     world --> lighting[Light sources and darkness: held torch built]
     world --> biomes[Magic and sinister biomes]
+    world --> seethrough[See-through mask around the player]
     digging --> shovel[Shovel]
     bow --> arrows[Arrows and archery combat]
     lighting --> placed[Placed light sources with the stations]
@@ -47,6 +48,10 @@ The sun moves through dawn, day, dusk and night, casts shadows shaped like the t
 - **Placed light sources**: standing torches, campfires and furnaces register a light when they are built and take it out when they are removed, and fire arrows and spells register short lived ones. They come with the stations and weapons that need them, as plain registrations of an existing light.
 - **Shadows from light sources**: a light would also cast the shadows of what stands near it, away from itself, the way the sun does. This is postponed, since it needs a shadow cast per light and a rule for how those shadows fade with the distance.
 - **Sky palette per biome**: the sky tint is the same for every biome today, so each biome can later get its own dawn, dusk and night palette.
+
+## See-through mask around the player
+
+When the player stands behind trees or other tall sprites, they are hidden by them. A circular, semi-transparent mask around the player would make the sprites that occlude them partly see-through, so the player shows through while the rest of the scene stays opaque. It needs a rule for which sprites count as occluding, such as those drawn in front of the player and overlapping them, a soft edge on the circle so the transition does not look cut, and a draw path that fades only those sprites instead of the whole layer.
 
 ## Magic and sinister biomes
 
