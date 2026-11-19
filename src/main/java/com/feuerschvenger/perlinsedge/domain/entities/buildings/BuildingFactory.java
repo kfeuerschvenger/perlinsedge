@@ -1,5 +1,8 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 /**
  * Creates a building of a given type. It is the one place that knows which class stands behind each type, so the
  * placement rules and the views that need a sample piece, such as the palette icons and the placement ghost, agree.
@@ -7,6 +10,31 @@ package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 public final class BuildingFactory {
     /** Number of stacks a placed chest holds. */
     public static final int CHEST_CAPACITY = 9;
+
+    /** Builds a piece of one type at a tile. */
+    @FunctionalInterface
+    private interface Creator {
+        Building create(int x, int y);
+    }
+
+    /** The creator of every type, built once. A test asserts that no {@link BuildingType} lacks one. */
+    private static final Map<BuildingType, Creator> CREATORS = new EnumMap<>(BuildingType.class);
+
+    static {
+        CREATORS.put(BuildingType.BRIDGE, Bridge::new);
+        CREATORS.put(BuildingType.COBBLESTONE_PATH, CobblestonePath::new);
+        CREATORS.put(BuildingType.FENCE, Fence::new);
+        CREATORS.put(BuildingType.FENCE_GATE, FenceGate::new);
+        CREATORS.put(BuildingType.CHEST, (x, y) -> new Chest(x, y, CHEST_CAPACITY));
+        CREATORS.put(BuildingType.FURNACE, Furnace::new);
+        CREATORS.put(BuildingType.STONE_OVEN, StoneOven::new);
+        CREATORS.put(BuildingType.CAMPFIRE, Campfire::new);
+        CREATORS.put(BuildingType.STANDING_TORCH, StandingTorch::new);
+        CREATORS.put(BuildingType.ANVIL, Anvil::new);
+        CREATORS.put(BuildingType.WORKBENCH, Workbench::new);
+        CREATORS.put(BuildingType.BED, Bed::new);
+        CREATORS.put(BuildingType.SLEEPING_BAG, SleepingBag::new);
+    }
 
     /** Not instantiable: the class only holds the factory method. */
     private BuildingFactory() {
@@ -40,35 +68,10 @@ public final class BuildingFactory {
     }
 
     private static Building createUnrotated(BuildingType type, int x, int y) {
-        return switch (type) {
-            case BRIDGE -> new Bridge(x, y);
-            case COBBLESTONE_PATH -> new CobblestonePath(x, y);
-            case FENCE -> new Fence(x, y);
-            case FENCE_GATE -> new FenceGate(x, y);
-            default -> createFurnishing(type, x, y);
-        };
-    }
-
-    /** Creates the pieces that furnish a camp: the container and the crafting stations, then the rest through {@link #createCampPiece}. */
-    private static Building createFurnishing(BuildingType type, int x, int y) {
-        return switch (type) {
-            case CHEST -> new Chest(x, y, CHEST_CAPACITY);
-            case FURNACE -> new Furnace(x, y);
-            case STONE_OVEN -> new StoneOven(x, y);
-            case ANVIL -> new Anvil(x, y);
-            case WORKBENCH -> new Workbench(x, y);
-            default -> createCampPiece(type, x, y);
-        };
-    }
-
-    /** Creates the light sources and the places to sleep. */
-    private static Building createCampPiece(BuildingType type, int x, int y) {
-        return switch (type) {
-            case CAMPFIRE -> new Campfire(x, y);
-            case STANDING_TORCH -> new StandingTorch(x, y);
-            case BED -> new Bed(x, y);
-            case SLEEPING_BAG -> new SleepingBag(x, y);
-            default -> throw new IllegalArgumentException("Not a furnishing: " + type);
-        };
+        final var creator = CREATORS.get(type);
+        if (creator == null) {
+            throw new IllegalArgumentException("No creator registered for " + type);
+        }
+        return creator.create(x, y);
     }
 }
