@@ -141,6 +141,15 @@ class BuildingLayersTest {
     }
 
     @Test
+    void aSleepingBagIsRefusedOnLandThatCannotBeWalkedOn() {
+        map.getTile(2, 2).setType(TileType.MOUNTAIN);
+
+        assertTrue(map.getTile(2, 2).getType().isLand());
+        assertFalse(map.getTile(2, 2).isWalkable());
+        assertFalse(canPlace(BuildingType.SLEEPING_BAG, 2, 2));
+    }
+
+    @Test
     void aRefusedPlacementConsumesNothing() {
         player.addItem(new Item(ItemType.FIBER, 6));
         manager.setSelectedBuildingType(BuildingType.SLEEPING_BAG);
