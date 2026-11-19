@@ -21,7 +21,7 @@ import java.util.function.Function;
  * after the piece and the way it faces: {@code chest_0} to {@code chest_3}, the same for {@code furnace_off} and
  * {@code stone_oven_off}, which have a lit twin named {@code furnace_on} and {@code stone_oven_on}, {@code anvil}, {@code workbench}, and {@code bed}, and {@code bridge_0} and {@code bridge_1}. The
  * campfire and the standing torch do not turn and have four flame frames, {@code campfire_0} to {@code campfire_3} and
- * {@code standing_torch_0} to {@code standing_torch_3}. A piece with no file answers null, and the caller draws the
+ * {@code standing_torch_0} to {@code standing_torch_3}, and a campfire with no fuel shows {@code campfire_unlit}. A piece with no file answers null, and the caller draws the
  * procedural shape instead.
  * <p>
  * Building art is 32 px wide and its bottom 16 rows are the footprint of the tile, a 32 by 16 diamond, so the bottom
@@ -88,7 +88,9 @@ public final class BuildingSprites {
      */
     public static String spriteName(Building building, int frame) {
         return switch (building.getType()) {
-            case CAMPFIRE, STANDING_TORCH -> FLAME_NAMES.get(building.getType())[Math.floorMod(frame, FLAME_FRAMES)];
+            case CAMPFIRE -> building instanceof ProcessingStation station && !station.isLit() ? CAMPFIRE_UNLIT
+                    : FLAME_NAMES.get(BuildingType.CAMPFIRE)[Math.floorMod(frame, FLAME_FRAMES)];
+            case STANDING_TORCH -> FLAME_NAMES.get(BuildingType.STANDING_TORCH)[Math.floorMod(frame, FLAME_FRAMES)];
             case FURNACE, STONE_OVEN -> (building instanceof ProcessingStation station && station.isLit()
                     ? STOVE_ON_NAMES : STOVE_OFF_NAMES).get(building.getType())
                     [Math.floorMod(building.getRotation(), STOVE_ROTATIONS)];
@@ -125,6 +127,8 @@ public final class BuildingSprites {
     /** The art of the furnace and the stone oven, cold and lit, one name for each way they face. */
     private static final Map<BuildingType, String[]> STOVE_OFF_NAMES = new EnumMap<>(BuildingType.class);
     private static final Map<BuildingType, String[]> STOVE_ON_NAMES = new EnumMap<>(BuildingType.class);
+    /** The campfire with no fire: logs and ash. */
+    private static final String CAMPFIRE_UNLIT = "campfire_unlit";
     private static final String[] GATE_CLOSED_NAMES = {"fence_gate_closed_0", "fence_gate_closed_1"};
     private static final String[] GATE_OPEN_NAMES = {"fence_gate_open_0", "fence_gate_open_1"};
     /** The post of a fence and its four half rails, in the order they are drawn: the back ones, the post, the front ones. */

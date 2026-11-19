@@ -458,7 +458,17 @@ def flame(cv, cx, base, frame, scale=1.0):
     px(cv, cx + [3, -3, 2, -2][frame], base - top - [1, 2, 0, 1][frame], FIRE[3])
 
 
-def campfire(frame):
+def ash(cv, cy):
+    """Grey ash and a few dull embers between the logs of a campfire that is out."""
+    for (x, y) in ((13, cy), (15, cy + 1), (17, cy), (19, cy + 1), (16, cy - 1), (14, cy + 2), (18, cy + 2)):
+        rect(cv, x, y, x + 1, y, STONE[1])
+    for (x, y) in ((15, cy), (18, cy + 1), (13, cy + 1)):
+        px(cv, x, y, STONE[2])
+    px(cv, 16, cy + 1, STONE[0])
+
+
+def campfire(frame=None):
+    """The campfire ring with its logs; a frame number adds that flame frame, None leaves the fire out and burnt."""
     h = 32
     cv = Canvas(WIDTH, h)
     cy = h - DIAMOND_H // 2
@@ -483,7 +493,10 @@ def campfire(frame):
             rect(cv, x, y - 1, x, y, WOOD[2])
             px(cv, x, y + 1, WOOD[0])
     rect(cv, 22, cy - 1, 23, cy + 3, WOOD[3])
-    flame(cv, 16, cy + 1, frame)
+    if frame is None:
+        ash(cv, cy)
+    else:
+        flame(cv, 16, cy + 1, frame)
     cv.outline()
     return cv.image()
 
@@ -543,6 +556,7 @@ def draw_all():
         sprites.append((f"fence_rail_{edge}", family(rail_boxes(edge), [0], FENCE_H)[0]))
     for i in range(4):
         sprites.append((f"campfire_{i}", campfire(i)))
+    sprites.append(("campfire_unlit", campfire()))
     for i in range(4):
         sprites.append((f"standing_torch_{i}", standing_torch(i)))
     sprites.extend(oven_and_path_sprites())

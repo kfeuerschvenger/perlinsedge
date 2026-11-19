@@ -74,6 +74,22 @@ class BuildingSpritesTest {
     }
 
     @Test
+    void aCampfireShowsFlamesOnlyWhileItHasFuel() {
+        final var campfire = (ProcessingStation) BuildingFactory.create(BuildingType.CAMPFIRE, 1, 1, 0);
+
+        assertEquals("campfire_unlit", BuildingSprites.spriteName(campfire, 2));
+
+        campfire.load(ItemType.WOOD_LOG);
+
+        assertEquals("campfire_2", BuildingSprites.spriteName(campfire, 2));
+    }
+
+    @Test
+    void theUnlitCampfireArtIsShipped() {
+        assertNotNull(BuildingSpritesTest.class.getResource("/assets/buildings/campfire_unlit.png"));
+    }
+
+    @Test
     void theLitAndTheColdArtOfEveryStoveIsShipped() {
         for (String base : new String[]{"furnace", "stone_oven"}) {
             for (String state : new String[]{"off", "on"}) {
@@ -89,11 +105,15 @@ class BuildingSpritesTest {
     void theCampfireAndTheStandingTorchAnimateFourFramesAndWrap() {
         for (BuildingType type : new BuildingType[]{BuildingType.CAMPFIRE, BuildingType.STANDING_TORCH}) {
             final String base = type.name().toLowerCase();
-            for (int frame = 0; frame < 4; frame++) {
-                assertEquals(base + "_" + frame, BuildingSprites.spriteName(of(type), frame));
+            final Building piece = of(type);
+            if (piece instanceof ProcessingStation station) {
+                station.load(ItemType.WOOD_LOG);
             }
-            assertEquals(base + "_0", BuildingSprites.spriteName(of(type), 4));
-            assertEquals(base + "_3", BuildingSprites.spriteName(of(type), -1));
+            for (int frame = 0; frame < 4; frame++) {
+                assertEquals(base + "_" + frame, BuildingSprites.spriteName(piece, frame));
+            }
+            assertEquals(base + "_0", BuildingSprites.spriteName(piece, 4));
+            assertEquals(base + "_3", BuildingSprites.spriteName(piece, -1));
         }
     }
 
