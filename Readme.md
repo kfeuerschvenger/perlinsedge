@@ -25,9 +25,8 @@ Geek out with our built-in debug modes. Toggle these cheats: I mean, features: w
 - **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner. The sky line shows the day number, the phase and the clock, and the day number turns when the dawn begins at 03:00, not at midnight.
 - **F2**: Grayscale Mode: See the Perlin noise tile values in all their gray glory.
 - **F3**: Tile Values: Overlay each tile with its raw noise number (great for bragging rights).
-- **F4**: Map Config Panel: Reveal sliders to tweak generation parameters (resources, terrain, seeds) on the fly.
-- **F5**: Regenerate Map: Smash this to get a fresh world with a random seed. It is the same session, so the time of day, the day number and the fast time of F7 carry over to the new map: only a new game starts a new day. The map panel of F4 rebuilds the world the same way.
-- **F7**: Fast Time: Makes a whole day pass in about 40 seconds, so you can watch the sun cross the sky and the shadows turn.
+- **F4**: Regenerate Map: Smash this to get a fresh world with a random seed. It is the same session, so the time of day, the day number and the fast time of F5 carry over to the new map: only a new game starts a new day.
+- **F5**: Fast Time: Makes a whole day pass in about 40 seconds, so you can watch the sun cross the sky and the shadows turn.
 
 ## How to Play
 

@@ -7,7 +7,6 @@ import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -95,17 +94,14 @@ class GameScreenTest {
     }
 
     @Test
-    void theMapConfigAndInventoryPanelsStartHiddenAndOutOfTheLayout() {
+    void theInventoryPanelStartsHiddenAndOutOfTheLayout() {
         onFx(() -> {
             screen.show();
             return null;
         });
 
         final Node panels = root.getChildren().get(1);
-        final MapConfigPanel config = all(panels, MapConfigPanel.class).getFirst();
         final InventoryPanel inventory = all(panels, InventoryPanel.class).getFirst();
-        assertFalse(config.isVisible());
-        assertFalse(config.isManaged());
         assertFalse(inventory.isVisible());
         assertFalse(inventory.isManaged());
     }

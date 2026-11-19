@@ -34,7 +34,6 @@ import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
@@ -79,7 +78,6 @@ public class GameOrchestrator {
     private final FxMinimapDrawer minimapDrawer;
     private final Canvas mainCanvas;
     private final InventoryPanel inventoryPanel;
-    private final MapConfigPanel mapConfigPanel;
     private final DeathOverlay deathOverlay;
 
     /** Draws the seed of every new world. */
@@ -106,7 +104,6 @@ public class GameOrchestrator {
         this.inputHandler = view.inputHandler();
         this.minimapDrawer = view.minimapDrawer();
         this.mainCanvas = view.mainCanvas();
-        this.mapConfigPanel = panels.mapConfigPanel();
         this.inventoryPanel = panels.inventoryPanel();
         this.deathOverlay = panels.deathOverlay();
         this.itemHotbarPanel = panels.itemHotbarPanel();
@@ -119,7 +116,7 @@ public class GameOrchestrator {
         playerManager = new PlayerManager(this.gameState, healthBar, inventoryPanel);
         combatManager = new CombatManager(this.gameState);
         inventoryManager = new InventoryManager(this.gameState, inventoryPanel::updateInventoryDisplay, hintLabel::show);
-        mapManager = new MapManager(this.gameState, mapConfigPanel);
+        mapManager = new MapManager(this.gameState);
         var resourceManager = new ResourceManager(this.gameState, hintLabel::show);
         itemDropManager = new ItemDropManager(this.gameState, inventoryPanel::updateInventoryDisplay);
         stationManager = new StationManager(this.gameState, itemDropManager);
@@ -135,7 +132,7 @@ public class GameOrchestrator {
 
         gameLoop = new GameLoop(this::update, this::render);
         transitions = new GameStateTransitions(this.gameState, buildingManager, containerManager, buildingPalettePanel,
-                inventoryPanel, mapConfigPanel, recipes, gameLoop);
+                inventoryPanel, recipes, gameLoop);
         interactionManager = new InteractionManager(this.gameState, buildingManager, resourceManager,
                 combatManager, containerManager,
                 new InteractionManager.OpenViews(transitions::showOpenContainer, transitions::showStation),
@@ -244,7 +241,6 @@ public class GameOrchestrator {
 
     private void initializeGameComponents() {
         log.debug("Initializing game components");
-        mapConfigPanel.setMapConfigListener(this::applyMapConfig);
         setupInventoryCallbacks();
         inputWiring.registerKeyboard(createKeyController());
         // Ctrl with the wheel zooms in every mode, the plain wheel moves along the item hotbar
@@ -272,7 +268,6 @@ public class GameOrchestrator {
                 this::handleEscape,
                 this::centerOnPlayer,
                 this::regenerateMap,
-                this::toggleMapConfigPanelInGame,
                 transitions::toggleInventory,
                 itemHotbarManager::handleNumberKey
         );
@@ -302,7 +297,7 @@ public class GameOrchestrator {
     }
 
     /**
-     * Tells whether the map keys and the map tuning panel can act now, which is only while a game is running.
+     * Tells whether the map key can act now, which is only while a game is running.
      * Every action that changes or shows the world checks this before it touches anything, so on the main menu none of
      * them leaves a trace.
      */
@@ -313,14 +308,8 @@ public class GameOrchestrator {
         return gameActive;
     }
 
-    private void toggleMapConfigPanelInGame() {
-        if (isGameRunning("the map panel toggle")) {
-            transitions.toggleMapConfigPanel();
-        }
-    }
-
     /**
-     * Replaces the world with a new one of the same type and a new seed, while a game is running. This is what the F5
+     * Replaces the world with a new one of the same type and a new seed, while a game is running. This is what the F4
      * key does. It is the same session, so the time of day, the day number and the fast time carry over to the new
      * map, and only a new game starts a new day. The lights of the old map are gone, and the torch in the player's
      * hand lights the new map as soon as the next frame.
@@ -332,17 +321,6 @@ public class GameOrchestrator {
         log.debug("Regenerating current map");
         MapGenerationContext currentContext = mapManager.getCurrentMapContext();
         rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), seedSource.nextLong()));
-    }
-
-    /**
-     * Applies a map configuration chosen in the map tuning panel by rebuilding the world with it.
-     * The map type the renderer reads is only changed once the new map exists, so it always matches the map on screen.
-     */
-    void applyMapConfig(MapGenerationContext context) {
-        if (!isGameRunning("a map configuration")) {
-            return;
-        }
-        rebuildWorld(context);
     }
 
     /**
@@ -362,7 +340,7 @@ public class GameOrchestrator {
      * {@link #leaveGame()} hid comes back with the next frame.
      * The caller has already checked that a game is running.
      */
-    private void rebuildWorld(MapGenerationContext context) {
+    void rebuildWorld(MapGenerationContext context) {
         var rebuilt = false;
         final TileMap previousMap = gameState.getCurrentMap();
         try {

@@ -14,7 +14,6 @@ import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.MinimapFrame;
 import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
 import javafx.scene.Scene;
@@ -49,7 +48,6 @@ final class GameScreen {
     private final Pane gameLayer;
     private final Pane uiLayer;
 
-    private MapConfigPanel mapConfigPanel;
     private HealthBar healthBar;
     private InventoryPanel inventoryPanel;
     private BuildingPalettePanel palettePanel;
@@ -86,7 +84,7 @@ final class GameScreen {
 
         gameLayer = new Pane(mainCanvas, minimapFrame);
         gameLayer.setPrefSize(width, height);
-        uiLayer = createUiLayer(config);
+        uiLayer = createUiLayer();
     }
 
     /** Puts the world layer and the panel layer on the root pane. */
@@ -107,7 +105,7 @@ final class GameScreen {
 
         final var orchestrator = new GameOrchestrator(
                 new GameView(renderer, camera, inputHandler, minimapDrawer, mainCanvas),
-                new GamePanels(mapConfigPanel, healthBar, inventoryPanel, palettePanel, itemHotbarPanel, hintLabel,
+                new GamePanels(healthBar, inventoryPanel, palettePanel, itemHotbarPanel, hintLabel,
                         deathOverlay),
                 gameStateManager,
                 recipeManager
@@ -116,22 +114,15 @@ final class GameScreen {
         return orchestrator;
     }
 
-    private Pane createUiLayer(AppConfig config) {
+    private Pane createUiLayer() {
         final var layer = new Pane();
         layer.setPickOnBounds(false);
 
-        createUiConfigPanels(config);
         createPlayerUiComponents();
 
-        layer.getChildren().addAll(mapConfigPanel, healthBar, itemHotbarPanel, palettePanel,
+        layer.getChildren().addAll(healthBar, itemHotbarPanel, palettePanel,
                 buildingCostPanel, inventoryPanel, hintLabel, deathOverlay);
         return layer;
-    }
-
-    private void createUiConfigPanels(AppConfig config) {
-        mapConfigPanel = new MapConfigPanel(config.world().getCurrentMapType(), config.world().getDefaultSeed());
-        mapConfigPanel.setVisible(false);
-        mapConfigPanel.setManaged(false);
     }
 
     private void createPlayerUiComponents() {

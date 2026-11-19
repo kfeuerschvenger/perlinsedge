@@ -22,8 +22,7 @@ class KeyControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, () -> { },
-                numbers::add);
+        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, numbers::add);
     }
 
     @AfterEach
@@ -37,19 +36,19 @@ class KeyControllerTest {
 
     private KeyController withCallbacks(List<String> calls) {
         return new KeyController(() -> calls.add("pause"), () -> calls.add("centre"), () -> calls.add("newMap"),
-                () -> calls.add("mapPanel"), () -> calls.add("inventory"), numbers::add);
+                () -> calls.add("inventory"), numbers::add);
     }
 
     @Test
-    void f7TogglesTheFastTimeOfTheDayCycle() {
+    void f5TogglesTheFastTimeOfTheDayCycle() {
         assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
         assertEquals(1.0, AppConfig.getInstance().dayCycle().timeScale());
 
-        controller.onKeyAction(GameKey.F7);
+        controller.onKeyAction(GameKey.F5);
         assertTrue(AppConfig.getInstance().dayCycle().isFastTime());
         assertEquals(30.0, AppConfig.getInstance().dayCycle().timeScale(), 1e-9, "a day of 1200 s in 40 s");
 
-        controller.onKeyAction(GameKey.F7);
+        controller.onKeyAction(GameKey.F5);
         assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
     }
 
@@ -147,7 +146,7 @@ class KeyControllerTest {
     void gameplayKeysAreIgnoredWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, () -> calls.add("inventory"),
+                () -> { }, () -> calls.add("inventory"),
                 n -> calls.add("digit"));
         blocked.setInputBlocked(() -> true);
 
@@ -161,7 +160,7 @@ class KeyControllerTest {
     void pauseAndCameraKeysWorkWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, () -> { }, n -> { });
+                () -> { }, () -> { }, n -> { });
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.ESCAPE);
@@ -174,7 +173,7 @@ class KeyControllerTest {
     void theSpaceBarCentresTheCameraAndNothingElse() {
         List<String> calls = new ArrayList<>();
         KeyController keys = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> calls.add("map"), () -> calls.add("config"), () -> calls.add("inventory"),
+                () -> calls.add("map"), () -> calls.add("inventory"),
                 n -> calls.add("digit"));
 
         keys.onKeyAction(GameKey.SPACE);
@@ -187,7 +186,7 @@ class KeyControllerTest {
     void gameplayKeysWorkAgainOnceInputIsUnblocked() {
         List<String> calls = new ArrayList<>();
         boolean[] blocked = {true};
-        KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { },
+        KeyController keys = new KeyController(() -> { }, () -> { }, () -> { },
                 () -> calls.add("inventory"), n -> { });
         keys.setInputBlocked(() -> blocked[0]);
 
@@ -200,7 +199,7 @@ class KeyControllerTest {
 
     @Test
     void missingActionsAreIgnored() {
-        KeyController bare = new KeyController(null, null, null, null, null, null);
+        KeyController bare = new KeyController(null, null, null, null, null);
 
         assertDoesNotThrow(() -> {
             bare.onKeyAction(GameKey.DIGIT_1);
@@ -275,27 +274,24 @@ class KeyControllerTest {
     }
 
     @Test
-    void theMapKeysOnlyActWhileTheDebugModeIsOn() {
+    void theNewMapKeyOnlyActsWhileTheDebugModeIsOn() {
         final List<String> calls = new ArrayList<>();
         final KeyController wired = withCallbacks(calls);
 
         wired.onKeyAction(GameKey.F4);
-        wired.onKeyAction(GameKey.F5);
         assertTrue(calls.isEmpty(), "debug mode is off");
 
         wired.onKeyAction(GameKey.F1);
         wired.onKeyAction(GameKey.F4);
-        wired.onKeyAction(GameKey.F5);
-        assertEquals(List.of("mapPanel", "newMap"), calls);
+        assertEquals(List.of("newMap"), calls);
     }
 
     @Test
-    void theMapKeysDoNothingWithoutCallbacksEvenInDebugMode() {
-        final KeyController bare = new KeyController(null, null, null, null, null, null);
+    void theNewMapKeyDoesNothingWithoutCallbacksEvenInDebugMode() {
+        final KeyController bare = new KeyController(null, null, null, null, null);
         bare.onKeyAction(GameKey.F1);
 
         bare.onKeyAction(GameKey.F4);
-        bare.onKeyAction(GameKey.F5);
         bare.onKeyAction(GameKey.ESCAPE);
         bare.onKeyAction(GameKey.DIGIT_3);
 

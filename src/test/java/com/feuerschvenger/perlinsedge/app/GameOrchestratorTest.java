@@ -9,7 +9,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
-import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.PointLight;
@@ -26,7 +25,6 @@ import com.feuerschvenger.perlinsedge.ui.view.HealthBar;
 import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.layout.Pane;
@@ -48,23 +46,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Runs the orchestrator on the JavaFX thread with the real views, the way the application builds it.
  */
 class GameOrchestratorTest {
-
-    /** Mirrors the generator until told to fail. */
-    private static final class SwitchablePanel extends MapConfigPanel {
-        boolean failing;
-
-        SwitchablePanel() {
-            super(MapType.DESERT, 1L);
-        }
-
-        @Override
-        public void updateValuesFromGenerator(IMapGenerator generator) {
-            if (failing) {
-                throw new IllegalStateException("panel failed");
-            }
-            super.updateValuesFromGenerator(generator);
-        }
-    }
 
     /** Draws the minimap until told to fail once. */
     private static final class FailingOnceMinimap extends FxMinimapDrawer {
@@ -89,7 +70,6 @@ class GameOrchestratorTest {
 
     private GameStateManager state;
     private GameOrchestrator orchestrator;
-    private SwitchablePanel panel;
     private FailingOnceMinimap minimap;
 
     @BeforeEach
@@ -102,12 +82,11 @@ class GameOrchestratorTest {
             new Scene(new Pane(canvas), 800, 600);
             FxCamera camera = new FxCamera(400, 300, config.core().getInitialZoom());
             Canvas minimapCanvas = new Canvas(config.graphics().getMinimapWidth(), config.graphics().getMinimapHeight());
-            panel = new SwitchablePanel();
             minimap = new FailingOnceMinimap(minimapCanvas, camera, canvas);
             return new GameOrchestrator(
                     new GameView(new FxRenderer(canvas.getGraphicsContext2D(), camera, state), camera,
                             new FxInputHandler(canvas.getScene(), canvas, camera), minimap, canvas),
-                    new GamePanels(panel, new HealthBar(), new InventoryPanel(state),
+                    new GamePanels(new HealthBar(), new InventoryPanel(state),
                             new BuildingPalettePanel(recipes), new ItemHotbarPanel(), new HintLabel(),
                             new DeathOverlay()),
                     state,
@@ -130,22 +109,21 @@ class GameOrchestratorTest {
         });
     }
 
-    /** The map tuning panel's configuration with the values of a default map, for the given type. */
+    /** Rebuilds the world with the values of a default map, for the given type. */
     private void applyConfig(MapType type) {
-        orchestrator.applyMapConfig(new MapGenerationContext(
+        orchestrator.rebuildWorld(new MapGenerationContext(
                 type, 7L, 0.01f, 3, 0.01f, 3, 0.01f, 3, 0.05f, 0.5f, 0.05f, 0.5f, 0.3f, 0.3f));
     }
 
     @Test
-    void theMapKeysDoNothingBeforeAGameIsStarted() {
+    void theMapKeyDoesNothingBeforeAGameIsStarted() {
         MapType before = AppConfig.getInstance().world().getCurrentMapType();
 
         onFx(orchestrator::regenerateMap);
-        onFx(() -> applyConfig(MapType.TUNDRA));
 
         assertNull(state.getCurrentMap(), "no world was built on the main menu");
         assertEquals(before, AppConfig.getInstance().world().getCurrentMapType(),
-                "the map type is not changed by a configuration that is ignored");
+                "the map type is not changed by a regeneration that is ignored");
     }
 
     @Test
@@ -251,21 +229,6 @@ class GameOrchestratorTest {
 
         onFx(orchestrator::regenerateMap);
         assertNotSame(first, state.getCurrentMap(), "the retry rebuilt the world");
-    }
-
-    @Test
-    void aMapPanelThatFailsDoesNotCostTheRebuild() {
-        onFx(() -> orchestrator.startNewGame(MapType.DESERT));
-        TileMap first = state.getCurrentMap();
-        panel.failing = true;
-
-        onFx(() -> applyConfig(MapType.TUNDRA));
-        panel.failing = false;
-
-        assertNotSame(first, state.getCurrentMap());
-        assertNotNull(state.getPlayer(), "the player lives on the new map");
-        assertEquals(MapType.TUNDRA, AppConfig.getInstance().world().getCurrentMapType(),
-                "the map type matches the map on screen");
     }
 
     @Test

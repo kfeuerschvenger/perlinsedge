@@ -103,7 +103,6 @@ public final class AppConfig {
         private static final int HEIGHT = 150;
 
         // Map properties
-        private long defaultSeed = System.currentTimeMillis();
         private MapType currentMapType = MapType.DENSE_FOREST;
 
         // Enemy settings
@@ -145,8 +144,6 @@ public final class AppConfig {
         // Getters and setters
         public int getWidth() { return WIDTH; }
         public int getHeight() { return HEIGHT; }
-        public long getDefaultSeed() { return defaultSeed; }
-        public void setDefaultSeed(long seed) { this.defaultSeed = seed; }
         public MapType getCurrentMapType() { return currentMapType; }
         public void setCurrentMapType(MapType mapType) { this.currentMapType = mapType; }
         public int getBaseSlimesCount() { return BASE_SLIMES_COUNT; }
@@ -653,7 +650,7 @@ public final class AppConfig {
         }
 
         /**
-         * Height noise: the frequency and octaves come from the context, so the tuning panel affects the terrain,
+         * Height noise: the frequency and octaves come from the context, so the map type decides the terrain,
          * while the fractal kind, gain and lacunarity come from the map type profile.
          */
         private NoiseConfig createHeightNoiseConfig(float frequency, int octaves) {

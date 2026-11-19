@@ -22,9 +22,8 @@ public enum GameKey {
     F2,
     F3,
     F4,
-    F5,
     /** Toggles the fast time of the day cycle, so the sun can be watched crossing the sky. */
-    F7,
+    F5,
     DIGIT_1(1),
     DIGIT_2(2),
     DIGIT_3(3),

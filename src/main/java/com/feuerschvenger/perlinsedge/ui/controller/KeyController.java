@@ -21,7 +21,6 @@ public class KeyController implements IKeyListener {
     private final Runnable togglePauseMenuAction;
     private final Runnable centerCameraAction;
     private final Runnable generateNewMapAction;
-    private final Runnable toggleMapConfigPanelAction;
     private final Runnable toggleInventoryPanelAction;
     private final Consumer<Integer> onNumberKeyPress;
     private BooleanSupplier inputBlocked;
@@ -36,20 +35,17 @@ public class KeyController implements IKeyListener {
      * @param togglePauseMenuAction Action run by Escape: drops the selected building piece while building, otherwise toggles the pause menu.
      * @param centerCameraAction Action to center the camera, run by the space bar.
      * @param generateNewMapAction Action to generate a new random map.
-     * @param toggleMapConfigPanelAction Action to toggle the map configuration panel.
      * @param toggleInventoryPanelAction Action to toggle the inventory panel.
      * @param onNumberKeyPress Action to handle number key presses for hotbar selection.
      */
     public KeyController(Runnable togglePauseMenuAction,
                          Runnable centerCameraAction,
                          Runnable generateNewMapAction,
-                         Runnable toggleMapConfigPanelAction,
                          Runnable toggleInventoryPanelAction,
                          Consumer<Integer> onNumberKeyPress) {
         this.togglePauseMenuAction = togglePauseMenuAction;
         this.centerCameraAction = centerCameraAction;
         this.generateNewMapAction = generateNewMapAction;
-        this.toggleMapConfigPanelAction = toggleMapConfigPanelAction;
         this.toggleInventoryPanelAction = toggleInventoryPanelAction;
         this.onNumberKeyPress = onNumberKeyPress;
     }
@@ -139,9 +135,8 @@ public class KeyController implements IKeyListener {
             case F1 -> toggleDebugMode();
             case F2 -> toggleGrayScaleMode();
             case F3 -> toggleDebugText();
-            case F4 -> toggleMapConfigPanelAction();
-            case F5 -> generateNewRandomMap();
-            case F7 -> toggleFastTime();
+            case F4 -> generateNewRandomMap();
+            case F5 -> toggleFastTime();
             default -> { /* the other keys have nothing to do with debugging */ }
         }
     }
@@ -204,17 +199,7 @@ public class KeyController implements IKeyListener {
     }
 
     /**
-     * Toggles the map configuration panel.
-     * If debug mode is not enabled, this action will not take effect.
-     */
-    private void toggleMapConfigPanelAction() {
-        if (debug.isEnabled() && toggleMapConfigPanelAction != null) {
-            toggleMapConfigPanelAction.run();
-        }
-    }
-
-    /**
-     * Generates a new random map. This is the F5 key.
+     * Generates a new random map. This is the F4 key.
      * This action is only available when debug mode is enabled. The map is replaced inside the same session, so the
      * time of day, the day number and the fast time carry over to the new map.
      */

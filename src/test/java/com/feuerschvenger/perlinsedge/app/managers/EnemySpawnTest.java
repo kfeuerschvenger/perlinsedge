@@ -5,9 +5,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
-import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
-import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -34,8 +31,7 @@ class EnemySpawnTest {
         }
         state.setCurrentMap(map);
         state.setPlayer(new Player(PLAYER_TILE, PLAYER_TILE));
-        final MapConfigPanel panel = FxToolkitSupport.onFx(() -> new MapConfigPanel(MapType.DESERT, 1L));
-        final MapManager manager = new MapManager(state, panel);
+        final MapManager manager = new MapManager(state);
 
         for (int round = 0; round < 20; round++) {
             manager.spawnEnemies();
