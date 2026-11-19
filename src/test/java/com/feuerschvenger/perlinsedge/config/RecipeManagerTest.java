@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.config;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -44,6 +45,39 @@ class RecipeManagerTest {
                 ingredientsOf(ItemType.IRON_PICKAXE));
         assertEquals(List.of(new CraftingIngredient(ItemType.IRON_INGOT, 2), new CraftingIngredient(ItemType.STICK, 1)),
                 ingredientsOf(ItemType.IRON_SWORD));
+    }
+
+    private static List<ItemType> outputsAt(CraftingStation station) {
+        return new RecipeManager().getItemRecipesFor(station).stream().map(Recipe::getOutputItemType).toList();
+    }
+
+    @Test
+    void theInventoryCraftsOnlyTheBasicRecipes() {
+        assertEquals(List.of(ItemType.WOOD_PLANK, ItemType.STICK, ItemType.FLINT, ItemType.TORCH, ItemType.HAMMER),
+                outputsAt(CraftingStation.INVENTORY));
+    }
+
+    @Test
+    void theWorkbenchCraftsTheStoneToolsBricksAndPotions() {
+        assertEquals(List.of(ItemType.AXE, ItemType.PICKAXE, ItemType.SWORD, ItemType.STONE_BRICK,
+                ItemType.POTION_HEALTH), outputsAt(CraftingStation.WORKBENCH));
+    }
+
+    @Test
+    void theAnvilCraftsTheIronTools() {
+        assertEquals(List.of(ItemType.IRON_SWORD, ItemType.IRON_AXE, ItemType.IRON_PICKAXE),
+                outputsAt(CraftingStation.ANVIL));
+    }
+
+    @Test
+    void everyItemRecipeBelongsToExactlyOneStationAndTheListsDoNotRepeat() {
+        final RecipeManager manager = new RecipeManager();
+        int listed = 0;
+        for (CraftingStation station : CraftingStation.values()) {
+            listed += manager.getItemRecipesFor(station).size();
+        }
+
+        assertEquals(manager.getAllItemRecipes().size(), listed);
     }
 
     @Test

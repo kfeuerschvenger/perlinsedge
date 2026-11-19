@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
@@ -93,6 +94,7 @@ public class InteractionManager {
     private final CombatManager combatManager;
     private final ContainerManager containerManager;
     private final Runnable onContainerOpened;
+    private final Consumer<CraftingStation> onStationOpened;
     private final Consumer<String> hintSink;
 
     private Pending pending;
@@ -112,7 +114,29 @@ public class InteractionManager {
                               ResourceManager resourceManager, CombatManager combatManager,
                               ContainerManager containerManager,
                               Runnable onContainerOpened, Consumer<String> hintSink) {
+        this(gameState, buildingManager, resourceManager, combatManager, containerManager, onContainerOpened,
+                station -> { }, hintSink);
+    }
+
+    /**
+     * Creates the manager.
+     *
+     * @param gameState         shared game state
+     * @param buildingManager   opens chests and crafting stations and toggles gates
+     * @param resourceManager   hits resources
+     * @param combatManager     swings at enemies
+     * @param containerManager  tells whether an interaction opened a container
+     * @param onContainerOpened called after an interaction opened a container, it shows the container
+     * @param onStationOpened   called after an interaction opened a crafting station, it shows the crafting view
+     * @param hintSink          receives the short message shown when the target cannot be reached
+     */
+    public InteractionManager(GameStateManager gameState, BuildingManager buildingManager,
+                              ResourceManager resourceManager, CombatManager combatManager,
+                              ContainerManager containerManager,
+                              Runnable onContainerOpened, Consumer<CraftingStation> onStationOpened,
+                              Consumer<String> hintSink) {
         this.gameState = gameState;
+        this.onStationOpened = onStationOpened;
         this.buildingManager = buildingManager;
         this.resourceManager = resourceManager;
         this.combatManager = combatManager;
@@ -417,6 +441,8 @@ public class InteractionManager {
             final boolean interacted = buildingManager.interactWithBuilding(tile.getX(), tile.getY());
             if (interacted && containerManager.isContainerOpen()) {
                 onContainerOpened.run();
+            } else if (interacted) {
+                tile.getBuilding().getType().craftingStation().ifPresent(onStationOpened);
             }
             return interacted ? Outcome.ACCEPTED : Outcome.REFUSED;
         }

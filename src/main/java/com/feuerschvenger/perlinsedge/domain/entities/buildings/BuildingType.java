@@ -1,8 +1,10 @@
 package com.feuerschvenger.perlinsedge.domain.entities.buildings;
 
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Defines all building types available in the game with their properties.
@@ -138,6 +140,23 @@ public enum BuildingType {
     /** @return true when the rotation key changes how a piece of this type faces */
     public boolean isRotatable() {
         return rotationCount() > 1;
+    }
+
+    // ==================================================================
+    //  Crafting
+    // ==================================================================
+
+    /**
+     * Gives the place of crafting a piece of this type opens when it is clicked.
+     *
+     * @return the workbench or the anvil station, empty for a piece that is no crafting station
+     */
+    public Optional<CraftingStation> craftingStation() {
+        return switch (this) {
+            case WORKBENCH -> Optional.of(CraftingStation.WORKBENCH);
+            case ANVIL -> Optional.of(CraftingStation.ANVIL);
+            default -> Optional.empty();
+        };
     }
 
     // ==================================================================

@@ -159,6 +159,25 @@ class RecipeTest {
     }
 
     @Test
+    void aRecipeIsCraftedFromTheInventoryUnlessItNamesAStation() {
+        List<CraftingIngredient> ingredients = List.of(new CraftingIngredient(ItemType.STONE, 1));
+
+        assertEquals(CraftingStation.INVENTORY, new Recipe(ItemType.FLINT, 1, ingredients).getStation());
+        assertEquals(CraftingStation.ANVIL,
+                new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.ANVIL).getStation());
+        assertThrows(NullPointerException.class, () -> new Recipe(ItemType.FLINT, 1, ingredients, null));
+    }
+
+    @Test
+    void theStationIsPartOfTheIdentityOfARecipe() {
+        List<CraftingIngredient> ingredients = List.of(new CraftingIngredient(ItemType.STONE, 1));
+        Recipe atBench = new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.WORKBENCH);
+
+        assertEquals(atBench, new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.WORKBENCH));
+        assertFalse(atBench.equals(new Recipe(ItemType.FLINT, 1, ingredients, CraftingStation.ANVIL)));
+    }
+
+    @Test
     void recipeManagerExposesItemAndBuildingRecipes() {
         RecipeManager manager = new RecipeManager();
 

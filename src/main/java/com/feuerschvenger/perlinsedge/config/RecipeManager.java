@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.config;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.BuildingRecipe;
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingIngredient;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.crafting.Recipe;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
@@ -75,6 +76,20 @@ public class RecipeManager {
     }
 
     /**
+     * Retrieves the item recipes crafted at one place, in the order they are listed there.
+     *
+     * @param station The place to list the recipes of
+     * @return Unmodifiable list of the recipes of that place
+     */
+    public List<Recipe> getItemRecipesFor(CraftingStation station) {
+        Objects.requireNonNull(station, "Crafting station cannot be null");
+
+        return itemRecipes.stream()
+                .filter(recipe -> recipe.getStation() == station)
+                .toList();
+    }
+
+    /**
      * Retrieves all building recipes.
      *
      * @return Unmodifiable list of building recipes
@@ -103,71 +118,54 @@ public class RecipeManager {
      * Initializes all item crafting recipes.
      */
     private void initializeItemRecipes() {
-        // Basic tools
-        itemRecipes.add(createToolRecipe(ItemType.AXE,
-                new CraftingIngredient(ItemType.STONE, AXE_STONE_COST),
-                new CraftingIngredient(ItemType.STICK, AXE_STICK_COST))
-        );
+        // Inventory: the basic recipes
+        itemRecipes.add(createMaterialRecipe(CraftingStation.INVENTORY, ItemType.WOOD_PLANK,
+                WOOD_PLANK_OUTPUT,
+                new CraftingIngredient(ItemType.WOOD_LOG, 1)));
 
-        itemRecipes.add(createToolRecipe(ItemType.PICKAXE,
-                new CraftingIngredient(ItemType.STONE, PICKAXE_STONE_COST),
-                new CraftingIngredient(ItemType.STICK, PICKAXE_STICK_COST))
-        );
+        itemRecipes.add(createMaterialRecipe(CraftingStation.INVENTORY, ItemType.STICK,
+                STICK_OUTPUT,
+                new CraftingIngredient(ItemType.WOOD_LOG, 1)));
 
-        itemRecipes.add(createToolRecipe(ItemType.SWORD,
-                new CraftingIngredient(ItemType.STONE, SWORD_STONE_COST),
-                new CraftingIngredient(ItemType.STICK, 1))
-        );
+        itemRecipes.add(createMaterialRecipe(CraftingStation.INVENTORY, ItemType.FLINT,
+                1,
+                new CraftingIngredient(ItemType.STONE, FLINT_STONE_COST)));
 
-        // Iron tools
-        itemRecipes.add(createToolRecipe(ItemType.IRON_AXE,
-                new CraftingIngredient(ItemType.IRON_INGOT, IRON_AXE_INGOT_COST),
-                new CraftingIngredient(ItemType.STICK, AXE_STICK_COST))
-        );
-
-        itemRecipes.add(createToolRecipe(ItemType.IRON_PICKAXE,
-                new CraftingIngredient(ItemType.IRON_INGOT, IRON_PICKAXE_INGOT_COST),
-                new CraftingIngredient(ItemType.STICK, PICKAXE_STICK_COST))
-        );
-
-        itemRecipes.add(createToolRecipe(ItemType.IRON_SWORD,
-                new CraftingIngredient(ItemType.IRON_INGOT, IRON_SWORD_INGOT_COST),
-                new CraftingIngredient(ItemType.STICK, 1))
-        );
-
-        // The tool that puts the player in build mode while it is held
-        itemRecipes.add(createToolRecipe(ItemType.HAMMER,
-                new CraftingIngredient(ItemType.STICK, HAMMER_STICK_COST),
-                new CraftingIngredient(ItemType.STONE, HAMMER_STONE_COST))
-        );
-
-        // Light sources
         itemRecipes.add(new Recipe(
                 ItemType.TORCH,
                 TORCH_OUTPUT,
                 List.of(
                         new CraftingIngredient(ItemType.STICK, 1),
                         new CraftingIngredient(ItemType.COAL, 1)
-                )));
+                ),
+                CraftingStation.INVENTORY));
 
-        // Material processing
-        itemRecipes.add(createMaterialRecipe(ItemType.WOOD_PLANK,
-                WOOD_PLANK_OUTPUT,
-                new CraftingIngredient(ItemType.WOOD_LOG, 1)));
+        // The tool that puts the player in build mode while it is held
+        itemRecipes.add(createToolRecipe(CraftingStation.INVENTORY, ItemType.HAMMER,
+                new CraftingIngredient(ItemType.STICK, HAMMER_STICK_COST),
+                new CraftingIngredient(ItemType.STONE, HAMMER_STONE_COST))
+        );
 
-        itemRecipes.add(createMaterialRecipe(ItemType.STONE_BRICK,
+        // Workbench: stone tools, bricks and potions
+        itemRecipes.add(createToolRecipe(CraftingStation.WORKBENCH, ItemType.AXE,
+                new CraftingIngredient(ItemType.STONE, AXE_STONE_COST),
+                new CraftingIngredient(ItemType.STICK, AXE_STICK_COST))
+        );
+
+        itemRecipes.add(createToolRecipe(CraftingStation.WORKBENCH, ItemType.PICKAXE,
+                new CraftingIngredient(ItemType.STONE, PICKAXE_STONE_COST),
+                new CraftingIngredient(ItemType.STICK, PICKAXE_STICK_COST))
+        );
+
+        itemRecipes.add(createToolRecipe(CraftingStation.WORKBENCH, ItemType.SWORD,
+                new CraftingIngredient(ItemType.STONE, SWORD_STONE_COST),
+                new CraftingIngredient(ItemType.STICK, 1))
+        );
+
+        itemRecipes.add(createMaterialRecipe(CraftingStation.WORKBENCH, ItemType.STONE_BRICK,
                 STONE_BRICK_OUTPUT,
                 new CraftingIngredient(ItemType.STONE, 1)));
 
-        itemRecipes.add(createMaterialRecipe(ItemType.STICK,
-                STICK_OUTPUT,
-                new CraftingIngredient(ItemType.WOOD_LOG, 1)));
-
-        itemRecipes.add(createMaterialRecipe(ItemType.FLINT,
-                1,
-                new CraftingIngredient(ItemType.STONE, FLINT_STONE_COST)));
-
-        // Consumables
         itemRecipes.add(new Recipe(
                 ItemType.POTION_HEALTH,
                 1,
@@ -175,21 +173,39 @@ public class RecipeManager {
                         new CraftingIngredient(ItemType.CRYSTALS, 1),
                         new CraftingIngredient(ItemType.FIBER, POTION_FIBER_COST),
                         new CraftingIngredient(ItemType.SLIME_BALL, 1)
-                )));
+                ),
+                CraftingStation.WORKBENCH));
+
+        // Anvil: iron tools
+        itemRecipes.add(createToolRecipe(CraftingStation.ANVIL, ItemType.IRON_SWORD,
+                new CraftingIngredient(ItemType.IRON_INGOT, IRON_SWORD_INGOT_COST),
+                new CraftingIngredient(ItemType.STICK, 1))
+        );
+
+        itemRecipes.add(createToolRecipe(CraftingStation.ANVIL, ItemType.IRON_AXE,
+                new CraftingIngredient(ItemType.IRON_INGOT, IRON_AXE_INGOT_COST),
+                new CraftingIngredient(ItemType.STICK, AXE_STICK_COST))
+        );
+
+        itemRecipes.add(createToolRecipe(CraftingStation.ANVIL, ItemType.IRON_PICKAXE,
+                new CraftingIngredient(ItemType.IRON_INGOT, IRON_PICKAXE_INGOT_COST),
+                new CraftingIngredient(ItemType.STICK, PICKAXE_STICK_COST))
+        );
     }
 
     /**
      * Creates a tool recipe with standard naming convention.
      */
-    private static Recipe createToolRecipe(ItemType toolType, CraftingIngredient... ingredients) {
-        return new Recipe(toolType, 1, List.of(ingredients));
+    private static Recipe createToolRecipe(CraftingStation station, ItemType toolType, CraftingIngredient... ingredients) {
+        return new Recipe(toolType, 1, List.of(ingredients), station);
     }
 
     /**
      * Creates a material processing recipe with standard naming convention.
      */
-    private static Recipe createMaterialRecipe(ItemType materialType, int outputCount, CraftingIngredient... ingredient) {
-        return new Recipe(materialType, outputCount, List.of(ingredient));
+    private static Recipe createMaterialRecipe(CraftingStation station, ItemType materialType, int outputCount,
+                                               CraftingIngredient... ingredient) {
+        return new Recipe(materialType, outputCount, List.of(ingredient), station);
     }
 
     /**

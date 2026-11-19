@@ -17,6 +17,8 @@ public class InventoryManager {
     private static final String MISSING_INGREDIENTS_HINT = "Missing ingredients";
     /** Hint shown when the result would not fit into the inventory. */
     private static final String NO_ROOM_HINT = "Inventory full";
+    /** Hint shown when a recipe belongs to another place of crafting than the one open. */
+    private static final String WRONG_STATION_HINT = "Craft this at the ";
 
     private final GameStateManager gameState;
     private final Runnable onInventoryChanged;
@@ -37,6 +39,7 @@ public class InventoryManager {
 
     /**
      * Attempts to craft an item based on the specified recipe.
+     * The recipe must belong to the place of crafting that is open, the inventory or a station the player clicked.
      * Validates the ingredients and the room for the result, consumes the ingredients and adds the result.
      *
      * @param recipe Recipe to craft, ignored when null
@@ -54,6 +57,12 @@ public class InventoryManager {
             return false;
         }
         if (player.isDead()) {
+            return false;
+        }
+
+        if (recipe.getStation() != gameState.getCraftingStation()) {
+            log.debug("CRAFT refused: {} is crafted at the {}", recipe.getName(), recipe.getStation());
+            hint.accept(WRONG_STATION_HINT + recipe.getStation().getDisplayName());
             return false;
         }
 

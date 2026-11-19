@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
@@ -66,6 +67,8 @@ public class GameStateManager {
     private final DamageNumbers damageNumbers = new DamageNumbers();
     private boolean isGamePaused;
     private boolean isInventoryOpen;
+    /** The place of crafting the open inventory belongs to: the inventory itself, or the station that was clicked. */
+    private CraftingStation craftingStation = CraftingStation.INVENTORY;
 	@Getter(lombok.AccessLevel.NONE)
     private boolean shouldCenterCamera = true; // true to center at the next update
 
@@ -104,6 +107,7 @@ public class GameStateManager {
         damageNumbers.clear();
         isGamePaused = false;
         isInventoryOpen = false;
+        craftingStation = CraftingStation.INVENTORY;
         shouldCenterCamera = false;
         currentGameMode = GameMode.EXPLORATION;
     }
