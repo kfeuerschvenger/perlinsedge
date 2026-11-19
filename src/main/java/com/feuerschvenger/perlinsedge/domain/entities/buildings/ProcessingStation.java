@@ -48,6 +48,8 @@ public abstract class ProcessingStation extends Building {
     private final StationProfile profile;
     /** The input items of the profile, listed once because they are read on every tick. */
     private final List<ItemType> inputs;
+    /** The fuel items of the profile that are not inputs, listed once because they are read on every tick. */
+    private final List<ItemType> fuelItems;
     /** The units held of each input and each fuel, by the ordinal of the item. */
     private final int[] stock = new int[ITEM_TYPES];
     /** The units held of all items, so a station with nothing in it is told from one at work without a scan. */
@@ -77,6 +79,7 @@ public abstract class ProcessingStation extends Building {
         super(tileX, tileY, type, isSolid, true);
         this.profile = profile;
         this.inputs = profile.inputs();
+        this.fuelItems = profile.fuelItems();
     }
 
     @Override
@@ -153,7 +156,7 @@ public abstract class ProcessingStation extends Building {
         if (profile.isInput(type)) {
             return totalOf(inputs);
         }
-        return profile.isFuel(type) ? totalOf(profile.fuels()) : 0;
+        return profile.isFuel(type) ? totalOf(fuelItems) : 0;
     }
 
     /**
@@ -181,12 +184,13 @@ public abstract class ProcessingStation extends Building {
      * @return each loaded item of the role with its units, empty when none of them is loaded
      */
     public String loadedNamesInRole(ItemType type) {
-        return namesOf(profile.isInput(type) ? inputs : profile.fuels());
+        return namesOf(profile.isInput(type) ? inputs : fuelItems);
     }
 
     private String namesOf(List<ItemType> types) {
         final var names = new StringJoiner(", ");
-        for (ItemType type : types) {
+        for (var i = 0; i < types.size(); i++) {
+            final var type = types.get(i);
             if (count(type) > 0) {
                 names.add(type.getDisplayName() + " " + count(type));
             }
@@ -208,7 +212,7 @@ public abstract class ProcessingStation extends Building {
             return "Empty, takes " + accepted;
         }
         return describeRole(ROLE_INPUT, inputs, profile.inputCap()) + ", "
-                + describeRole(ROLE_FUEL, profile.fuels(), profile.fuelCap());
+                + describeRole(ROLE_FUEL, fuelItems, profile.fuelCap());
     }
 
     private String describeRole(String role, List<ItemType> types, int cap) {
@@ -292,7 +296,7 @@ public abstract class ProcessingStation extends Building {
         return slice;
     }
 
-    /** Makes the product of a finished unit. The fuel is paid first, so the unit is still whole while it is. */
+    /** Makes the product of a finished unit: the fuel it costs is used up, then the input, and the product is made. */
     private void finishIfDone() {
         if (progress < active.seconds() - COMPLETION_EPSILON) {
             return;
@@ -330,9 +334,8 @@ public abstract class ProcessingStation extends Building {
     }
 
     private boolean takeFuel() {
-        final var fuels = profile.fuels();
-        for (var i = 0; i < fuels.size(); i++) {
-            final var fuel = fuels.get(i);
+        for (var i = 0; i < fuelItems.size(); i++) {
+            final var fuel = fuelItems.get(i);
             if (count(fuel) > 0) {
                 stock[fuel.ordinal()]--;
                 loadedUnits--;
@@ -343,9 +346,8 @@ public abstract class ProcessingStation extends Building {
     }
 
     private boolean hasFuelLoaded() {
-        final var fuels = profile.fuels();
-        for (var i = 0; i < fuels.size(); i++) {
-            if (count(fuels.get(i)) > 0) {
+        for (var i = 0; i < fuelItems.size(); i++) {
+            if (count(fuelItems.get(i)) > 0) {
                 return true;
             }
         }

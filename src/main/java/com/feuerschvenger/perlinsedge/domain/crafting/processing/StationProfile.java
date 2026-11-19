@@ -42,6 +42,21 @@ public record StationProfile(List<ProcessingRecipe> recipes, List<ItemType> fuel
     }
 
     /**
+     * Gives the fuel items of the station, which are the burnt items that are not inputs.
+     *
+     * @return each fuel once, in the order the station takes them
+     */
+    public List<ItemType> fuelItems() {
+        final List<ItemType> fuelItems = new ArrayList<>();
+        for (ItemType fuel : fuels) {
+            if (!isInput(fuel) && !fuelItems.contains(fuel)) {
+                fuelItems.add(fuel);
+            }
+        }
+        return fuelItems;
+    }
+
+    /**
      * Tells whether the station takes an item as an input.
      *
      * @param type the item
