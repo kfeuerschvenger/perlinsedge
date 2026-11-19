@@ -372,6 +372,8 @@ public class GameOrchestrator {
             gameState.getLights().clear();
             // So do the stations, which stand on that map
             gameState.getStations().clear();
+            // And the spawn point, which is a bag lying on it
+            gameState.setSpawnBag(null);
             mapManager.generateNewMap(context);
             AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
             playerManager.initializePlayer();

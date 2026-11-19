@@ -13,6 +13,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.SleepingBag;
 import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.world.light.BuildingLight;
@@ -40,6 +41,8 @@ public class BuildingManager {
     private static final int REFUND_SEARCH_RADIUS = 4;
     /** The hint of a piece, a demolition or a closing gate that is refused because someone is in the tile. */
     private static final String HINT_IN_THE_WAY = "Something is standing there";
+    /** The hint of a click on a sleeping bag, which becomes the spawn point. */
+    private static final String HINT_SPAWN_SET = "Spawn point set";
 
     // Dependencies
     private final GameStateManager gameState;
@@ -307,6 +310,9 @@ public class BuildingManager {
      * the ground is announced by the drop manager on its own.
      */
     private void refund(Building building) {
+        if (building == gameState.getSpawnBag()) {
+            gameState.setSpawnBag(null);
+        }
         if (building.getLight() != null) {
             gameState.getLights().remove(building.getLight());
         }
@@ -416,6 +422,11 @@ public class BuildingManager {
         }
         if (building instanceof ProcessingStation station) {
             return interactWithStation(station);
+        }
+        if (building instanceof SleepingBag bag) {
+            gameState.setSpawnBag(bag);
+            hintSink.accept(HINT_SPAWN_SET);
+            return true;
         }
         boolean interacted = building.onInteract(targetTile);
 
