@@ -1,8 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.items;
 
-import java.util.EnumMap;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Defines all item types available in the game with their properties.
@@ -213,35 +211,39 @@ public enum ItemType {
     // ==================================================================
 
     /**
-     * Builds the display name of a constant: the name in sentence case, with the plain tools called after the stone they
-     * are made of, since the iron tier has constants of its own.
-     */
-    private static String displayNameOf(ItemType type) {
-        final var name = type.name();
-        final var generated = name.charAt(0) + name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
-        return switch (type) {
-            case AXE, PICKAXE, SWORD -> "Stone " + generated.toLowerCase(Locale.ROOT);
-            case WOOD_LOG, WOOD_PLANK, STONE, STONE_BRICK, IRON_ORE, IRON_INGOT, CRYSTALS, REFINED_CRYSTALS, COAL,
-                 CHARCOAL, FIBER, SLIME_BALL, STICK, LEATHER, BONE, FLINT, RAW_MEAT, COOKED_MEAT, TORCH, IRON_PICKAXE,
-                 IRON_AXE, IRON_SWORD, HAMMER, POTION_HEALTH -> generated;
-        };
-    }
-
-    /**
-     * Holds the display names, built on first use. A name cannot be built in the constructor of the constants: the
-     * switch that reads the constants runs before they all exist, and this class is only loaded once the enum is
-     * complete.
+     * Holds the display names by the ordinal of the constant, built once when the holder is first used. Init order:
+     * the enum is fully initialised before this class is loaded, because the holder is only touched from
+     * {@link #getDisplayName()}, so {@code values()} is complete when the table is built. A name cannot be built in
+     * the constructor of the constants instead, since the switch that reads the constants runs before they all exist.
      */
     private static final class DisplayNames {
-        private static final Map<ItemType, String> BY_TYPE = new EnumMap<>(ItemType.class);
-
-        static {
-            for (ItemType type : ItemType.values()) {
-                BY_TYPE.put(type, displayNameOf(type));
-            }
-        }
+        private static final String[] BY_ORDINAL = build();
 
         private DisplayNames() {
+        }
+
+        private static String[] build() {
+            final var values = ItemType.values();
+            final var names = new String[values.length];
+            for (var i = 0; i < values.length; i++) {
+                names[i] = displayNameOf(values[i]);
+            }
+            return names;
+        }
+
+        /**
+         * Builds the display name of a constant: the name in sentence case, with the plain tools called after the
+         * stone they are made of, since the iron tier has constants of its own.
+         */
+        private static String displayNameOf(ItemType type) {
+            final var name = type.name();
+            final var generated = name.charAt(0) + name.substring(1).toLowerCase(Locale.ROOT).replace("_", " ");
+            return switch (type) {
+                case AXE, PICKAXE, SWORD -> "Stone " + generated.toLowerCase(Locale.ROOT);
+                case WOOD_LOG, WOOD_PLANK, STONE, STONE_BRICK, IRON_ORE, IRON_INGOT, CRYSTALS, REFINED_CRYSTALS, COAL,
+                     CHARCOAL, FIBER, SLIME_BALL, STICK, LEATHER, BONE, FLINT, RAW_MEAT, COOKED_MEAT, TORCH,
+                     IRON_PICKAXE, IRON_AXE, IRON_SWORD, HAMMER, POTION_HEALTH -> generated;
+            };
         }
     }
 
@@ -289,7 +291,7 @@ public enum ItemType {
 
     /** @return Human-readable name for UI display */
     public String getDisplayName() {
-        return DisplayNames.BY_TYPE.get(this);
+        return DisplayNames.BY_ORDINAL[ordinal()];
     }
 
     /** @return Descriptive text explaining the item's purpose */

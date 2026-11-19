@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ToolStatsTest {
@@ -96,6 +97,14 @@ class ToolStatsTest {
         assertEquals("Stone sword", ItemType.SWORD.getDisplayName());
         assertEquals("Iron pickaxe", ItemType.IRON_PICKAXE.getDisplayName());
         assertEquals("Charcoal", ItemType.CHARCOAL.getDisplayName());
+    }
+
+    @Test
+    void everyItemHasADisplayName() {
+        for (ItemType type : ItemType.values()) {
+            assertNotNull(type.getDisplayName(), type.name());
+            assertFalse(type.getDisplayName().isBlank(), type.name());
+        }
     }
 
     @Test
