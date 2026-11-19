@@ -217,6 +217,10 @@ public final class EnemyOccupancy {
      * Reserves a tile as the target of an enemy, letting go of the target it reserved before. The tile the enemy
      * stands on stays held.
      *
+     * <p>The caller must set the target tile of the enemy to this tile in the same update, before the next
+     * {@link #sync(Enemy)}: the occupancy follows the tiles the enemy reports, and a reservation the enemy does not
+     * report is let go again by that sync. A call that returns false changes nothing.</p>
+     *
      * @param enemy the enemy that is about to move
      * @param x     tile column
      * @param y     tile row

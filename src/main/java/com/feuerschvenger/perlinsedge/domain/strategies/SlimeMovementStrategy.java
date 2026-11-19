@@ -26,8 +26,8 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     // Configuration constants (specific to Slime movement)
     private static final double IDLE_JUMP_INTERVAL_MIN = 2.0;
     private static final double IDLE_JUMP_INTERVAL_MAX = 4.0;
-    private static final double JUMP_SPEED_AGGRO = 0.5; // Duration of jump
-    private static final double JUMP_SPEED_IDLE = 0.8;  // Duration of jump
+    private static final double JUMP_SECONDS_AGGRO = 0.5; // Duration of a hop towards the player
+    private static final double JUMP_SECONDS_IDLE = 0.8;  // Duration of an idle hop
     public static final double JUMP_HEIGHT_FACTOR = 50.0; // Public for rendering
     /** Wait before searching again after the next step of the path turned out to be unusable. */
     private static final double REPLAN_WAIT_SECONDS = 0.15;
@@ -213,7 +213,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
             } else {
                 // Nothing to wait for on a path that is not there
                 clearBlockedStep();
-                moveRandomly(enemy, map, player, JUMP_SPEED_AGGRO); // Fallback to random move if no path
+                moveRandomly(enemy, map, player, JUMP_SECONDS_AGGRO); // Fallback to random move if no path
             }
         }
     }
@@ -239,19 +239,23 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /**
-     * Counts the idle timer down and hops at random when it runs out. A hop that falls due while the slime is in the
-     * air or resting after a landing is kept pending and taken once it can start, instead of being dropped.
+     * Counts the idle timer down and tries a hop to a random free tile when it runs out. A hop that falls due while
+     * the slime is in the air or resting after a landing is kept pending and tried once it can start, instead of being
+     * dropped. The next idle hop is scheduled whenever one was tried, even when no tile was free to hop to.
      */
     private void handleIdleBehavior(Enemy enemy, TileMap map, Player player, double deltaTime) {
         idleTimer -= deltaTime;
 
         if (idleTimer <= 0 && !isJumping && secondsOfRest <= 0) {
-            moveRandomly(enemy, map, player, JUMP_SPEED_IDLE);
+            moveRandomly(enemy, map, player, JUMP_SECONDS_IDLE);
             resetIdleTimer();
         }
     }
 
-    /** Hops to a random free tile around the slime, with the given hop duration, unless it is already in the air. */
+    /**
+     * Hops to a random free tile around the slime, with the given hop duration, unless it is in the air or resting.
+     * Nothing happens when no tile is free or another enemy took the chosen one first.
+     */
     private void moveRandomly(Enemy enemy, TileMap map, Player player, double duration) {
         if (isJumping || secondsOfRest > 0) {
             return;
@@ -424,10 +428,14 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /**
      * Hangs in the air with the target moved back to the take-off tile, so the tile that was the target is no longer
-     * held, and schedules the next look for a tile to land on.
+     * held, and schedules the next look for a tile to land on. The take-off tile is the slime's own: reserving it
+     * only lets go of the old target, and the answer does not change what the slime does. It can be no only when
+     * another enemy took the tile, and then the slime has nowhere else to go and the occupancy gives the tile back to
+     * it on a later sync, so the slime hangs on either way.
      */
     private void hover(Enemy enemy, int fromX, int fromY) {
         hovering = true;
+        // The target is set below in this same update, as the contract of tryReserve asks
         occupancy.tryReserve(enemy, fromX, fromY);
         enemy.setTargetTileX(fromX);
         enemy.setTargetTileY(fromY);
@@ -523,7 +531,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         enemy.setTargetTileY(nextStep.y);
 
         if (!enemy.reachedPathTarget()) {
-            startJump(enemy, JUMP_SPEED_AGGRO);
+            startJump(enemy, JUMP_SECONDS_AGGRO);
         } else {
             // If the path just has the current tile (e.g., path of 1), just complete it immediately
             completeJump(enemy);
