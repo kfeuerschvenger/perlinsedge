@@ -41,8 +41,10 @@ class MapRecipeTest {
 
         source.clear();
 
-        assertEquals(1, recipe.passes().size());
-        assertThrows(UnsupportedOperationException.class, () -> recipe.passes().add(IDLE));
+        final var passes = recipe.passes();
+
+        assertEquals(1, passes.size());
+        assertThrows(UnsupportedOperationException.class, () -> passes.add(IDLE));
     }
 
     @Test

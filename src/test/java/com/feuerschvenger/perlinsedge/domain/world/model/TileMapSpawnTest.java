@@ -25,8 +25,11 @@ class TileMapSpawnTest {
 
     @Test
     void aSpawnOutsideTheMapIsRefused() {
-        assertThrows(IllegalArgumentException.class, () -> new TileMap(WIDTH, HEIGHT, new SpawnPoint(WIDTH, 0)));
-        assertThrows(IllegalArgumentException.class, () -> new TileMap(WIDTH, HEIGHT, new SpawnPoint(0, HEIGHT)));
+        final var pastTheRight = new SpawnPoint(WIDTH, 0);
+        final var pastTheBottom = new SpawnPoint(0, HEIGHT);
+
+        assertThrows(IllegalArgumentException.class, () -> new TileMap(WIDTH, HEIGHT, pastTheRight));
+        assertThrows(IllegalArgumentException.class, () -> new TileMap(WIDTH, HEIGHT, pastTheBottom));
     }
 
     @Test

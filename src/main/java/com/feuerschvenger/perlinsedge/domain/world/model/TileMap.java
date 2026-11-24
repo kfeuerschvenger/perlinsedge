@@ -44,7 +44,7 @@ public class TileMap {
         this.width = width;
         this.height = height;
         this.tiles = new Tile[width][height];
-        if (spawn != null && !isValidCoordinate(spawn.x(), spawn.y())) {
+        if (spawn != null && !isInside(width, height, spawn.x(), spawn.y())) {
             throw new IllegalArgumentException("the spawn point " + spawn + " is outside the " + width + "x" + height
                     + " map");
         }
@@ -131,6 +131,11 @@ public class TileMap {
      * @return true if coordinates are valid, false otherwise
      */
     public boolean isValidCoordinate(int x, int y) {
+        return isInside(width, height, x, y);
+    }
+
+    /** Checks a coordinate against given dimensions, so the constructor never calls an overridable method. */
+    private static boolean isInside(int width, int height, int x, int y) {
         return x >= 0 && x < width && y >= 0 && y < height;
     }
 
