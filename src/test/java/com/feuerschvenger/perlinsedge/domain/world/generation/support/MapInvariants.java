@@ -10,8 +10,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The invariants of generated maps: a common list that every type must satisfy and a per type list that holds what only
- * one identity guarantees. Only properties that hold today are listed; stricter ones are added with the new pipeline.
+ * The invariants of generated maps: a common list that every type must satisfy and a per type list that holds what
+ * only one identity guarantees. Only properties that hold today are listed; stricter ones are added with the new
+ * pipeline.
  */
 public final class MapInvariants {
 
@@ -73,7 +74,10 @@ public final class MapInvariants {
         };
     }
 
-    /** Compares everything the generator decides for a tile: terrain, height and the resource with its seed and health. */
+    /**
+     * Compares everything the generator decides for a tile: terrain, height and the resource with its seed and
+     * health.
+     */
     private static boolean sameContent(TileMap first, TileMap second, int x, int y) {
         final var a = first.getTile(x, y);
         final var b = second.getTile(x, y);

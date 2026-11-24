@@ -17,6 +17,18 @@ class FastNoiseLiteAdapterTest {
     private static final NoiseSettings FRACTAL = new NoiseSettings(0.05f, 4, FractalKind.FBM, 0.5f, 2f);
 
     @Test
+    void foldSeedOutputsArePinned() {
+        final long[] seeds = {0L, 1L, -1L, 42L, 12_345L, 20_261_111L, 987_654_321L, (7L << 32) | 3L, Long.MIN_VALUE,
+                Long.MAX_VALUE};
+        final int[] pinned = {-1_724_029_546, 403_206_445, -4_432_553, -1_841_537_869, -1_950_313_480, 1_557_805_705,
+                -1_317_567_874, 1_501_251_616, 1_521_955_705, 73_681_394};
+
+        for (var i = 0; i < seeds.length; i++) {
+            assertEquals(pinned[i], FastNoiseLiteAdapter.foldSeed(seeds[i]), "seed " + seeds[i]);
+        }
+    }
+
+    @Test
     void foldSeedIsDeterministic() {
         assertEquals(FastNoiseLiteAdapter.foldSeed(12_345L), FastNoiseLiteAdapter.foldSeed(12_345L));
     }

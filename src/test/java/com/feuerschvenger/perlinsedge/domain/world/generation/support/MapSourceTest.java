@@ -10,7 +10,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Guards the state the harness shares with the game and pins what the generator places for one fixed seed. */
+/**
+ * Guards the state the harness shares with the game and pins what the generator places for one fixed seed. The pinned
+ * ore counts depend on the stone and crystal thresholds, the patch frequencies and the densities of the world config,
+ * so changing any of them means capturing the counts again.
+ */
 class MapSourceTest {
 
     private static final int SIZE = 150;

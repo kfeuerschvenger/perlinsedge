@@ -19,6 +19,43 @@ class FlickerTest {
     /** The steepest a mix of the three waves can climb, as a multiple of two pi times the frequency. */
     private static final double MAX_SLOPE_FACTOR = 0.5 * 1.0 + 0.3 * 1.73 + 0.2 * 2.91;
 
+    private static final Rgba ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
+    private static final Rgba YELLOW = new Rgba(1.0, 0.82, 0.45, 1.0);
+
+    /** One golden row: the seed and moment of a flicker and the four factors it must give there. */
+    private record Pinned(long seed, double time, double intensity, double radius, double colour, double shape) {
+    }
+
+    private static final Rgba DRIFT_RED = new Rgba(1, 0, 0, 1);
+    private static final Rgba DRIFT_BLUE = new Rgba(0, 0, 1, 1);
+    private static final double PINNED_TOLERANCE = 1e-12;
+    private static final double SHAPE_AMOUNT = 0.2;
+    private static final double SHAPE_SPEED = 0.5;
+    private static final double DRIFT_SHARE = 0.4;
+    private static final double SHAPE_TURN = 0.3;
+    private static final long SEED_ZERO = 0;
+    private static final long SEED_ONE = 1;
+    private static final long SEED_NEGATIVE = -5;
+    private static final long SEED_FORTY_TWO = 42;
+    private static final double TIME_ORIGIN = 0.0;
+    private static final double TIME_HALF_SECOND = 0.5;
+    private static final double TIME_QUARTER_PAST_ONE = 1.25;
+    private static final double TIME_LATE = 7.9;
+
+    private static final List<Pinned> PINNED = List.of(
+            new Pinned(SEED_ZERO, TIME_ORIGIN, 0.9823569111232505, 1.0135879630186317, 0.7127461053356473,
+                    1.064748721560218),
+            new Pinned(SEED_ZERO, TIME_LATE, 1.0578282938891777, 1.0061017845345113, 0.8886102640555026,
+                    0.8768526428153425),
+            new Pinned(SEED_ONE, TIME_HALF_SECOND, 1.0263712270761531, 1.0263367146762576, 0.4480675319837185,
+                    1.0123333697125199),
+            new Pinned(SEED_FORTY_TWO, TIME_QUARTER_PAST_ONE, 0.9547192708962329, 1.0163215672027863,
+                    0.15649556661262748, 1.0564852225160033),
+            new Pinned(SEED_NEGATIVE, TIME_ORIGIN, 1.0023595696962795, 0.9733009719107767, 0.6398103145459535,
+                    1.016034387983858),
+            new Pinned(SEED_NEGATIVE, TIME_LATE, 1.0722033128952002, 1.0156866989654614, 0.6208718631238823,
+                    0.8423939852178733));
+
     private static Flicker crackling(long seed) {
         return Flicker.crackling(INTENSITY, RADIUS, HZ, seed);
     }
@@ -131,9 +168,6 @@ class FlickerTest {
         assertThrows(IllegalArgumentException.class, () -> base.withColourDrift(ORANGE, YELLOW, 0.0));
     }
 
-    private static final Rgba ORANGE = new Rgba(1.0, 0.58, 0.25, 1.0);
-    private static final Rgba YELLOW = new Rgba(1.0, 0.82, 0.45, 1.0);
-
     private static Flicker flame(long seed) {
         return crackling(seed).withColourDrift(ORANGE, YELLOW, 0.7).withShape(0.10, 0.25);
     }
@@ -216,42 +250,10 @@ class FlickerTest {
         assertTrue(changes, "the lobes change over time");
     }
 
-    /** One golden row: the seed and moment of a flicker and the four factors it must give there. */
-    private record Pinned(long seed, double time, double intensity, double radius, double colour, double shape) {
-    }
-
-    private static final double PINNED_TOLERANCE = 1e-12;
-    private static final double SHAPE_AMOUNT = 0.2;
-    private static final double SHAPE_SPEED = 0.5;
-    private static final double DRIFT_SHARE = 0.4;
-    private static final double SHAPE_TURN = 0.3;
-    private static final long SEED_ZERO = 0;
-    private static final long SEED_ONE = 1;
-    private static final long SEED_NEGATIVE = -5;
-    private static final long SEED_LARGE = 42;
-    private static final double TIME_ORIGIN = 0.0;
-    private static final double TIME_HALF_SECOND = 0.5;
-    private static final double TIME_QUARTER_PAST_ONE = 1.25;
-    private static final double TIME_LATE = 7.9;
-
-    private static final List<Pinned> PINNED = List.of(
-            new Pinned(SEED_ZERO, TIME_ORIGIN, 0.9823569111232505, 1.0135879630186317, 0.7127461053356473,
-                    1.064748721560218),
-            new Pinned(SEED_ZERO, TIME_LATE, 1.0578282938891777, 1.0061017845345113, 0.8886102640555026,
-                    0.8768526428153425),
-            new Pinned(SEED_ONE, TIME_HALF_SECOND, 1.0263712270761531, 1.0263367146762576, 0.4480675319837185,
-                    1.0123333697125199),
-            new Pinned(SEED_LARGE, TIME_QUARTER_PAST_ONE, 0.9547192708962329, 1.0163215672027863,
-                    0.15649556661262748, 1.0564852225160033),
-            new Pinned(SEED_NEGATIVE, TIME_ORIGIN, 1.0023595696962795, 0.9733009719107767, 0.6398103145459535,
-                    1.016034387983858),
-            new Pinned(SEED_NEGATIVE, TIME_LATE, 1.0722033128952002, 1.0156866989654614, 0.6208718631238823,
-                    0.8423939852178733));
-
     /** The shape and colour drift added to the pinned flickers, so every channel is covered. */
     private static Flicker pinnedFlicker(long seed) {
         return crackling(seed).withShape(SHAPE_AMOUNT, SHAPE_SPEED)
-                .withColourDrift(new Rgba(1, 0, 0, 1), new Rgba(0, 0, 1, 1), DRIFT_SHARE);
+                .withColourDrift(DRIFT_RED, DRIFT_BLUE, DRIFT_SHARE);
     }
 
     @Test
