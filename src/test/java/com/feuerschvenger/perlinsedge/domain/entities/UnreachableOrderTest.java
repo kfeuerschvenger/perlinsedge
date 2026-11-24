@@ -12,10 +12,10 @@ import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -27,6 +27,12 @@ class UnreachableOrderTest {
     private static final int SIZE = 300;
     private static final long SEED = 7L;
     private static final int MIN_DISTANCE = 30;
+    /** Fewer tiles than any search that explores the region of the spawn of a map of {@link #SIZE} expands. */
+    private static final int MIN_EXPANDED_NODES = 30;
+    /**
+     * Two map types are enough: the order is refused by the regions of the map whatever the terrain, and a map of
+     * {@link #SIZE} is costly to generate, so each extra type adds time without adding a case.
+     */
     private static final List<MapType> TYPES = List.of(MapType.DENSE_FOREST, MapType.SWAMP);
 
     private final MapGenerator generator = new MapGenerator(FastNoiseLiteAdapter.FACTORY);
@@ -70,14 +76,18 @@ class UnreachableOrderTest {
             final var map = generator.generate(new MapRequest(type, SEED, SIZE, SIZE));
             final var spawn = map.getSpawn().orElseThrow();
             final var target = wallInATile(map, spawn);
-            final var player = new Player(spawn.x(), spawn.y());
+            final var searches = new AtomicInteger();
+            final var player = new Player(spawn.x(), spawn.y(), (searchedMap, occupied) -> {
+                searches.incrementAndGet();
+                return new Pathfinder(searchedMap, occupied);
+            });
             final var regions = map.getWalkableRegions();
 
             // The search alone explores the region of the player before it finds nothing
             final var pathfinder = new Pathfinder(map);
             final var searched = pathfinder.findPath(spawn.x(), spawn.y(), target[0], target[1]);
             assertFalse(searched.reachable(), type.name());
-            assertTrue(pathfinder.getLastExpandedNodes() > MIN_DISTANCE, type.name());
+            assertTrue(pathfinder.getLastExpandedNodes() > MIN_EXPANDED_NODES, type.name());
 
             // The region check rules the order out, which is the only way it is refused without that search
             assertFalse(regions.mayReach(spawn.x(), spawn.y(), target[0], target[1]), type.name());
@@ -86,6 +96,7 @@ class UnreachableOrderTest {
             assertFalse(player.moveTo(map, target[0], target[1]), type.name());
 
             assertFalse(player.isMoving(), type.name());
+            assertEquals(0, searches.get(), type.name());
             assertEquals(relabels, regions.getRelabelCount(), type.name());
         }
     }
@@ -97,7 +108,7 @@ class UnreachableOrderTest {
         final var target = wallInATile(map, spawn);
         map.getTile(target[0], target[1]).setBuilding(new Fence(target[0], target[1]));
 
-        assertNull(InteractionPlanner.pathToReach(map, spawn.x(), spawn.y(), target[0], target[1]));
+        assertTrue(InteractionPlanner.pathToReach(map, spawn.x(), spawn.y(), target[0], target[1]).isEmpty());
     }
 
     @Test
