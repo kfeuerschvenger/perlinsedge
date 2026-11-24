@@ -172,13 +172,15 @@ public class MapManager {
      * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
     private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
-        int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
+        final var world = AppConfig.getInstance().world();
+        final int maxAttempts = world.getMaxPositioningAttempts();
+        final int safeRadius = world.getStartSafeRadius(map.getWidth(), map.getHeight());
 
         for (var attempt = 0; attempt < maxAttempts; attempt++) {
             var x = random.nextInt(map.getWidth());
             var y = random.nextInt(map.getHeight());
 
-            if (taken.ownerOf(x, y) == null && isValidSpawnPosition(x, y, playerPosition, map)) {
+            if (taken.ownerOf(x, y) == null && isValidSpawnPosition(x, y, playerPosition, safeRadius, map)) {
                 return new int[]{x, y};
             }
         }
@@ -188,7 +190,7 @@ public class MapManager {
     /**
      * Validates a potential spawn position.
      */
-    private static boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
+    private static boolean isValidSpawnPosition(int x, int y, int[] playerPosition, int safeRadius, TileMap map) {
         var tile = map.getTile(x, y);
         if (tile == null || !tile.isWalkable()) {
             return false;
@@ -200,7 +202,7 @@ public class MapManager {
 
         if (playerPosition != null) {
             double distance = Math.hypot((double) x - playerPosition[0], (double) y - playerPosition[1]);
-            return distance >= AppConfig.getInstance().world().getStartSafeRadius();
+            return distance >= safeRadius;
         }
 
         return true;

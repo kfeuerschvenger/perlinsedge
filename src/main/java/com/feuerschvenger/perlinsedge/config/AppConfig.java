@@ -106,8 +106,10 @@ public final class AppConfig {
         private static final int MIMICS_PER_100K_TILES = 13;
         private static final int SKELETONS_PER_100K_TILES = 27;
         private static final int MAX_POSITIONING_ATTEMPTS = 3000;
-        /** Tiles around the player in which no enemy spawns when a game starts. */
+        /** Tiles around the player in which no enemy spawns when a game starts, on a map large enough for it. */
         private static final int START_SAFE_RADIUS = 24;
+        /** Largest share of the smaller map side the start safe radius may take, so a small map keeps room for enemies. */
+        private static final double START_SAFE_RADIUS_MAP_FRACTION = 0.25;
 
         // Getters and setters
         public int getWidth() { return WIDTH; }
@@ -115,8 +117,17 @@ public final class AppConfig {
         public MapType getCurrentMapType() { return currentMapType; }
         public void setCurrentMapType(MapType mapType) { this.currentMapType = mapType; }
         public int getMaxPositioningAttempts() { return MAX_POSITIONING_ATTEMPTS; }
-        /** @return tiles around the player in which no enemy spawns when a game starts */
-        public int getStartSafeRadius() { return START_SAFE_RADIUS; }
+
+        /**
+         * @param width  map width in tiles
+         * @param height map height in tiles
+         * @return tiles around the player in which no enemy spawns when a game starts: the configured radius, cut down to
+         * a fraction of the smaller side of a small map
+         */
+        public int getStartSafeRadius(int width, int height) {
+            final var fitting = (int) (Math.min(width, height) * START_SAFE_RADIUS_MAP_FRACTION);
+            return Math.min(START_SAFE_RADIUS, fitting);
+        }
 
         /**
          * @param width  map width in tiles

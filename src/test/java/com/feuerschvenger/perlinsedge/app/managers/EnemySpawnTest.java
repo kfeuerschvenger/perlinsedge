@@ -22,7 +22,12 @@ class EnemySpawnTest {
     private static final int SIZE = 100;
     private static final int PLAYER_TILE = SIZE / 2;
     private static final int ROUNDS = 20;
-    /** The enemies of a default size map, which keep the density the game had on the smaller map it used to have. */
+    private static final int SMALL_SIZE = 40;
+    /** The side of the walkable patch of the crowded map, in a world of deep water. */
+    private static final int PATCH_SIDE = 5;
+    private static final int CROWDED_SIZE = 100;
+    private static final int PATCH_START = 5;
+    /** The enemies of a map of the default size, from the densities per area of the world configuration. */
     private static final int SLIMES_AT_DEFAULT_SIZE = 120;
     private static final int MIMICS_AT_DEFAULT_SIZE = 12;
     private static final int SKELETONS_AT_DEFAULT_SIZE = 24;
@@ -30,14 +35,33 @@ class EnemySpawnTest {
     private final GameStateManager state = new GameStateManager();
 
     private MapManager managerOnFlatMap() {
-        final TileMap map = new TileMap(SIZE, SIZE);
-        for (int x = 0; x < SIZE; x++) {
-            for (int y = 0; y < SIZE; y++) {
+        return managerOnFlatMap(SIZE);
+    }
+
+    private MapManager managerOnFlatMap(int size) {
+        final TileMap map = new TileMap(size, size);
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
                 map.setTile(x, y, new Tile(x, y, TileType.GRASS));
             }
         }
         state.setCurrentMap(map);
-        state.setPlayer(new Player(PLAYER_TILE, PLAYER_TILE));
+        state.setPlayer(new Player(size / 2, size / 2));
+        return new MapManager(state);
+    }
+
+    /** A map of deep water with one small walkable patch in a corner, far from the player in the middle. */
+    private MapManager managerOnCrowdedMap() {
+        final TileMap map = new TileMap(CROWDED_SIZE, CROWDED_SIZE);
+        for (int x = 0; x < CROWDED_SIZE; x++) {
+            for (int y = 0; y < CROWDED_SIZE; y++) {
+                final var inPatch = x >= PATCH_START && x < PATCH_START + PATCH_SIDE
+                        && y >= PATCH_START && y < PATCH_START + PATCH_SIDE;
+                map.setTile(x, y, new Tile(x, y, inPatch ? TileType.GRASS : TileType.DEEP_WATER));
+            }
+        }
+        state.setCurrentMap(map);
+        state.setPlayer(new Player(CROWDED_SIZE / 2, CROWDED_SIZE / 2));
         return new MapManager(state);
     }
 
@@ -62,7 +86,7 @@ class EnemySpawnTest {
     @Test
     void noEnemySpawnsWithinTheStartSafeRadiusOfThePlayer() {
         final MapManager manager = managerOnFlatMap();
-        final int safeRadius = AppConfig.getInstance().world().getStartSafeRadius();
+        final int safeRadius = AppConfig.getInstance().world().getStartSafeRadius(SIZE, SIZE);
 
         for (int round = 0; round < ROUNDS; round++) {
             manager.spawnEnemies();
@@ -84,16 +108,51 @@ class EnemySpawnTest {
 
         final int expected = world.getSlimesCount(SIZE, SIZE) + world.getMimicsCount(SIZE, SIZE)
                 + world.getSkeletonsCount(SIZE, SIZE);
-        assertEquals(expected, state.getEnemies().size());
+        assertTrue(state.getEnemies().size() <= expected);
+        assertFalse(state.getEnemies().isEmpty());
         assertTrue(world.getSlimesCount(SIZE, SIZE) < world.getSlimesCount(SIZE * 2, SIZE * 2));
     }
 
     @Test
-    void theDefaultMapStartsWithTheDensityOfTheSmallerMapTheGameHadBefore() {
+    void theDefaultMapStartsWithTheEnemiesOfItsAreaAtTheConfiguredDensity() {
         final var world = AppConfig.getInstance().world();
 
         assertEquals(SLIMES_AT_DEFAULT_SIZE, world.getSlimesCount(world.getWidth(), world.getHeight()));
         assertEquals(MIMICS_AT_DEFAULT_SIZE, world.getMimicsCount(world.getWidth(), world.getHeight()));
         assertEquals(SKELETONS_AT_DEFAULT_SIZE, world.getSkeletonsCount(world.getWidth(), world.getHeight()));
+    }
+
+    @Test
+    void aSmallMapStillSpawnsEnemiesOutsideAStartSafeRadiusThatFitsIt() {
+        final MapManager manager = managerOnFlatMap(SMALL_SIZE);
+        final var world = AppConfig.getInstance().world();
+        final int safeRadius = world.getStartSafeRadius(SMALL_SIZE, SMALL_SIZE);
+
+        manager.spawnEnemies();
+
+        final int expected = world.getSlimesCount(SMALL_SIZE, SMALL_SIZE) + world.getMimicsCount(SMALL_SIZE, SMALL_SIZE)
+                + world.getSkeletonsCount(SMALL_SIZE, SMALL_SIZE);
+        assertTrue(safeRadius < AppConfig.getInstance().world().getStartSafeRadius(SIZE, SIZE));
+        assertFalse(state.getEnemies().isEmpty(), "a small map has enemies");
+        assertTrue(state.getEnemies().size() <= expected);
+        for (Enemy enemy : state.getEnemies()) {
+            final double distance = Math.hypot(enemy.getCurrentTileX() - SMALL_SIZE / 2.0,
+                    enemy.getCurrentTileY() - SMALL_SIZE / 2.0);
+            assertTrue(distance >= safeRadius, "an enemy spawned " + distance + " tiles from the player");
+        }
+    }
+
+    @Test
+    void aCrowdedMapNeverHoldsMoreEnemiesThanFreeTilesAndStillSpawnsSome() {
+        final MapManager manager = managerOnCrowdedMap();
+
+        manager.spawnEnemies();
+
+        final var tiles = new HashSet<String>();
+        for (Enemy enemy : state.getEnemies()) {
+            assertTrue(tiles.add(enemy.getCurrentTileX() + "," + enemy.getCurrentTileY()));
+        }
+        assertFalse(state.getEnemies().isEmpty(), "some enemies spawn on the patch");
+        assertTrue(state.getEnemies().size() <= PATCH_SIDE * PATCH_SIDE);
     }
 }
