@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -101,7 +103,7 @@ class CarveTest {
     @Test
     void anInvalidStrokeOrLengthIsRefused() {
         final var path = new int[] {0, 1};
-        final TileAction nothing = index -> { };
+        final IntConsumer nothing = index -> { };
 
         assertThrows(IllegalArgumentException.class,
                 () -> Carve.path(WIDTH, HEIGHT, path, path.length, TOO_THIN, nothing));
@@ -114,9 +116,43 @@ class CarveTest {
     }
 
     @Test
+    void anEmptyGridIsRefused() {
+        final var path = new int[] {0};
+        final IntConsumer nothing = index -> { };
+
+        assertThrows(IllegalArgumentException.class,
+                () -> Carve.path(0, HEIGHT, path, 1, Carve.MIN_STROKE, nothing));
+        assertThrows(IllegalArgumentException.class,
+                () -> Carve.path(WIDTH, 0, path, 1, Carve.MIN_STROKE, nothing));
+        assertThrows(IllegalArgumentException.class,
+                () -> Carve.path(-WIDTH, HEIGHT, path, 1, Carve.MIN_STROKE, nothing));
+    }
+
+    @Test
+    void aPathTileOutsideTheGridIsRefusedBeforeAnythingIsCarved() {
+        final var calls = new AtomicInteger();
+        final var below = new int[] {0, -1};
+        final var beyond = new int[] {0, WIDTH * HEIGHT};
+        final IntConsumer count = index -> calls.incrementAndGet();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> Carve.path(WIDTH, HEIGHT, below, below.length, Carve.MIN_STROKE, count));
+        assertThrows(IllegalArgumentException.class,
+                () -> Carve.path(WIDTH, HEIGHT, beyond, beyond.length, Carve.MIN_STROKE, count));
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void tilesPastTheLengthAreNotChecked() {
+        final var path = new int[] {0, WIDTH * HEIGHT};
+
+        assertEquals(Set.of(0), carve(path, 1, Carve.MIN_STROKE));
+    }
+
+    @Test
     void missingArgumentsAreRefused() {
         final var path = new int[] {0};
-        final TileAction nothing = index -> { };
+        final IntConsumer nothing = index -> { };
 
         assertThrows(NullPointerException.class,
                 () -> Carve.path(WIDTH, HEIGHT, null, 0, Carve.MIN_STROKE, nothing));

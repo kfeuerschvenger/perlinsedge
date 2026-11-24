@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.SiteList;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.IntPredicate;
 import java.util.random.RandomGenerator;
 
 /**
@@ -20,9 +21,10 @@ import java.util.random.RandomGenerator;
 final class PoissonDisc {
 
     /** The candidates tried around a site before it is retired. */
-    static final int ATTEMPTS = 30;
+    private static final int ATTEMPTS = 30;
 
     private static final int INITIAL_ACTIVE = 32;
+    private static final int GROWTH_FACTOR = 2;
     private static final double TURN = 2.0 * Math.PI;
     /** The side of a grid cell is the spacing over the square root of two, so a cell holds at most one site. */
     private static final double CELL_DIVISOR = Math.sqrt(2.0);
@@ -30,7 +32,7 @@ final class PoissonDisc {
 
     private final int width;
     private final int height;
-    private final Mask host;
+    private final IntPredicate host;
     private final int spacing;
     private final long spacingSquared;
     private final RandomGenerator random;
@@ -43,7 +45,7 @@ final class PoissonDisc {
     private int[] active = new int[INITIAL_ACTIVE];
     private int activeCount;
 
-    private PoissonDisc(int width, int height, Mask host, int spacing, RandomGenerator random) {
+    private PoissonDisc(int width, int height, IntPredicate host, int spacing, RandomGenerator random) {
         this.width = width;
         this.height = height;
         this.host = host;
@@ -63,17 +65,22 @@ final class PoissonDisc {
      * @param width   the number of columns of the grid
      * @param height  the number of rows of the grid
      * @param host    the tiles a site may stand on
-     * @param spacing the least distance between two sites in tiles, at least 1
+     * @param spacing the least distance between two sites in tiles, from 1 to the larger side of the grid; a larger
+     *                spacing fits at most one site anyway, and the bound keeps the cell arithmetic from overflowing
      * @param random  the seeded source of randomness
      * @return the tile indices of the sites, in the order they were found
-     * @throws IllegalArgumentException when the grid is empty or the spacing is below 1
+     * @throws IllegalArgumentException when the grid is empty or the spacing is outside its range
      */
-    static SiteList sample(int width, int height, Mask host, int spacing, RandomGenerator random) {
+    static SiteList sample(int width, int height, IntPredicate host, int spacing, RandomGenerator random) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(random, "random");
         if (width <= 0 || height <= 0 || spacing < 1) {
             throw new IllegalArgumentException("the grid " + width + "x" + height + " and spacing " + spacing
                     + " must be positive");
+        }
+        if (spacing > Math.max(width, height)) {
+            throw new IllegalArgumentException("the spacing " + spacing + " exceeds the larger side of the grid "
+                    + width + "x" + height);
         }
         return new PoissonDisc(width, height, host, spacing, random).run();
     }
@@ -83,7 +90,7 @@ final class PoissonDisc {
         final var first = random.nextInt(size);
         for (var swept = 0; swept < size; swept++) {
             final var index = (first + swept) % size;
-            if (isClear(index % width, index / width) && host.test(index)) {
+            if (host.test(index) && isClear(index % width, index / width)) {
                 place(index);
                 grow();
             }
@@ -111,7 +118,7 @@ final class PoissonDisc {
             final var distance = spacing * (1.0 + random.nextDouble());
             final var x = siteX + (int) Math.round(StrictMath.cos(angle) * distance);
             final var y = siteY + (int) Math.round(StrictMath.sin(angle) * distance);
-            if (x >= 0 && y >= 0 && x < width && y < height && host.test(y * width + x) && isClear(x, y)) {
+            if (isOnGrid(x, y) && host.test(y * width + x) && isClear(x, y)) {
                 place(y * width + x);
                 return true;
             }
@@ -119,12 +126,16 @@ final class PoissonDisc {
         return false;
     }
 
+    private boolean isOnGrid(int x, int y) {
+        return x >= 0 && y >= 0 && x < width && y < height;
+    }
+
     /** Records a site in the result, the grid and the active list. */
     private void place(int index) {
         sites.add(index);
         grid[cellOf(index % width, index / width)] = index + 1;
         if (activeCount == active.length) {
-            active = Arrays.copyOf(active, activeCount * 2);
+            active = Arrays.copyOf(active, activeCount * GROWTH_FACTOR);
         }
         active[activeCount] = index;
         activeCount++;

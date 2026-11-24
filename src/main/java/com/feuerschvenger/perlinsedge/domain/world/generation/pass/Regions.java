@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.IntPredicate;
 
 /**
  * The 4-connected regions of the tiles a mask selects, found with one flood fill over an array of labels and an array
@@ -11,9 +12,10 @@ import java.util.Objects;
 final class Regions {
 
     /** The label of a tile that is not selected. */
-    static final int NO_LABEL = 0;
+    public static final int NO_LABEL = 0;
 
     private static final int INITIAL_SIZES = 16;
+    private static final int GROWTH_FACTOR = 2;
 
     private final int[] labels;
     private final int[] sizes;
@@ -26,15 +28,16 @@ final class Regions {
     }
 
     /**
-     * Labels the regions of a grid. The mask is called once per tile for the scan and again for each neighbour a fill
-     * examines that has no label yet.
+     * Labels the regions of a grid. The mask is called only for tiles that have no label yet: once in the scan and once
+     * more for each neighbour a fill examines. A tile the mask rejects has no label, so it can be asked again from each
+     * of its selected neighbours, and the mask must answer the same every time.
      *
      * @param width  the number of columns
      * @param height the number of rows
      * @param mask   the tiles that belong to a region
      * @return the regions
      */
-    static Regions label(int width, int height, Mask mask) {
+    static Regions label(int width, int height, IntPredicate mask) {
         Objects.requireNonNull(mask, "mask");
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("the grid needs at least one tile: " + width + "x" + height);
@@ -90,14 +93,14 @@ final class Regions {
     private static final class Fill {
         private final int width;
         private final int height;
-        private final Mask mask;
+        private final IntPredicate mask;
         private final int[] labels;
         private final int[] queue;
         private int[] sizes = new int[INITIAL_SIZES];
         private int count;
         private int largest = NO_LABEL;
 
-        private Fill(int width, int height, Mask mask) {
+        private Fill(int width, int height, IntPredicate mask) {
             this.width = width;
             this.height = height;
             this.mask = mask;
@@ -118,7 +121,7 @@ final class Regions {
         private void open(int start) {
             count++;
             if (count == sizes.length) {
-                sizes = Arrays.copyOf(sizes, sizes.length * 2);
+                sizes = Arrays.copyOf(sizes, sizes.length * GROWTH_FACTOR);
             }
             final var size = flood(start, count);
             sizes[count] = size;

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntPredicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,7 +34,7 @@ class FieldQuantileTest {
         return values;
     }
 
-    private static int countAtOrAbove(float[] values, Mask mask, float threshold) {
+    private static int countAtOrAbove(float[] values, IntPredicate mask, float threshold) {
         var count = 0;
         for (var index = 0; index < values.length; index++) {
             if (mask.test(index) && values[index] >= threshold) {
@@ -46,7 +47,7 @@ class FieldQuantileTest {
     @Test
     void aRampSplitsAtTheRequestedShare() {
         final var values = ramp();
-        final Mask all = index -> true;
+        final IntPredicate all = index -> true;
 
         for (final var share : new double[] {TENTH, HALF, NINE_TENTHS}) {
             final var threshold = FieldQuantile.above(values, all, share);
@@ -58,7 +59,7 @@ class FieldQuantileTest {
     @Test
     void onlyTheSelectedTilesCount() {
         final var values = ramp();
-        final Mask even = index -> index % EVEN == 0;
+        final IntPredicate even =index -> index % EVEN == 0;
 
         final var threshold = FieldQuantile.above(values, even, QUARTER);
 
@@ -71,7 +72,7 @@ class FieldQuantileTest {
         for (var index = 0; index < SIZE; index++) {
             values[index] = values[index] * values[index] * values[index];
         }
-        final Mask all = index -> true;
+        final IntPredicate all = index -> true;
 
         final var threshold = FieldQuantile.above(values, all, FIFTH);
 
@@ -84,7 +85,7 @@ class FieldQuantileTest {
         for (var index = 0; index < SIZE; index++) {
             values[index] = values[index] * SPAN - 1F;
         }
-        final Mask all = index -> true;
+        final IntPredicate all = index -> true;
 
         final var threshold = FieldQuantile.above(values, all, THIRD);
 
@@ -137,7 +138,7 @@ class FieldQuantileTest {
     @Test
     void aShareOutsideZeroToOneIsRefused() {
         final var values = ramp();
-        final Mask all = index -> true;
+        final IntPredicate all = index -> true;
 
         assertThrows(IllegalArgumentException.class, () -> FieldQuantile.above(values, all, -TENTH));
         assertThrows(IllegalArgumentException.class, () -> FieldQuantile.above(values, all, OUT_OF_RANGE));
@@ -147,9 +148,43 @@ class FieldQuantileTest {
     @Test
     void missingArgumentsAreRefused() {
         final var values = ramp();
-        final Mask all = index -> true;
+        final IntPredicate all = index -> true;
 
         assertThrows(NullPointerException.class, () -> FieldQuantile.above(null, all, HALF));
         assertThrows(NullPointerException.class, () -> FieldQuantile.above(values, null, HALF));
+    }
+
+    @Test
+    void theMaskIsCalledOncePerTileWhenTheRangeAnswersAlone() {
+        final var calls = new AtomicInteger();
+        final IntPredicate counting = index -> {
+            calls.incrementAndGet();
+            return true;
+        };
+
+        FieldQuantile.above(ramp(), counting, 1.0);
+
+        assertEquals(SIZE, calls.get());
+    }
+
+    @Test
+    void aSelectedValueThatIsNotFiniteIsRefused() {
+        final var values = ramp();
+        values[SIZE / EVEN] = Float.NaN;
+        final var infinite = ramp();
+        infinite[SIZE / EVEN] = Float.POSITIVE_INFINITY;
+
+        assertThrows(IllegalArgumentException.class, () -> FieldQuantile.above(values, index -> true, HALF));
+        assertThrows(IllegalArgumentException.class, () -> FieldQuantile.above(infinite, index -> true, HALF));
+    }
+
+    @Test
+    void aValueThatIsNotFiniteIsIgnoredWhenItsTileIsNotSelected() {
+        final var values = ramp();
+        values[0] = Float.NaN;
+
+        final var threshold = FieldQuantile.above(values, index -> index > 0, HALF);
+
+        assertEquals(HALF * SIZE, countAtOrAbove(values, index -> index > 0, threshold), TOLERANCE);
     }
 }

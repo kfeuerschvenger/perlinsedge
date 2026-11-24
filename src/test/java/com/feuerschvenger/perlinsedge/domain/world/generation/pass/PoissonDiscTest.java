@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.SplittableRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntPredicate;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,9 +25,12 @@ class PoissonDiscTest {
     private static final int STRIP_GAP_ROW = 20;
     private static final int BIG_SIDE = 300;
     private static final int BIG_SPACING = 45;
-    private static final int HALF = 2;
+    private static final int LEFT_COLUMNS = 30;
+    private static final int TINY_SIDE = 4;
+    private static final int TILE_SPACING = 1;
+    private static final int OVERSIZED_SPACING = SIDE + 1;
 
-    private static SiteList sample(int width, int height, Mask host, int spacing, long seed) {
+    private static SiteList sample(int width, int height, IntPredicate host, int spacing, long seed) {
         return PoissonDisc.sample(width, height, host, spacing, new SplittableRandom(seed));
     }
 
@@ -63,7 +68,7 @@ class PoissonDiscTest {
 
     @Test
     void sitesStandOnHostTilesOnly() {
-        final Mask leftHalf = index -> index % SIDE < SIDE / HALF;
+        final IntPredicate leftHalf = index -> index % SIDE < LEFT_COLUMNS;
 
         final var sites = sample(SIDE, SIDE, leftHalf, SPACING, SEED);
 
@@ -75,7 +80,7 @@ class PoissonDiscTest {
 
     @Test
     void separateHostAreasEachGetSites() {
-        final Mask strips = index -> index / SIDE < STRIP_HEIGHT || index / SIDE >= STRIP_GAP_ROW + STRIP_HEIGHT;
+        final IntPredicate strips =index -> index / SIDE < STRIP_HEIGHT || index / SIDE >= STRIP_GAP_ROW + STRIP_HEIGHT;
 
         final var sites = sample(SIDE, SIDE, strips, SPACING, SEED);
 
@@ -103,9 +108,9 @@ class PoissonDiscTest {
 
     @Test
     void aSpacingOfOneMakesEveryHostTileASite() {
-        final var sites = sample(HALF * HALF, HALF * HALF, index -> true, 1, SEED);
+        final var sites = sample(TINY_SIDE, TINY_SIDE, index -> true, TILE_SPACING, SEED);
 
-        assertEquals(HALF * HALF * HALF * HALF, sites.size());
+        assertEquals(TINY_SIDE * TINY_SIDE, sites.size());
     }
 
     @Test
@@ -118,6 +123,27 @@ class PoissonDiscTest {
         final var sites = sample(BIG_SIDE, BIG_SIDE, index -> true, BIG_SPACING, SEED);
 
         assertTrue(sites.size() >= MIN_SITES && sites.size() < BIG_SIDE, "sites " + sites.size());
+    }
+
+    @Test
+    void theHostIsAskedBeforeTheSitesAreSearched() {
+        final var asked = new AtomicInteger();
+
+        sample(SIDE, SIDE, index -> {
+            asked.incrementAndGet();
+            return false;
+        }, SPACING, SEED);
+
+        assertEquals(SIDE * SIDE, asked.get());
+    }
+
+    @Test
+    void aSpacingLargerThanTheMapIsRefusedAndOneAsLargeAsItIsAccepted() {
+        final var random = new SplittableRandom(SEED);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> PoissonDisc.sample(SIDE, SIDE, index -> true, OVERSIZED_SPACING, random));
+        assertTrue(sample(SIDE, SIDE, index -> true, SIDE, SEED).size() > 0);
     }
 
     @Test

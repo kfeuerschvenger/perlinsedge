@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 import java.util.Objects;
+import java.util.function.IntPredicate;
 
 /**
  * The Chebyshev distance of every tile to the nearest selected tile, in two linear sweeps over an {@code int[]}: a
@@ -12,7 +13,7 @@ import java.util.Objects;
 final class DistanceTransform {
 
     /** The distance of a tile when no tile is selected. */
-    static final int UNREACHABLE = Integer.MAX_VALUE / 2;
+    public static final int UNREACHABLE = Integer.MAX_VALUE / 2;
 
     private DistanceTransform() {
     }
@@ -25,7 +26,7 @@ final class DistanceTransform {
      * @param source the tiles at distance 0
      * @return a new array indexed like the grid, with {@link #UNREACHABLE} everywhere when no tile is selected
      */
-    static int[] chebyshev(int width, int height, Mask source) {
+    static int[] chebyshev(int width, int height, IntPredicate source) {
         Objects.requireNonNull(source, "source");
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("the grid needs at least one tile: " + width + "x" + height);
@@ -49,7 +50,7 @@ final class DistanceTransform {
                     best = Math.min(best, distance[index - 1] + 1);
                 }
                 if (y > 0) {
-                    best = Math.min(best, nearestAbove(distance, index - width, x, width));
+                    best = Math.min(best, nearestInRow(distance, index - width, x, width));
                 }
                 distance[index] = Math.min(best, UNREACHABLE);
             }
@@ -66,7 +67,7 @@ final class DistanceTransform {
                     best = Math.min(best, distance[index + 1] + 1);
                 }
                 if (y < height - 1) {
-                    best = Math.min(best, nearestAbove(distance, index + width, x, width));
+                    best = Math.min(best, nearestInRow(distance, index + width, x, width));
                 }
                 distance[index] = Math.min(best, UNREACHABLE);
             }
@@ -74,7 +75,7 @@ final class DistanceTransform {
     }
 
     /** Returns one more than the lowest distance of the up to three tiles of the row at {@code rowIndex} around x. */
-    private static int nearestAbove(int[] distance, int rowIndex, int x, int width) {
+    private static int nearestInRow(int[] distance, int rowIndex, int x, int width) {
         var best = distance[rowIndex];
         if (x > 0) {
             best = Math.min(best, distance[rowIndex - 1]);
