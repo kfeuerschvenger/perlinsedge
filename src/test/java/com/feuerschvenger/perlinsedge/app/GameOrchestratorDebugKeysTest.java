@@ -33,7 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Drives a real key press through the scene of an orchestrator built with each set of launch options, to prove the
  * launch flag reaches the key controller.
- * The class takes a read-write lock on the global debug flag, so it never overlaps another test that touches it.
+ *
+ * <p>Every test class that changes the global debug flag takes the same resource lock, so they never overlap if the
+ * tests run in parallel.
  */
 @ResourceLock("AppConfig.debug")
 class GameOrchestratorDebugKeysTest {

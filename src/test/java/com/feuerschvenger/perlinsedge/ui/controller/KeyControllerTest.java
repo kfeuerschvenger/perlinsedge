@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ResourceLock("AppConfig.debug")
 class KeyControllerTest {
 
     /** The digit key the tests press to select a hotbar slot. */
