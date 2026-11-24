@@ -47,7 +47,7 @@ public final class DesertFloraPass implements GenerationPass {
             for (var x = 0; x < context.width(); x++) {
                 final var index = context.index(x, y);
                 if (isOpenSand(context, index)
-                        && Chance.unit(context, x, y, SALT) < (nearWater[index] ? wetChance : dryChance)) {
+                        && Chance.unit(context, x, y, SALT) < plantingChance(nearWater[index], wetChance, dryChance)) {
                     context.setResource(index, ResourceType.TREE);
                 }
             }
@@ -57,6 +57,11 @@ public final class DesertFloraPass implements GenerationPass {
     /** Tells whether a tile is sand with no resource on it. */
     private static boolean isOpenSand(GenerationContext context, int index) {
         return context.groundAt(index) == TileType.SAND && context.resourceAt(index) == null;
+    }
+
+    /** Picks the chance of a tree for a sand tile: the thick one within reach of water, the thin one otherwise. */
+    private static double plantingChance(boolean nearWater, double wetChance, double dryChance) {
+        return nearWater ? wetChance : dryChance;
     }
 
     /** Returns the chance of a tree for a factor of the density, never above the largest chance. */
