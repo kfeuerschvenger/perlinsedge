@@ -32,7 +32,7 @@ public final class InvariantRunner {
      * @param source where the maps come from
      */
     public InvariantRunner(MapSource source) {
-        this(source, FAILURES, map -> MapPainter.paint(map, MapStats.nearestFreeTileToCentre(map)), IMAGE_FORMAT);
+        this(source, FAILURES, MapPainter::paint, IMAGE_FORMAT);
     }
 
     /**

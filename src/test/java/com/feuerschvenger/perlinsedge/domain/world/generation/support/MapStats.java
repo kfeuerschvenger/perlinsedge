@@ -1,9 +1,9 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
-
-import java.util.Optional;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 /** Questions the harness asks of a generated map. */
 public final class MapStats {
@@ -12,32 +12,146 @@ public final class MapStats {
     }
 
     /**
-     * Finds the walkable tile without a resource that is nearest to the centre of the map, which is where a player
-     * could start today. Ties go to the first found in row order, so the answer is stable.
+     * Tells whether a tile is walkable ground with no resource on it, which is what a player can stand on and walk
+     * through.
      *
-     * @param map the map
-     * @return the tile, or empty when the map has none
+     * @param tile the tile
+     * @return true when the tile is free
      */
-    public static Optional<Spot> nearestFreeTileToCentre(TileMap map) {
-        final var centreX = map.getWidth() / 2;
-        final var centreY = map.getHeight() / 2;
-        Spot best = null;
-        var bestDistance = Long.MAX_VALUE;
+    public static boolean isFree(Tile tile) {
+        return tile.isWalkable() && !tile.hasResource();
+    }
+
+    /**
+     * Tells whether a terrain is the rock that iron ore and crystals lie in.
+     *
+     * @param type the terrain
+     * @return true for hills and mountains
+     */
+    public static boolean isRocky(TileType type) {
+        return type == TileType.HILL || type == TileType.MOUNTAIN;
+    }
+
+    /**
+     * Counts the tiles that hold a resource.
+     *
+     * @param map  the map
+     * @param type the resource
+     * @return the number of tiles
+     */
+    public static int count(TileMap map, ResourceType type) {
+        var count = 0;
         for (var y = 0; y < map.getHeight(); y++) {
             for (var x = 0; x < map.getWidth(); x++) {
-                final long dx = x - centreX;
-                final long dy = y - centreY;
-                final var distance = dx * dx + dy * dy;
-                if (distance < bestDistance && isFree(map.getTile(x, y))) {
-                    best = new Spot(x, y);
-                    bestDistance = distance;
+                final var resource = map.getTile(x, y).getWorldResource();
+                count += resource != null && resource.getType() == type ? 1 : 0;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts the tiles of the rocky terrain.
+     *
+     * @param map the map
+     * @return the number of hills and mountains
+     */
+    public static int rockyTiles(TileMap map) {
+        var count = 0;
+        for (var y = 0; y < map.getHeight(); y++) {
+            for (var x = 0; x < map.getWidth(); x++) {
+                count += isRocky(map.getTile(x, y).getType()) ? 1 : 0;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts the tiles of land, the ground something can stand on, ice included.
+     *
+     * @param map the map
+     * @return the number of land tiles
+     */
+    public static int landTiles(TileMap map) {
+        var count = 0;
+        for (var y = 0; y < map.getHeight(); y++) {
+            for (var x = 0; x < map.getWidth(); x++) {
+                count += map.getTile(x, y).getType().isLand() ? 1 : 0;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts the tiles of a terrain.
+     *
+     * @param map  the map
+     * @param type the terrain
+     * @return the number of tiles
+     */
+    public static int count(TileMap map, TileType type) {
+        var count = 0;
+        for (var y = 0; y < map.getHeight(); y++) {
+            for (var x = 0; x < map.getWidth(); x++) {
+                count += map.getTile(x, y).getType() == type ? 1 : 0;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Works out, for every tile, the size of the 4-connected region of free tiles it belongs to.
+     *
+     * @param map the map
+     * @return an array indexed {@code y * width + x} with the size of the region of each tile, 0 for a tile that is not
+     *         free
+     */
+    public static int[] regionSizes(TileMap map) {
+        final var width = map.getWidth();
+        final var height = map.getHeight();
+        final var sizes = new int[width * height];
+        final var seen = new boolean[sizes.length];
+        final var queue = new int[sizes.length];
+        for (var start = 0; start < sizes.length; start++) {
+            if (!seen[start] && isFree(map.getTile(start % width, start / width))) {
+                final var size = flood(map, seen, queue, start);
+                for (var i = 0; i < size; i++) {
+                    sizes[queue[i]] = size;
                 }
             }
         }
-        return Optional.ofNullable(best);
+        return sizes;
     }
 
-    private static boolean isFree(Tile tile) {
-        return tile.isWalkable() && !tile.hasResource();
+    /** Visits the free tiles connected to a start tile and returns how many, which are the head of the queue. */
+    private static int flood(TileMap map, boolean[] seen, int[] queue, int start) {
+        final var width = map.getWidth();
+        var head = 0;
+        var tail = 0;
+        seen[start] = true;
+        queue[tail++] = start;
+        while (head < tail) {
+            final var index = queue[head++];
+            final var x = index % width;
+            final var y = index / width;
+            tail = enqueue(map, seen, queue, tail, x - 1, y);
+            tail = enqueue(map, seen, queue, tail, x + 1, y);
+            tail = enqueue(map, seen, queue, tail, x, y - 1);
+            tail = enqueue(map, seen, queue, tail, x, y + 1);
+        }
+        return tail;
+    }
+
+    private static int enqueue(TileMap map, boolean[] seen, int[] queue, int tail, int x, int y) {
+        if (!map.isValidCoordinate(x, y)) {
+            return tail;
+        }
+        final var index = y * map.getWidth() + x;
+        if (seen[index] || !isFree(map.getTile(x, y))) {
+            return tail;
+        }
+        seen[index] = true;
+        queue[tail] = index;
+        return tail + 1;
     }
 }

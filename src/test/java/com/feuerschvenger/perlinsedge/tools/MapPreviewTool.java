@@ -1,10 +1,10 @@
 package com.feuerschvenger.perlinsedge.tools;
 
+import com.feuerschvenger.perlinsedge.domain.world.generation.PassObserver;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.FixedSeeds;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapPainter;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSource;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSpec;
-import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapStats;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,16 +14,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Generates every map type over a few seeds and writes one PNG per map into {@code docs/private/map-previews}, with one
- * pixel per tile, so a change to the generator can be judged by eye. It also logs the time each map took to generate.
- * It is not a test and never runs in the build; run its {@code main} from the IDE with the repository root as the
- * working directory, which is where the output folder is resolved. Arguments, all optional:
- * {@code --types=DESERT,ISLANDS}, {@code --seeds=1,2,3}, {@code --size=300}.
+ * pixel per tile and the spawn marked in red, so a change to the generator can be judged by eye. It also logs the time
+ * each pass took, per map and as the average of each map type, and the time of the whole generation. It is not a test
+ * and never runs in the build; run its {@code main} from the IDE with the repository root as the working directory,
+ * which is where the output folder is resolved. Arguments, all optional: {@code --types=DESERT,ISLANDS},
+ * {@code --seeds=1,2,3}, {@code --size=300}.
  */
 public final class MapPreviewTool {
 
@@ -34,6 +37,7 @@ public final class MapPreviewTool {
     private static final String SEEDS_FLAG = "--seeds=";
     private static final String SIZE_FLAG = "--size=";
     private static final String SEPARATOR = ",";
+    private static final double NANOS_PER_MILLI = 1_000_000.0;
 
     private MapPreviewTool() {
     }
@@ -48,13 +52,18 @@ public final class MapPreviewTool {
         final var types = types(args);
         final var seeds = seeds(args);
         final var size = size(args);
-        final var source = MapSource.current();
         Files.createDirectories(OUTPUT);
         var totalNanos = 0L;
         for (var type : types) {
+            final var timings = new LinkedHashMap<String, Long>();
+            final PassObserver observer = (String name, long nanos) -> timings.merge(name, nanos, Long::sum);
+            final var source = MapSource.observed(observer);
+            var typeNanos = 0L;
             for (var seed : seeds) {
-                totalNanos += preview(source, new MapSpec(type, seed, size));
+                typeNanos += preview(source, new MapSpec(type, seed, size));
             }
+            logTimings(type, seeds.size(), typeNanos, timings);
+            totalNanos += typeNanos;
         }
         LOG.info("{} maps in {} ms, written to {}", types.size() * seeds.size(),
                 TimeUnit.NANOSECONDS.toMillis(totalNanos), OUTPUT.toAbsolutePath());
@@ -64,11 +73,21 @@ public final class MapPreviewTool {
         final var start = System.nanoTime();
         final var map = source.generate(spec);
         final var elapsed = System.nanoTime() - start;
-        final var spot = MapStats.nearestFreeTileToCentre(map);
-        ImageIO.write(MapPainter.paint(map, spot), "png", OUTPUT.resolve(spec.label() + ".png").toFile());
-        LOG.info("{} generated in {} ms (total, per pass timings arrive with the pipeline)", spec.label(),
-                TimeUnit.NANOSECONDS.toMillis(elapsed));
+        ImageIO.write(MapPainter.paint(map), "png", OUTPUT.resolve(spec.label() + ".png").toFile());
         return elapsed;
+    }
+
+    /** Logs the average time of each pass and of the whole generation over the seeds of one map type. */
+    private static void logTimings(MapType type, int maps, long totalNanos, Map<String, Long> timings) {
+        LOG.info("{} average over {} seeds: {} ms per map", type, maps,
+                format(totalNanos / (double) maps));
+        for (var entry : timings.entrySet()) {
+            LOG.info("    {} {} ms", String.format("%-15s", entry.getKey()), format(entry.getValue() / (double) maps));
+        }
+    }
+
+    private static String format(double nanos) {
+        return String.format("%.1f", nanos / NANOS_PER_MILLI);
     }
 
     private static List<MapType> types(String[] args) {

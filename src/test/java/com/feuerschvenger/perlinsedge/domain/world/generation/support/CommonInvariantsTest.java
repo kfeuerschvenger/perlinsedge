@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.SpawnPoint;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -54,8 +55,8 @@ class CommonInvariantsTest {
     @Test
     void thePainterGivesOnePixelPerTileAndColoursSpotsApart() {
         final var map = MapSource.current().generate(new MapSpec(MapType.RIVERS, FixedSeeds.ALL.get(1), TINY));
-        final var plain = MapPainter.paint(map);
-        final var marked = MapPainter.paint(map, Optional.of(new Spot(TINY_CENTRE, TINY_CENTRE)));
+        final var plain = MapPainter.paint(map, Optional.empty());
+        final var marked = MapPainter.paint(map, Optional.of(new SpawnPoint(TINY_CENTRE, TINY_CENTRE)));
 
         assertEquals(TINY, plain.getWidth());
         assertEquals(TINY, plain.getHeight());

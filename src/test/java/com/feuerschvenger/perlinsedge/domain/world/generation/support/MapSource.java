@@ -1,15 +1,13 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
-import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
-import com.feuerschvenger.perlinsedge.domain.world.generation.PerlinMapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.generation.PassObserver;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 
 /**
  * The seam between the harness and whatever generates maps. The invariants, the painter and the preview tool only know
- * this interface, so moving them to the new pipeline means writing one more source and changing {@link #current()}.
+ * this interface, so a different generator means writing one more source and changing {@link #current()}.
  */
 @FunctionalInterface
 public interface MapSource {
@@ -22,36 +20,19 @@ public interface MapSource {
      */
     TileMap generate(MapSpec spec);
 
-    /** @return the source the game uses today, which is the one the harness checks */
+    /** @return the source the game uses, which is the pipeline generator with the real noise */
     static MapSource current() {
-        return MapSource::generateWithPerlin;
+        return observed(PassObserver.NONE);
     }
 
     /**
-     * This source, not the generator, reads the densities, thresholds and noise frequencies of the world config to
-     * build the generation context. The perlin generator copies every setting of that context into the
-     * {@code AppConfig.generationConfig()} singleton (map type, seed, random, densities, thresholds and noise
-     * configurations) and reads them back from there, and the world config reads the tree and river density of the
-     * current map type, so the current map type is set to the one of the spec first. Only the current map type of
-     * the world config is put back after the run. The generation config keeps what the last generated map wrote, so
-     * a test that reads it must generate a map first and never rely on its earlier content. The shared singletons also
-     * make this source safe for one thread only: generate maps from one thread at a time.
+     * Creates the source of the game that also tells an observer how long each pass of every map took.
+     *
+     * @param observer told the name and the time of each pass
+     * @return the source
      */
-    private static TileMap generateWithPerlin(MapSpec spec) {
-        final var world = AppConfig.getInstance().world();
-        final var original = world.getCurrentMapType();
-        world.setCurrentMapType(spec.type());
-        try {
-            final var profile = NoiseSettings.heightProfile(spec.type());
-            final var context = new MapGenerationContext(spec.type(), spec.seed(), profile.frequency(),
-                    profile.octaves(), world.getTemperatureNoiseFrequency(), world.getTemperatureNoiseOctaves(),
-                    world.getMoistureNoiseFrequency(), world.getMoistureNoiseOctaves(),
-                    world.getStonePatchFrequency(), world.getStoneThreshold(),
-                    world.getCrystalsPatchFrequency(), world.getCrystalsThreshold(),
-                    world.getTreeDensity(), world.getRiverDensity());
-            return new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY).generateMap(spec.size(), spec.size(), context);
-        } finally {
-            world.setCurrentMapType(original);
-        }
+    static MapSource observed(PassObserver observer) {
+        final var generator = new MapGenerator(FastNoiseLiteAdapter.FACTORY);
+        return (MapSpec spec) -> generator.generate(spec.toRequest(), observer);
     }
 }

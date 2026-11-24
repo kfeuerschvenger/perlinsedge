@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import org.junit.jupiter.api.Test;
@@ -11,27 +10,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Guards the state the harness shares with the game and pins what the generator places for one fixed seed. The pinned
- * ore counts depend on the stone and crystal thresholds, the patch frequencies and the densities of the world config,
- * so changing any of them means capturing the counts again.
+ * Pins what the generator places for one fixed seed. The pinned ore counts depend on the rock chances, the crystal
+ * threshold, the noise of the crystal patches and the salts of the tile hash, so changing any of them means capturing
+ * the counts again.
  */
 class MapSourceTest {
 
     private static final int SIZE = 150;
     private static final long SEED = 1L;
-    private static final int PINNED_IRON_ORE = 54;
-    private static final int PINNED_CRYSTALS = 17;
-
-    @Test
-    void generatingLeavesTheCurrentMapTypeOfTheWorldAsItWas() {
-        final var world = AppConfig.getInstance().world();
-        final var before = world.getCurrentMapType();
-        final var other = before == MapType.DESERT ? MapType.TUNDRA : MapType.DESERT;
-
-        MapSource.current().generate(new MapSpec(other, SEED, SIZE));
-
-        assertEquals(before, world.getCurrentMapType());
-    }
+    private static final int PINNED_IRON_ORE = 46;
+    private static final int PINNED_CRYSTALS = 6;
 
     @Test
     void ironAndCrystalCountsArePinnedForOneSeedAndType() {
