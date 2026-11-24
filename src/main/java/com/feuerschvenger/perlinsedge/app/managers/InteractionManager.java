@@ -188,12 +188,13 @@ public class InteractionManager {
         final int tileY = tile.getY();
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
-        final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY,
+        final var planned = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY,
                 OccupiedTiles.of(gameState.getEnemies()));
-        if (walk == null) {
+        if (planned.isEmpty()) {
             hintSink.accept("You can't reach that");
             return Outcome.REFUSED;
         }
+        final List<PathNode> walk = planned.get();
         if (walk.isEmpty()) {
             // A walk left over from an earlier order would carry the player away from the target
             player.stop();
@@ -340,12 +341,13 @@ public class InteractionManager {
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
         // Capped: an enemy that cannot be reached, such as one across water, must not make the click search the map
-        final List<PathNode> walk = InteractionPlanner.pathToReach(map, origin.x, origin.y, enemyX, enemyY,
+        final var planned = InteractionPlanner.pathToReach(map, origin.x, origin.y, enemyX, enemyY,
                 OccupiedTiles.of(gameState.getEnemies()), enemySearchBudget(map));
-        if (walk == null) {
+        if (planned.isEmpty()) {
             hintSink.accept("You can't reach that");
             return false;
         }
+        final List<PathNode> walk = planned.get();
         if (walk.isEmpty()) {
             // Nothing left to walk: a walk left over from an earlier order would carry the player away, so it ends
             // and the swing happens once the player stands next to the enemy, as for any other interaction
