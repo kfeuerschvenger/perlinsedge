@@ -184,6 +184,32 @@ class RiverPassTest {
     }
 
     @Test
+    void aRiverRunsOnPastTheStartsOfItsBranches() {
+        var farthest = -1;
+        for (var seed = 1L; seed <= BRANCH_SEEDS; seed++) {
+            final var context = ramp(seed);
+
+            // A branch starts at every step, so a river that stopped at the first one would end near its source
+            apply(context, params(ONE_RIVER, LONG_MIN, LONG_MAX, ALWAYS, TileType.SHALLOW_WATER));
+
+            farthest = Math.max(farthest, rightmostRiverColumn(context));
+        }
+
+        // Branches only reach a few tiles past their start, so only the river itself gets further than this
+        assertTrue(farthest > LAST_SOURCE_COLUMN + BRANCH_MIN + BRANCH_SPREAD, "the farthest column is " + farthest);
+    }
+
+    private static int rightmostRiverColumn(GenerationContext context) {
+        var rightmost = -1;
+        for (var index = 0; index < context.size(); index++) {
+            if (context.groundAt(index) == TileType.RIVER) {
+                rightmost = Math.max(rightmost, context.xOf(index));
+            }
+        }
+        return rightmost;
+    }
+
+    @Test
     void withNoHighGroundThereAreNoRivers() {
         final var context = ramp(SEED);
         Arrays.fill(context.field(NoiseField.HEIGHT), FLAT);
@@ -224,6 +250,9 @@ class RiverPassTest {
                         TileType.ICE));
         assertThrows(NullPointerException.class,
                 () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                        TileType.DEEP_WATER));
         assertThrows(NullPointerException.class, () -> new RiverPass(null));
     }
 }

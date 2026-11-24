@@ -131,6 +131,17 @@ public final class GenerationContext {
     }
 
     /**
+     * Tells whether a column and a row lie on the map.
+     *
+     * @param x the column
+     * @param y the row
+     * @return true when both are inside the map
+     */
+    public boolean isOnMap(int x, int y) {
+        return x >= 0 && y >= 0 && x < width && y < height;
+    }
+
+    /**
      * Returns the column of an array index.
      *
      * @param index an index into the arrays
@@ -269,7 +280,8 @@ public final class GenerationContext {
     }
 
     /**
-     * Returns the tile a pass asked the spawn to be near, such as the middle of a clearing.
+     * Returns the tile a pass asked the spawn to be near, such as the middle of a clearing. This is an extension point
+     * that no recipe uses yet: the content pass that clears a spawn area in the forest is the first one meant to set it.
      *
      * @return the index, or {@link #NONE} when no pass asked for one
      */
@@ -278,7 +290,8 @@ public final class GenerationContext {
     }
 
     /**
-     * Sets the tile the spawn should be near.
+     * Sets the tile the spawn should be near. This is an extension point that no recipe uses yet: the content pass that
+     * clears a spawn area in the forest is the first one meant to call it.
      *
      * @param index an index into the arrays, or {@link #NONE}
      * @throws IndexOutOfBoundsException when the index is neither {@link #NONE} nor inside the map

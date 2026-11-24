@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
+import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
@@ -60,22 +61,23 @@ public final class RiverPass implements GenerationPass {
         private final int[] branch;
         private final int[] candidates = new int[STEP_X.length];
         private final RandomGenerator random;
-        private final int width;
-        private final int height;
         /** The tiles a river may start on, of which the first {@code sourceCount} are filled. */
         private final int[] sources;
         private int sourceCount;
+        /** For each tile, the number of the river whose branch covers it, 0 for none. */
+        private final int[] branchOwner;
+        /** The number of the river being traced, counting from 1. */
+        private int riverNumber;
 
         /** Prepares the masks and buffers of a run. */
         Flow(GenerationContext context) {
             this.context = context;
             this.heights = context.field(NoiseField.HEIGHT);
             this.inRiver = new boolean[context.size()];
+            this.branchOwner = new int[context.size()];
             this.river = new int[params.maxLength()];
             this.branch = new int[params.tributaries().maxLength()];
             this.random = context.random(SALT);
-            this.width = context.width();
-            this.height = context.height();
             this.sources = new int[context.size()];
         }
 
@@ -97,7 +99,8 @@ public final class RiverPass implements GenerationPass {
         private void collectSources() {
             for (var index = 0; index < sources.length; index++) {
                 if (context.groundAt(index).isLand() && heights[index] > params.sourceMinHeight()) {
-                    sources[sourceCount++] = index;
+                    sources[sourceCount] = index;
+                    sourceCount++;
                 }
             }
         }
@@ -122,12 +125,14 @@ public final class RiverPass implements GenerationPass {
 
         /** Walks downhill from a tile and turns the tiles it passes into river. */
         private void trace(int start, int maxLength) {
+            riverNumber++;
             var index = start;
             var length = 0;
             var covered = 0;
-            while (length < maxLength && !isWater(index)) {
+            while (length < maxLength && (isOwnBranch(index) || !isWater(index))) {
                 inRiver[index] = true;
-                river[covered++] = index;
+                river[covered] = index;
+                covered++;
                 final var next = nextPoint(index);
                 if (next == NO_TILE) {
                     makeLake(index);
@@ -143,11 +148,18 @@ public final class RiverPass implements GenerationPass {
             carve(river, covered);
         }
 
-        /** Walks downhill from a point of a river and turns the tiles it passes into river, stopping at a river. */
+        /** Draws the length of a branch, before the start is looked at, and walks it. */
         private void traceBranch(int start) {
-            // The length is drawn before the start is looked at
             final var tributaries = params.tributaries();
-            final var maxLength = tributaries.minLength() + random.nextInt(tributaries.lengthSpread());
+            walkBranch(start, tributaries.minLength() + random.nextInt(tributaries.lengthSpread()));
+        }
+
+        /**
+         * Walks downhill from a point of a river and turns the tiles it passes into river, stopping at a river. The
+         * tiles are noted as branch tiles of the river being traced, so that river runs on past the start of the
+         * branch instead of stopping at the water the branch made.
+         */
+        private void walkBranch(int start, int maxLength) {
             if (!context.groundAt(start).isLand() || heights[start] < params.sourceMinHeight()) {
                 return;
             }
@@ -155,7 +167,9 @@ public final class RiverPass implements GenerationPass {
             var covered = 0;
             for (var step = 0; step < maxLength && !inRiver[index]; step++) {
                 inRiver[index] = true;
-                branch[covered++] = index;
+                branchOwner[index] = riverNumber;
+                branch[covered] = index;
+                covered++;
                 final var next = nextPoint(index);
                 if (next == NO_TILE) {
                     break;
@@ -184,8 +198,9 @@ public final class RiverPass implements GenerationPass {
                     lowest = heights[neighbour];
                     count = 0;
                 }
-                if (Float.compare(heights[neighbour], lowest) == 0) {
-                    candidates[count++] = neighbour;
+                if (Doubles.areEqual(heights[neighbour], lowest)) {
+                    candidates[count] = neighbour;
+                    count++;
                 }
             }
             return count == 0 ? NO_TILE : candidates[random.nextInt(count)];
@@ -193,12 +208,20 @@ public final class RiverPass implements GenerationPass {
 
         /** Returns the index of a tile, or {@link #NO_TILE} when it lies outside the map. */
         private int neighbourOf(int x, int y) {
-            return x < 0 || y < 0 || x >= width || y >= height ? NO_TILE : context.index(x, y);
+            return context.isOnMap(x, y) ? context.index(x, y) : NO_TILE;
         }
 
-        /** Tells whether a river may flow into a tile lower than {@code current}: water, or ground not yet covered. */
+        /**
+         * Tells whether a river may flow into a tile lower than {@code current}: water, or ground not yet covered, but
+         * never a branch of its own.
+         */
         private boolean isOpen(int index, float current) {
-            return heights[index] < current && (!inRiver[index] || isWater(index));
+            return heights[index] < current && (!inRiver[index] || isWater(index)) && !isOwnBranch(index);
+        }
+
+        /** Tells whether a tile belongs to a branch of the river being traced. */
+        private boolean isOwnBranch(int index) {
+            return branchOwner[index] == riverNumber;
         }
 
         /** Tells whether a tile is water a river flows into. */
