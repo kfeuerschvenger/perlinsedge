@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,6 +20,7 @@ class CommonInvariantsTest {
 
     private static final int SIZE = 150;
     private static final int TINY = 16;
+    private static final int TINY_CENTRE = TINY / 2;
 
     @ParameterizedTest
     @EnumSource(MapType.class)
@@ -28,9 +30,11 @@ class CommonInvariantsTest {
         final var invariants = new ArrayList<>(MapInvariants.common(source));
         invariants.addAll(MapInvariants.perType().get(type));
 
-        for (var seed : FixedSeeds.ALL) {
-            runner.run(new MapSpec(type, seed, SIZE), invariants);
-        }
+        assertDoesNotThrow(() -> {
+            for (var seed : FixedSeeds.ALL) {
+                runner.run(new MapSpec(type, seed, SIZE), invariants);
+            }
+        });
     }
 
     @Test
@@ -51,10 +55,10 @@ class CommonInvariantsTest {
     void thePainterGivesOnePixelPerTileAndColoursSpotsApart() {
         final var map = MapSource.current().generate(new MapSpec(MapType.RIVERS, FixedSeeds.ALL.get(1), TINY));
         final var plain = MapPainter.paint(map);
-        final var marked = MapPainter.paint(map, Optional.of(new Spot(TINY / 2, TINY / 2)));
+        final var marked = MapPainter.paint(map, Optional.of(new Spot(TINY_CENTRE, TINY_CENTRE)));
 
         assertEquals(TINY, plain.getWidth());
         assertEquals(TINY, plain.getHeight());
-        assertNotEquals(plain.getRGB(TINY / 2, TINY / 2), marked.getRGB(TINY / 2, TINY / 2));
+        assertNotEquals(plain.getRGB(TINY_CENTRE, TINY_CENTRE), marked.getRGB(TINY_CENTRE, TINY_CENTRE));
     }
 }

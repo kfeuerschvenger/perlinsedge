@@ -1,8 +1,10 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -30,14 +32,14 @@ public final class MapInvariants {
     /**
      * Builds the invariants of each map type. Empty until the identities of the new pipeline define their own.
      *
-     * @return the invariants by type, with an entry for every type
+     * @return the invariants by type, with an entry for every type, as a map that cannot be modified
      */
     public static Map<MapType, List<MapInvariant>> perType() {
         final var byType = new EnumMap<MapType, List<MapInvariant>>(MapType.class);
         for (var type : MapType.values()) {
             byType.put(type, List.of());
         }
-        return byType;
+        return Collections.unmodifiableMap(byType);
     }
 
     private static void hasTheRequestedSize(TileMap map, MapSpec spec) {
@@ -71,13 +73,20 @@ public final class MapInvariants {
         };
     }
 
+    /** Compares everything the generator decides for a tile: terrain, height and the resource with its seed and health. */
     private static boolean sameContent(TileMap first, TileMap second, int x, int y) {
         final var a = first.getTile(x, y);
         final var b = second.getTile(x, y);
-        if (a.getType() != b.getType() || a.hasResource() != b.hasResource()) {
-            return false;
+        return a.getType() == b.getType() && Float.compare(a.getHeight(), b.getHeight()) == 0
+                && sameResource(a.getWorldResource(), b.getWorldResource());
+    }
+
+    private static boolean sameResource(Resource a, Resource b) {
+        if (a == null || b == null) {
+            return a == b;
         }
-        return !a.hasResource() || a.getWorldResource().getType() == b.getWorldResource().getType();
+        return a.getType() == b.getType() && a.getVisualSeed() == b.getVisualSeed() && a.getHealth() == b.getHealth()
+                && a.isDepleted() == b.isDepleted();
     }
 
     private static void require(boolean condition, String message) {

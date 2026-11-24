@@ -12,9 +12,10 @@ class StationProfileTest {
     private static final int CAP = 10;
     private static final double SECONDS = 2.0;
     private static final double BURN_SECONDS = 5.0;
+    private static final int INPUT_AMOUNT = 1;
 
     private static StationProfile profile(List<ItemType> fuels) {
-        var recipe = new ProcessingRecipe(ItemType.IRON_ORE, ItemType.IRON_INGOT, SECONDS, 1);
+        var recipe = new ProcessingRecipe(ItemType.IRON_ORE, ItemType.IRON_INGOT, SECONDS, INPUT_AMOUNT);
         return new StationProfile(List.of(recipe), fuels, FuelMode.BURNING, CAP, CAP, BURN_SECONDS);
     }
 

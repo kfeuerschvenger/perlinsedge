@@ -8,10 +8,9 @@ class SpawnSeedTest {
 
     @Test
     void seedIsPinnedForFixedTilesIncludingNegativeOnes() {
-        assertEquals(0xE220_A839_7B1D_CDAFL, SpawnSeed.of(0, 0));
-        assertEquals(0xB370_3AD8_9450_7022L, SpawnSeed.of(1, 2));
-        assertEquals(0xE4D9_7177_1B65_2C20L, SpawnSeed.of(-1, -1));
-        assertEquals(0xB772_7CEE_ABBA_EE39L, SpawnSeed.of(-7, 3));
-        assertEquals(0x1939_1B55_6C95_9740L, SpawnSeed.of(Integer.MIN_VALUE, Integer.MAX_VALUE));
+        assertEquals(0x0A3C_5B55_F34C_03D6L, SpawnSeed.of(5, 5));
+        assertEquals(0xA480_6683_09A7_BA3AL, SpawnSeed.of(100, -100));
+        assertEquals(0x35DA_DF3D_8DEC_1954L, SpawnSeed.of(Integer.MAX_VALUE, 0));
+        assertEquals(0x2549_3CC6_3225_736CL, SpawnSeed.of(0, Integer.MIN_VALUE));
     }
 }

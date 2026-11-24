@@ -19,6 +19,8 @@ public final class MapPainter {
     /** Half the side of the square marker that shows the spawn, in pixels. */
     private static final int MARKER_REACH = 2;
     private static final Rgba MARKER_COLOUR = Rgba.RED;
+    private static final Rgba TREE_COLOUR = Rgba.rgb(10, 50, 15);
+    private static final Rgba STONE_COLOUR = Rgba.rgb(170, 170, 175);
 
     private static final Map<ResourceType, Rgba> RESOURCE_COLOURS = resourceColours();
 
@@ -27,8 +29,8 @@ public final class MapPainter {
 
     private static Map<ResourceType, Rgba> resourceColours() {
         final var colours = new EnumMap<ResourceType, Rgba>(ResourceType.class);
-        colours.put(ResourceType.TREE, Rgba.rgb(10, 50, 15));
-        colours.put(ResourceType.STONE, Rgba.rgb(170, 170, 175));
+        colours.put(ResourceType.TREE, TREE_COLOUR);
+        colours.put(ResourceType.STONE, STONE_COLOUR);
         colours.put(ResourceType.IRON_ORE, Rgba.ORANGE);
         colours.put(ResourceType.CRYSTALS, Rgba.MAGENTA);
         return colours;

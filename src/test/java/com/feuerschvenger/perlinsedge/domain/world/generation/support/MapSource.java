@@ -28,8 +28,12 @@ public interface MapSource {
     }
 
     /**
-     * The perlin generator reads some settings from the configuration singleton, so the map type is set for the run and
-     * put back afterwards, which leaves other tests in the same JVM as they were.
+     * The perlin generator copies every setting of its context into the {@code AppConfig.generationConfig()} singleton
+     * (map type, seed, random, densities, thresholds and noise configurations) and reads them back from there, and
+     * it reads the tree and river density from the current map type of the world config. Only the current map type of
+     * the world config is put back after the run. The generation config keeps what the last generated map wrote, so
+     * a test that reads it must generate a map first and never rely on its earlier content. The shared singletons also
+     * make this source safe for one thread only: generate maps from one thread at a time.
      */
     private static TileMap generateWithPerlin(MapSpec spec) {
         final var world = AppConfig.getInstance().world();

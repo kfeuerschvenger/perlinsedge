@@ -17,6 +17,15 @@ class HashesTest {
     }
 
     @Test
+    void scrambleIsPinnedForFixedInputs() {
+        assertEquals(0L, Hashes.scramble(0L));
+        assertEquals(0x5692_161D_100B_05E5L, Hashes.scramble(1L));
+        assertEquals(0xB4D0_55FC_F2CB_BD7BL, Hashes.scramble(-1L));
+        assertEquals(0x25C2_6EA5_79CE_A98AL, Hashes.scramble(Long.MIN_VALUE));
+        assertEquals(0x5A68_2AFE_7965_DEBDL, Hashes.scramble(Long.MAX_VALUE));
+    }
+
+    @Test
     void mixDependsOnTheOrderOfItsArguments() {
         assertNotEquals(Hashes.mix(1, 2), Hashes.mix(2, 1));
     }

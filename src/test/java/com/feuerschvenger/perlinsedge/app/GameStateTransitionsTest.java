@@ -11,7 +11,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
