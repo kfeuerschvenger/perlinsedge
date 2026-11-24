@@ -89,7 +89,6 @@ public final class InteractionPlanner {
             return PathResult.unreachable();
         }
         // The search stops at the first reachable stand tile, so it is the cheapest one
-        var result = new Pathfinder(map, occupied).findPathNextTo(fromX, fromY, targetX, targetY, maxExpandedNodes);
-        return result;
+        return new Pathfinder(map, occupied).findPathNextTo(fromX, fromY, targetX, targetY, maxExpandedNodes);
     }
 }
