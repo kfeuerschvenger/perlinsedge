@@ -26,7 +26,8 @@ public class KeyController implements IKeyListener {
     private final Consumer<Integer> onNumberKeyPress;
 
     /**
-     * Condition under which gameplay keys are ignored while it returns true. Pause, centring the camera and the debug keys stay available. Null never blocks.
+     * Condition under which gameplay keys are ignored while it returns true. Pause, centring the camera and the debug
+     * keys stay available. Null never blocks.
      */
     @Setter
     private BooleanSupplier inputBlocked;

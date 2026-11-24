@@ -86,7 +86,8 @@ final class PathPlanner {
         }
 
         searches++;
-        // A target in another region is a failed search without the capped search (MAX_EXPANDED_NODES expansions) it would cost to find out
+        // A target in another region is a failed search without the capped search (MAX_EXPANDED_NODES expansions)
+        // that finding out would otherwise cost
         var path = map.getWalkableRegions().mayReach(startX, startY, targetX, targetY)
                 ? new Pathfinder(map, null, penalty).findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES)
                 : PathResult.unreachable();

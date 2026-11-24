@@ -12,7 +12,10 @@ import java.util.HashSet;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Pins that a search over a map of the default size stays cheap: the node hash fills the buckets of a HashMap instead of piling the nodes into a few. */
+/**
+ * Pins that a search over a map of the default size stays cheap: the node hash fills the buckets of a HashMap instead
+ * of piling the nodes into a few.
+ */
 class LargeMapPathfinderTest {
 
     private static final int SIZE = 300;

@@ -108,7 +108,9 @@ public final class AppConfig {
         private static final int MAX_POSITIONING_ATTEMPTS = 3000;
         /** Tiles around the player in which no enemy spawns when a game starts, on a map large enough for it. */
         private static final int START_SAFE_RADIUS = 24;
-        /** Largest share of the smaller map side the start safe radius may take, so a small map keeps room for enemies. */
+        /**
+         * Largest share of the smaller map side the start safe radius may take, so a small map keeps room for enemies.
+         */
         private static final double START_SAFE_RADIUS_MAP_FRACTION = 0.25;
 
         // Getters and setters
@@ -121,8 +123,8 @@ public final class AppConfig {
         /**
          * @param width  map width in tiles
          * @param height map height in tiles
-         * @return tiles around the player in which no enemy spawns when a game starts: the configured radius, cut down to
-         * a fraction of the smaller side of a small map
+         * @return tiles around the player in which no enemy spawns when a game starts: the configured radius, cut down
+         * to a fraction of the smaller side of a small map
          */
         public int getStartSafeRadius(int width, int height) {
             final var fitting = (int) (Math.min(width, height) * START_SAFE_RADIUS_MAP_FRACTION);
