@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * An order to a tile that no walk can reach is refused without the search that would explore the whole region the
  * player stands in, on maps of the default size.
+ * {@link #MIN_DISTANCE} and {@link #MIN_EXPANDED_NODES} happen to be equal but are independent: the first is how far
+ * the target lies from the spawn, the second is the least a search must expand.
  */
 class UnreachableOrderTest {
 
@@ -108,7 +110,7 @@ class UnreachableOrderTest {
         final var target = wallInATile(map, spawn);
         map.getTile(target[0], target[1]).setBuilding(new Fence(target[0], target[1]));
 
-        assertTrue(InteractionPlanner.pathToReach(map, spawn.x(), spawn.y(), target[0], target[1]).isEmpty());
+        assertFalse(InteractionPlanner.pathToReach(map, spawn.x(), spawn.y(), target[0], target[1]).reachable());
     }
 
     @Test

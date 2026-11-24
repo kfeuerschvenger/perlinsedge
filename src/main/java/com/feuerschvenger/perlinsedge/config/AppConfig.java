@@ -150,7 +150,9 @@ public final class AppConfig {
          * @param height map height in tiles
          * @return the number of skeletons a map of that size starts with
          */
-        public int getSkeletonsCount(int width, int height) { return countFor(SKELETONS_PER_100K_TILES, width, height); }
+        public int getSkeletonsCount(int width, int height) {
+            return countFor(SKELETONS_PER_100K_TILES, width, height);
+        }
 
         private static int countFor(int per100kTiles, int width, int height) {
             return (int) Math.round((double) width * height * per100kTiles / TILES_PER_DENSITY_UNIT);

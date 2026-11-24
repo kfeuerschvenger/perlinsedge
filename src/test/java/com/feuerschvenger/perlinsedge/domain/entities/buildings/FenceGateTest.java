@@ -68,9 +68,10 @@ class FenceGateTest {
     void aGateIsNotToggledThroughANullTileOrATileItDoesNotStandOn() {
         FenceGate gate = new FenceGate(4, 4);
         map.getTile(4, 4).setBuilding(gate);
+        final var otherTile = map.getTile(1, 1);
 
         assertThrows(NullPointerException.class, () -> gate.toggleOpen(null));
-        assertThrows(IllegalArgumentException.class, () -> gate.toggleOpen(map.getTile(1, 1)));
+        assertThrows(IllegalArgumentException.class, () -> gate.toggleOpen(otherTile));
         assertFalse(gate.isOpen());
     }
 
