@@ -158,11 +158,8 @@ public final class GroundRules {
 
     /** The desert: sea at the bottom, then water at the top of the range, sand below the hills. */
     private static TileType desert(float height) {
-        if (height < HIGH_WATER_SEA_DEEP) {
-            return TileType.DEEP_WATER;
-        }
-        if (height < HIGH_WATER_SEA_SHALLOW) {
-            return TileType.SHALLOW_WATER;
+        if (isHighWaterSea(height)) {
+            return highWaterSea(height);
         }
         if (height < DESERT_DEEP) {
             return TileType.DEEP_WATER;
@@ -234,11 +231,8 @@ public final class GroundRules {
 
     /** The mountains: sea at the bottom, water between the peaks, grass on the valley floor, hills above. */
     private static TileType mountainous(float height) {
-        if (height < HIGH_WATER_SEA_DEEP) {
-            return TileType.DEEP_WATER;
-        }
-        if (height < HIGH_WATER_SEA_SHALLOW) {
-            return TileType.SHALLOW_WATER;
+        if (isHighWaterSea(height)) {
+            return highWaterSea(height);
         }
         if (height < MOUNTAINOUS_DEEP) {
             return TileType.DEEP_WATER;
@@ -247,6 +241,19 @@ public final class GroundRules {
             return TileType.SHALLOW_WATER;
         }
         return height < MOUNTAINOUS_GRASS_LIMIT ? TileType.GRASS : TileType.HILL;
+    }
+
+    /**
+     * Tells whether a height lies in the sea of the maps whose own water lies high. Like every band of a rule, the
+     * sea bands are checked against the height the ground pass dithered, not the stored height.
+     */
+    private static boolean isHighWaterSea(float height) {
+        return height < HIGH_WATER_SEA_SHALLOW;
+    }
+
+    /** Returns the terrain of a height in the sea, deep below {@code HIGH_WATER_SEA_DEEP} and shallow above it. */
+    private static TileType highWaterSea(float height) {
+        return height < HIGH_WATER_SEA_DEEP ? TileType.DEEP_WATER : TileType.SHALLOW_WATER;
     }
 
     /** Grass below the grass limit, hills below the mountain start and mountains above, shared by two rules. */

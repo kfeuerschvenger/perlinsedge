@@ -33,9 +33,9 @@ public final class GenerationContext {
     private final float[][] fields = new float[NoiseField.values().length][];
     private final TileType[] ground;
     private final ResourceType[] resources;
+    private final long seedKey;
     private int spawnIndex = NONE;
     private int spawnHint = NONE;
-    private final long seedKey;
     private int passOccurrence;
 
     /**

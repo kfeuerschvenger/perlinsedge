@@ -3,17 +3,19 @@ package com.feuerschvenger.perlinsedge.domain.world.generation;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.TestContexts;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GenerationPipelineTest {
 
@@ -96,35 +98,42 @@ class GenerationPipelineTest {
     }
 
     @Test
-    void aFailingPassKeepsItsOwnExceptionAndIsNamedInASuppressedOne() {
+    void aFailingPassKeepsItsOwnExceptionAndIsNamedInTheLog() {
         final var cause = new IllegalArgumentException("bad input");
         final var failing = pass("boom", (GenerationContext ctx) -> {
             throw cause;
         });
         final var passes = List.of(pass("a"), failing);
         final var pipeline = new GenerationPipeline();
+        final var console = new ByteArrayOutputStream();
+        final var original = System.out;
+        System.setOut(new PrintStream(console, true, StandardCharsets.UTF_8));
+        try {
+            final var error = assertThrows(IllegalArgumentException.class,
+                    () -> pipeline.run(context, passes, PassObserver.NONE));
 
-        final var error = assertThrows(IllegalArgumentException.class,
-                () -> pipeline.run(context, passes, PassObserver.NONE));
+            assertSame(cause, error);
+            assertEquals(0, error.getSuppressed().length);
+        } finally {
+            System.setOut(original);
+        }
 
-        assertSame(cause, error);
-        assertEquals(1, error.getSuppressed().length);
-        assertEquals("the pass 'boom' failed", error.getSuppressed()[0].getMessage());
+        final var output = console.toString(StandardCharsets.UTF_8);
+        assertTrue(output.contains("ERROR"), output);
+        assertTrue(output.contains("'boom'"), output);
     }
 
     @Test
-    void aFailureWithoutAMessageIsNamedWithoutTheWordNull() {
+    void anErrorIsNotCaughtSoItPropagatesAsItIs() {
+        final var error = new AssertionError("fatal");
         final var failing = pass("boom", (GenerationContext ctx) -> {
-            throw new IllegalStateException();
+            throw error;
         });
         final var passes = List.of(failing);
         final var pipeline = new GenerationPipeline();
 
-        final var error = assertThrows(IllegalStateException.class,
-                () -> pipeline.run(context, passes, PassObserver.NONE));
-
-        assertNull(error.getMessage());
-        assertFalse(error.getSuppressed()[0].getMessage().contains("null"));
+        assertSame(error, assertThrows(AssertionError.class,
+                () -> pipeline.run(context, passes, PassObserver.NONE)));
     }
 
     @Test

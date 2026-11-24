@@ -67,6 +67,8 @@ public final class IslandShapePass implements GenerationPass {
     /** Returns how much of the lift remains at a share of the radius from 0 at the centre to 1 at the edge. */
     private double falloff(double shareOfRadius) {
         final var fade = 1.0 - shareOfRadius;
+        // StrictMath, not Math: Math.pow may differ between JVMs and CPUs in the last bit, and a map has to come out
+        // the same for the same seed everywhere
         return squaredFalloff ? fade * fade : StrictMath.pow(fade, params.falloffPower());
     }
 
