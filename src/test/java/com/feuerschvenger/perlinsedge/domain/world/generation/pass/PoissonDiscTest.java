@@ -11,6 +11,7 @@ import java.util.function.IntPredicate;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,9 @@ class PoissonDiscTest {
     private static final int LEFT_COLUMNS = 30;
     private static final int TINY_SIDE = 4;
     private static final int TILE_SPACING = 1;
-    private static final int OVERSIZED_SPACING = SIDE + 1;
+    /** The diagonal of the square grid, rounded up. */
+    private static final int DIAGONAL_SPACING = 85;
+    private static final int OVERSIZED_SPACING = DIAGONAL_SPACING + 1;
 
     private static SiteList sample(int width, int height, IntPredicate host, int spacing, long seed) {
         return PoissonDisc.sample(width, height, host, spacing, new SplittableRandom(seed));
@@ -72,7 +75,7 @@ class PoissonDiscTest {
 
         final var sites = sample(SIDE, SIDE, leftHalf, SPACING, SEED);
 
-        assertTrue(sites.size() > 0);
+        assertNotEquals(0, sites.size());
         for (var position = 0; position < sites.size(); position++) {
             assertTrue(leftHalf.test(sites.get(position)));
         }
@@ -80,7 +83,7 @@ class PoissonDiscTest {
 
     @Test
     void separateHostAreasEachGetSites() {
-        final IntPredicate strips =index -> index / SIDE < STRIP_HEIGHT || index / SIDE >= STRIP_GAP_ROW + STRIP_HEIGHT;
+        final IntPredicate strips = index -> index / SIDE < STRIP_HEIGHT || index / SIDE >= STRIP_GAP_ROW + STRIP_HEIGHT;
 
         final var sites = sample(SIDE, SIDE, strips, SPACING, SEED);
 
@@ -138,12 +141,12 @@ class PoissonDiscTest {
     }
 
     @Test
-    void aSpacingLargerThanTheMapIsRefusedAndOneAsLargeAsItIsAccepted() {
+    void aSpacingBeyondTheDiagonalIsRefusedAndOneAsLargeAsItIsAccepted() {
         final var random = new SplittableRandom(SEED);
 
         assertThrows(IllegalArgumentException.class,
                 () -> PoissonDisc.sample(SIDE, SIDE, index -> true, OVERSIZED_SPACING, random));
-        assertTrue(sample(SIDE, SIDE, index -> true, SIDE, SEED).size() > 0);
+        assertNotEquals(0, sample(SIDE, SIDE, index -> true, DIAGONAL_SPACING, SEED).size());
     }
 
     @Test

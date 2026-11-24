@@ -59,7 +59,7 @@ class FieldQuantileTest {
     @Test
     void onlyTheSelectedTilesCount() {
         final var values = ramp();
-        final IntPredicate even =index -> index % EVEN == 0;
+        final IntPredicate even = index -> index % EVEN == 0;
 
         final var threshold = FieldQuantile.above(values, even, QUARTER);
 
