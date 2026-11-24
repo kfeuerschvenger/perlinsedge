@@ -6,8 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.world.model.SpawnPoint;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -25,18 +23,19 @@ class TileMapAssemblerTest {
     private static final float SAMPLE_HEIGHT = 0.25F;
 
     private final GenerationContext context = TestContexts.of(WIDTH, HEIGHT);
-    private final TileMapAssembler assembler = new TileMapAssembler();
 
     private void classifyEverythingAs(TileType type) {
-        Arrays.fill(context.ground(), type);
+        for (var index = 0; index < context.size(); index++) {
+            context.setGround(index, type);
+        }
     }
 
     @Test
     void createsOneTileForEveryCellWithItsTerrain() {
         classifyEverythingAs(TileType.GRASS);
-        context.ground()[context.index(TREE_X, TREE_Y)] = TileType.SAND;
+        context.setGround(context.index(TREE_X, TREE_Y), TileType.SAND);
 
-        final var map = assembler.materialize(context);
+        final var map = TileMapAssembler.materialize(context);
 
         assertEquals(WIDTH, map.getWidth());
         assertEquals(HEIGHT, map.getHeight());
@@ -53,10 +52,10 @@ class TileMapAssemblerTest {
     @Test
     void putsAResourceOnlyWhereTheContextHasOne() {
         classifyEverythingAs(TileType.GRASS);
-        context.resources()[context.index(TREE_X, TREE_Y)] = ResourceType.TREE;
-        context.resources()[context.index(STONE_X, STONE_Y)] = ResourceType.STONE;
+        context.setResource(context.index(TREE_X, TREE_Y), ResourceType.TREE);
+        context.setResource(context.index(STONE_X, STONE_Y), ResourceType.STONE);
 
-        final var map = assembler.materialize(context);
+        final var map = TileMapAssembler.materialize(context);
 
         assertEquals(ResourceType.TREE, map.getTile(TREE_X, TREE_Y).getWorldResource().getType());
         assertEquals(ResourceType.STONE, map.getTile(STONE_X, STONE_Y).getWorldResource().getType());
@@ -66,11 +65,11 @@ class TileMapAssemblerTest {
     @Test
     void theVisualSeedOfAResourceIsAHashOfItsTileNotAnOrderOfDraws() {
         classifyEverythingAs(TileType.GRASS);
-        context.resources()[context.index(TREE_X, TREE_Y)] = ResourceType.TREE;
-        context.resources()[context.index(STONE_X, STONE_Y)] = ResourceType.TREE;
+        context.setResource(context.index(TREE_X, TREE_Y), ResourceType.TREE);
+        context.setResource(context.index(STONE_X, STONE_Y), ResourceType.TREE);
 
-        final var first = assembler.materialize(context);
-        final var second = assembler.materialize(context);
+        final var first = TileMapAssembler.materialize(context);
+        final var second = TileMapAssembler.materialize(context);
 
         final var seed = first.getTile(TREE_X, TREE_Y).getWorldResource().getVisualSeed();
         assertEquals(seed, second.getTile(TREE_X, TREE_Y).getWorldResource().getVisualSeed());
@@ -80,10 +79,10 @@ class TileMapAssemblerTest {
     @Test
     void copiesTheHeightFieldWhenThereIsOneAndLeavesZeroWhenThereIsNot() {
         classifyEverythingAs(TileType.GRASS);
-        final var without = assembler.materialize(context);
+        final var without = TileMapAssembler.materialize(context);
         context.defineField(NoiseField.HEIGHT)[context.index(TREE_X, TREE_Y)] = SAMPLE_HEIGHT;
 
-        final var with = assembler.materialize(context);
+        final var with = TileMapAssembler.materialize(context);
 
         assertEquals(0F, without.getTile(TREE_X, TREE_Y).getHeight());
         assertEquals(SAMPLE_HEIGHT, with.getTile(TREE_X, TREE_Y).getHeight());
@@ -95,7 +94,7 @@ class TileMapAssemblerTest {
         classifyEverythingAs(TileType.GRASS);
         context.setSpawnIndex(context.index(TREE_X, TREE_Y));
 
-        final var map = assembler.materialize(context);
+        final var map = TileMapAssembler.materialize(context);
 
         assertEquals(new SpawnPoint(TREE_X, TREE_Y), map.getSpawn().orElseThrow());
     }
@@ -104,15 +103,15 @@ class TileMapAssemblerTest {
     void aMapWithoutASpawnIndexHasNoSpawnPoint() {
         classifyEverythingAs(TileType.GRASS);
 
-        assertTrue(assembler.materialize(context).getSpawn().isEmpty());
+        assertTrue(TileMapAssembler.materialize(context).getSpawn().isEmpty());
     }
 
     @Test
     void refusesATileNoPassClassified() {
         classifyEverythingAs(TileType.GRASS);
-        context.ground()[context.index(STONE_X, STONE_Y)] = null;
+        context.setGround(context.index(STONE_X, STONE_Y), null);
 
-        final var error = assertThrows(IllegalStateException.class, () -> assembler.materialize(context));
+        final var error = assertThrows(IllegalStateException.class, () -> TileMapAssembler.materialize(context));
 
         assertTrue(error.getMessage().contains(STONE_X + "," + STONE_Y));
     }

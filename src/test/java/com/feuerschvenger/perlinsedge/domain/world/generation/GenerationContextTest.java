@@ -2,6 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.world.generation;
 
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.TestContexts;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +26,15 @@ class GenerationContextTest {
     private static final int ROW = 2;
     private static final int BIG_WIDTH = 300;
     private static final int BIG_ROW = 299;
+    private static final int FIFTH_ROW = 5;
+    private static final int BELOW_NONE = -2;
+    private static final int FAR_COLUMN = 15;
+    private static final long OTHER_SEED = 20_261_111L;
+    private static final long OTHER_SEED_SALT = 0x5EED;
+    private static final long NEGATIVE_SEED = -5L;
+    private static final long NEGATIVE_SEED_SALT = 9L;
+    private static final int PAIR_TILE = 4;
+    private static final long PAIR_SALT = 10L;
 
     private final GenerationContext context = TestContexts.of(WIDTH, HEIGHT);
 
@@ -77,8 +88,9 @@ class GenerationContextTest {
         assertEquals(0, context.spawnHint());
         context.setSpawnIndex(GenerationContext.NONE);
         assertEquals(GenerationContext.NONE, context.spawnIndex());
-        assertThrows(IndexOutOfBoundsException.class, () -> context.setSpawnIndex(context.size()));
-        assertThrows(IndexOutOfBoundsException.class, () -> context.setSpawnHint(-2));
+        final var pastTheEnd = context.size();
+        assertThrows(IndexOutOfBoundsException.class, () -> context.setSpawnIndex(pastTheEnd));
+        assertThrows(IndexOutOfBoundsException.class, () -> context.setSpawnHint(BELOW_NONE));
     }
 
     @Test
@@ -111,12 +123,12 @@ class GenerationContextTest {
 
     @Test
     void tileHashesArePinned() {
-        assertEquals(258_863_698_125_685_209L, context.tileHash(0, 0, 0L));
-        assertEquals(-2_387_521_308_164_195_811L, context.tileHash(3, 5, SALT));
-        final var other = TestContexts.of(MapType.DESERT, 20_261_111L, WIDTH, HEIGHT, TestContexts.FLAT);
-        assertEquals(1_246_064_204_876_323_019L, other.tileHash(15, 2, 0x5EED));
-        final var negative = TestContexts.of(MapType.DESERT, -5L, WIDTH, HEIGHT, TestContexts.FLAT);
-        assertEquals(7_990_827_086_467_904_430L, negative.tileHash(1, 1, 9L));
+        assertEquals(-8_232_832_824_513_865_057L, context.tileHash(0, 0, 0L));
+        assertEquals(7_813_936_339_282_225_672L, context.tileHash(COLUMN, FIFTH_ROW, SALT));
+        final var other = TestContexts.of(MapType.DESERT, OTHER_SEED, WIDTH, HEIGHT, TestContexts.FLAT);
+        assertEquals(-6_226_927_798_593_591_928L, other.tileHash(FAR_COLUMN, ROW, OTHER_SEED_SALT));
+        final var negative = TestContexts.of(MapType.DESERT, NEGATIVE_SEED, WIDTH, HEIGHT, TestContexts.FLAT);
+        assertEquals(7_212_865_183_995_589_458L, negative.tileHash(1, 1, NEGATIVE_SEED_SALT));
     }
 
     @Test
@@ -126,6 +138,31 @@ class GenerationContextTest {
         assertEquals(base, context.tileHash(1, 2, SALT));
         assertNotEquals(base, context.tileHash(2, 1, SALT));
         assertNotEquals(base, context.tileHash(1, 2, OTHER_SALT));
+    }
+
+    @Test
+    void aSeedAndASaltThatTradeOneForTheOtherGiveDifferentHashes() {
+        final var next = TestContexts.of(MapType.DESERT, SEED + 1, WIDTH, HEIGHT, TestContexts.FLAT);
+
+        assertNotEquals(context.tileHash(PAIR_TILE, PAIR_TILE, PAIR_SALT),
+                next.tileHash(PAIR_TILE, PAIR_TILE, PAIR_SALT - 1));
+        assertNotEquals(context.tileHash(PAIR_TILE, PAIR_TILE, PAIR_SALT),
+                next.tileHash(PAIR_TILE, PAIR_TILE, PAIR_SALT));
+    }
+
+    @Test
+    void theArraysOfTheGroundAndTheResourcesAreReachedByIndexAndReturnedAsCopies() {
+        context.setGround(ROW, TileType.SAND);
+        context.setResource(ROW, ResourceType.TREE);
+        final var groundCopy = context.ground();
+        final var resourcesCopy = context.resources();
+        groundCopy[ROW] = TileType.HILL;
+        resourcesCopy[ROW] = null;
+
+        assertEquals(TileType.SAND, context.groundAt(ROW));
+        assertEquals(ResourceType.TREE, context.resourceAt(ROW));
+        assertNull(context.groundAt(0));
+        assertNull(context.resourceAt(0));
     }
 
     @Test

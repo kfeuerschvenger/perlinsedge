@@ -5,7 +5,10 @@ package com.feuerschvenger.perlinsedge.domain.world.generation;
  * seed of the map plus an offset of its own, so the fields of one map are unrelated to each other.
  */
 public enum NoiseField {
-    /** The height of the ground, from -1 to 1. */
+    /**
+     * The height of the ground. It is sampled over the range of the noise, about -1 to 1, and later passes reshape it,
+     * so after an island pass it can lie outside that range.
+     */
     HEIGHT(0L, false),
     /** The temperature, from 0 to 1. */
     TEMPERATURE(1L, true),

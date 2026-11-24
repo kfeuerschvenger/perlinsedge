@@ -15,6 +15,11 @@ import java.util.random.RandomGenerator;
  * the rows outside and the columns inside walks the memory in order and creates no object per tile.
  * <p>
  * A context belongs to one generation and one thread.
+ * <p>
+ * Ownership of the arrays: the noise fields are handed out as the live arrays, because the passes read and write them
+ * once per tile. The ground and the resources are reached one tile at a time through {@link #groundAt(int)},
+ * {@link #setGround(int, TileType)}, {@link #resourceAt(int)} and {@link #setResource(int, ResourceType)}, and
+ * {@link #ground()} and {@link #resources()} return copies, so no caller holds the internal arrays.
  */
 public final class GenerationContext {
 
@@ -30,6 +35,7 @@ public final class GenerationContext {
     private final ResourceType[] resources;
     private int spawnIndex = NONE;
     private int spawnHint = NONE;
+    private int passOccurrence;
 
     /**
      * Creates the context of a request, with no field computed, no ground and no resource.
@@ -43,8 +49,8 @@ public final class GenerationContext {
         this.noiseFactory = Objects.requireNonNull(noiseFactory, "noiseFactory");
         this.width = request.width();
         this.height = request.height();
-        this.ground = new TileType[width * height];
-        this.resources = new ResourceType[width * height];
+        this.ground = new TileType[request.tileCount()];
+        this.resources = new ResourceType[request.tileCount()];
     }
 
     /**
@@ -102,7 +108,8 @@ public final class GenerationContext {
     }
 
     /**
-     * Returns the factory the noise fields are sampled from.
+     * Returns the factory the noise fields are sampled from. Only {@code NoiseFieldsPass} may call this: every other
+     * pass reads the arrays that pass filled, so the noise library stays in one place.
      *
      * @return the noise source factory
      */
@@ -183,21 +190,61 @@ public final class GenerationContext {
     }
 
     /**
-     * Returns the terrain of every tile, null for a tile no pass has classified yet.
+     * Returns the terrain of a tile.
      *
-     * @return the array of terrain types, which the caller may read and write
+     * @param index an index into the arrays
+     * @return the terrain, null for a tile no pass has classified yet
      */
-    public TileType[] ground() {
-        return ground;
+    public TileType groundAt(int index) {
+        return ground[index];
     }
 
     /**
-     * Returns the resource of every tile, null for a tile that has none.
+     * Sets the terrain of a tile.
      *
-     * @return the array of resource types, which the caller may read and write
+     * @param index an index into the arrays
+     * @param type  the terrain, or null to leave the tile unclassified
+     */
+    public void setGround(int index, TileType type) {
+        ground[index] = type;
+    }
+
+    /**
+     * Returns a copy of the terrain of every tile, so it is for reading outside the hot loops, such as in a test.
+     *
+     * @return a new array with null for a tile no pass has classified yet
+     */
+    public TileType[] ground() {
+        return ground.clone();
+    }
+
+    /**
+     * Returns the resource of a tile.
+     *
+     * @param index an index into the arrays
+     * @return the resource, null for a tile that has none
+     */
+    public ResourceType resourceAt(int index) {
+        return resources[index];
+    }
+
+    /**
+     * Sets the resource of a tile.
+     *
+     * @param index an index into the arrays
+     * @param type  the resource, or null to remove it
+     */
+    public void setResource(int index, ResourceType type) {
+        resources[index] = type;
+    }
+
+    /**
+     * Returns a copy of the resource of every tile, so it is for reading outside the hot loops, such as in a test.
+     *
+     * @return a new array with null for a tile that has no resource
      */
     public ResourceType[] resources() {
-        return resources;
+        return resources.clone();
     }
 
     /**
@@ -239,20 +286,34 @@ public final class GenerationContext {
     }
 
     /**
-     * Creates the random stream of a pass. The stream depends only on the seed and the salt, so a pass draws the same
-     * numbers whatever runs before it, and adding or reordering another pass never moves them. Every call returns a
-     * new stream that starts from the beginning.
+     * Records which occurrence of its name the pass about to run is, so {@link #random(long)} gives two instances of
+     * the same pass different streams. The pipeline calls it before every pass.
+     *
+     * @param occurrence how many passes with the same name ran before this one, 0 for the first
+     */
+    void beginPass(int occurrence) {
+        passOccurrence = occurrence;
+    }
+
+    /**
+     * Creates the random stream of a pass. The stream depends on the seed, the salt and which occurrence of its name
+     * the running pass is, so a pass draws the same numbers whatever other passes run before it, and adding or
+     * reordering a pass of another name never moves them. The first occurrence of a pass, and any pass run outside a
+     * pipeline, gets the plain stream of its salt; each later occurrence of the same pass gets a stream of its own.
+     * Every call returns a new stream that starts from the beginning.
      *
      * @param salt a constant of the pass, different for every pass that draws numbers
      * @return a new random stream
      */
     public RandomGenerator random(long salt) {
-        return new SplittableRandom(Hashes.scramble(seed() ^ salt));
+        return new SplittableRandom(Hashes.scramble((seed() ^ salt) + passOccurrence * Hashes.GOLDEN_GAMMA));
     }
 
     /**
-     * Returns a value for a tile that is unrelated to the value of any neighbour, the seed or the salt, and does not
-     * depend on how many numbers were drawn before. It serves per tile chances and the visual seeds of resources.
+     * Returns a value for a tile that is unrelated to the value of any neighbour, and does not depend on how many
+     * numbers were drawn before. The seed and the salt are scrambled separately before they are combined, so no two
+     * pairs of seed and salt that differ in both give the same value for a tile by cancelling each other out. It
+     * serves per tile chances and the visual seeds of resources.
      *
      * @param x    the column
      * @param y    the row
@@ -260,7 +321,9 @@ public final class GenerationContext {
      * @return a well spread 64 bit value
      */
     public long tileHash(int x, int y, long salt) {
-        return Hashes.scramble(Hashes.mix(x, y) ^ (seed() + salt) * Hashes.GOLDEN_GAMMA);
+        final var seedKey = Hashes.scramble(seed() + Hashes.GOLDEN_GAMMA);
+        final var saltKey = Hashes.scramble(salt - Hashes.GOLDEN_GAMMA);
+        return Hashes.scramble(Hashes.scramble(Hashes.mix(x, y) ^ seedKey) ^ saltKey);
     }
 
     /** Returns the index when it is inside the map or {@link #NONE}, and refuses it otherwise. */

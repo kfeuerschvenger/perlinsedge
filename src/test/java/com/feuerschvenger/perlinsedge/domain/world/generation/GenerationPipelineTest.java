@@ -8,13 +8,16 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GenerationPipelineTest {
 
     private static final int SIZE = 4;
     private static final long TICK = 25L;
+    private static final long SALT = 11L;
 
     private final GenerationContext context = TestContexts.of(SIZE, SIZE);
     private final List<String> events = new ArrayList<>();
@@ -81,11 +84,61 @@ class GenerationPipelineTest {
         });
         final var passes = List.of(pass("a"), failing, pass("never"));
 
-        assertThrows(IllegalStateException.class,
-                () -> new GenerationPipeline().run(context, passes, (String name, long nanos) -> heard.add(name)));
+        final var pipeline = new GenerationPipeline();
+        final PassObserver observer = (String name, long nanos) -> heard.add(name);
+
+        assertThrows(IllegalStateException.class, () -> pipeline.run(context, passes, observer));
 
         assertEquals(List.of("a"), events);
         assertEquals(List.of("a"), heard);
+    }
+
+    @Test
+    void aFailingPassIsNamedInTheMessageAndKeepsItsCause() {
+        final var cause = new IllegalArgumentException("bad input");
+        final var failing = pass("boom", (GenerationContext ctx) -> {
+            throw cause;
+        });
+        final var passes = List.of(pass("a"), failing);
+        final var pipeline = new GenerationPipeline();
+
+        final var error = assertThrows(IllegalStateException.class,
+                () -> pipeline.run(context, passes, PassObserver.NONE));
+
+        assertTrue(error.getMessage().contains("'boom'"), error.getMessage());
+        assertTrue(error.getMessage().contains("bad input"), error.getMessage());
+        assertSame(cause, error.getCause());
+    }
+
+    @Test
+    void twoInstancesOfTheSamePassDrawFromDifferentStreamsAndTheFirstKeepsThePlainStream() {
+        final var draws = new ArrayList<Long>();
+        final GenerationPass drawing = pass("draw", (GenerationContext ctx) -> draws.add(ctx.random(SALT).nextLong()));
+        final var plain = TestContexts.of(SIZE, SIZE).random(SALT).nextLong();
+
+        new GenerationPipeline().run(context, List.of(drawing, drawing, drawing), PassObserver.NONE);
+
+        assertEquals(plain, draws.get(0));
+        assertNotEquals(draws.get(0), draws.get(1));
+        assertNotEquals(draws.get(1), draws.get(2));
+        assertNotEquals(draws.get(0), draws.get(2));
+    }
+
+    @Test
+    void aPassOfAnotherNameBetweenTwoPassesDoesNotMoveTheirStreams() {
+        final var withOther = new ArrayList<Long>();
+        final var without = new ArrayList<Long>();
+        final GenerationPass drawingWithOther = pass("draw", (GenerationContext ctx) ->
+                withOther.add(ctx.random(SALT).nextLong()));
+        final GenerationPass drawingWithout = pass("draw", (GenerationContext ctx) ->
+                without.add(ctx.random(SALT).nextLong()));
+
+        new GenerationPipeline().run(context, List.of(drawingWithOther, pass("other"), drawingWithOther),
+                PassObserver.NONE);
+        new GenerationPipeline().run(TestContexts.of(SIZE, SIZE), List.of(drawingWithout, drawingWithout),
+                PassObserver.NONE);
+
+        assertEquals(without, withOther);
     }
 
     @Test

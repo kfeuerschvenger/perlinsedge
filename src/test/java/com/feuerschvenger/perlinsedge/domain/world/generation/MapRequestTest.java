@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MapRequestTest {
 
@@ -31,5 +32,18 @@ class MapRequestTest {
     void refusesAnEmptySide() {
         assertThrows(IllegalArgumentException.class, () -> new MapRequest(MapType.SWAMP, SEED, 0, HEIGHT));
         assertThrows(IllegalArgumentException.class, () -> new MapRequest(MapType.SWAMP, SEED, WIDTH, -1));
+    }
+
+    @Test
+    void refusesASizeWhoseTileCountOverflows() {
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> new MapRequest(MapType.SWAMP, SEED, Integer.MAX_VALUE, 2));
+
+        assertTrue(error.getMessage().contains("more tiles"));
+    }
+
+    @Test
+    void countsTheTilesAsWidthTimesHeight() {
+        assertEquals(WIDTH * HEIGHT, new MapRequest(MapType.SWAMP, SEED, WIDTH, HEIGHT).tileCount());
     }
 }

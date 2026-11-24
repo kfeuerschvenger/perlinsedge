@@ -7,16 +7,16 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
  * Turns the arrays of a finished context into the tiles of a map. It is the only place that creates {@link Tile} and
- * {@link Resource} objects, so the passes before it allocate nothing per tile.
+ * {@link Resource} objects, so the passes before it allocate nothing per tile. It holds no state, so it is a set of
+ * static methods.
  */
 public final class TileMapAssembler {
 
     /** Salt of the visual seed of the resources, which the renderer uses to vary how each one looks. */
     private static final long VISUAL_SEED_SALT = 0x7E57_AB1E_5EED_0001L;
 
-    /** Creates an assembler, which holds no state. */
-    public TileMapAssembler() {
-        super();
+    /** Not instantiable: the class only holds static methods. */
+    private TileMapAssembler() {
     }
 
     /**
@@ -28,25 +28,25 @@ public final class TileMapAssembler {
      * @return a new map with the spawn point of the context, if a pass chose one
      * @throws IllegalStateException when a tile has no terrain, because no pass classified it
      */
-    public TileMap materialize(GenerationContext context) {
+    public static TileMap materialize(GenerationContext context) {
         final var width = context.width();
         final var height = context.height();
         final var map = new TileMap(width, height, spawnOf(context));
-        final var ground = context.ground();
-        final var resources = context.resources();
         final var heights = context.hasField(NoiseField.HEIGHT) ? context.field(NoiseField.HEIGHT) : null;
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
                 final var index = context.index(x, y);
-                if (ground[index] == null) {
+                final var type = context.groundAt(index);
+                if (type == null) {
                     throw new IllegalStateException("no pass classified the tile " + x + "," + y);
                 }
-                final var tile = new Tile(x, y, ground[index]);
+                final var tile = new Tile(x, y, type);
                 if (heights != null) {
                     tile.setHeight(heights[index]);
                 }
-                if (resources[index] != null) {
-                    tile.setWorldResource(new Resource(resources[index], context.tileHash(x, y, VISUAL_SEED_SALT)));
+                final var resource = context.resourceAt(index);
+                if (resource != null) {
+                    tile.setWorldResource(new Resource(resource, context.tileHash(x, y, VISUAL_SEED_SALT)));
                 }
                 map.setTile(x, y, tile);
             }
