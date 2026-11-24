@@ -21,22 +21,30 @@ public record IslandParams(int islandsPer100kTiles, int minIslands, int radiusTi
     /** The largest density, one island on every tile. A larger one only makes the island count overflow. */
     public static final int MAX_ISLANDS_PER_100K_TILES = 100_000;
 
-    /** The most islands a map has, whatever its size and density, which keeps the centre arrays small. */
-    public static final int MAX_ISLANDS = 10_000;
+    /**
+     * The most islands a map has, whatever its size and density. Every tile is measured against every centre, so the
+     * cap bounds the time of the pass as well as its memory; real maps use a few dozen islands.
+     */
+    public static final int MAX_ISLANDS = 1_000;
 
     /** Checks the counts and the radius are usable, the falloff is positive and every float is finite. */
     public IslandParams {
-        if (islandsPer100kTiles < 0 || islandsPer100kTiles > MAX_ISLANDS_PER_100K_TILES || minIslands < 1
-                || minIslands > MAX_ISLANDS || radiusTiles < 1) {
-            throw new IllegalArgumentException("the island counts and radius are out of range: " + islandsPer100kTiles
-                    + " per 100k, at least " + minIslands + ", radius " + radiusTiles);
-        }
+        requireInRange(islandsPer100kTiles, 0, MAX_ISLANDS_PER_100K_TILES, "island density per 100k tiles");
+        requireInRange(minIslands, 1, MAX_ISLANDS, "minimum island count");
+        requireInRange(radiusTiles, 1, Integer.MAX_VALUE, "island radius");
         requireFinite(heightGain, "height gain");
         requireFinite(lift, "lift");
         requireFinite(seaOffset, "sea offset");
         requireFinite(falloffPower, "falloff power");
         if (falloffPower <= 0F) {
             throw new IllegalArgumentException("the falloff power must be positive: " + falloffPower);
+        }
+    }
+
+    /** Refuses a count outside an inclusive range. */
+    private static void requireInRange(int value, int min, int max, String name) {
+        if (value < min || value > max) {
+            throw new IllegalArgumentException("the " + name + " must be from " + min + " to " + max + ": " + value);
         }
     }
 

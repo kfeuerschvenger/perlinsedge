@@ -81,7 +81,7 @@ public final class IslandShapePass implements GenerationPass {
     int islandCount(int width, int height) {
         final var byArea = (int) Math.round(
                 (double) width * height * params.islandsPer100kTiles() / DENSITY_AREA_TILES);
-        return Math.min(IslandParams.MAX_ISLANDS, Math.max(params.minIslands(), byArea));
+        return Math.clamp(byArea, params.minIslands(), IslandParams.MAX_ISLANDS);
     }
 
     /** Draws the centres at random tiles, away from the edge by a share of the radius where the map allows it. */
