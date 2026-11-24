@@ -107,7 +107,8 @@ public class TileMap {
 
     /**
      * Returns a counter that goes up whenever a tile is put into the map or what stands on a tile changes: its
-     * resource or building is set, removed or replaced, or its terrain type changes. Reading never changes it. A
+     * resource, building or floor is set, removed or replaced, its building reports a change through
+     * {@link Tile#buildingChanged()}, or its terrain type changes. Reading never changes it. A
      * consumer that keeps something worked out from the tiles compares it with the value it saw last to know whether
      * the map still is what it was worked out from.
      *

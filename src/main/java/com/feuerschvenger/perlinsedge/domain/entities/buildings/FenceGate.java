@@ -37,10 +37,16 @@ public class FenceGate extends Building {
         return rotation == 0 ? dx != 0 && dy == 0 : dy != 0 && dx == 0;
     }
 
-    /** Flips the gate between open and closed and updates its solidity. */
-    public void toggleOpen() {
+    /**
+     * Flips the gate between open and closed and updates its solidity. Solidity decides whether the tile can be walked
+     * on, so the tile tells its map, which keeps the walkable regions and the shadows right.
+     *
+     * @param tile the tile the gate stands on
+     */
+    public void toggleOpen(Tile tile) {
         this.isOpen = !this.isOpen;
         this.isSolid = !this.isOpen;
+        tile.buildingChanged();
         log.debug("Gate at ({}, {}) is now {}", tileX, tileY, isOpen ? "OPEN" : "CLOSED");
     }
 
@@ -51,9 +57,7 @@ public class FenceGate extends Building {
 
     @Override
     public boolean onInteract(Tile tile) {
-        toggleOpen();
-        // The shadow of an open gate is not the one of a closed gate
-        tile.buildingChanged();
+        toggleOpen(tile);
         return true;
     }
 }

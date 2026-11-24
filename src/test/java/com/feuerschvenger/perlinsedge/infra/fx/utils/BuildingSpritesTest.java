@@ -3,8 +3,11 @@ package com.feuerschvenger.perlinsedge.infra.fx.utils;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingFactory;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
+import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
@@ -240,12 +243,11 @@ class BuildingSpritesTest {
 
     @Test
     void theGateHasOneFilePerAxisAndStateAndTheFenceIsComposed() {
-        final com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate gate =
-                new com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate(1, 1);
+        final var gate = new FenceGate(1, 1);
         gate.setRotation(1);
 
         assertEquals("fence_gate_closed_1", BuildingSprites.spriteName(gate, 0));
-        gate.toggleOpen();
+        gate.toggleOpen(new Tile(1, 1, TileType.GRASS));
         assertEquals("fence_gate_open_1", BuildingSprites.spriteName(gate, 0));
         assertEquals("fence_gate_closed_0", BuildingSprites.restingName(BuildingType.FENCE_GATE, 0));
     }

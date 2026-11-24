@@ -84,13 +84,13 @@ class FenceGateTest {
     @Test
     void anOpenGateLetsPathfindingThroughAndClosingItBlocksAgain() {
         FenceGate gate = fenceWithGate();
-        gate.toggleOpen();
+        gate.toggleOpen(map.getTile(4, 4));
 
         var path = new Pathfinder(map).findPath(1, 4, 7, 4).requireNodes();
         assertNotNull(path);
         assertTrue(path.stream().anyMatch(n -> n.x == 4 && n.y == 4), "the path goes through the gate");
 
-        gate.toggleOpen();
+        gate.toggleOpen(map.getTile(4, 4));
         assertFalse(new Pathfinder(map).findPath(1, 4, 7, 4).reachable());
     }
 

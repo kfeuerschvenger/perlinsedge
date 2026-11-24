@@ -129,6 +129,24 @@ class WalkableRegionsTest {
     }
 
     @Test
+    void togglingAGateDirectlyMovesTheRevisionAndRelabelsTheMap() {
+        final var map = map(
+                "..#..",
+                "..#..",
+                "..#..");
+        final var gate = new FenceGate(2, 1);
+        map.getTile(2, 1).setBuilding(gate);
+        final var regions = map.getWalkableRegions();
+        assertEquals(2, regions.getRegionCount());
+        final var revision = map.getRevision();
+
+        gate.toggleOpen(map.getTile(2, 1));
+
+        assertNotEquals(revision, map.getRevision());
+        assertEquals(1, regions.getRegionCount());
+    }
+
+    @Test
     void aBridgeOverWaterJoinsTheShoresAndDemolishingItSplitsThemAgain() {
         final var map = map(
                 "..~..",
