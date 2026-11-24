@@ -28,9 +28,11 @@ public interface MapSource {
     }
 
     /**
-     * The perlin generator copies every setting of its context into the {@code AppConfig.generationConfig()} singleton
-     * (map type, seed, random, densities, thresholds and noise configurations) and reads them back from there, and
-     * it reads the tree and river density from the current map type of the world config. Only the current map type of
+     * This source, not the generator, reads the densities, thresholds and noise frequencies of the world config to
+     * build the generation context. The perlin generator copies every setting of that context into the
+     * {@code AppConfig.generationConfig()} singleton (map type, seed, random, densities, thresholds and noise
+     * configurations) and reads them back from there, and the world config reads the tree and river density of the
+     * current map type, so the current map type is set to the one of the spec first. Only the current map type of
      * the world config is put back after the run. The generation config keeps what the last generated map wrote, so
      * a test that reads it must generate a map first and never rely on its earlier content. The shared singletons also
      * make this source safe for one thread only: generate maps from one thread at a time.

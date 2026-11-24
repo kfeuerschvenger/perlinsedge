@@ -73,7 +73,10 @@ public final class MapInvariants {
         };
     }
 
-    /** Compares everything the generator decides for a tile: terrain, height and the resource with its seed and health. */
+    /**
+     * Compares everything the generator decides for a tile: terrain, height and the resource with its seed and
+     * health.
+     */
     private static boolean sameContent(TileMap first, TileMap second, int x, int y) {
         final var a = first.getTile(x, y);
         final var b = second.getTile(x, y);

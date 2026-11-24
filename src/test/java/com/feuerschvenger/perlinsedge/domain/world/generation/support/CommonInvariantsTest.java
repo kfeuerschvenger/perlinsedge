@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,11 +29,12 @@ class CommonInvariantsTest {
         final var invariants = new ArrayList<>(MapInvariants.common(source));
         invariants.addAll(MapInvariants.perType().get(type));
 
-        assertDoesNotThrow(() -> {
-            for (var seed : FixedSeeds.ALL) {
-                runner.run(new MapSpec(type, seed, SIZE), invariants);
-            }
-        });
+        var checked = 0;
+        for (var seed : FixedSeeds.ALL) {
+            checked += runner.run(new MapSpec(type, seed, SIZE), invariants);
+        }
+
+        assertEquals(FixedSeeds.ALL.size() * invariants.size(), checked);
     }
 
     @Test

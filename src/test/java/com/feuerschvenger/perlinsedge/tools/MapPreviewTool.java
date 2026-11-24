@@ -22,7 +22,8 @@ import java.util.concurrent.TimeUnit;
  * Generates every map type over a few seeds and writes one PNG per map into {@code docs/private/map-previews}, with one
  * pixel per tile, so a change to the generator can be judged by eye. It also logs the time each map took to generate.
  * It is not a test and never runs in the build; run its {@code main} from the IDE with the repository root as the
- * working directory, which is where the output folder is resolved. Arguments, all optional: {@code --types=DESERT,ISLANDS}, {@code --seeds=1,2,3}, {@code --size=300}.
+ * working directory, which is where the output folder is resolved. Arguments, all optional:
+ * {@code --types=DESERT,ISLANDS}, {@code --seeds=1,2,3}, {@code --size=300}.
  */
 public final class MapPreviewTool {
 
