@@ -194,8 +194,11 @@ public class Player extends Entity implements Container {
         final int fromX = step != null ? step.x : currentTileX;
         final int fromY = step != null ? step.y : currentTileY;
 
-        var pathfinder = new Pathfinder(map, occupied);
-        var path = pathfinder.findPath(fromX, fromY, targetX, targetY).nodes();
+        // A target in another region of the map is refused without the search, which would explore every tile of the
+        // region the player stands in before giving up
+        final List<PathNode> path = map.getWalkableRegions().mayReach(fromX, fromY, targetX, targetY)
+                ? new Pathfinder(map, occupied).findPath(fromX, fromY, targetX, targetY).nodes()
+                : List.of();
 
         if (path.isEmpty()) {
             // A refused order ends the walk the way any stop does: a player between two tiles finishes its step

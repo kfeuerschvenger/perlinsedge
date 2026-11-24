@@ -191,7 +191,7 @@ perlins-edge/
 - Frustum Culling to optimize rendering performance
 - Singleton Pattern for sharing configurations across the application
 - Strategy Pattern for enemy movement and attack behaviors
-- A* (A-star) Pathfinding for 8-directional movement of players and enemies
+- A* (A-star) Pathfinding for 8-directional movement of players and enemies, with a region index that refuses walks to unreachable tiles without a search (see [docs/PATHFINDING.md](docs/PATHFINDING.md))
 - Procedural Map Generation using Perlin noise
 - Factory Pattern for tile type assignment
 - Observer Pattern for game event notifications

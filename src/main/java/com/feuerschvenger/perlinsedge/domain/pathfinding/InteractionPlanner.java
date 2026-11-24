@@ -85,6 +85,10 @@ public final class InteractionPlanner {
         if (inReach(fromX, fromY, targetX, targetY)) {
             return Collections.emptyList();
         }
+        // No tile around the target in the region of the player: nothing to search for
+        if (!map.getWalkableRegions().mayReachNextTo(fromX, fromY, targetX, targetY)) {
+            return null;
+        }
         // The search stops at the first reachable stand tile, so it is the cheapest one
         var result = new Pathfinder(map, occupied).findPathNextTo(fromX, fromY, targetX, targetY, maxExpandedNodes);
         return result.reachable() ? result.nodes() : null;

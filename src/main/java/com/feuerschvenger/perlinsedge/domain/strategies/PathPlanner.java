@@ -86,8 +86,10 @@ final class PathPlanner {
         }
 
         searches++;
-        var path = new Pathfinder(map, null, penalty)
-                .findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES);
+        // A target in another region is a failed search without the 1,500 expansions it would cost to find out
+        var path = map.getWalkableRegions().mayReach(startX, startY, targetX, targetY)
+                ? new Pathfinder(map, null, penalty).findPath(startX, startY, targetX, targetY, MAX_EXPANDED_NODES)
+                : PathResult.unreachable();
         if (!path.reachable()) {
             backoffSeconds = backoffSeconds > 0
                     ? Math.min(MAX_BACKOFF_SECONDS, backoffSeconds * BACKOFF_GROWTH_FACTOR)
