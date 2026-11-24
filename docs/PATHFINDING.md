@@ -21,7 +21,7 @@ flowchart TD
     D -->|path| E[Player walks the path]
 ```
 
-The region check is the difference between a refusal that costs one comparison and one that costs a search. A target in another region has no path whatever the search does, but A* only learns that after it has expanded every tile of the region the player stands in, which is up to about 140 ms on a 300x300 map.
+The region check is the difference between a refusal that costs one comparison and one that costs a search. A target in another region has no path whatever the search does, but A* only learns that after it has expanded every tile of the region the player stands in, which on a 300x300 map can be most of its 90000 tiles.
 
 ## Regions
 
@@ -52,7 +52,7 @@ sequenceDiagram
     Regions-->>Game: false when no path can exist
 ```
 
-Every change to what stands on a tile raises the map revision, and every query compares it with the revision the labels were built at. Many changes between two queries cost one relabelling, and a query on an unchanged map costs a comparison and an array read. A relabelling is a flood fill over two preallocated `int` arrays, with no allocation per tile, and takes a few milliseconds on a 300x300 map.
+Every change to what stands on a tile raises the map revision, and every query compares it with the revision the labels were built at. Many changes between two queries cost one relabelling, and a query on an unchanged map costs a comparison and an array read. A relabelling is a flood fill over two preallocated `int` arrays, with no allocation per tile, so its cost is linear in the number of tiles.
 
 ## Interactions
 
@@ -60,4 +60,4 @@ Every change to what stands on a tile raises the map revision, and every query c
 
 ## Enemies
 
-Enemies search with a cap on expanded tiles and back off after a failed search. A target in another region now counts as a failed search without running the search, so the backoff is the same and the work is not spent.
+Enemies search with a cap on expanded tiles and back off after a failed search. A target in another region counts as a failed search without running the search, so the backoff is the same and the work is not spent.

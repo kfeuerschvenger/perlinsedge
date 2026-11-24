@@ -36,7 +36,7 @@ import java.util.Arrays;
  *
  * <h2>Cost</h2>
  * A relabelling is one flood fill over primitive arrays, linear in the number of tiles and with no allocation per
- * tile: the two arrays it uses are allocated once with the index. On a 300x300 map it takes a couple of milliseconds.
+ * tile: the two arrays it uses are allocated once with the index.
  *
  * <p>The index is not thread safe, like the map it belongs to. Get it with {@link TileMap#getWalkableRegions()}.
  */
@@ -189,15 +189,18 @@ public final class WalkableRegions {
         var tail = 0;
         final var start = startY * width + startX;
         regionOf[start] = region;
-        pending[tail++] = start;
+        pending[tail] = start;
+        tail++;
         while (head < tail) {
-            final var index = pending[head++];
+            final var index = pending[head];
+            head++;
             final var x = index % width;
             final var y = index / width;
             for (final int[] step : EDGE_STEPS) {
                 final var neighbour = claim(x + step[0], y + step[1], region);
                 if (neighbour != NOT_CLAIMED) {
-                    pending[tail++] = neighbour;
+                    pending[tail] = neighbour;
+                    tail++;
                 }
             }
         }

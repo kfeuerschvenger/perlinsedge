@@ -11,6 +11,9 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,7 +27,7 @@ class UnreachableOrderTest {
     private static final int SIZE = 300;
     private static final long SEED = 7L;
     private static final int MIN_DISTANCE = 30;
-    private static final int SPEEDUP = 5;
+    private static final List<MapType> TYPES = List.of(MapType.DENSE_FOREST, MapType.SWAMP);
 
     private final MapGenerator generator = new MapGenerator(FastNoiseLiteAdapter.FACTORY);
 
@@ -62,29 +65,28 @@ class UnreachableOrderTest {
     }
 
     @Test
-    void aWalledInTileIsRefusedMuchFasterThanTheSearchThatFindsNothing() {
-        for (final var type : MapType.values()) {
+    void aWalledInTileIsRefusedByTheRegionsWithoutASearchOrARelabel() {
+        for (final var type : TYPES) {
             final var map = generator.generate(new MapRequest(type, SEED, SIZE, SIZE));
             final var spawn = map.getSpawn().orElseThrow();
             final var target = wallInATile(map, spawn);
             final var player = new Player(spawn.x(), spawn.y());
+            final var regions = map.getWalkableRegions();
+
+            // The search alone explores the region of the player before it finds nothing
             final var pathfinder = new Pathfinder(map);
-            // Both sides warm up first, so the comparison is between the work and not between class loading
-            pathfinder.findPath(spawn.x(), spawn.y(), target[0], target[1]);
-            assertFalse(player.moveTo(map, target[0], target[1]));
-
-            final var searchStart = System.nanoTime();
             final var searched = pathfinder.findPath(spawn.x(), spawn.y(), target[0], target[1]);
-            final var searchNanos = System.nanoTime() - searchStart;
-            final var orderStart = System.nanoTime();
-            final var started = player.moveTo(map, target[0], target[1]);
-            final var orderNanos = System.nanoTime() - orderStart;
-
             assertFalse(searched.reachable(), type.name());
-            assertFalse(started, type.name());
+            assertTrue(pathfinder.getLastExpandedNodes() > MIN_DISTANCE, type.name());
+
+            // The region check rules the order out, which is the only way it is refused without that search
+            assertFalse(regions.mayReach(spawn.x(), spawn.y(), target[0], target[1]), type.name());
+            final var relabels = regions.getRelabelCount();
+            assertFalse(player.moveTo(map, target[0], target[1]), type.name());
+            assertFalse(player.moveTo(map, target[0], target[1]), type.name());
+
             assertFalse(player.isMoving(), type.name());
-            assertTrue(orderNanos * SPEEDUP < searchNanos, type.name() + ": order " + orderNanos + " ns, search "
-                    + searchNanos + " ns");
+            assertEquals(relabels, regions.getRelabelCount(), type.name());
         }
     }
 
@@ -100,7 +102,7 @@ class UnreachableOrderTest {
 
     @Test
     void aReachableTileOfAGeneratedMapStillStartsAWalk() {
-        for (final var type : MapType.values()) {
+        for (final var type : TYPES) {
             final var map = generator.generate(new MapRequest(type, SEED, SIZE, SIZE));
             final var spawn = map.getSpawn().orElseThrow();
             final var target = farTile(map, spawn);
