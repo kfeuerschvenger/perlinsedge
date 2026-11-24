@@ -40,7 +40,8 @@ class GroundDecalsTest {
 
     @Test
     void aboutOneGreenTileInFourHoldsADecal() {
-        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.HILL, TileType.SWAMP}) {
+        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA,
+                TileType.ROCKY_GROUND, TileType.SWAMP}) {
             assertEquals(0.25, share(type, 7L), 0.02, type.name());
         }
     }
@@ -52,11 +53,26 @@ class GroundDecalsTest {
     }
 
     @Test
+    void rockyGroundHoldsOnlyPebblesAndGravel() {
+        Set<String> seen = new HashSet<>();
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String name = GroundDecals.decalFor(TileType.ROCKY_GROUND, x, y, 7L);
+                if (name != null) {
+                    seen.add(name);
+                }
+            }
+        }
+        assertEquals(new HashSet<>(GroundDecals.ROCKY_DECALS), seen);
+        assertTrue(GroundDecals.ALL.containsAll(seen));
+    }
+
+    @Test
     void grassyTilesInTheDesertHoldOnlyPebblesLikeDunes() {
         Set<String> seen = new HashSet<>();
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) {
-                String name = GroundDecals.decalFor(MapType.DESERT, TileType.HILL, x, y, 7L);
+                String name = GroundDecals.decalFor(MapType.DESERT, TileType.ROCKY_GROUND, x, y, 7L);
                 if (name != null) {
                     seen.add(name);
                 }
@@ -68,7 +84,7 @@ class GroundDecalsTest {
 
     @Test
     void grassyTilesInTheTundraHoldNoDecalsLikeSnow() {
-        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.HILL}) {
+        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.ROCKY_GROUND}) {
             for (int x = 0; x < 60; x++) {
                 for (int y = 0; y < 60; y++) {
                     assertNull(GroundDecals.decalFor(MapType.TUNDRA, type, x, y, 7L), type.name());

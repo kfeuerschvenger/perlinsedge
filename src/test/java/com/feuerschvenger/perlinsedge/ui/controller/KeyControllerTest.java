@@ -5,6 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ResourceLock("AppConfig.debug")
 class KeyControllerTest {
+
+    /** The digit key the tests press to select a hotbar slot. */
+    private static final GameKey HOTBAR_KEY = GameKey.DIGIT_4;
+    /** The slot number the controller reports for {@link #HOTBAR_KEY}. */
+    private static final int HOTBAR_SLOT_NUMBER = 4;
 
     private final List<Integer> numbers = new ArrayList<>();
     private KeyController controller;
@@ -334,9 +341,9 @@ class KeyControllerTest {
         final KeyController plain = withCallbacks(calls, false);
 
         plain.onKeyAction(GameKey.ESCAPE);
-        plain.onKeyAction(GameKey.DIGIT_4);
+        plain.onKeyAction(HOTBAR_KEY);
 
         assertEquals(List.of("pause"), calls);
-        assertEquals(List.of(4), numbers);
+        assertEquals(List.of(HOTBAR_SLOT_NUMBER), numbers);
     }
 }

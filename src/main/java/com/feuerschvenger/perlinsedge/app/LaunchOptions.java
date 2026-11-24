@@ -5,6 +5,10 @@ import java.util.List;
 /**
  * Options read once from the program arguments at launch. The record is immutable, so a choice made at startup cannot
  * change while the game runs.
+ * <p>
+ * The debug keys are turned on by the exact, case-sensitive program argument {@code --debug}: {@code --DEBUG},
+ * {@code --debug=true} and {@code -debug} are ignored. The argument is unrelated to the system property
+ * {@code -Dperlinsedge.debug}, which only turns on the JavaFX and Prism logging and never enables a key.
  *
  * @param debugKeys whether the debug keys F1 to F5 do anything
  */

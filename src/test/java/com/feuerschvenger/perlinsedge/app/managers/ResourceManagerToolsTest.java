@@ -36,7 +36,7 @@ class ResourceManagerToolsTest {
         TileMap map = new TileMap(3, 3);
         for (int x = 0; x < 3; x++) {
             for (int y = 0; y < 3; y++) {
-                map.setTile(x, y, new Tile(x, y, TileType.HILL));
+                map.setTile(x, y, new Tile(x, y, TileType.ROCKY_GROUND));
             }
         }
         tile = map.getTile(1, 1);

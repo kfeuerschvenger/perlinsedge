@@ -39,6 +39,7 @@ import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -102,7 +103,7 @@ public class GameOrchestrator {
      */
     public GameOrchestrator(GameView view, GamePanels panels, GameStateManager gameState,
                             RecipeManager recipeManager, LaunchOptions options) {
-        this.debugKeys = options.debugKeys();
+        this.debugKeys = Objects.requireNonNull(options, "options").debugKeys();
         this.renderer = view.renderer();
         this.camera = view.camera();
         this.inputHandler = view.inputHandler();

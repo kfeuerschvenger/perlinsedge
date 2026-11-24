@@ -13,8 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Iron ore and crystals are scarce: a handful to a few dozen on a map, crystals rarer than iron, both only on hills and
- * mountains, and present on every map type that has some. The counts are taken over a few fixed seeds.
+ * Iron ore and crystals are scarce: a handful to a few dozen on a map, crystals rarer than iron, both only on rocky
+ * ground and mountains, and present on every map type that has some. The counts are taken over a few fixed seeds.
  */
 class ResourceScarcityTest {
 
@@ -45,7 +45,7 @@ class ResourceScarcityTest {
         for (var y = 0; y < SIZE; y++) {
             for (var x = 0; x < SIZE; x++) {
                 final Tile tile = map.getTile(x, y);
-                final boolean onRock = tile.getType() == TileType.HILL || tile.getType() == TileType.MOUNTAIN;
+                final boolean onRock = tile.getType() == TileType.ROCKY_GROUND || tile.getType() == TileType.MOUNTAIN;
                 rocky += onRock ? 1 : 0;
                 if (!tile.hasResource()) {
                     continue;

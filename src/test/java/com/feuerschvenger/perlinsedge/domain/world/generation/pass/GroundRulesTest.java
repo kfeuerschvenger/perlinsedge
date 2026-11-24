@@ -24,9 +24,9 @@ class GroundRulesTest {
     @ParameterizedTest
     @CsvSource({
             "-0.45, 0.5, DEEP_WATER", "-0.35, 0.5, SHALLOW_WATER", "-0.15, 0.1, GRASS", "-0.15, 0.9, FOREST",
-            "0.25, 0.1, GRASS", "0.35, 0.1, HILL", "0.55, 0.9, FOREST", "0.65, 0.9, HILL", "0.65, 0.1, HILL",
-            "0.75, 0.1, MOUNTAIN", "0.75, 0.9, MOUNTAIN"})
-    void denseForestBandsFollowTheHeightAndWetGroundBelowTheHillsIsForest(float height, float moisture,
+            "0.25, 0.1, GRASS", "0.35, 0.1, ROCKY_GROUND", "0.55, 0.9, FOREST", "0.65, 0.9, ROCKY_GROUND",
+            "0.65, 0.1, ROCKY_GROUND", "0.75, 0.1, MOUNTAIN", "0.75, 0.9, MOUNTAIN"})
+    void denseForestBandsFollowTheHeightAndWetGroundBelowTheRockyGroundIsForest(float height, float moisture,
                                                                          TileType expected) {
         assertEquals(expected, GroundRules.DENSE_FOREST.classify(height, ANY, moisture));
     }
@@ -42,7 +42,7 @@ class GroundRulesTest {
     @ParameterizedTest
     @CsvSource({
             "-0.65, DEEP_WATER", "-0.45, SHALLOW_WATER", "-0.35, SAND", "-0.25, SAND", "-0.15, GRASS",
-            "0.25, GRASS", "0.35, HILL", "0.65, HILL", "0.75, MOUNTAIN"})
+            "0.25, GRASS", "0.35, ROCKY_GROUND", "0.65, ROCKY_GROUND", "0.75, MOUNTAIN"})
     void islandsHaveASandShoreAndIgnoreTheClimate(float height, TileType expected) {
         assertEquals(expected, GroundRules.ISLANDS.classify(height, COLD, DRY));
         assertEquals(expected, GroundRules.ISLANDS.classify(height, WARM, WET));
@@ -51,7 +51,8 @@ class GroundRulesTest {
     @ParameterizedTest
     @CsvSource({"-0.5, DEEP_WATER", "-0.45, DEEP_WATER", "-0.35, SHALLOW_WATER", "-0.25, SHALLOW_WATER",
             "-0.15, DEEP_WATER", "0.1, DEEP_WATER", "0.14, DEEP_WATER", "0.16, SHALLOW_WATER",
-            "0.19, SHALLOW_WATER", "0.21, SAND", "0.25, SAND", "0.55, SAND", "0.65, HILL", "0.95, HILL"})
+            "0.19, SHALLOW_WATER", "0.21, SAND", "0.25, SAND", "0.55, SAND", "0.65, ROCKY_GROUND",
+            "0.95, ROCKY_GROUND"})
     void desertHasASeaAtTheBottomAndItsWaterAtTheTopOfTheRange(float height, TileType expected) {
         assertEquals(expected, GroundRules.DESERT.classify(height, WARM, DRY));
     }
@@ -89,20 +90,21 @@ class GroundRulesTest {
     @ParameterizedTest
     @CsvSource({
             "-0.65, 0.5, DEEP_WATER", "-0.55, 0.5, SHALLOW_WATER", "-0.3, 0.5, SAND", "0.1, 0.9, SWAMP",
-            "0.1, 0.1, GRASS", "0.35, 0.9, HILL", "0.25, 0.1, GRASS"})
+            "0.1, 0.1, GRASS", "0.35, 0.9, ROCKY_GROUND", "0.25, 0.1, GRASS"})
     void riversKeepDeepWaterForTheBottomAndSwampForTheWetLowland(float height, float moisture, TileType expected) {
         assertEquals(expected, GroundRules.RIVERS.classify(height, ANY, moisture));
     }
 
     @ParameterizedTest
-    @CsvSource({"-0.45, DEEP_WATER", "-0.3, SHALLOW_WATER", "-0.1, SAND", "0.1, GRASS", "0.55, GRASS", "0.65, HILL"})
-    void mediterraneanHasASandShoreAndGrassUpToTheHills(float height, TileType expected) {
+    @CsvSource({"-0.45, DEEP_WATER", "-0.3, SHALLOW_WATER", "-0.1, SAND", "0.1, GRASS", "0.55, GRASS",
+            "0.65, ROCKY_GROUND"})
+    void mediterraneanHasASandShoreAndGrassUpToTheRockyGround(float height, TileType expected) {
         assertEquals(expected, GroundRules.MEDITERRANEAN.classify(height, ANY, ANY));
     }
 
     @ParameterizedTest
     @CsvSource({"-0.45, DEEP_WATER", "-0.35, SHALLOW_WATER", "-0.25, SHALLOW_WATER", "-0.15, DEEP_WATER",
-            "0.0, DEEP_WATER", "0.25, SHALLOW_WATER", "0.35, GRASS", "0.45, HILL", "0.95, HILL"})
+            "0.0, DEEP_WATER", "0.25, SHALLOW_WATER", "0.35, GRASS", "0.45, ROCKY_GROUND", "0.95, ROCKY_GROUND"})
     void mountainousHasASeaAtTheBottomAndItsWaterHighBetweenThePeaks(float height, TileType expected) {
         assertEquals(expected, GroundRules.MOUNTAINOUS.classify(height, ANY, ANY));
     }

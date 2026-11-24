@@ -18,11 +18,11 @@ public final class GroundRules {
     // Heights shared by several rules
     private static final float COAST_LEVEL = 0F;
     private static final float GRASS_LIMIT = 0.3F;
-    private static final float HILL_START = 0.6F;
+    private static final float ROCKY_START = 0.6F;
     private static final float MOUNTAIN_START = 0.7F;
     private static final float WET_MOISTURE = 0.6F;
 
-    // Dense forest: sea up to the shore, forest where it is wet and below the hills
+    // Dense forest: sea up to the shore, forest where it is wet and below the rocky ground
     private static final float DENSE_FOREST_DEEP = -0.4F;
     private static final float DENSE_FOREST_SHALLOW = -0.2F;
 
@@ -66,7 +66,7 @@ public final class GroundRules {
     private static final float RIVERS_SHALLOW = -0.5F;
     private static final float RIVERS_SWAMP_MAX_HEIGHT = 0.3F;
 
-    // Mediterranean: a sandy shore and grass up to the hills
+    // Mediterranean: a sandy shore and grass up to the rocky ground
     private static final float MEDITERRANEAN_DEEP = -0.4F;
     private static final float MEDITERRANEAN_SHALLOW = -0.2F;
 
@@ -79,7 +79,10 @@ public final class GroundRules {
     private static final Set<NoiseField> TEMPERATURE_AND_MOISTURE = EnumSet.of(NoiseField.TEMPERATURE,
             NoiseField.MOISTURE);
 
-    /** Sea, then forest where it is wet below the hills, then grass, hills and mountains. Reads the moisture. */
+    /**
+     * Sea, then forest where it is wet below the rocky ground, then grass, rocky ground and mountains. Reads the
+     * moisture.
+     */
     public static final GroundRule DENSE_FOREST = new GroundRule(MOISTURE_ONLY,
             (float height, float temperature, float moisture) -> denseForest(height, moisture));
 
@@ -87,26 +90,29 @@ public final class GroundRules {
     public static final GroundRule SWAMP = new GroundRule(MOISTURE_ONLY,
             (float height, float temperature, float moisture) -> swamp(height, moisture));
 
-    /** Deep sea, shallows, a sand shore, then grass, hills and mountains. Reads no climate. */
+    /** Deep sea, shallows, a sand shore, then grass, rocky ground and mountains. Reads no climate. */
     public static final GroundRule ISLANDS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> islands(height));
 
-    /** Sea at the bottom, water at the top of the height range, sand below the hills, hills above; no climate. */
+    /**
+     * Sea at the bottom, water at the top of the height range, sand below the rocky ground, rocky ground above; no
+     * climate.
+     */
     public static final GroundRule DESERT = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> desert(height));
 
     /** Frozen sea and coast, then snow, forest and grass inland by temperature and moisture. Reads both. */
     public static final GroundRule TUNDRA = new GroundRule(TEMPERATURE_AND_MOISTURE, GroundRules::tundra);
 
-    /** Deep sea only at the very bottom, sand, wet swamp lowland, grass and hills. Reads the moisture. */
+    /** Deep sea only at the very bottom, sand, wet swamp lowland, grass and rocky ground. Reads the moisture. */
     public static final GroundRule RIVERS = new GroundRule(MOISTURE_ONLY,
             (float height, float temperature, float moisture) -> rivers(height, moisture));
 
-    /** Sea, a sand shore, grass up to the hills. Reads no climate. */
+    /** Sea, a sand shore, grass up to the rocky ground. Reads no climate. */
     public static final GroundRule MEDITERRANEAN = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> mediterranean(height));
 
-    /** Sea at the bottom, water high in the range, grass at the valley floor, hills above. Reads no climate. */
+    /** Sea at the bottom, water high in the range, grass at the valley floor, rocky ground above. Reads no climate. */
     public static final GroundRule MOUNTAINOUS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> mountainous(height));
 
@@ -114,7 +120,7 @@ public final class GroundRules {
     private GroundRules() {
     }
 
-    /** The dense forest: water below the shore, forest on wet ground below the hills. */
+    /** The dense forest: water below the shore, forest on wet ground below the rocky ground. */
     private static TileType denseForest(float height, float moisture) {
         if (height < DENSE_FOREST_DEEP) {
             return TileType.DEEP_WATER;
@@ -122,7 +128,7 @@ public final class GroundRules {
         if (height < DENSE_FOREST_SHALLOW) {
             return TileType.SHALLOW_WATER;
         }
-        if (moisture > WET_MOISTURE && height < HILL_START) {
+        if (moisture > WET_MOISTURE && height < ROCKY_START) {
             return TileType.FOREST;
         }
         return highGround(height);
@@ -142,7 +148,7 @@ public final class GroundRules {
         return height < GRASS_LIMIT ? TileType.GRASS : TileType.FOREST;
     }
 
-    /** The islands: deep sea, shallows, sand, then the same grass, hills and mountains as the dense forest. */
+    /** The islands: deep sea, shallows, sand, then the same grass, rocky ground and mountains as the dense forest. */
     private static TileType islands(float height) {
         if (height < ISLANDS_DEEP) {
             return TileType.DEEP_WATER;
@@ -156,7 +162,7 @@ public final class GroundRules {
         return highGround(height);
     }
 
-    /** The desert: sea at the bottom, then water at the top of the range, sand below the hills. */
+    /** The desert: sea at the bottom, then water at the top of the range, sand below the rocky ground. */
     private static TileType desert(float height) {
         if (isHighWaterSea(height)) {
             return highWaterSea(height);
@@ -167,7 +173,7 @@ public final class GroundRules {
         if (height < DESERT_SHALLOW) {
             return TileType.SHALLOW_WATER;
         }
-        return height < HILL_START ? TileType.SAND : TileType.HILL;
+        return height < ROCKY_START ? TileType.SAND : TileType.ROCKY_GROUND;
     }
 
     /** The tundra: deep water, then ice or shallows by temperature, an icy coast, snow, forest and grass. */
@@ -198,7 +204,10 @@ public final class GroundRules {
         return TileType.GRASS;
     }
 
-    /** The rivers map: deep sea only at the bottom, sand to the coast, swamp in the wet lowland, grass and hills. */
+    /**
+     * The rivers map: deep sea only at the bottom, sand to the coast, swamp in the wet lowland, grass and rocky
+     * ground.
+     */
     private static TileType rivers(float height, float moisture) {
         if (height < RIVERS_DEEP) {
             return TileType.DEEP_WATER;
@@ -212,10 +221,10 @@ public final class GroundRules {
         if (moisture > WET_MOISTURE && height < RIVERS_SWAMP_MAX_HEIGHT) {
             return TileType.SWAMP;
         }
-        return height < GRASS_LIMIT ? TileType.GRASS : TileType.HILL;
+        return height < GRASS_LIMIT ? TileType.GRASS : TileType.ROCKY_GROUND;
     }
 
-    /** The Mediterranean: sea, a sand shore up to the coast, grass up to the hills. */
+    /** The Mediterranean: sea, a sand shore up to the coast, grass up to the rocky ground. */
     private static TileType mediterranean(float height) {
         if (height < MEDITERRANEAN_DEEP) {
             return TileType.DEEP_WATER;
@@ -226,10 +235,10 @@ public final class GroundRules {
         if (height < COAST_LEVEL) {
             return TileType.SAND;
         }
-        return height < HILL_START ? TileType.GRASS : TileType.HILL;
+        return height < ROCKY_START ? TileType.GRASS : TileType.ROCKY_GROUND;
     }
 
-    /** The mountains: sea at the bottom, water between the peaks, grass on the valley floor, hills above. */
+    /** The mountains: sea at the bottom, water between the peaks, grass on the valley floor, rocky ground above. */
     private static TileType mountainous(float height) {
         if (isHighWaterSea(height)) {
             return highWaterSea(height);
@@ -240,7 +249,7 @@ public final class GroundRules {
         if (height < MOUNTAINOUS_SHALLOW) {
             return TileType.SHALLOW_WATER;
         }
-        return height < MOUNTAINOUS_GRASS_LIMIT ? TileType.GRASS : TileType.HILL;
+        return height < MOUNTAINOUS_GRASS_LIMIT ? TileType.GRASS : TileType.ROCKY_GROUND;
     }
 
     /**
@@ -256,11 +265,11 @@ public final class GroundRules {
         return height < HIGH_WATER_SEA_DEEP ? TileType.DEEP_WATER : TileType.SHALLOW_WATER;
     }
 
-    /** Grass below the grass limit, hills below the mountain start and mountains above, shared by two rules. */
+    /** Grass below the grass limit, rocky ground below the mountain start and mountains above, shared by two rules. */
     private static TileType highGround(float height) {
         if (height < GRASS_LIMIT) {
             return TileType.GRASS;
         }
-        return height < MOUNTAIN_START ? TileType.HILL : TileType.MOUNTAIN;
+        return height < MOUNTAIN_START ? TileType.ROCKY_GROUND : TileType.MOUNTAIN;
     }
 }

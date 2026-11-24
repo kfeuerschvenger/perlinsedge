@@ -12,7 +12,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import java.util.List;
 import java.util.Set;
 
-/** The recipe of the desert: sand and hills with water high in the height range, oases and palms and cacti. */
+/** The recipe of the desert: sand and rocky ground with water high in the height range, oases and palms and cacti. */
 final class DesertRecipe {
 
     private static final float HEIGHT_FREQUENCY = 0.04F;

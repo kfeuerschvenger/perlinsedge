@@ -175,7 +175,7 @@ class GenerationContextTest {
         context.setResource(ROW, ResourceType.TREE);
         final var groundCopy = context.ground();
         final var resourcesCopy = context.resources();
-        groundCopy[ROW] = TileType.HILL;
+        groundCopy[ROW] = TileType.ROCKY_GROUND;
         resourcesCopy[ROW] = null;
 
         assertEquals(TileType.SAND, context.groundAt(ROW));

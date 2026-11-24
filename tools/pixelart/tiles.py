@@ -2,7 +2,7 @@
 
 Each land tile is a 32x21 block: a 32x16 top diamond in one flat colour with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face below.
 A face strip per tile kind is the next 5 pixels of that face, which the game draws under the block where a lower neighbour exposes it, once per 5 pixels of drop.
-Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, flowers and mushrooms.
+Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, gravel, flowers and mushrooms.
 Water lies over a bed that is a sand block with the same grid edge and side faces as land, sunk 10 pixels per depth level below the land tops: level 1 for shallow, coast and river water and level 2 for deep water.
 The bed colours are mixed toward the water colour when the sprite is baked, 45 percent for level 1 and 75 percent for level 2, so the grid and the decals on the bed fade with depth instead of looking drawn over the water, and the step between two depths shows its side faces.
 One translucent sheet of the water colour is drawn over every water tile, plus three thin highlight lines the game fades in and out.
@@ -33,7 +33,7 @@ LAND = {
     "grass": ("#5aa84a", "#7a4a3a", "#4e2f36"),
     "forest": ("#4f9c45", "#7a4a3a", "#4e2f36"),
     "savanna": ("#a7b05a", "#7a4a3a", "#4e2f36"),
-    "hill": ("#8aa85a", "#7b6040", "#55432f"),
+    "rocky-ground": ("#8f8a7a", "#6f6658", "#4f483f"),
     "sand": ("#f0d48e", "#dba867", "#c4925a"),
     "mountain": ("#9a98a6", "#7d7a8c", "#4a4868"),
     "snow": ("#eef4fa", "#bcd0e6", "#9fb4e0"),
@@ -133,6 +133,7 @@ DECALS = {
     "tuft-3": (["a.a.a", "babab", ".b.b."], {"a": "#b3d05e", "b": "#459b4c"}),
     "pebble-1": ([".aa.", "abbc", ".cc."], {"a": "#aeadb8", "b": "#7d7a8c", "c": "#4a4868"}),
     "pebble-2": ([".ab..", "abbc.", ".cc.a", "...ac"], {"a": "#aeadb8", "b": "#7d7a8c", "c": "#4a4868"}),
+    "gravel-1": (["a..ba", ".bc.c", "cb..a", ".a.cb"], {"a": "#b4ae9c", "b": "#7f7968", "c": "#5a5346"}),
     "flower-1": (["a.a", ".b.", "c.c"], {"a": "#fcf4e4", "b": "#ffa02a", "c": "#337a47"}),
     "flower-2": (["a...", ".c.a", "..c."], {"a": "#d4705c", "c": "#337a47"}),
     "mushroom-1": ([".aa.", "abba", ".cc.", ".cc."], {"a": "#9c4247", "b": "#fcf4e4", "c": "#f4d890"}),
@@ -192,6 +193,7 @@ def preview(tiles, decals, path):
     names = list(tiles)
     canvas = Image.new("RGBA", (TILE_W * size * 2 + 64, TOP_H * size * len(names) // 2 + 200), (0x1d, 0x18, 0x30, 255))
     grass_decals = ["tuft-1", "tuft-2", "tuft-3", "pebble-1", "flower-1", "flower-2", "mushroom-1"]
+    rocky_decals = ["pebble-1", "pebble-2", "gravel-1"]
     for i, name in enumerate(names):
         ox = 32 + (i % 2) * TILE_W * size
         oy = 16 + (i // 2) * (TOP_H * size // 2 + 24)
@@ -200,8 +202,8 @@ def preview(tiles, decals, path):
                 sx = ox + (gx - gy) * TILE_W // 2 + TILE_W * size // 2 - TILE_W // 2
                 sy = oy + (gx + gy) * TOP_H // 2
                 canvas.alpha_composite(tiles[name], (sx, sy))
-                if name in ("grass", "forest", "savanna", "hill", "swamp") and rng.random() < 0.3:
-                    d = decals[rng.choice(grass_decals)]
+                if name in ("grass", "forest", "savanna", "rocky-ground", "swamp") and rng.random() < 0.3:
+                    d = decals[rng.choice(rocky_decals if name == "rocky-ground" else grass_decals)]
                     canvas.alpha_composite(d, (sx + rng.randint(8, 20), sy + rng.randint(4, 10) - d.height // 2))
                 elif name == "sand" and rng.random() < 0.15:
                     d = decals[rng.choice(["shell-1", "pebble-1"])]

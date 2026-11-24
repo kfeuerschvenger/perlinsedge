@@ -39,9 +39,10 @@ class GroundPassTest {
     private static final int SEEN_TEMPERATURE = 0;
     private static final int SEEN_MOISTURE = 1;
 
-    /** A rule that returns hills above the boundary and sand below, and reads no climate. */
+    /** A rule that returns rocky ground above the boundary and sand below, and reads no climate. */
     private static final GroundRule SPLIT = GroundRule.ofHeight(
-            (float height, float temperature, float moisture) -> height >= BOUNDARY ? TileType.HILL : TileType.SAND);
+            (float height, float temperature, float moisture) ->
+                    height >= BOUNDARY ? TileType.ROCKY_GROUND : TileType.SAND);
 
     private static final Set<NoiseField> BOTH_CLIMATES = Set.of(NoiseField.TEMPERATURE, NoiseField.MOISTURE);
 
@@ -68,7 +69,7 @@ class GroundPassTest {
 
         new GroundPass(new GroundParams(SPLIT, NO_NUDGE)).apply(context);
 
-        assertEquals(TileType.HILL, context.groundAt(context.index(LIFTED_X, LIFTED_Y)));
+        assertEquals(TileType.ROCKY_GROUND, context.groundAt(context.index(LIFTED_X, LIFTED_Y)));
         assertEquals(TileType.SAND, context.groundAt(context.index(0, 0)));
         assertTrue(Arrays.stream(context.ground()).noneMatch(Objects::isNull));
     }
@@ -141,13 +142,13 @@ class GroundPassTest {
         fillFields(BOUNDARY);
         new GroundPass(new GroundParams(SPLIT, AMPLITUDE)).apply(context);
         final var first = context.ground();
-        final var hills = Arrays.stream(first).filter((TileType type) -> type == TileType.HILL).count();
+        final var rocky = Arrays.stream(first).filter((TileType type) -> type == TileType.ROCKY_GROUND).count();
 
         final var again = TestContexts.of(WIDTH, HEIGHT);
         fillHeight(again, BOUNDARY);
         new GroundPass(new GroundParams(SPLIT, AMPLITUDE)).apply(again);
 
-        assertTrue(hills > 0 && hills < first.length, "hills " + hills + " of " + first.length);
+        assertTrue(rocky > 0 && rocky < first.length, "rocky ground " + rocky + " of " + first.length);
         assertArrayEquals(first, again.ground());
     }
 

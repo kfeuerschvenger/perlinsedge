@@ -50,8 +50,8 @@ public enum TileType {
             Rgba.rgb(189, 183, 107),
             new TerrainProperties(true, false, true, true)
     ),
-    HILL(
-            Rgba.rgb(120, 80, 50),
+    ROCKY_GROUND(
+            Rgba.rgb(128, 118, 104),
             new TerrainProperties(true, false, true, true)
     ),
     MOUNTAIN(
