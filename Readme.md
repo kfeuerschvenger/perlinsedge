@@ -20,7 +20,12 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 
 ## Debug Modes & Hotkeys
 
-Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys:
+Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys. They work only when the game is launched with the `--debug` program argument, so they never help or hinder a normal game: without the flag the keys do nothing.
+
+- **From a terminal**: `java -jar target/PerlinsEdge-1.0-SNAPSHOT.jar --debug`.
+- **From IntelliJ**: open **Run | Edit Configurations**, select the run configuration of the game, put `--debug` in the **Program arguments** field and run it.
+
+The keys:
 
 - **F1**: Debug Mode: Displays FPS, coordinates, and other nerdy stats in the top-right corner. The sky line shows the day number, the phase and the clock, and the day number turns when the dawn begins at 03:00, not at midnight.
 - **F2**: Grayscale Mode: See the Perlin noise tile values in all their gray glory.

@@ -24,6 +24,8 @@ public class KeyController implements IKeyListener {
     private final Runnable generateNewMapAction;
     private final Runnable toggleInventoryPanelAction;
     private final Consumer<Integer> onNumberKeyPress;
+    /** Whether the debug keys F1 to F5 act. Without it they do nothing. */
+    private final boolean debugKeysEnabled;
 
     /**
      * Condition under which gameplay keys are ignored while it returns true. Pause, centring the camera and the debug
@@ -44,12 +46,15 @@ public class KeyController implements IKeyListener {
      * @param generateNewMapAction Action to generate a new random map.
      * @param toggleInventoryPanelAction Action to toggle the inventory panel.
      * @param onNumberKeyPress Action to handle number key presses for hotbar selection.
+     * @param debugKeysEnabled Whether the debug keys F1 to F5 act, which a launch with the debug flag allows.
      */
     public KeyController(Runnable togglePauseMenuAction,
                          Runnable centerCameraAction,
                          Runnable generateNewMapAction,
                          Runnable toggleInventoryPanelAction,
-                         Consumer<Integer> onNumberKeyPress) {
+                         Consumer<Integer> onNumberKeyPress,
+                         boolean debugKeysEnabled) {
+        this.debugKeysEnabled = debugKeysEnabled;
         this.togglePauseMenuAction = togglePauseMenuAction;
         this.centerCameraAction = centerCameraAction;
         this.generateNewMapAction = generateNewMapAction;
@@ -126,8 +131,11 @@ public class KeyController implements IKeyListener {
         };
     }
 
-    /** Runs what a debugging key does. */
+    /** Runs what a debugging key does, which is nothing unless the debug keys are enabled. */
     private void runDebugKey(GameKey key) {
+        if (!debugKeysEnabled) {
+            return;
+        }
         switch (key) {
             case F1 -> toggleDebugMode();
             case F2 -> toggleGrayScaleMode();

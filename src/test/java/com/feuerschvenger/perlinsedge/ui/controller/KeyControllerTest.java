@@ -22,7 +22,7 @@ class KeyControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, numbers::add);
+        controller = new KeyController(() -> { }, () -> { }, () -> { }, () -> { }, numbers::add, true);
     }
 
     @AfterEach
@@ -34,9 +34,9 @@ class KeyControllerTest {
         debug.setTextEnabled(false);
     }
 
-    private KeyController withCallbacks(List<String> calls) {
+    private KeyController withCallbacks(List<String> calls, boolean debugKeys) {
         return new KeyController(() -> calls.add("pause"), () -> calls.add("centre"), () -> calls.add("newMap"),
-                () -> calls.add("inventory"), numbers::add);
+                () -> calls.add("inventory"), numbers::add, debugKeys);
     }
 
     @Test
@@ -147,7 +147,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
                 () -> { }, () -> calls.add("inventory"),
-                n -> calls.add("digit"));
+                n -> calls.add("digit"), false);
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.I);
@@ -160,7 +160,7 @@ class KeyControllerTest {
     void pauseAndCameraKeysWorkWhileInputIsBlocked() {
         List<String> calls = new ArrayList<>();
         KeyController blocked = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
-                () -> { }, () -> { }, n -> { });
+                () -> { }, () -> { }, n -> { }, false);
         blocked.setInputBlocked(() -> true);
 
         blocked.onKeyAction(GameKey.ESCAPE);
@@ -174,7 +174,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         KeyController keys = new KeyController(() -> calls.add("pause"), () -> calls.add("centre"),
                 () -> calls.add("map"), () -> calls.add("inventory"),
-                n -> calls.add("digit"));
+                n -> calls.add("digit"), false);
 
         keys.onKeyAction(GameKey.SPACE);
         keys.onKeyAction(GameKey.SPACE);
@@ -187,7 +187,7 @@ class KeyControllerTest {
         List<String> calls = new ArrayList<>();
         boolean[] blocked = {true};
         KeyController keys = new KeyController(() -> { }, () -> { }, () -> { },
-                () -> calls.add("inventory"), n -> { });
+                () -> calls.add("inventory"), n -> { }, false);
         keys.setInputBlocked(() -> blocked[0]);
 
         keys.onKeyAction(GameKey.I);
@@ -199,7 +199,7 @@ class KeyControllerTest {
 
     @Test
     void missingActionsAreIgnored() {
-        KeyController bare = new KeyController(null, null, null, null, null);
+        KeyController bare = new KeyController(null, null, null, null, null, false);
 
         assertDoesNotThrow(() -> {
             bare.onKeyAction(GameKey.DIGIT_1);
@@ -227,7 +227,7 @@ class KeyControllerTest {
     @Test
     void theFixedKeysRunTheirOwnCallbacks() {
         final List<String> calls = new ArrayList<>();
-        final KeyController wired = withCallbacks(calls);
+        final KeyController wired = withCallbacks(calls, false);
 
         wired.onKeyAction(GameKey.ESCAPE);
         wired.onKeyAction(GameKey.SPACE);
@@ -276,7 +276,7 @@ class KeyControllerTest {
     @Test
     void theNewMapKeyOnlyActsWhileTheDebugModeIsOn() {
         final List<String> calls = new ArrayList<>();
-        final KeyController wired = withCallbacks(calls);
+        final KeyController wired = withCallbacks(calls, true);
 
         wired.onKeyAction(GameKey.F4);
         assertTrue(calls.isEmpty(), "debug mode is off");
@@ -288,7 +288,7 @@ class KeyControllerTest {
 
     @Test
     void theNewMapKeyDoesNothingWithoutCallbacksEvenInDebugMode() {
-        final KeyController bare = new KeyController(null, null, null, null, null);
+        final KeyController bare = new KeyController(null, null, null, null, null, true);
         bare.onKeyAction(GameKey.F1);
 
         bare.onKeyAction(GameKey.F4);
@@ -296,5 +296,47 @@ class KeyControllerTest {
         bare.onKeyAction(GameKey.DIGIT_3);
 
         assertTrue(AppConfig.getInstance().debug().isEnabled(), "only the debug toggle ran");
+    }
+
+    @Test
+    void theDebugKeysDoNothingWithoutTheDebugFlag() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController plain = withCallbacks(calls, false);
+        final AppConfig.DebugConfig debug = AppConfig.getInstance().debug();
+
+        plain.onKeyAction(GameKey.F1);
+        plain.onKeyAction(GameKey.F2);
+        plain.onKeyAction(GameKey.F3);
+        plain.onKeyAction(GameKey.F4);
+        plain.onKeyAction(GameKey.F5);
+
+        assertFalse(debug.isEnabled());
+        assertFalse(debug.isGrayscaleEnabled());
+        assertFalse(debug.isTextEnabled());
+        assertFalse(AppConfig.getInstance().dayCycle().isFastTime());
+        assertTrue(calls.isEmpty(), calls.toString());
+    }
+
+    @Test
+    void theNewMapKeyStaysDeadWithoutTheDebugFlagEvenIfDebugModeIsOn() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController plain = withCallbacks(calls, false);
+        AppConfig.getInstance().debug().setEnabled(true);
+
+        plain.onKeyAction(GameKey.F4);
+
+        assertTrue(calls.isEmpty(), calls.toString());
+    }
+
+    @Test
+    void theGameKeysStillWorkWithoutTheDebugFlag() {
+        final List<String> calls = new ArrayList<>();
+        final KeyController plain = withCallbacks(calls, false);
+
+        plain.onKeyAction(GameKey.ESCAPE);
+        plain.onKeyAction(GameKey.DIGIT_4);
+
+        assertEquals(List.of("pause"), calls);
+        assertEquals(List.of(4), numbers);
     }
 }

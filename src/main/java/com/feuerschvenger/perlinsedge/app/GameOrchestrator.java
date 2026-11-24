@@ -71,6 +71,8 @@ public class GameOrchestrator {
     private final ItemHotbarPanel itemHotbarPanel;
     private final BuildingPalettePanel buildingPalettePanel;
     private final DropKeyHandler dropKeys;
+    /** Whether the debug keys F1 to F5 act, which only a launch with the debug flag allows. */
+    private final boolean debugKeys;
 
     private final FxRenderer renderer;
     private final FxCamera camera;
@@ -96,9 +98,11 @@ public class GameOrchestrator {
      * @param panels        the panels the orchestrator feeds and listens to
      * @param gameState     shared state, a new one is created when null
      * @param recipeManager recipes, a new one is created when null
+     * @param options       the options of the launch, which decide whether the debug keys work
      */
     public GameOrchestrator(GameView view, GamePanels panels, GameStateManager gameState,
-                            RecipeManager recipeManager) {
+                            RecipeManager recipeManager, LaunchOptions options) {
+        this.debugKeys = options.debugKeys();
         this.renderer = view.renderer();
         this.camera = view.camera();
         this.inputHandler = view.inputHandler();
@@ -268,7 +272,8 @@ public class GameOrchestrator {
                 this::centerOnPlayer,
                 this::regenerateMap,
                 transitions::toggleInventory,
-                itemHotbarManager::handleNumberKey
+                itemHotbarManager::handleNumberKey,
+                debugKeys
         );
         controller.setDropActions(dropKeys::dropOne, dropKeys::dropStack);
         controller.setUseAction(itemUseManager::useActiveItem);

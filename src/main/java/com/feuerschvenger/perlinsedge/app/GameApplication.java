@@ -28,6 +28,7 @@ public class GameApplication extends Application {
     private Stage primaryStage;
     private StackPane rootPane;
     private MenuNavigator menus;
+    private LaunchOptions options = LaunchOptions.DEFAULT;
 
     // Game systems, built the first time a game starts
     private GameScreen gameScreen;
@@ -37,6 +38,7 @@ public class GameApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        options = LaunchOptions.parse(getParameters().getRaw());
         configureDebugProperties();
         initializeRootPane();
         initializePrimaryStage(primaryStage);
@@ -118,7 +120,7 @@ public class GameApplication extends Application {
         gameScreen.show();
         if (gameOrchestrator == null) {
             gameOrchestrator = gameScreen.createOrchestrator(primaryStage.getScene(), primaryStage::close,
-                    menus::showMainMenu);
+                    menus::showMainMenu, options);
         }
 
         gameOrchestrator.startNewGame(selectedMapType);
