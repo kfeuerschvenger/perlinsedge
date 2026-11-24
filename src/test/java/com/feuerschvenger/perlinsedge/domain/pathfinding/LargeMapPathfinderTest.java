@@ -9,16 +9,18 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.HashSet;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Pins that a search over a map of the default size stays cheap, which a weak node hash once made impossible. */
+/** Pins that a search over a map of the default size stays cheap: the node hash fills the buckets of a HashMap instead of piling the nodes into a few. */
 class LargeMapPathfinderTest {
 
     private static final int SIZE = 300;
     private static final int POCKET = 200;
     private static final int TIME_LIMIT_SECONDS = 20;
+    private static final float LOAD_FACTOR = 0.75f;
+    /** A uniformly random hash fills about 73 % of that many buckets, a weak one fills a few percent. */
+    private static final double MIN_BUCKET_SHARE = 0.6;
 
     private static TileMap walledPocketMap() {
         final var map = new TileMap(SIZE, SIZE);
@@ -38,15 +40,19 @@ class LargeMapPathfinderTest {
     }
 
     @Test
-    void everyTileOfAMapOfTheDefaultSizeHasItsOwnHash() {
-        final var hashes = new HashSet<Integer>();
+    void theNodesOfAMapOfTheDefaultSizeSpreadOverTheBucketsOfAHashMap() {
+        final var tiles = SIZE * SIZE;
+        final var tableSize = Integer.highestOneBit((int) (tiles / LOAD_FACTOR)) << 1;
+        final var buckets = new HashSet<Integer>();
         for (var x = 0; x < SIZE; x++) {
             for (var y = 0; y < SIZE; y++) {
-                hashes.add(new PathNode(x, y).hashCode());
+                final var hash = new PathNode(x, y).hashCode();
+                buckets.add((hash ^ (hash >>> Short.SIZE)) & (tableSize - 1));
             }
         }
 
-        assertEquals(SIZE * SIZE, hashes.size());
+        assertTrue(buckets.size() >= MIN_BUCKET_SHARE * Math.min(tiles, tableSize),
+                () -> "only " + buckets.size() + " buckets of " + tableSize + " are used by " + tiles + " nodes");
     }
 
     @Test
