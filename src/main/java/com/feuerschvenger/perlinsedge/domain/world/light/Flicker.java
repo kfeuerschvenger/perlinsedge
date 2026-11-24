@@ -337,7 +337,10 @@ public final class Flicker {
         return mix;
     }
 
-    /** Hashes a seed and an index to a number from 0 up to but excluding 1, with the splitmix64 finalizer of {@link Hashes}. */
+    /**
+     * Hashes a seed and an index to a number from 0 up to but excluding 1, with the splitmix64 finalizer of
+     * {@link Hashes}.
+     */
     private static double unit(long seed, int index) {
         final long z = Hashes.scramble(seed + (index + 1) * Hashes.GOLDEN_GAMMA);
         return (z >>> MANTISSA_DROPPED_BITS) * 0x1.0p-53;

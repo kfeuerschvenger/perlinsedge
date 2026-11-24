@@ -17,6 +17,7 @@ import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
  * @param hintLabel            short on-screen hints for actions that did nothing
  * @param deathOverlay         death screen shown while the player is dead
  */
-public record GamePanels(HealthBar healthBar, InventoryPanel inventoryPanel, BuildingPalettePanel buildingPalettePanel, ItemHotbarPanel itemHotbarPanel,
+public record GamePanels(HealthBar healthBar, InventoryPanel inventoryPanel,
+                         BuildingPalettePanel buildingPalettePanel, ItemHotbarPanel itemHotbarPanel,
                          HintLabel hintLabel, DeathOverlay deathOverlay) {
 }

@@ -334,11 +334,13 @@ public class GameOrchestrator {
      * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
      * set to match it, the player is removed first, the minimap is shown the new map, and the update and render steps
      * skip a frame that has no map or no player. The mode switches are ignored while there is no player. None of
-     * the steps throws a checked exception, so catching the runtime exceptions covers every failure the game can carry on after. An error is not caught, and the loop is still restarted by the finally block.
+     * the steps throws a checked exception, so catching the runtime exceptions covers every failure the game can carry on after. An error is not caught, and the
+     * loop is still restarted by the finally block.
      * A player who died before a failed rebuild stays dead on the old map with its respawn timer running: the render
      * step draws the death overlay again from the player and the timer on every frame, so the overlay that
      * {@link #leaveGame()} hid comes back with the next frame.
-     * The caller has already checked that a game is running.
+     * This method is package-private as a seam for tests, and it does not check that a game is running: a caller
+     * outside the tests must check that first.
      */
     void rebuildWorld(MapGenerationContext context) {
         var rebuilt = false;
