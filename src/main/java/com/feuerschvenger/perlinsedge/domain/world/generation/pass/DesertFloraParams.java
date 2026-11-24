@@ -1,13 +1,15 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+
 /**
  * How the palms and cacti of a desert are scattered. The chance of a tree on a sand tile is the density times a
  * factor, thin on dry sand and thick near water, and never more than the maximum.
  *
  * @param density   the base tree density, from 0 to 1
  * @param dryFactor what the density is multiplied by on sand with no water nearby, 0 or more and finite
- * @param wetFactor what the density is multiplied by on sand with water within {@link com.feuerschvenger.perlinsedge.domain.world.model.ResourceType#PALM_REACH}, 0
- *                  or more and finite
+ * @param wetFactor what the density is multiplied by on sand with water within {@link ResourceType#PALM_REACH}, 0 or
+ *                  more and finite
  * @param maxChance the largest chance of a tree on any tile, from 0 to 1
  */
 public record DesertFloraParams(float density, float dryFactor, float wetFactor, float maxChance) {

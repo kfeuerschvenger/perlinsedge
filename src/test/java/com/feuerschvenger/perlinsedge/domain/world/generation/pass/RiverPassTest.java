@@ -49,6 +49,19 @@ class RiverPassTest {
     private static final long BRANCH_SEEDS = 10L;
     private static final long OTHER_SEED = 77L;
     private static final long SEED = 5L;
+    private static final int LANE_ROW = 5;
+    private static final float WALL = 2F;
+    private static final int FUNNEL_WIDTH = 6;
+    private static final int FUNNEL_HEIGHT = 3;
+    private static final int FIRST_ROW = 0;
+    private static final int MIDDLE_ROW = 1;
+    private static final int SOURCE_COLUMN = 0;
+    private static final int FORK_COLUMN = 2;
+    private static final float FUNNEL_SOURCE_MIN = 0.9F;
+    private static final float MAIN_HEIGHT = 0.8F;
+    private static final float BRANCH_HEIGHT = 0.85F;
+    private static final float JOIN_HEIGHT = 0.5F;
+    private static final float BEYOND_HEIGHT = 0.3F;
 
     private static GenerationContext ramp(long seed) {
         final var context = TestContexts.of(MapType.RIVERS, seed, WIDTH, HEIGHT, TestContexts.FLAT);
@@ -199,6 +212,51 @@ class RiverPassTest {
         assertTrue(farthest > LAST_SOURCE_COLUMN + BRANCH_MIN + BRANCH_SPREAD, "the farthest column is " + farthest);
     }
 
+    @Test
+    void aRiverWithASingleWayDownRunsOnPastABranchThatFindsNoOtherWay() {
+        final var context = ramp(SEED);
+        // One row of land is left, so the river has a single lower neighbour at every step, which a branch cannot take
+        for (var y = 0; y < HEIGHT; y++) {
+            for (var x = 0; x < WIDTH && y != LANE_ROW; x++) {
+                context.setGround(context.index(x, y), TileType.DEEP_WATER);
+                context.field(NoiseField.HEIGHT)[context.index(x, y)] = WALL;
+            }
+        }
+
+        apply(context, params(ONE_RIVER, LONG_MIN, LONG_MAX, ALWAYS, TileType.SHALLOW_WATER));
+
+        assertTrue(rightmostRiverColumn(context) > LAST_SOURCE_COLUMN + BRANCH_MIN + BRANCH_SPREAD,
+                "the farthest column is " + rightmostRiverColumn(context));
+    }
+
+    @Test
+    void aRiverNeverStepsOntoTheTilesOfItsOwnBranch() {
+        final var context = TestContexts.of(MapType.RIVERS, SEED, FUNNEL_WIDTH, FUNNEL_HEIGHT, TestContexts.FLAT);
+        final var heights = TestContexts.fillField(context, NoiseField.HEIGHT, WALL);
+        TestContexts.fillGround(context, TileType.DEEP_WATER);
+        land(context, heights, SOURCE_COLUMN, MIDDLE_ROW, TOP);
+        land(context, heights, FORK_COLUMN - 1, MIDDLE_ROW, FUNNEL_SOURCE_MIN);
+        land(context, heights, FORK_COLUMN, MIDDLE_ROW, MAIN_HEIGHT);
+        land(context, heights, FORK_COLUMN, FIRST_ROW, BRANCH_HEIGHT);
+        land(context, heights, FORK_COLUMN + 1, FIRST_ROW, JOIN_HEIGHT);
+        land(context, heights, FORK_COLUMN + 2, FIRST_ROW, BEYOND_HEIGHT);
+        // The branch covers three tiles, from the start of the fork to the join, and the river would reach the tile
+        // beyond the join only by walking along the branch
+        final var oneBranchOfThree = new TributaryParams(0, ALWAYS, BRANCH_MIN, 1);
+        final var lakes = new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                TileType.SHALLOW_WATER);
+
+        apply(context, new RiverParams(ONE_RIVER, FUNNEL_SOURCE_MIN, LONG_MIN, LONG_MAX, oneBranchOfThree, lakes));
+
+        assertEquals(TileType.GRASS, context.groundAt(context.index(FORK_COLUMN + 2, FIRST_ROW)));
+        assertEquals(TileType.RIVER, context.groundAt(context.index(FORK_COLUMN + 1, FIRST_ROW)));
+    }
+
+    private static void land(GenerationContext context, float[] heights, int x, int y, float height) {
+        context.setGround(context.index(x, y), TileType.GRASS);
+        heights[context.index(x, y)] = height;
+    }
+
     private static int rightmostRiverColumn(GenerationContext context) {
         var rightmost = -1;
         for (var index = 0; index < context.size(); index++) {
@@ -253,6 +311,12 @@ class RiverPassTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                         TileType.DEEP_WATER));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                        TileType.RIVER));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                        TileType.GRASS));
         assertThrows(NullPointerException.class, () -> new RiverPass(null));
     }
 }

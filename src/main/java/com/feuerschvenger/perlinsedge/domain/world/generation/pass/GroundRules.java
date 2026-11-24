@@ -91,7 +91,7 @@ public final class GroundRules {
     public static final GroundRule ISLANDS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> islands(height));
 
-    /** Sea at the bottom, water at the top of the height range, sand below the hills, hills above. Reads no climate. */
+    /** Sea at the bottom, water at the top of the height range, sand below the hills, hills above; no climate. */
     public static final GroundRule DESERT = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> desert(height));
 

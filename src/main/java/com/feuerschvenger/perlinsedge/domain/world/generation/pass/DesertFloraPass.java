@@ -11,8 +11,8 @@ import static com.feuerschvenger.perlinsedge.domain.world.model.ResourceType.PAL
 
 /**
  * Scatters the palms and cacti of the desert over open sand, thinly in the dry sand and thickly within
- * {@link ResourceType#PALM_REACH} tiles of any water, so the trees gather around the oases, lakes and rivers. The renderer draws
- * these tree resources as palms near water and as cacti elsewhere.
+ * {@link ResourceType#PALM_REACH} tiles of any water, so the trees gather around the oases, lakes and rivers. The
+ * renderer draws these tree resources as palms near water and as cacti elsewhere.
  * <p>
  * Which sand lies near water is worked out once for the whole map, by widening the water mask one axis at a time,
  * instead of scanning the neighbourhood of every sand tile.
@@ -46,8 +46,8 @@ public final class DesertFloraPass implements GenerationPass {
         for (var y = 0; y < context.height(); y++) {
             for (var x = 0; x < context.width(); x++) {
                 final var index = context.index(x, y);
-                final var chance = nearWater[index] ? wetChance : dryChance;
-                if (isOpenSand(context, index) && Chance.unit(context, x, y, SALT) < chance) {
+                if (isOpenSand(context, index)
+                        && Chance.unit(context, x, y, SALT) < (nearWater[index] ? wetChance : dryChance)) {
                     context.setResource(index, ResourceType.TREE);
                 }
             }
@@ -64,7 +64,10 @@ public final class DesertFloraPass implements GenerationPass {
         return Math.min(params.maxChance(), (double) params.density() * factor);
     }
 
-    /** Marks every tile that has a water tile within {@link ResourceType#PALM_REACH} tiles in both axes, water included. */
+    /**
+     * Marks every tile that has a water tile within {@link ResourceType#PALM_REACH} tiles in both axes, water
+     * included.
+     */
     private static boolean[] nearWater(GenerationContext context) {
         final var width = context.width();
         final var height = context.height();
@@ -87,7 +90,10 @@ public final class DesertFloraPass implements GenerationPass {
         return near;
     }
 
-    /** Tells whether a mask is set within {@link ResourceType#PALM_REACH} tiles of a tile along the axis given by the step. */
+    /**
+     * Tells whether a mask is set within {@link ResourceType#PALM_REACH} tiles of a tile along the axis given by the
+     * step.
+     */
     private static boolean anyWithin(boolean[] mask, GenerationContext context, int x, int y, int stepX, int stepY) {
         for (var offset = -PALM_REACH; offset <= PALM_REACH; offset++) {
             final var nx = x + offset * stepX;

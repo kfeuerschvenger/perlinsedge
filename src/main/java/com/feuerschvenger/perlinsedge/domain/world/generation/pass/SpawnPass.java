@@ -6,8 +6,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationPass;
 import java.util.Objects;
 
 /**
- * Chooses the tile where the player starts, the last step of every recipe. The free tiles, walkable ground that holds no
- * resource, are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never
+ * Chooses the tile where the player starts, the last step of every recipe. The free tiles, walkable ground that holds
+ * no resource, are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never
  * shut into a pocket; on a sea of islands that region is the largest island. Within it the spawn is the tile nearest to
  * the anchor, which is the spawn hint a pass left in the context, such as the middle of a clearing, or the centre of
  * the map, whose surroundings are free of resources and walkable to the free radius of the parameters.
@@ -45,7 +45,8 @@ public final class SpawnPass implements GenerationPass {
         final var labels = new int[context.size()];
         final var largest = labelRegions(context, labels);
         if (largest == NO_LABEL) {
-            throw new IllegalStateException("the map has no walkable tile free of resources for the player to start on");
+            throw new IllegalStateException(
+                    "the map has no walkable tile free of resources for the player to start on");
         }
         final var anchor = anchorOf(context);
         var spawn = nearest(context, labels, largest, anchor, true);

@@ -59,6 +59,25 @@ class GenerationContextTest {
     }
 
     @Test
+    void theTilesInsideTheMapIncludingItsCornersAreOnTheMap() {
+        assertTrue(context.isOnMap(0, 0));
+        assertTrue(context.isOnMap(WIDTH - 1, 0));
+        assertTrue(context.isOnMap(0, HEIGHT - 1));
+        assertTrue(context.isOnMap(WIDTH - 1, HEIGHT - 1));
+        assertTrue(context.isOnMap(COLUMN, ROW));
+    }
+
+    @Test
+    void theTilesBeyondAnyEdgeAreOffTheMap() {
+        assertFalse(context.isOnMap(-1, ROW));
+        assertFalse(context.isOnMap(COLUMN, -1));
+        assertFalse(context.isOnMap(WIDTH, ROW));
+        assertFalse(context.isOnMap(COLUMN, HEIGHT));
+        assertFalse(context.isOnMap(-1, -1));
+        assertFalse(context.isOnMap(WIDTH, HEIGHT));
+    }
+
+    @Test
     void aFieldThatNoPassComputedIsRefused() {
         assertFalse(context.hasField(NoiseField.HEIGHT));
 

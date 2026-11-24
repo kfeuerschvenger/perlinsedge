@@ -12,6 +12,7 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -121,5 +122,11 @@ class RockResourcePassTest {
         assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(0, 0, THRESHOLD_ABOVE_ONE));
         assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(0, 0, THRESHOLD_BELOW_ZERO));
         assertThrows(NullPointerException.class, () -> new RockResourcePass(null));
+    }
+
+    @Test
+    void theParametersAcceptTheBoundariesOfTheScaleAndOfTheThreshold() {
+        assertDoesNotThrow(() -> new RockResourceParams(0, 0, 0F));
+        assertDoesNotThrow(() -> new RockResourceParams(ALWAYS, ALWAYS, 1F));
     }
 }

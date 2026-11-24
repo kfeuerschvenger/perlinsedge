@@ -11,9 +11,9 @@ import java.util.random.RandomGenerator;
 
 /**
  * Carves rivers into the ground. A river starts on a high land tile and runs downhill, always to the lowest of the
- * neighbours that are lower than the tile it stands on, until it reaches water, runs out of length or has nowhere lower
- * to go. A river that dead ends low enough floods the low ground around its end into a lake, and a long river may send
- * out a branch. The tiles a river covers become {@link TileType#RIVER}.
+ * neighbours that are lower than the tile it stands on, until it reaches water, runs out of length or has nowhere
+ * lower to go. A river that dead ends low enough floods the low ground around its end into a lake, and a long river
+ * may send out a branch. The tiles a river covers become {@link TileType#RIVER}.
  * <p>
  * The pass works on the arrays only: the tiles a river has visited are a mask over the map and a river is a buffer of
  * indices, so no object is created per tile. It runs before any resource is placed, so it has nothing to clear.
@@ -29,6 +29,8 @@ public final class RiverPass implements GenerationPass {
     private static final int[] STEP_Y = {-1, -1, 0, 1, 1, 1, 0, -1};
     /** Stands for "no tile" where an index is expected. */
     private static final int NO_TILE = -1;
+    /** Stands for "the next step is not chosen yet" where an index is expected. */
+    private static final int UNPLANNED = -2;
 
     private final RiverParams params;
 
@@ -68,6 +70,8 @@ public final class RiverPass implements GenerationPass {
         private final int[] branchOwner;
         /** The number of the river being traced, counting from 1. */
         private int riverNumber;
+        /** The tile the river being traced steps to next while a branch is walked, which the branch must leave free. */
+        private int reserved = NO_TILE;
 
         /** Prepares the masks and buffers of a run. */
         Flow(GenerationContext context) {
@@ -129,23 +133,42 @@ public final class RiverPass implements GenerationPass {
             var index = start;
             var length = 0;
             var covered = 0;
+            var planned = UNPLANNED;
             while (length < maxLength && (isOwnBranch(index) || !isWater(index))) {
                 inRiver[index] = true;
                 river[covered] = index;
                 covered++;
-                final var next = nextPoint(index);
+                final var next = planned == UNPLANNED ? nextPoint(index) : planned;
+                planned = UNPLANNED;
                 if (next == NO_TILE) {
                     makeLake(index);
                     break;
                 }
                 index = next;
                 length++;
-                if (length > params.tributaries().minRiverLength()
-                        && random.nextFloat() < params.tributaries().chance()) {
-                    traceBranch(index);
+                if (branches(length)) {
+                    planned = branchOff(index);
                 }
             }
             carve(river, covered);
+        }
+
+        /** Tells whether a river that has run {@code length} steps sends out a branch, drawing the chance. */
+        private boolean branches(int length) {
+            return length > params.tributaries().minRiverLength()
+                    && random.nextFloat() < params.tributaries().chance();
+        }
+
+        /**
+         * Sends a branch out from a tile of the river being traced and returns where the river itself goes next from
+         * there. That step is chosen first and kept free of the branch, so the branch never takes the river's way.
+         */
+        private int branchOff(int start) {
+            final var next = nextPoint(start);
+            reserved = next;
+            traceBranch(start);
+            reserved = NO_TILE;
+            return next;
         }
 
         /** Draws the length of a branch, before the start is looked at, and walks it. */
@@ -213,10 +236,11 @@ public final class RiverPass implements GenerationPass {
 
         /**
          * Tells whether a river may flow into a tile lower than {@code current}: water, or ground not yet covered, but
-         * never a branch of its own.
+         * never a branch of its own or the tile the river keeps for its own next step.
          */
         private boolean isOpen(int index, float current) {
-            return heights[index] < current && (!inRiver[index] || isWater(index)) && !isOwnBranch(index);
+            return heights[index] < current && (!inRiver[index] || isWater(index)) && !isOwnBranch(index)
+                    && index != reserved;
         }
 
         /** Tells whether a tile belongs to a branch of the river being traced. */
