@@ -61,12 +61,12 @@ class NoiseFieldsPassTest {
         final var context = context();
         final var fields = new EnumMap<NoiseField, NoiseSettings>(NoiseField.class);
         fields.put(NoiseField.HEIGHT, HEIGHT_SETTINGS);
-        fields.put(NoiseField.STONE, PLAIN_SETTINGS);
+        fields.put(NoiseField.ROCK, PLAIN_SETTINGS);
 
         new NoiseFieldsPass(new NoiseFieldsParams(fields)).apply(context);
 
         assertTrue(context.hasField(NoiseField.HEIGHT));
-        assertTrue(context.hasField(NoiseField.STONE));
+        assertTrue(context.hasField(NoiseField.ROCK));
         assertFalse(context.hasField(NoiseField.TEMPERATURE));
         assertFalse(context.hasField(NoiseField.TREE));
         assertEquals(TWO_FIELDS, created.size());

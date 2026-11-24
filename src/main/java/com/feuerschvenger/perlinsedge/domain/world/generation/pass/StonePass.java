@@ -33,7 +33,7 @@ public final class StonePass implements GenerationPass {
 
     @Override
     public void apply(GenerationContext context) {
-        final var stoneNoise = context.field(NoiseField.STONE);
+        final var stoneNoise = context.field(NoiseField.ROCK);
         for (var index = 0; index < context.size(); index++) {
             if (context.resourceAt(index) == null && Terrain.canHoldResource(context.groundAt(index))
                     && stoneNoise[index] > params.threshold()) {

@@ -23,7 +23,7 @@ class StonePassTest {
     private static GenerationContext map(TileType ground, float stoneNoise) {
         final var context = TestContexts.of(SIDE, SIDE);
         TestContexts.fillGround(context, ground);
-        TestContexts.fillField(context, NoiseField.STONE, stoneNoise);
+        TestContexts.fillField(context, NoiseField.ROCK, stoneNoise);
         return context;
     }
 
