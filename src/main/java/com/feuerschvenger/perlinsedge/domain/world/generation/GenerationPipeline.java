@@ -1,11 +1,14 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.LongSupplier;
 
 /** Runs the passes of a recipe in order over one context and reports how long each one took. */
+@Slf4j
 public final class GenerationPipeline {
 
     private final LongSupplier clock;
@@ -35,8 +38,9 @@ public final class GenerationPipeline {
      * @param context  the state the passes work on
      * @param passes   the passes, in the order they run
      * @param observer told the time of each pass
-     * @throws RuntimeException when a pass throws, the original exception itself, with an
-     *                          {@link IllegalStateException} naming the pass attached as a suppressed exception
+     * @throws RuntimeException when a pass throws one: the original exception itself, after the name of the pass was
+     *                          logged at error level. An {@link Error} is not caught, so it propagates as it is and no
+     *                          log line names the pass it came from
      */
     public void run(GenerationContext context, List<GenerationPass> passes, PassObserver observer) {
         Objects.requireNonNull(context, "context");
@@ -58,12 +62,12 @@ public final class GenerationPipeline {
         }
     }
 
-    /** Applies one pass and, when it fails, rethrows the original exception with the pass named in a suppressed one. */
+    /** Applies one pass and, when it fails, logs the name of the pass and rethrows the original exception. */
     private static void apply(GenerationPass pass, String name, GenerationContext context) {
         try {
             pass.apply(context);
         } catch (RuntimeException failure) {
-            failure.addSuppressed(new IllegalStateException("the pass '" + name + "' failed"));
+            log.error("The generation pass '{}' failed", name);
             throw failure;
         }
     }

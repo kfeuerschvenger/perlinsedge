@@ -33,9 +33,9 @@ public final class GenerationContext {
     private final float[][] fields = new float[NoiseField.values().length][];
     private final TileType[] ground;
     private final ResourceType[] resources;
+    private final long seedKey;
     private int spawnIndex = NONE;
     private int spawnHint = NONE;
-    private final long seedKey;
     private int passOccurrence;
 
     /**
@@ -128,6 +128,17 @@ public final class GenerationContext {
      */
     public int index(int x, int y) {
         return y * width + x;
+    }
+
+    /**
+     * Tells whether a column and a row lie on the map.
+     *
+     * @param x the column
+     * @param y the row
+     * @return true when both are inside the map
+     */
+    public boolean isOnMap(int x, int y) {
+        return x >= 0 && y >= 0 && x < width && y < height;
     }
 
     /**
@@ -269,7 +280,9 @@ public final class GenerationContext {
     }
 
     /**
-     * Returns the tile a pass asked the spawn to be near, such as the middle of a clearing.
+     * Returns the tile a pass asked the spawn to be near, such as the middle of a clearing. This is an extension point
+     * that no recipe uses yet: the content pass that clears a spawn area in the forest is the first one meant to set
+     * it.
      *
      * @return the index, or {@link #NONE} when no pass asked for one
      */
@@ -278,7 +291,8 @@ public final class GenerationContext {
     }
 
     /**
-     * Sets the tile the spawn should be near.
+     * Sets the tile the spawn should be near. This is an extension point that no recipe uses yet: the content pass
+     * that clears a spawn area in the forest is the first one meant to call it.
      *
      * @param index an index into the arrays, or {@link #NONE}
      * @throws IndexOutOfBoundsException when the index is neither {@link #NONE} nor inside the map
@@ -301,9 +315,9 @@ public final class GenerationContext {
      * Creates the random stream of a pass. The stream depends on the seed, the salt and which occurrence of its name
      * the running pass is, so a pass draws the same numbers whatever other passes run before it, and adding or
      * reordering a pass of another name never moves them. The first occurrence of a pass gets the plain stream of its
-     * salt, and so does any call made outside a pipeline run, including after a run that finished or failed; each later
-     * occurrence of the same pass within a run gets a stream of its own. Every call returns a new stream that starts
-     * from the beginning.
+     * salt, and so does any call made outside a pipeline run, including after a run that finished or failed; each
+     * later occurrence of the same pass within a run gets a stream of its own. Every call returns a new stream that
+     * starts from the beginning.
      *
      * @param salt a constant of the pass, different for every pass that draws numbers
      * @return a new random stream

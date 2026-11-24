@@ -77,8 +77,9 @@ public class PlayerManager {
     }
 
     /**
-     * Initializes or reinitializes player at a safe starting position.
-     * Creates new player or revives existing one based on game state.
+     * Initializes or reinitializes player at the spawn point the generator chose for the map.
+     * Creates new player or revives existing one based on game state. A map that was not generated, such as one built
+     * by hand, has no spawn point, and the player starts at a safe tile found by searching the map instead.
      */
     public void initializePlayer() {
         TileMap map = gameState.getCurrentMap();
@@ -87,7 +88,10 @@ public class PlayerManager {
             return;
         }
 
-        int[] startPosition = findSafePosition(map);
+        int[] startPosition = spawnPointOf(map);
+        if (startPosition.length == 0) {
+            startPosition = findSafePosition(map);
+        }
         if (startPosition.length == 0) {
             startPosition = getFallbackPosition(map);
             log.debug("Using fallback position: {},{}", startPosition[0], startPosition[1]);
@@ -190,6 +194,9 @@ public class PlayerManager {
 
         int[] respawnPosition = useSpawnBag(map);
         if (respawnPosition.length == 0) {
+            respawnPosition = generatedSpawnIfSafe(map);
+        }
+        if (respawnPosition.length == 0) {
             respawnPosition = findSafePosition(map);
         }
         if (respawnPosition.length == 0) {
@@ -202,6 +209,28 @@ public class PlayerManager {
         gameState.setShouldCenterCamera(true);
         updatePlayerUI();
         log.info("Player respawned at {},{}", respawnPosition[0], respawnPosition[1]);
+    }
+
+    /**
+     * Returns the spawn point the generator chose for the map, which is where the player first stood.
+     *
+     * @return the position, or {@link #NO_POSITION} when the map has no spawn point
+     */
+    private static int[] spawnPointOf(TileMap map) {
+        return map.getSpawn().map(spawn -> new int[]{spawn.x(), spawn.y()}).orElse(NO_POSITION);
+    }
+
+    /**
+     * Respawns at the generated spawn point, which is predictable for the player and a tile the generator guaranteed
+     * to be free of resources. It is used only while it is a valid respawn tile: walkable, with enough walkable
+     * neighbours and with no enemy within {@link #MIN_ENEMY_DISTANCE} tiles. Otherwise the player lands on a random
+     * safe tile.
+     *
+     * @return the position, or {@link #NO_POSITION} when the map has no spawn point or it is not safe now
+     */
+    private int[] generatedSpawnIfSafe(TileMap map) {
+        final int[] spawn = spawnPointOf(map);
+        return spawn.length > 0 && isValidRespawnPosition(map, spawn[0], spawn[1]) ? spawn : NO_POSITION;
     }
 
     /**

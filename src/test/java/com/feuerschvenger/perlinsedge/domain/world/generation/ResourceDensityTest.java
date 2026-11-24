@@ -1,11 +1,10 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSource;
+import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSpec;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
-import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,24 +19,8 @@ class ResourceDensityTest {
     private static final double MIN_SHARE = 0.08;
     private static final double MAX_SHARE = 0.25;
 
-    private final MapType original = AppConfig.getInstance().world().getCurrentMapType();
-
-    @AfterEach
-    void restoreMapType() {
-        AppConfig.getInstance().world().setCurrentMapType(original);
-    }
-
     private static double resourceShare(MapType type) {
-        AppConfig.WorldConfig world = AppConfig.getInstance().world();
-        world.setCurrentMapType(type);
-        NoiseSettings profile = NoiseSettings.heightProfile(type);
-        MapGenerationContext context = new MapGenerationContext(type, SEED, profile.frequency(), profile.octaves(),
-                world.getTemperatureNoiseFrequency(), world.getTemperatureNoiseOctaves(),
-                world.getMoistureNoiseFrequency(), world.getMoistureNoiseOctaves(),
-                world.getStonePatchFrequency(), world.getStoneThreshold(),
-                world.getCrystalsPatchFrequency(), world.getCrystalsThreshold(),
-                world.getTreeDensity(), world.getRiverDensity());
-        TileMap map = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY).generateMap(SIZE, SIZE, context);
+        TileMap map = MapSource.current().generate(new MapSpec(type, SEED, SIZE));
 
         int land = 0;
         int withResource = 0;

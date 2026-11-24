@@ -9,7 +9,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
 import com.feuerschvenger.perlinsedge.domain.world.light.Flicker;
 import com.feuerschvenger.perlinsedge.domain.world.light.PointLight;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
@@ -109,10 +109,10 @@ class GameOrchestratorTest {
         });
     }
 
-    /** Rebuilds the world with the values of a default map, for the given type. */
+    /** Rebuilds the world with a map of the given type. */
     private void applyConfig(MapType type) {
-        orchestrator.rebuildWorld(new MapGenerationContext(
-                type, 7L, 0.01f, 3, 0.01f, 3, 0.01f, 3, 0.05f, 0.5f, 0.05f, 0.5f, 0.3f, 0.3f));
+        final var world = AppConfig.getInstance().world();
+        orchestrator.rebuildWorld(new MapRequest(type, 7L, world.getWidth(), world.getHeight()));
     }
 
     @Test

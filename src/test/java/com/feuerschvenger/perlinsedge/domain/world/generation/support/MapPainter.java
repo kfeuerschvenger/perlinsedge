@@ -2,6 +2,7 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.SpawnPoint;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 import java.awt.image.BufferedImage;
@@ -37,13 +38,13 @@ public final class MapPainter {
     }
 
     /**
-     * Paints a map without a marker.
+     * Paints a map and marks its spawn point in red, when it has one.
      *
      * @param map the map
      * @return an image as wide and as high as the map
      */
     public static BufferedImage paint(TileMap map) {
-        return paint(map, Optional.empty());
+        return paint(map, map.getSpawn());
     }
 
     /**
@@ -53,7 +54,7 @@ public final class MapPainter {
      * @param spot where to put the marker, or empty for none
      * @return an image as wide and as high as the map
      */
-    public static BufferedImage paint(TileMap map, Optional<Spot> spot) {
+    public static BufferedImage paint(TileMap map, Optional<SpawnPoint> spot) {
         final var image = new BufferedImage(map.getWidth(), map.getHeight(), BufferedImage.TYPE_INT_ARGB);
         for (var y = 0; y < map.getHeight(); y++) {
             for (var x = 0; x < map.getWidth(); x++) {
@@ -68,7 +69,7 @@ public final class MapPainter {
         return image;
     }
 
-    private static void mark(BufferedImage image, Spot spot) {
+    private static void mark(BufferedImage image, SpawnPoint spot) {
         for (var dy = -MARKER_REACH; dy <= MARKER_REACH; dy++) {
             for (var dx = -MARKER_REACH; dx <= MARKER_REACH; dx++) {
                 final var x = spot.x() + dx;

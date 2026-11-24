@@ -1,8 +1,5 @@
 package com.feuerschvenger.perlinsedge.config;
 
-import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
-import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
@@ -17,7 +14,6 @@ import com.feuerschvenger.perlinsedge.domain.world.time.DayCycleSettings;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -40,7 +36,6 @@ public final class AppConfig {
     private final PlayerConfig player = new PlayerConfig();
     private final DebugConfig debug = new DebugConfig();
     private final GameMechanicsConfig gameMechanics = new GameMechanicsConfig();
-    private final GenerationConfig generationConfig = new GenerationConfig();
     private final EnemyConfig enemies = new EnemyConfig();
 
     private AppConfig() {}
@@ -63,7 +58,6 @@ public final class AppConfig {
     public DebugConfig debug() { return debug; }
     public GameMechanicsConfig gameMechanics() { return gameMechanics; }
     public EnemyConfig enemies() { return enemies; }
-    public GenerationConfig generationConfig() { return generationConfig; }
 
     // ==================================================================
     //  CONFIGURATION CLASSES
@@ -95,7 +89,8 @@ public final class AppConfig {
     }
 
     /**
-     * World generation parameters (terrain, resources, enemies)
+     * World parameters: the size of the map, the map type being played and the enemy settings. Everything that decides
+     * what a map looks like belongs to the recipe of its type, not to this class.
      */
     public static class WorldConfig {
         // Dimensions
@@ -109,37 +104,7 @@ public final class AppConfig {
         private static final int BASE_SLIMES_COUNT = 30;
         private static final int BASE_MIMICS_COUNT = 3;
         private static final int BASE_SKELETONS_COUNT = 6;
-        private static final int MIN_ENEMY_DISTANCE = 30;
         private static final int MAX_POSITIONING_ATTEMPTS = 3000;
-
-        // Noise parameters (the height noise comes from NoiseSettings.heightProfile)
-        private static final float TEMPERATURE_NOISE_FREQUENCY = 0.02F;
-        private static final int TEMPERATURE_NOISE_OCTAVES = 3;
-        private static final float MOISTURE_NOISE_FREQUENCY = 0.03F;
-        private static final int MOISTURE_NOISE_OCTAVES = 3;
-
-        // Resource thresholds
-        private static final float STONE_PATCH_FREQUENCY = 0.06F;
-        private static final float STONE_THRESHOLD = 0.79F;
-        private static final float CRYSTALS_PATCH_FREQUENCY = 0.09F;
-        private static final float CRYSTALS_THRESHOLD = 0.80F;
-        private static final float BASE_TREE_DENSITY = 0.05F;
-        private static final float BASE_RIVER_DENSITY = 0.03F;
-
-        // Tree density per map type
-        private static final float DENSE_FOREST_TREE_DENSITY = 0.32F;
-        private static final float SWAMP_TREE_DENSITY = 0.32F;
-        private static final float DESERT_TREE_DENSITY = 0.10F;
-        private static final float TUNDRA_TREE_DENSITY = 0.34F;
-        private static final float MEDITERRANEAN_TREE_DENSITY = 0.17F;
-        private static final float ISLANDS_TREE_DENSITY = 0.19F;
-        private static final float RIVERS_TREE_DENSITY = 0.30F;
-
-        // River density per map type
-        private static final float DENSE_FOREST_RIVER_DENSITY = 0.01F;
-        private static final float SWAMP_RIVER_DENSITY = 0.025F;
-        private static final float DESERT_RIVER_DENSITY = 0.003F;
-        private static final float RIVERS_RIVER_DENSITY = 0.04F;
 
         // Getters and setters
         public int getWidth() { return WIDTH; }
@@ -149,39 +114,7 @@ public final class AppConfig {
         public int getBaseSlimesCount() { return BASE_SLIMES_COUNT; }
         public int getBaseMimicsCount() { return BASE_MIMICS_COUNT; }
         public int getBaseSkeletonsCount() { return BASE_SKELETONS_COUNT; }
-        public int getMinEnemyDistance() { return MIN_ENEMY_DISTANCE; }
         public int getMaxPositioningAttempts() { return MAX_POSITIONING_ATTEMPTS; }
-        public float getTemperatureNoiseFrequency() { return TEMPERATURE_NOISE_FREQUENCY; }
-        public int getTemperatureNoiseOctaves() { return TEMPERATURE_NOISE_OCTAVES; }
-        public float getMoistureNoiseFrequency() { return MOISTURE_NOISE_FREQUENCY; }
-        public int getMoistureNoiseOctaves() { return MOISTURE_NOISE_OCTAVES; }
-        public float getStonePatchFrequency() { return STONE_PATCH_FREQUENCY; }
-        public float getStoneThreshold() { return STONE_THRESHOLD; }
-        public float getCrystalsPatchFrequency() { return CRYSTALS_PATCH_FREQUENCY; }
-        public float getCrystalsThreshold() { return CRYSTALS_THRESHOLD; }
-
-        public float getTreeDensity() {
-            return switch (currentMapType) {
-                case DENSE_FOREST -> DENSE_FOREST_TREE_DENSITY;
-                case SWAMP -> SWAMP_TREE_DENSITY;
-                case DESERT -> DESERT_TREE_DENSITY;
-                case TUNDRA -> TUNDRA_TREE_DENSITY;
-                case MEDITERRANEAN -> MEDITERRANEAN_TREE_DENSITY;
-                case ISLANDS -> ISLANDS_TREE_DENSITY;
-                case RIVERS -> RIVERS_TREE_DENSITY;
-                default -> BASE_TREE_DENSITY;
-            };
-        }
-
-        public float getRiverDensity() {
-            return switch (currentMapType) {
-                case DENSE_FOREST -> DENSE_FOREST_RIVER_DENSITY;
-                case SWAMP -> SWAMP_RIVER_DENSITY;
-                case DESERT -> DESERT_RIVER_DENSITY;
-                case RIVERS -> RIVERS_RIVER_DENSITY;
-                default -> BASE_RIVER_DENSITY;
-            };
-        }
     }
 
     /**
@@ -540,184 +473,6 @@ public final class AppConfig {
 
         /** @return the chase distances of a mimic, whose aggro range is the distance that wakes it */
         public ChaseRange mimic() { return MIMIC; }
-    }
-
-    /**
-     * Configuration for noise generators
-     */
-    public static class NoiseConfig {
-        private float frequency;
-        private int octaves;
-        private FractalKind fractalType = FractalKind.NONE;
-        private float gain;
-        private float lacunarity;
-
-        public float getFrequency() {
-            return frequency;
-        }
-
-        public int getOctaves() {
-            return octaves;
-        }
-
-        public FractalKind getFractalType() {
-            return fractalType;
-        }
-
-        public float getGain() {
-            return gain;
-        }
-
-        public float getLacunarity() {
-            return lacunarity;
-        }
-    }
-    
-    /**
-     * Holds current generation parameters
-     */
-    public static class GenerationConfig {
-        /** Tree noise frequency of the dry maps, where the trees form few and wide groves. */
-        private static final float DRY_TREE_NOISE_FREQUENCY = 0.01F;
-        /** Tree noise frequency of every other map. */
-        private static final float DEFAULT_TREE_NOISE_FREQUENCY = 0.05F;
-        /** Gain of the temperature and moisture noise. */
-        private static final float CLIMATE_NOISE_GAIN = 0.5F;
-        /** Lacunarity of the temperature and moisture noise. */
-        private static final float CLIMATE_NOISE_LACUNARITY = 2.0F;
-
-        private MapType mapType;
-        private long seed;
-        private Random random;
-        private float treeDensity;
-        private float riverDensity;
-        private float stoneThreshold;
-        private float crystalsThreshold;
-
-        // Noise configurations
-        private NoiseConfig heightNoiseConfig;
-        private NoiseConfig temperatureNoiseConfig;
-        private NoiseConfig moistureNoiseConfig;
-        private NoiseConfig stoneNoiseConfig;
-        private NoiseConfig crystalsNoiseConfig;
-        private NoiseConfig treeNoiseConfig;
-
-        public void update(MapGenerationContext context) {
-            this.mapType = context.getMapType();
-            this.seed = context.getSeed();
-            this.random = new Random(seed);
-            this.treeDensity = context.getTreeDensity();
-            this.riverDensity = context.getRiverDensity();
-            this.stoneThreshold = context.getStoneThreshold();
-            this.crystalsThreshold = context.getCrystalsThreshold();
-
-            // Configure noise parameters
-            this.heightNoiseConfig = createHeightNoiseConfig(
-                    context.getHeightNoiseFrequency(),
-                    context.getHeightNoiseOctaves()
-            );
-            this.temperatureNoiseConfig = createNoiseConfig(
-                    context.getTemperatureNoiseFrequency(),
-                    context.getTemperatureNoiseOctaves()
-            );
-            this.moistureNoiseConfig = createNoiseConfig(
-                    context.getMoistureNoiseFrequency(),
-                    context.getMoistureNoiseOctaves()
-            );
-            this.stoneNoiseConfig = createSimpleNoiseConfig(context.getStonePatchFrequency());
-            this.crystalsNoiseConfig = createSimpleNoiseConfig(context.getCrystalsPatchFrequency());
-            this.treeNoiseConfig = createTreeNoiseConfig();
-        }
-
-        /**
-         * Height noise: the frequency and octaves come from the context, so the map type decides the terrain,
-         * while the fractal kind, gain and lacunarity come from the map type profile.
-         */
-        private NoiseConfig createHeightNoiseConfig(float frequency, int octaves) {
-            var profile = NoiseSettings.heightProfile(mapType);
-            var cfg = new NoiseConfig();
-            cfg.frequency = frequency;
-            cfg.octaves = octaves;
-            cfg.fractalType = profile.fractal();
-            cfg.gain = profile.gain();
-            cfg.lacunarity = profile.lacunarity();
-            return cfg;
-        }
-
-        private NoiseConfig createTreeNoiseConfig() {
-            var cfg = new NoiseConfig();
-            var dryMap = mapType == MapType.DESERT || mapType == MapType.TUNDRA;
-            cfg.frequency = dryMap ? DRY_TREE_NOISE_FREQUENCY : DEFAULT_TREE_NOISE_FREQUENCY;
-            return cfg;
-        }
-
-        private static NoiseConfig createNoiseConfig(float frequency, int octaves) {
-            var cfg = new NoiseConfig();
-            cfg.frequency = frequency;
-            cfg.octaves = octaves;
-            cfg.fractalType = FractalKind.FBM;
-            cfg.gain = CLIMATE_NOISE_GAIN;
-            cfg.lacunarity = CLIMATE_NOISE_LACUNARITY;
-            return cfg;
-        }
-
-        private static NoiseConfig createSimpleNoiseConfig(float frequency) {
-            var cfg = new NoiseConfig();
-            cfg.frequency = frequency;
-            return cfg;
-        }
-
-        public MapType getMapType() {
-            return mapType;
-        }
-
-        public long getSeed() {
-            return seed;
-        }
-
-        public Random getRandom() {
-            return random;
-        }
-
-        public float getTreeDensity() {
-            return treeDensity;
-        }
-
-        public float getRiverDensity() {
-            return riverDensity;
-        }
-
-        public float getStoneThreshold() {
-            return stoneThreshold;
-        }
-
-        public float getCrystalsThreshold() {
-            return crystalsThreshold;
-        }
-
-        public NoiseConfig getHeightNoiseConfig() {
-            return heightNoiseConfig;
-        }
-
-        public NoiseConfig getTemperatureNoiseConfig() {
-            return temperatureNoiseConfig;
-        }
-
-        public NoiseConfig getMoistureNoiseConfig() {
-            return moistureNoiseConfig;
-        }
-
-        public NoiseConfig getStoneNoiseConfig() {
-            return stoneNoiseConfig;
-        }
-
-        public NoiseConfig getCrystalsNoiseConfig() {
-            return crystalsNoiseConfig;
-        }
-
-        public NoiseConfig getTreeNoiseConfig() {
-            return treeNoiseConfig;
-        }
     }
 
 }
