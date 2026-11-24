@@ -5,6 +5,9 @@ package com.feuerschvenger.perlinsedge.domain.pathfinding;
  * Implements Comparable for efficient priority queue operations.
  */
 public final class PathNode implements Comparable<PathNode> {
+    /** Odd 32-bit golden ratio constant that spreads consecutive coordinates over the bits of a hash. */
+    private static final int HASH_MULTIPLIER = 0x9E3779B1;
+
     public final int x;
     public final int y;
     private double gCost;  // Cost from start node
@@ -53,7 +56,11 @@ public final class PathNode implements Comparable<PathNode> {
 
     @Override
     public int hashCode() {
-        return 31 * x + y;
+        // The hash of a HashMap is spread with h ^ (h >>> 16) and masked to a power-of-two table, so the low bits of
+        // the hash alone choose the bucket. Packing x and y into separate halves, or summing them as in 31 * x + y,
+        // leaves only a few hundred or a few thousand distinct buckets on a 300 x 300 map and turns each bucket into a
+        // tree ordered by the cost compare. The golden ratio multiplier mixes the bits of x into every bucket bit
+        return x * HASH_MULTIPLIER ^ y;
     }
 
 }

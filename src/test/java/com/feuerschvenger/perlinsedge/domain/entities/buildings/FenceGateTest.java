@@ -12,6 +12,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FenceGateTest {
@@ -64,6 +65,17 @@ class FenceGateTest {
     }
 
     @Test
+    void aGateIsNotToggledThroughANullTileOrATileItDoesNotStandOn() {
+        FenceGate gate = new FenceGate(4, 4);
+        map.getTile(4, 4).setBuilding(gate);
+        final var otherTile = map.getTile(1, 1);
+
+        assertThrows(NullPointerException.class, () -> gate.toggleOpen(null));
+        assertThrows(IllegalArgumentException.class, () -> gate.toggleOpen(otherTile));
+        assertFalse(gate.isOpen());
+    }
+
+    @Test
     void togglingTellsTheMapSoShadowsAreCastAgain() {
         FenceGate gate = new FenceGate(4, 4);
         map.getTile(4, 4).setBuilding(gate);
@@ -84,13 +96,13 @@ class FenceGateTest {
     @Test
     void anOpenGateLetsPathfindingThroughAndClosingItBlocksAgain() {
         FenceGate gate = fenceWithGate();
-        gate.toggleOpen();
+        gate.toggleOpen(map.getTile(4, 4));
 
         var path = new Pathfinder(map).findPath(1, 4, 7, 4).requireNodes();
         assertNotNull(path);
         assertTrue(path.stream().anyMatch(n -> n.x == 4 && n.y == 4), "the path goes through the gate");
 
-        gate.toggleOpen();
+        gate.toggleOpen(map.getTile(4, 4));
         assertFalse(new Pathfinder(map).findPath(1, 4, 7, 4).reachable());
     }
 

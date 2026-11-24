@@ -9,6 +9,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+import com.feuerschvenger.perlinsedge.domain.world.model.WalkableRegions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,6 +59,18 @@ class ResourceManagerTest {
 
         assertEquals(ResourceManager.HitResult.HIT, manager.handleTileInteraction(player, tile));
         assertEquals(ResourceManager.HitResult.COOLDOWN, manager.handleTileInteraction(player, tile));
+    }
+
+    @Test
+    void harvestingAResourceJoinsItsTileToTheWalkableRegions() {
+        tile.setWorldResource(new Resource(ResourceType.STONE, 1));
+        final var regions = state.getCurrentMap().getWalkableRegions();
+        assertEquals(WalkableRegions.NO_REGION, regions.regionAt(1, 1));
+
+        hitUntilGone();
+
+        assertNotEquals(WalkableRegions.NO_REGION, regions.regionAt(1, 1));
+        assertEquals(1, regions.getRegionCount());
     }
 
     @Test

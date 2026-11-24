@@ -29,7 +29,6 @@ import java.util.function.Predicate;
 @Slf4j
 public class MapManager {
     // Configuration constants
-    private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
 
     /** Stands for "no position found", so a search never returns null. */
@@ -117,9 +116,12 @@ public class MapManager {
         int[] playerPosition = getPlayerPosition();
         // Every enemy takes a tile of its own: a tile held by one already spawned is never picked again
         final var taken = new EnemyOccupancy();
-        spawnEnemyType(enemies, Slime.class, AppConfig.getInstance().world().getBaseSlimesCount(), playerPosition, map, taken);
-        spawnEnemyType(enemies, Mimic.class, AppConfig.getInstance().world().getBaseMimicsCount(), playerPosition, map, taken);
-        spawnEnemyType(enemies, Skeleton.class, AppConfig.getInstance().world().getBaseSkeletonsCount(), playerPosition, map, taken);
+        final var world = AppConfig.getInstance().world();
+        final int width = map.getWidth();
+        final int height = map.getHeight();
+        spawnEnemyType(enemies, Slime.class, world.getSlimesCount(width, height), playerPosition, map, taken);
+        spawnEnemyType(enemies, Mimic.class, world.getMimicsCount(width, height), playerPosition, map, taken);
+        spawnEnemyType(enemies, Skeleton.class, world.getSkeletonsCount(width, height), playerPosition, map, taken);
 
         gameState.setEnemies(enemies);
         logSpawnSummary(enemies.size());
@@ -170,13 +172,15 @@ public class MapManager {
      * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
     private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
-        int maxAttempts = AppConfig.getInstance().world().getMaxPositioningAttempts();
+        final var world = AppConfig.getInstance().world();
+        final int maxAttempts = world.getMaxPositioningAttempts();
+        final int safeRadius = world.getStartSafeRadius(map.getWidth(), map.getHeight());
 
         for (var attempt = 0; attempt < maxAttempts; attempt++) {
             var x = random.nextInt(map.getWidth());
             var y = random.nextInt(map.getHeight());
 
-            if (taken.ownerOf(x, y) == null && isValidSpawnPosition(x, y, playerPosition, map)) {
+            if (taken.ownerOf(x, y) == null && isValidSpawnPosition(x, y, playerPosition, safeRadius, map)) {
                 return new int[]{x, y};
             }
         }
@@ -186,7 +190,7 @@ public class MapManager {
     /**
      * Validates a potential spawn position.
      */
-    private static boolean isValidSpawnPosition(int x, int y, int[] playerPosition, TileMap map) {
+    private static boolean isValidSpawnPosition(int x, int y, int[] playerPosition, int safeRadius, TileMap map) {
         var tile = map.getTile(x, y);
         if (tile == null || !tile.isWalkable()) {
             return false;
@@ -198,7 +202,7 @@ public class MapManager {
 
         if (playerPosition != null) {
             double distance = Math.hypot((double) x - playerPosition[0], (double) y - playerPosition[1]);
-            return distance >= MIN_SPAWN_DISTANCE;
+            return distance >= safeRadius;
         }
 
         return true;

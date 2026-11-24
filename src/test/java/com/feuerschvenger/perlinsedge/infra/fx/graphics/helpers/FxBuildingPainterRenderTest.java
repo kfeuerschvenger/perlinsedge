@@ -6,6 +6,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceGate;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import com.feuerschvenger.perlinsedge.ui.view.CanvasProbe;
 import javafx.scene.paint.Color;
 import org.junit.jupiter.api.Test;
@@ -167,7 +169,9 @@ class FxBuildingPainterRenderTest {
     void aClosedGateHasRailsBetweenItsPostsAndAnOpenGateOnlyThePosts() {
         final FenceGate closed = new FenceGate(0, 0);
         final FenceGate open = new FenceGate(0, 0);
-        open.toggleOpen();
+        final Tile gateTile = new Tile(0, 0, TileType.GRASS);
+        gateTile.setBuilding(open);
+        open.toggleOpen(gateTile);
 
         final CanvasProbe closedShot = draw(closed, 1.0);
         final CanvasProbe openShot = draw(open, 1.0);

@@ -94,27 +94,69 @@ public final class AppConfig {
      */
     public static class WorldConfig {
         // Dimensions
-        private static final int WIDTH = 150;
-        private static final int HEIGHT = 150;
+        private static final int WIDTH = 300;
+        private static final int HEIGHT = 300;
 
         // Map properties
         private MapType currentMapType = MapType.DENSE_FOREST;
 
-        // Enemy settings
-        private static final int BASE_SLIMES_COUNT = 30;
-        private static final int BASE_MIMICS_COUNT = 3;
-        private static final int BASE_SKELETONS_COUNT = 6;
+        // Enemy settings: counts are densities per area, so a larger map holds proportionally more enemies
+        private static final long TILES_PER_DENSITY_UNIT = 100_000L;
+        private static final int SLIMES_PER_100K_TILES = 133;
+        private static final int MIMICS_PER_100K_TILES = 13;
+        private static final int SKELETONS_PER_100K_TILES = 27;
         private static final int MAX_POSITIONING_ATTEMPTS = 3000;
+        /** Tiles around the player in which no enemy spawns when a game starts, on a map large enough for it. */
+        private static final int START_SAFE_RADIUS = 24;
+        /**
+         * Largest share of the smaller map side the start safe radius may take, so a small map keeps room for enemies.
+         */
+        private static final double START_SAFE_RADIUS_MAP_FRACTION = 0.25;
 
         // Getters and setters
         public int getWidth() { return WIDTH; }
         public int getHeight() { return HEIGHT; }
         public MapType getCurrentMapType() { return currentMapType; }
         public void setCurrentMapType(MapType mapType) { this.currentMapType = mapType; }
-        public int getBaseSlimesCount() { return BASE_SLIMES_COUNT; }
-        public int getBaseMimicsCount() { return BASE_MIMICS_COUNT; }
-        public int getBaseSkeletonsCount() { return BASE_SKELETONS_COUNT; }
         public int getMaxPositioningAttempts() { return MAX_POSITIONING_ATTEMPTS; }
+
+        /**
+         * @param width  map width in tiles
+         * @param height map height in tiles
+         * @return tiles around the player in which no enemy spawns when a game starts: the configured radius, cut down
+         * to a fraction of the smaller side of a small map
+         */
+        public int getStartSafeRadius(int width, int height) {
+            final var fitting = (int) (Math.min(width, height) * START_SAFE_RADIUS_MAP_FRACTION);
+            return Math.min(START_SAFE_RADIUS, fitting);
+        }
+
+        /**
+         * @param width  map width in tiles
+         * @param height map height in tiles
+         * @return the number of slimes a map of that size starts with
+         */
+        public int getSlimesCount(int width, int height) { return countFor(SLIMES_PER_100K_TILES, width, height); }
+
+        /**
+         * @param width  map width in tiles
+         * @param height map height in tiles
+         * @return the number of mimics a map of that size starts with
+         */
+        public int getMimicsCount(int width, int height) { return countFor(MIMICS_PER_100K_TILES, width, height); }
+
+        /**
+         * @param width  map width in tiles
+         * @param height map height in tiles
+         * @return the number of skeletons a map of that size starts with
+         */
+        public int getSkeletonsCount(int width, int height) {
+            return countFor(SKELETONS_PER_100K_TILES, width, height);
+        }
+
+        private static int countFor(int per100kTiles, int width, int height) {
+            return (int) Math.round((double) width * height * per100kTiles / TILES_PER_DENSITY_UNIT);
+        }
     }
 
     /**

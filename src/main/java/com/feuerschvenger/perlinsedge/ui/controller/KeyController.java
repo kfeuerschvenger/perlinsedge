@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.ui.controller;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.events.GameKey;
 import com.feuerschvenger.perlinsedge.domain.events.IKeyListener;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.BooleanSupplier;
@@ -23,6 +24,12 @@ public class KeyController implements IKeyListener {
     private final Runnable generateNewMapAction;
     private final Runnable toggleInventoryPanelAction;
     private final Consumer<Integer> onNumberKeyPress;
+
+    /**
+     * Condition under which gameplay keys are ignored while it returns true. Pause, centring the camera and the debug
+     * keys stay available. Null never blocks.
+     */
+    @Setter
     private BooleanSupplier inputBlocked;
     private Runnable onDropOne;
     private Runnable onDropStack;
@@ -48,16 +55,6 @@ public class KeyController implements IKeyListener {
         this.generateNewMapAction = generateNewMapAction;
         this.toggleInventoryPanelAction = toggleInventoryPanelAction;
         this.onNumberKeyPress = onNumberKeyPress;
-    }
-
-    /**
-     * Sets the condition under which gameplay keys are ignored. Pause, centring the camera and the debug keys stay
-     * available.
-     *
-     * @param inputBlocked true while gameplay input must be ignored, null never blocks
-     */
-    public void setInputBlocked(BooleanSupplier inputBlocked) {
-        this.inputBlocked = inputBlocked;
     }
 
     /**

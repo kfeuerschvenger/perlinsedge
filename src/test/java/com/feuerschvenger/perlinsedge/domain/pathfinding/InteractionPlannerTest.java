@@ -10,8 +10,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class InteractionPlannerTest {
@@ -45,26 +43,24 @@ class InteractionPlannerTest {
     void aSearchCapStopsTheSearchForATargetThatIsReachableOnlyFartherOut() {
         TileMap map = grassMap();
 
-        assertNotNull(InteractionPlanner.pathToReach(map, 0, 0, 8, 8, java.util.Set.of()));
-        assertNull(InteractionPlanner.pathToReach(map, 0, 0, 8, 8, java.util.Set.of(), 3),
+        assertTrue(InteractionPlanner.pathToReach(map, 0, 0, 8, 8, java.util.Set.of()).reachable());
+        assertFalse(InteractionPlanner.pathToReach(map, 0, 0, 8, 8, java.util.Set.of(), 3).reachable(),
                 "three expanded tiles are not enough to get that far");
-        assertTrue(InteractionPlanner.pathToReach(map, 4, 4, 5, 5, java.util.Set.of(), 1).isEmpty(),
+        assertTrue(InteractionPlanner.pathToReach(map, 4, 4, 5, 5, java.util.Set.of(), 1).requireNodes().isEmpty(),
                 "a player in reach needs no search, so no cap applies");
     }
 
     @Test
     void aPlayerInReachNeedsNoWalk() {
-        List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 4, 4, 5, 5);
+        List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 4, 4, 5, 5).requireNodes();
 
-        assertNotNull(path);
         assertTrue(path.isEmpty());
     }
 
     @Test
     void theWalkEndsOnATileNextToTheTarget() {
-        List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 0, 4, 6, 4);
+        List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 0, 4, 6, 4).requireNodes();
 
-        assertNotNull(path);
         assertFalse(path.isEmpty());
         assertTrue(InteractionPlanner.inReach(last(path).x, last(path).y, 6, 4));
         assertFalse(last(path).x == 6 && last(path).y == 4, "the walk does not step onto the target");
@@ -72,7 +68,7 @@ class InteractionPlannerTest {
 
     @Test
     void theWalkEndsOnTheNearestSideOfTheTarget() {
-        List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 0, 4, 6, 4);
+        List<PathNode> path = InteractionPlanner.pathToReach(grassMap(), 0, 4, 6, 4).requireNodes();
 
         assertEquals(5, last(path).x, "coming from the left, the left side is the nearest");
         assertEquals(4, last(path).y);
@@ -83,9 +79,8 @@ class InteractionPlannerTest {
         TileMap map = grassMap();
         map.getTile(6, 4).setBuilding(new Fence(6, 4));
 
-        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 4, 6, 4);
+        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 4, 6, 4).requireNodes();
 
-        assertNotNull(path);
         assertTrue(path.stream().noneMatch(node -> node.x == 6 && node.y == 4));
     }
 
@@ -94,9 +89,8 @@ class InteractionPlannerTest {
         TileMap map = grassMap();
         map.getTile(5, 4).setBuilding(new Fence(5, 4));
 
-        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 4, 6, 4);
+        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 4, 6, 4).requireNodes();
 
-        assertNotNull(path);
         assertTrue(InteractionPlanner.inReach(last(path).x, last(path).y, 6, 4));
         assertFalse(last(path).x == 5 && last(path).y == 4, "the walled tile is not a place to stand");
     }
@@ -112,7 +106,7 @@ class InteractionPlannerTest {
             }
         }
 
-        assertNull(InteractionPlanner.pathToReach(map, 0, 4, 6, 4));
+        assertFalse(InteractionPlanner.pathToReach(map, 0, 4, 6, 4).reachable());
     }
 
     @Test
@@ -125,9 +119,8 @@ class InteractionPlannerTest {
             }
         }
 
-        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 0, 100, 0);
+        List<PathNode> path = InteractionPlanner.pathToReach(map, 0, 0, 100, 0).requireNodes();
 
-        assertNotNull(path);
         assertTrue(InteractionPlanner.inReach(last(path).x, last(path).y, 100, 0));
     }
 
@@ -142,7 +135,7 @@ class InteractionPlannerTest {
             }
         }
 
-        assertNull(InteractionPlanner.pathToReach(map, 0, 0, 30, 30));
+        assertFalse(InteractionPlanner.pathToReach(map, 0, 0, 30, 30).reachable());
     }
 
     @Test
@@ -152,6 +145,6 @@ class InteractionPlannerTest {
             map.setTile(4, y, new Tile(4, y, TileType.DEEP_WATER));
         }
 
-        assertNull(InteractionPlanner.pathToReach(map, 0, 4, 7, 4));
+        assertFalse(InteractionPlanner.pathToReach(map, 0, 4, 7, 4).reachable());
     }
 }

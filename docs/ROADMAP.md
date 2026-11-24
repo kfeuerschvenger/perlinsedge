@@ -14,6 +14,7 @@ flowchart LR
     world --> lighting[Light sources and darkness: held torch and placed lights built]
     world --> biomes[Magic and sinister biomes]
     world --> seethrough[See-through mask around the player]
+    world --> fog[Optional fog of war at game start]
     digging --> shovel[Shovel]
     bow --> arrows[Arrows and archery combat]
     lighting --> placed[Short lived lights for arrows and spells]
@@ -52,6 +53,10 @@ The sun moves through dawn, day, dusk and night, casts shadows shaped like the t
 ## See-through mask around the player
 
 When the player stands behind trees or other tall sprites, they are hidden by them. A circular, semi-transparent mask around the player would make the sprites that occlude them partly see-through, so the player shows through while the rest of the scene stays opaque. It needs a rule for which sprites count as occluding, such as those drawn in front of the player and overlapping them, a soft edge on the circle so the transition does not look cut, and a draw path that fades only those sprites instead of the whole layer.
+
+## Fog of war
+
+An option that starts a game with the whole map hidden, on the world and on the minimap, so the player explores to discover the land and the resources on it. Tiles the player has seen stay revealed and the rest stay dark, and with the option off the whole map is shown. It needs a record of which tiles were discovered, kept with the game state, a reveal radius around the player that grows as the player moves, a draw path that hides undiscovered tiles and the things standing on them, and a minimap that paints only what has been discovered.
 
 ## Magic and sinister biomes
 

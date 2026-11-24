@@ -102,7 +102,8 @@ public class Resource {
     // ==================================================================
 
     /**
-     * Applies damage to the resource.
+     * Applies damage to the resource. A depleted resource no longer blocks its tile, so the caller removes it from the
+     * tile with {@link Tile#setWorldResource(Resource)}, which tells the map that the walkability changed.
      *
      * @param damage Amount of damage to apply
      * @return true if the resource was depleted by this damage

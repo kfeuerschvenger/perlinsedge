@@ -134,7 +134,7 @@ public final class RiverPass implements GenerationPass {
             var length = 0;
             var covered = 0;
             var planned = UNPLANNED;
-            while (length < maxLength && (isOwnBranch(index) || !isWater(index))) {
+            while (length < maxLength && isOpenTo(index)) {
                 inRiver[index] = true;
                 river[covered] = index;
                 covered++;
@@ -146,11 +146,17 @@ public final class RiverPass implements GenerationPass {
                 }
                 index = next;
                 length++;
-                if (branches(length)) {
+                // A step that reached water ends the river, so it sends out no branch and draws no chance
+                if (isOpenTo(index) && branches(length)) {
                     planned = branchOff(index);
                 }
             }
             carve(river, covered);
+        }
+
+        /** Tells whether the river being traced may enter a tile: a tile that is not water, or one of its own branch. */
+        private boolean isOpenTo(int index) {
+            return isOwnBranch(index) || !isWater(index);
         }
 
         /** Tells whether a river that has run {@code length} steps sends out a branch, drawing the chance. */

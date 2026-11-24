@@ -19,6 +19,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
  * Represents the player character with movement, inventory, and combat capabilities.
@@ -77,6 +78,8 @@ public class Player extends Entity implements Container {
 
     // Movement and pathfinding
     private final LinkedList<PathNode> currentPath = new LinkedList<>();
+    /** Makes the pathfinder of each search a move order runs. */
+    private final BiFunction<TileMap, Set<PathNode>, Pathfinder> pathfinderFactory;
 
     // Animation state
     private int direction = DIR_UP;
@@ -89,7 +92,20 @@ public class Player extends Entity implements Container {
     // ==================================================================
 
     public Player(int startX, int startY) {
+        this(startX, startY, Pathfinder::new);
+    }
+
+    /**
+     * Creates a player whose walks are planned by the pathfinders the factory makes, one per search. Tests use it to
+     * observe whether an order ran a search at all.
+     *
+     * @param startX            start column
+     * @param startY            start row
+     * @param pathfinderFactory makes the pathfinder for a map and the tiles a walk may not use
+     */
+    Player(int startX, int startY, BiFunction<TileMap, Set<PathNode>, Pathfinder> pathfinderFactory) {
         super(startX, startY, MAX_HEALTH);
+        this.pathfinderFactory = pathfinderFactory;
     }
 
     // ==================================================================
@@ -194,8 +210,11 @@ public class Player extends Entity implements Container {
         final int fromX = step != null ? step.x : currentTileX;
         final int fromY = step != null ? step.y : currentTileY;
 
-        var pathfinder = new Pathfinder(map, occupied);
-        var path = pathfinder.findPath(fromX, fromY, targetX, targetY).nodes();
+        // A target in another region of the map is refused without the search, which would explore every tile of the
+        // region the player stands in before giving up
+        final List<PathNode> path = map.getWalkableRegions().mayReach(fromX, fromY, targetX, targetY)
+                ? pathfinderFactory.apply(map, occupied).findPath(fromX, fromY, targetX, targetY).nodes()
+                : List.of();
 
         if (path.isEmpty()) {
             // A refused order ends the walk the way any stop does: a player between two tiles finishes its step
