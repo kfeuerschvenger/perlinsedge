@@ -131,7 +131,7 @@ class GameScreenTest {
             return null;
         });
         final GameOrchestrator orchestrator = onFx(() -> screen.createOrchestrator(scene,
-                () -> events.add("exit"), () -> events.add("menu")));
+                () -> events.add("exit"), () -> events.add("menu"), LaunchOptions.DEFAULT));
         assertNotNull(orchestrator);
 
         final PauseMenuPanel pause = all(root.getChildren().get(1), PauseMenuPanel.class).getFirst();
@@ -156,7 +156,8 @@ class GameScreenTest {
             screen.show();
             return null;
         });
-        final GameOrchestrator orchestrator = onFx(() -> screen.createOrchestrator(scene, () -> { }, () -> { }));
+        final GameOrchestrator orchestrator = onFx(() -> screen.createOrchestrator(scene, () -> { }, () -> { },
+                LaunchOptions.DEFAULT));
 
         onFx(() -> {
             orchestrator.startNewGame(MapType.DESERT);

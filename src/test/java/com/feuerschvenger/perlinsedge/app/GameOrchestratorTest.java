@@ -90,7 +90,8 @@ class GameOrchestratorTest {
                             new BuildingPalettePanel(recipes), new ItemHotbarPanel(), new HintLabel(),
                             new DeathOverlay()),
                     state,
-                    recipes);
+                    recipes,
+                    LaunchOptions.DEFAULT);
         });
     }
 

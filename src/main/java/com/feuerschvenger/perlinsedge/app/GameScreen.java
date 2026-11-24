@@ -98,9 +98,10 @@ final class GameScreen {
      * @param scene        the scene the input is read from
      * @param onExit       called when the player leaves from the pause menu to the desktop
      * @param onBackToMenu called after the game is left from the pause menu, to show the main menu
+     * @param options      the options of the launch, which decide whether the debug keys work
      * @return the orchestrator
      */
-    GameOrchestrator createOrchestrator(Scene scene, Runnable onExit, Runnable onBackToMenu) {
+    GameOrchestrator createOrchestrator(Scene scene, Runnable onExit, Runnable onBackToMenu, LaunchOptions options) {
         final var inputHandler = new FxInputHandler(scene, mainCanvas, camera);
 
         final var orchestrator = new GameOrchestrator(
@@ -108,7 +109,8 @@ final class GameScreen {
                 new GamePanels(healthBar, inventoryPanel, palettePanel, itemHotbarPanel, hintLabel,
                         deathOverlay),
                 gameStateManager,
-                recipeManager
+                recipeManager,
+                options
         );
         configurePauseMenu(orchestrator, onExit, onBackToMenu);
         return orchestrator;

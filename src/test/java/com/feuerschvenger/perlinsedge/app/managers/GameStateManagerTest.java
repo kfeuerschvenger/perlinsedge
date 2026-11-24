@@ -62,7 +62,7 @@ class GameStateManagerTest {
         List<Integer> numbers = new ArrayList<>();
         List<String> drops = new ArrayList<>();
         KeyController keys = new KeyController(() -> { }, () -> { }, () -> { }, () -> { },
-                numbers::add);
+                numbers::add, false);
         keys.setDropActions(() -> drops.add("one"), () -> drops.add("stack"));
         keys.setInputBlocked(state::isGameplayInputBlocked);
 
