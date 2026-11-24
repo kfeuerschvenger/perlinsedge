@@ -108,9 +108,8 @@ class EnemySpawnTest {
 
         final int expected = world.getSlimesCount(SIZE, SIZE) + world.getMimicsCount(SIZE, SIZE)
                 + world.getSkeletonsCount(SIZE, SIZE);
-        assertTrue(state.getEnemies().size() <= expected);
-        assertFalse(state.getEnemies().isEmpty());
-        assertTrue(world.getSlimesCount(SIZE, SIZE) < world.getSlimesCount(SIZE * 2, SIZE * 2));
+        assertEquals(expected, state.getEnemies().size());
+        assertTrue(world.getSlimesCount(SIZE, SIZE) <world.getSlimesCount(SIZE * 2, SIZE * 2));
     }
 
     @Test
