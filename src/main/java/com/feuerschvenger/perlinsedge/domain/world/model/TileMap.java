@@ -24,6 +24,9 @@ public class TileMap {
     /** The number of changes the map has seen, see {@link #getRevision()}. */
     private long revision;
 
+    /** The labelling of the walkable tiles, created by the first query. */
+    private WalkableRegions walkableRegions;
+
     /**
      * Constructs a TileMap with specified dimensions.
      * @param width  Width of the tile map (number of tiles in the X direction)
@@ -112,6 +115,19 @@ public class TileMap {
      */
     public long getRevision() {
         return revision;
+    }
+
+    /**
+     * Returns the index of the walkable regions of this map, which stays right as the map changes because it relabels
+     * itself when the revision moved. The same instance is returned every time.
+     *
+     * @return the region index of this map
+     */
+    public WalkableRegions getWalkableRegions() {
+        if (walkableRegions == null) {
+            walkableRegions = new WalkableRegions(this);
+        }
+        return walkableRegions;
     }
 
     /** Counts one change of the map, which a tile calls when its contents change. */
