@@ -19,8 +19,9 @@ public final class GroundPass implements GenerationPass {
 
     private static final String NAME = "ground";
     private static final long DITHER_SALT = 0x0061_20D1_7E12_0001L;
-    /** The dither takes the top 24 bits of the tile hash, which is as many as a float holds exactly. */
+    /** The dither takes the top 24 bits of the tile hash, which gives {@link #DITHER_STEPS} distinct steps. */
     private static final int DITHER_SHIFT = 40;
+    private static final float[] NO_CLIMATE = new float[0];
     private static final double DITHER_STEPS = 16_777_216.0;
     /** A value from 0 to 1 becomes one from -1 to 1 by doubling it and taking one off. */
     private static final double SIGNED_SPAN = 2.0;
@@ -60,14 +61,14 @@ public final class GroundPass implements GenerationPass {
         }
     }
 
-    /** Returns the array of a climate field the rule declares, or null when the rule does not read it. */
+    /** Returns the array of a climate field the rule declares, or an empty array when the rule does not read it. */
     private static float[] climate(GenerationContext context, GroundRule rule, NoiseField field) {
-        return rule.climateFields().contains(field) ? context.field(field) : null;
+        return rule.climateFields().contains(field) ? context.field(field) : NO_CLIMATE;
     }
 
     /** Returns the value of a tile in a climate array, or the neutral constant when the rule did not ask for it. */
     private static float valueAt(float[] values, int index) {
-        return values == null ? NEUTRAL_CLIMATE : values[index];
+        return values.length == 0 ? NEUTRAL_CLIMATE : values[index];
     }
 
     /** Returns a value from -1 up to but not including 1 that depends only on the tile and the seed. */

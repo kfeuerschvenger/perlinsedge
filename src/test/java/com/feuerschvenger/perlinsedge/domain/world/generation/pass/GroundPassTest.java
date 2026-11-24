@@ -35,6 +35,9 @@ class GroundPassTest {
     private static final int CLIMATE_Y = 2;
     private static final int NEXT_ROW = CLIMATE_Y + 1;
     private static final long NEXT_SEED = 1L;
+    private static final int SEEN_VALUES = 2;
+    private static final int SEEN_TEMPERATURE = 0;
+    private static final int SEEN_MOISTURE = 1;
 
     /** A rule that returns hills above the boundary and sand below, and reads no climate. */
     private static final GroundRule SPLIT = GroundRule.ofHeight(
@@ -87,10 +90,10 @@ class GroundPassTest {
     @Test
     void aRuleThatReadsNoClimateRunsOnAContextWithoutClimateFieldsAndGetsTheNeutralValue() {
         fillHeight(context, 0F);
-        final var seen = new float[2];
+        final var seen = new float[SEEN_VALUES];
         final var recorder = GroundRule.ofHeight((float height, float temperature, float moisture) -> {
-            seen[0] = temperature;
-            seen[1] = moisture;
+            seen[SEEN_TEMPERATURE] = temperature;
+            seen[SEEN_MOISTURE] = moisture;
             return TileType.SAND;
         });
 
@@ -98,8 +101,8 @@ class GroundPassTest {
 
         assertFalse(context.hasField(NoiseField.TEMPERATURE));
         assertFalse(context.hasField(NoiseField.MOISTURE));
-        assertEquals(GroundPass.NEUTRAL_CLIMATE, seen[0]);
-        assertEquals(GroundPass.NEUTRAL_CLIMATE, seen[1]);
+        assertEquals(GroundPass.NEUTRAL_CLIMATE, seen[SEEN_TEMPERATURE]);
+        assertEquals(GroundPass.NEUTRAL_CLIMATE, seen[SEEN_MOISTURE]);
         assertEquals(TileType.SAND, context.groundAt(0));
     }
 

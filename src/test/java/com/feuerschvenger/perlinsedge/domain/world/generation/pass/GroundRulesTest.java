@@ -18,6 +18,8 @@ class GroundRulesTest {
     private static final float COLD = 0.1F;
     private static final float WARM = 0.9F;
     private static final float ANY = 0.5F;
+    private static final float TUNDRA_INLAND_HEIGHT = 0.3F;
+    private static final float TUNDRA_HIGH_FOREST_HEIGHT = 0.45F;
 
     @ParameterizedTest
     @CsvSource({
@@ -47,9 +49,10 @@ class GroundRulesTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"-0.5, DEEP_WATER", "0.1, DEEP_WATER", "0.14, DEEP_WATER", "0.16, SHALLOW_WATER",
+    @CsvSource({"-0.5, DEEP_WATER", "-0.45, DEEP_WATER", "-0.35, SHALLOW_WATER", "-0.25, SHALLOW_WATER",
+            "-0.15, DEEP_WATER", "0.1, DEEP_WATER", "0.14, DEEP_WATER", "0.16, SHALLOW_WATER",
             "0.19, SHALLOW_WATER", "0.21, SAND", "0.25, SAND", "0.55, SAND", "0.65, HILL", "0.95, HILL"})
-    void desertHasItsWaterAtTheTopOfTheRange(float height, TileType expected) {
+    void desertHasASeaAtTheBottomAndItsWaterAtTheTopOfTheRange(float height, TileType expected) {
         assertEquals(expected, GroundRules.DESERT.classify(height, WARM, DRY));
     }
 
@@ -78,9 +81,9 @@ class GroundRulesTest {
 
     @Test
     void tundraInlandForestNeedsMoistureAndTheWarmGroundBelowTheSnowHeight() {
-        assertEquals(TileType.FOREST, GroundRules.TUNDRA.classify(0.3F, WARM, WET));
-        assertEquals(TileType.GRASS, GroundRules.TUNDRA.classify(0.3F, WARM, DRY));
-        assertEquals(TileType.GRASS, GroundRules.TUNDRA.classify(0.45F, WARM, WET));
+        assertEquals(TileType.FOREST, GroundRules.TUNDRA.classify(TUNDRA_INLAND_HEIGHT, WARM, WET));
+        assertEquals(TileType.GRASS, GroundRules.TUNDRA.classify(TUNDRA_INLAND_HEIGHT, WARM, DRY));
+        assertEquals(TileType.GRASS, GroundRules.TUNDRA.classify(TUNDRA_HIGH_FOREST_HEIGHT, WARM, WET));
     }
 
     @ParameterizedTest
@@ -98,8 +101,9 @@ class GroundRulesTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"0.0, DEEP_WATER", "0.25, SHALLOW_WATER", "0.35, GRASS", "0.45, HILL", "0.95, HILL"})
-    void mountainousHasItsWaterHighBetweenThePeaks(float height, TileType expected) {
+    @CsvSource({"-0.45, DEEP_WATER", "-0.35, SHALLOW_WATER", "-0.25, SHALLOW_WATER", "-0.15, DEEP_WATER",
+            "0.0, DEEP_WATER", "0.25, SHALLOW_WATER", "0.35, GRASS", "0.45, HILL", "0.95, HILL"})
+    void mountainousHasASeaAtTheBottomAndItsWaterHighBetweenThePeaks(float height, TileType expected) {
         assertEquals(expected, GroundRules.MOUNTAINOUS.classify(height, ANY, ANY));
     }
 }

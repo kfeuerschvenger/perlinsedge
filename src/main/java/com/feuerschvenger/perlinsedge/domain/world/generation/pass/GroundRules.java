@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
@@ -35,6 +36,11 @@ public final class GroundRules {
     private static final float ISLANDS_DEEP = -0.6F;
     private static final float ISLANDS_SHALLOW = -0.4F;
     private static final float ISLANDS_SAND = -0.2F;
+
+    // Sea shared by the maps whose own water lies high in the range: the sea below these heights comes first, and the
+    // type's own water lies above them
+    private static final float HIGH_WATER_SEA_DEEP = -0.4F;
+    private static final float HIGH_WATER_SEA_SHALLOW = -0.2F;
 
     // Desert: the floor is high, so its water lies at the top of the range
     private static final float DESERT_DEEP = 0.15F;
@@ -69,8 +75,8 @@ public final class GroundRules {
     private static final float MOUNTAINOUS_SHALLOW = 0.3F;
     private static final float MOUNTAINOUS_GRASS_LIMIT = 0.4F;
 
-    private static final Set<NoiseField> MOISTURE_ONLY = Set.of(NoiseField.MOISTURE);
-    private static final Set<NoiseField> TEMPERATURE_AND_MOISTURE = Set.of(NoiseField.TEMPERATURE,
+    private static final Set<NoiseField> MOISTURE_ONLY = EnumSet.of(NoiseField.MOISTURE);
+    private static final Set<NoiseField> TEMPERATURE_AND_MOISTURE = EnumSet.of(NoiseField.TEMPERATURE,
             NoiseField.MOISTURE);
 
     /** Sea, then forest where it is wet below the hills, then grass, hills and mountains. Reads the moisture. */
@@ -85,7 +91,7 @@ public final class GroundRules {
     public static final GroundRule ISLANDS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> islands(height));
 
-    /** Water at the top of the height range, sand below the hills and hills above. Reads no climate. */
+    /** Sea at the bottom, water at the top of the height range, sand below the hills, hills above. Reads no climate. */
     public static final GroundRule DESERT = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> desert(height));
 
@@ -100,7 +106,7 @@ public final class GroundRules {
     public static final GroundRule MEDITERRANEAN = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> mediterranean(height));
 
-    /** Water high in the range, grass at the valley floor and hills above. Reads no climate. */
+    /** Sea at the bottom, water high in the range, grass at the valley floor, hills above. Reads no climate. */
     public static final GroundRule MOUNTAINOUS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> mountainous(height));
 
@@ -150,8 +156,14 @@ public final class GroundRules {
         return highGround(height);
     }
 
-    /** The desert: water at the top of the range, sand below the hills. */
+    /** The desert: sea at the bottom, then water at the top of the range, sand below the hills. */
     private static TileType desert(float height) {
+        if (height < HIGH_WATER_SEA_DEEP) {
+            return TileType.DEEP_WATER;
+        }
+        if (height < HIGH_WATER_SEA_SHALLOW) {
+            return TileType.SHALLOW_WATER;
+        }
         if (height < DESERT_DEEP) {
             return TileType.DEEP_WATER;
         }
@@ -220,8 +232,14 @@ public final class GroundRules {
         return height < HILL_START ? TileType.GRASS : TileType.HILL;
     }
 
-    /** The mountains: water between the peaks, grass on the valley floor, hills above. */
+    /** The mountains: sea at the bottom, water between the peaks, grass on the valley floor, hills above. */
     private static TileType mountainous(float height) {
+        if (height < HIGH_WATER_SEA_DEEP) {
+            return TileType.DEEP_WATER;
+        }
+        if (height < HIGH_WATER_SEA_SHALLOW) {
+            return TileType.SHALLOW_WATER;
+        }
         if (height < MOUNTAINOUS_DEEP) {
             return TileType.DEEP_WATER;
         }
