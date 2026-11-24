@@ -12,6 +12,8 @@ import java.util.function.Consumer;
 /**
  * KeyController handles keyboard input for the game, allowing players to interact with the game world
  * and access various debug features.
+ * The debug keys F1 to F5 act only when the game was launched with the {@code --debug} program argument; without it
+ * they do nothing, whatever state the debug configuration is in.
  * Implements IKeyListener to respond to keyboard events.
  */
 @Slf4j

@@ -17,6 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeyControllerTest {
 
+    /** The digit key the tests press to select a hotbar slot. */
+    private static final GameKey HOTBAR_KEY = GameKey.DIGIT_4;
+    /** The slot number the controller reports for {@link #HOTBAR_KEY}. */
+    private static final int HOTBAR_SLOT_NUMBER = 4;
+
     private final List<Integer> numbers = new ArrayList<>();
     private KeyController controller;
 
@@ -334,9 +339,9 @@ class KeyControllerTest {
         final KeyController plain = withCallbacks(calls, false);
 
         plain.onKeyAction(GameKey.ESCAPE);
-        plain.onKeyAction(GameKey.DIGIT_4);
+        plain.onKeyAction(HOTBAR_KEY);
 
         assertEquals(List.of("pause"), calls);
-        assertEquals(List.of(4), numbers);
+        assertEquals(List.of(HOTBAR_SLOT_NUMBER), numbers);
     }
 }

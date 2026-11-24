@@ -20,7 +20,7 @@ Perlin's Edge is an isometric open-world survival and building game developed us
 
 ## Debug Modes & Hotkeys
 
-Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys. They work only when the game is launched with the `--debug` program argument, so they never help or hinder a normal game: without the flag the keys do nothing.
+Geek out with our built-in debug modes. Toggle these cheats: I mean, features: with the F-keys. They work only when the game is launched with the `--debug` program argument, so they never help or hinder a normal game: without the flag the keys do nothing. Only the exact, case-sensitive `--debug` is accepted: `--DEBUG`, `--debug=true` and `-debug` are ignored. The flag is separate from `-Dperlinsedge.debug`, which only turns on the JavaFX and Prism logging and does not enable the keys.
 
 - **From a terminal**: `java -jar target/PerlinsEdge-1.0-SNAPSHOT.jar --debug`.
 - **From IntelliJ**: open **Run | Edit Configurations**, select the run configuration of the game, put `--debug` in the **Program arguments** field and run it.

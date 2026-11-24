@@ -21,6 +21,8 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 
+import java.util.Objects;
+
 /**
  * The screen of a running game: the canvas the world is drawn on with the minimap over it, and the layer of panels
  * above it. The positions follow the root pane through bindings, so they track a window that is resized.
@@ -102,6 +104,7 @@ final class GameScreen {
      * @return the orchestrator
      */
     GameOrchestrator createOrchestrator(Scene scene, Runnable onExit, Runnable onBackToMenu, LaunchOptions options) {
+        Objects.requireNonNull(options, "options");
         final var inputHandler = new FxInputHandler(scene, mainCanvas, camera);
 
         final var orchestrator = new GameOrchestrator(
