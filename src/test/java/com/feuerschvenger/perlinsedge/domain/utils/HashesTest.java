@@ -1,0 +1,32 @@
+package com.feuerschvenger.perlinsedge.domain.utils;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+class HashesTest {
+
+    @Test
+    void mixIsPinnedForFixedInputs() {
+        assertEquals(0xE220_A839_7B1D_CDAFL, Hashes.mix(0, 0));
+        assertEquals(0xB370_3AD8_9450_7022L, Hashes.mix(1, 2));
+        assertEquals(0xE4D9_7177_1B65_2C20L, Hashes.mix(-1, -1));
+        assertEquals(0xB772_7CEE_ABBA_EE39L, Hashes.mix(-7, 3));
+        assertEquals(0x1939_1B55_6C95_9740L, Hashes.mix(Integer.MIN_VALUE, Integer.MAX_VALUE));
+    }
+
+    @Test
+    void scrambleIsPinnedForFixedInputs() {
+        assertEquals(0L, Hashes.scramble(0L));
+        assertEquals(0x5692_161D_100B_05E5L, Hashes.scramble(1L));
+        assertEquals(0xB4D0_55FC_F2CB_BD7BL, Hashes.scramble(-1L));
+        assertEquals(0x25C2_6EA5_79CE_A98AL, Hashes.scramble(Long.MIN_VALUE));
+        assertEquals(0x5A68_2AFE_7965_DEBDL, Hashes.scramble(Long.MAX_VALUE));
+    }
+
+    @Test
+    void mixDependsOnTheOrderOfItsArguments() {
+        assertNotEquals(Hashes.mix(1, 2), Hashes.mix(2, 1));
+    }
+}

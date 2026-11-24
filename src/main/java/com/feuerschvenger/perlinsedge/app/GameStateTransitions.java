@@ -12,7 +12,6 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.PauseMenuPanel;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -32,7 +31,6 @@ public class GameStateTransitions {
     private final ContainerManager containerManager;
     private final BuildingPalettePanel palette;
     private final InventoryPanel inventoryPanel;
-    private final MapConfigPanel mapConfigPanel;
     private final RecipeManager recipeManager;
     private final GameLoop gameLoop;
 
@@ -74,14 +72,6 @@ public class GameStateTransitions {
         gameState.setCraftingStation(CraftingStation.INVENTORY);
         gameState.setGamePaused(false);
         gameState.setCurrentGameMode(GameMode.EXPLORATION);
-    }
-
-    /** Shows or hides the map configuration panel. */
-    public void toggleMapConfigPanel() {
-        boolean isVisible = !mapConfigPanel.isVisible();
-        mapConfigPanel.setVisible(isVisible);
-        mapConfigPanel.setManaged(isVisible);
-        log.debug("Map Config Panel: {}", isVisible ? "VISIBLE" : "HIDDEN");
     }
 
     /**

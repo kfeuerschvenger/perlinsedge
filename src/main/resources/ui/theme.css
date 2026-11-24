@@ -5,12 +5,11 @@
  * Rules kept throughout: whole pixel sizes, no gradients, no blur. The only effect is a hard 1 or 2 px dark
  * offset under text (a drop shadow with radius 0).
  *
- * Tokens are declared on every root a popup can have (tooltips and combo box lists live in their own window,
+ * Tokens are declared on every root a popup can have (tooltips live in their own window,
  * so they do not inherit from the scene root).
  */
 .root,
 .tooltip,
-.combo-box-popup,
 .context-menu {
     -pe-panel: rgba(29, 24, 48, 0.8);
     -pe-panel-solid: #1d1830;
@@ -322,108 +321,6 @@
 .scroll-bar > .decrement-button > .decrement-arrow {
     -fx-shape: " ";
     -fx-padding: 0;
-}
-
-/* ---------- Sliders ---------- */
-
-.slider .track {
-    -fx-background-color: -pe-panel-solid;
-    -fx-background-insets: 0;
-    -fx-background-radius: 0;
-    -fx-border-color: -pe-edge;
-    -fx-border-radius: 0;
-    -fx-pref-height: 4;
-}
-
-.slider .thumb {
-    -fx-background-color: -pe-text;
-    -fx-background-insets: 0;
-    -fx-background-radius: 0;
-    -fx-padding: 6;
-}
-
-.slider:focused .thumb {
-    -fx-background-color: -pe-accent;
-}
-
-.slider .axis {
-    -fx-tick-label-fill: -pe-muted;
-    -fx-tick-label-font: 12px "Pixelify Sans";
-    -fx-tick-length: 4;
-    -fx-minor-tick-length: 2;
-}
-
-.slider .axis .axis-tick-mark,
-.slider .axis .axis-minor-tick-mark {
-    -fx-stroke: -pe-muted;
-}
-
-/* ---------- Text field, combo box, list cells ---------- */
-
-.text-field {
-    -fx-background-color: -pe-panel-solid;
-    -fx-background-insets: 0;
-    -fx-background-radius: 6;
-    -fx-border-color: -pe-line;
-    -fx-border-radius: 6;
-    -fx-border-width: 1;
-    -fx-text-fill: -pe-text;
-    -fx-prompt-text-fill: -pe-muted;
-    -fx-highlight-fill: -pe-accent;
-    -fx-highlight-text-fill: -pe-panel-solid;
-    -fx-padding: 4 8 4 8;
-}
-
-.text-field:focused {
-    -fx-border-color: -pe-focus;
-}
-
-.combo-box-base {
-    -fx-background-color: -pe-panel-solid;
-    -fx-background-insets: 0;
-    -fx-background-radius: 6;
-    -fx-border-color: -pe-line;
-    -fx-border-radius: 6;
-    -fx-border-width: 1;
-}
-
-.combo-box-base:focused {
-    -fx-border-color: -pe-focus;
-}
-
-.combo-box-base > .arrow-button {
-    -fx-background-color: transparent;
-    -fx-padding: 0 8 0 8;
-}
-
-.combo-box-base > .arrow-button > .arrow {
-    -fx-background-color: -pe-text;
-}
-
-.combo-box-base > .list-cell,
-.list-cell {
-    -fx-background-color: transparent;
-    -fx-text-fill: -pe-text;
-    -fx-font-family: "Pixelify Sans";
-    -fx-padding: 4 8 4 8;
-}
-
-.list-cell:filled:hover,
-.list-cell:filled:selected {
-    -fx-background-color: -pe-panel-light;
-    -fx-text-fill: -pe-text;
-}
-
-.list-view {
-    -fx-background-color: -pe-panel-solid;
-    -fx-background-insets: 0;
-    -fx-border-color: -pe-line;
-    -fx-border-width: 1;
-    -fx-padding: 0;
-}
-
-.combo-box-popup > .list-view {
-    -fx-background-color: -pe-panel-solid;
 }
 
 /* ---------- Tooltip ---------- */

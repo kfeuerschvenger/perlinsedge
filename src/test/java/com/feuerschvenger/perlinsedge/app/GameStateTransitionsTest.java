@@ -11,11 +11,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.buildings.Chest;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
-import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.ui.view.BuildingPalettePanel;
 import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import com.feuerschvenger.perlinsedge.ui.view.UiTheme;
 import javafx.scene.control.Label;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +50,7 @@ class GameStateTransitionsTest {
             root = new javafx.scene.layout.Pane(inventoryPanel);
             new javafx.scene.Scene(root, 1000, 600);
             return new GameStateTransitions(state, buildings, containers, palette, inventoryPanel,
-                    new MapConfigPanel(MapType.DESERT, 1L), recipes, new GameLoop(dt -> { }, (alpha, dt) -> { }));
+                    recipes, new GameLoop(dt -> { }, (alpha, dt) -> { }));
         });
     }
 

@@ -22,7 +22,6 @@ public final class FxKeyMapper {
             Map.entry(KeyCode.F3, GameKey.F3),
             Map.entry(KeyCode.F4, GameKey.F4),
             Map.entry(KeyCode.F5, GameKey.F5),
-            Map.entry(KeyCode.F7, GameKey.F7),
             Map.entry(KeyCode.DIGIT1, GameKey.DIGIT_1),
             Map.entry(KeyCode.DIGIT2, GameKey.DIGIT_2),
             Map.entry(KeyCode.DIGIT3, GameKey.DIGIT_3),

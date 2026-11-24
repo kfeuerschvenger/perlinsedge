@@ -16,7 +16,6 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
-import com.feuerschvenger.perlinsedge.ui.view.MapConfigPanel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,7 +43,6 @@ public class MapManager implements IMapGenerationListener {
 
     // Dependencies
     private final GameStateManager gameState;
-    private final MapConfigPanel mapConfigPanel;
     private final MapGeneratorFactory mapGeneratorFactory;
     /** Draws the candidate tiles of the enemy spawn search. */
     private final Random random = new Random();
@@ -53,20 +51,18 @@ public class MapManager implements IMapGenerationListener {
     @Getter
     private MapGenerationContext currentMapContext;
 
-    public MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel) {
-        this(gameState, mapConfigPanel, new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY));
+    public MapManager(GameStateManager gameState) {
+        this(gameState, new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY));
     }
 
     /**
      * Creates a manager with the factory that builds its generators, so a test can supply a generator that fails.
      *
      * @param gameState           shared game state
-     * @param mapConfigPanel      panel that shows the values of the generator that built the map
      * @param mapGeneratorFactory builds the generator for a map type
      */
-    MapManager(GameStateManager gameState, MapConfigPanel mapConfigPanel, MapGeneratorFactory mapGeneratorFactory) {
+    MapManager(GameStateManager gameState, MapGeneratorFactory mapGeneratorFactory) {
         this.gameState = gameState;
-        this.mapConfigPanel = mapConfigPanel;
         this.mapGeneratorFactory = mapGeneratorFactory;
     }
 
@@ -124,8 +120,6 @@ public class MapManager implements IMapGenerationListener {
      * Stores the map and clears the entities and the hit times of the resources that belonged to the previous one.
      * Enemies are not spawned here: the caller spawns them once the player has a position on the new map,
      * which keeps them from being placed twice and from landing next to the player.
-     * The panel only mirrors the generator, so a panel that fails is logged and the new map stays in place: the map,
-     * the context and the map type stay consistent with each other.
      */
     @Override
     public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
@@ -135,12 +129,6 @@ public class MapManager implements IMapGenerationListener {
         gameState.setEnemies(new ArrayList<>());
         gameState.getResourceHitTimes().clear();
         gameState.getDamageNumbers().clear();
-
-        try {
-            mapConfigPanel.updateValuesFromGenerator(generator);
-        } catch (RuntimeException e) {
-            log.error("The map panel could not show the values of the new map", e);
-        }
     }
 
     /**

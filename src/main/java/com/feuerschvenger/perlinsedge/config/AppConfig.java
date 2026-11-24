@@ -103,7 +103,6 @@ public final class AppConfig {
         private static final int HEIGHT = 150;
 
         // Map properties
-        private long defaultSeed = System.currentTimeMillis();
         private MapType currentMapType = MapType.DENSE_FOREST;
 
         // Enemy settings
@@ -145,8 +144,6 @@ public final class AppConfig {
         // Getters and setters
         public int getWidth() { return WIDTH; }
         public int getHeight() { return HEIGHT; }
-        public long getDefaultSeed() { return defaultSeed; }
-        public void setDefaultSeed(long seed) { this.defaultSeed = seed; }
         public MapType getCurrentMapType() { return currentMapType; }
         public void setCurrentMapType(MapType mapType) { this.currentMapType = mapType; }
         public int getBaseSlimesCount() { return BASE_SLIMES_COUNT; }
@@ -559,40 +556,20 @@ public final class AppConfig {
             return frequency;
         }
 
-        public void setFrequency(float frequency) {
-            this.frequency = frequency;
-        }
-
         public int getOctaves() {
             return octaves;
-        }
-
-        public void setOctaves(int octaves) {
-            this.octaves = octaves;
         }
 
         public FractalKind getFractalType() {
             return fractalType;
         }
 
-        public void setFractalType(FractalKind fractalType) {
-            this.fractalType = fractalType;
-        }
-
         public float getGain() {
             return gain;
         }
 
-        public void setGain(float gain) {
-            this.gain = gain;
-        }
-
         public float getLacunarity() {
             return lacunarity;
-        }
-
-        public void setLacunarity(float lacunarity) {
-            this.lacunarity = lacunarity;
         }
     }
     
@@ -653,7 +630,7 @@ public final class AppConfig {
         }
 
         /**
-         * Height noise: the frequency and octaves come from the context, so the tuning panel affects the terrain,
+         * Height noise: the frequency and octaves come from the context, so the map type decides the terrain,
          * while the fractal kind, gain and lacunarity come from the map type profile.
          */
         private NoiseConfig createHeightNoiseConfig(float frequency, int octaves) {
@@ -694,104 +671,52 @@ public final class AppConfig {
             return mapType;
         }
 
-        public void setMapType(MapType mapType) {
-            this.mapType = mapType;
-        }
-
         public long getSeed() {
             return seed;
-        }
-
-        public void setSeed(long seed) {
-            this.seed = seed;
         }
 
         public Random getRandom() {
             return random;
         }
 
-        public void setRandom(Random random) {
-            this.random = random;
-        }
-
         public float getTreeDensity() {
             return treeDensity;
-        }
-
-        public void setTreeDensity(float treeDensity) {
-            this.treeDensity = treeDensity;
         }
 
         public float getRiverDensity() {
             return riverDensity;
         }
 
-        public void setRiverDensity(float riverDensity) {
-            this.riverDensity = riverDensity;
-        }
-
         public float getStoneThreshold() {
             return stoneThreshold;
-        }
-
-        public void setStoneThreshold(float stoneThreshold) {
-            this.stoneThreshold = stoneThreshold;
         }
 
         public float getCrystalsThreshold() {
             return crystalsThreshold;
         }
 
-        public void setCrystalsThreshold(float crystalsThreshold) {
-            this.crystalsThreshold = crystalsThreshold;
-        }
-
         public NoiseConfig getHeightNoiseConfig() {
             return heightNoiseConfig;
-        }
-
-        public void setHeightNoiseConfig(NoiseConfig heightNoiseConfig) {
-            this.heightNoiseConfig = heightNoiseConfig;
         }
 
         public NoiseConfig getTemperatureNoiseConfig() {
             return temperatureNoiseConfig;
         }
 
-        public void setTemperatureNoiseConfig(NoiseConfig temperatureNoiseConfig) {
-            this.temperatureNoiseConfig = temperatureNoiseConfig;
-        }
-
         public NoiseConfig getMoistureNoiseConfig() {
             return moistureNoiseConfig;
-        }
-
-        public void setMoistureNoiseConfig(NoiseConfig moistureNoiseConfig) {
-            this.moistureNoiseConfig = moistureNoiseConfig;
         }
 
         public NoiseConfig getStoneNoiseConfig() {
             return stoneNoiseConfig;
         }
 
-        public void setStoneNoiseConfig(NoiseConfig stoneNoiseConfig) {
-            this.stoneNoiseConfig = stoneNoiseConfig;
-        }
-
         public NoiseConfig getCrystalsNoiseConfig() {
             return crystalsNoiseConfig;
         }
 
-        public void setCrystalsNoiseConfig(NoiseConfig crystalsNoiseConfig) {
-            this.crystalsNoiseConfig = crystalsNoiseConfig;
-        }
-
         public NoiseConfig getTreeNoiseConfig() {
             return treeNoiseConfig;
-        }
-
-        public void setTreeNoiseConfig(NoiseConfig treeNoiseConfig) {
-            this.treeNoiseConfig = treeNoiseConfig;
         }
     }
 

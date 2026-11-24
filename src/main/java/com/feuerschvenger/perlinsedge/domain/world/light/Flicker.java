@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.world.light;
 
 import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
+import com.feuerschvenger.perlinsedge.domain.utils.Hashes;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
@@ -61,13 +62,6 @@ public final class Flicker {
     private static final double SHARE_MIDPOINT = 0.5;
     private static final double SHARE_HALF_SPAN = 0.5;
 
-    /** The constants of the splitmix64 finalizer that turns a seed and an index into a phase. */
-    private static final long MIX_GAMMA = 0x9E37_79B9_7F4A_7C15L;
-    private static final long MIX_FIRST = 0xBF58_476D_1CE4_E5B9L;
-    private static final long MIX_SECOND = 0x94D0_49BB_1331_11EBL;
-    private static final int MIX_SHIFT_FIRST = 30;
-    private static final int MIX_SHIFT_SECOND = 27;
-    private static final int MIX_SHIFT_FINAL = 31;
     /** Bits dropped to keep the 53 that fill the mantissa of a double. */
     private static final int MANTISSA_DROPPED_BITS = 11;
 
@@ -343,12 +337,12 @@ public final class Flicker {
         return mix;
     }
 
-    /** Hashes a seed and an index to a number from 0 up to but excluding 1, with the mixing steps of splitmix64. */
+    /**
+     * Hashes a seed and an index to a number from 0 up to but excluding 1, with the splitmix64 finalizer of
+     * {@link Hashes}.
+     */
     private static double unit(long seed, int index) {
-        long z = seed + (index + 1) * MIX_GAMMA;
-        z = (z ^ (z >>> MIX_SHIFT_FIRST)) * MIX_FIRST;
-        z = (z ^ (z >>> MIX_SHIFT_SECOND)) * MIX_SECOND;
-        z ^= z >>> MIX_SHIFT_FINAL;
+        final long z = Hashes.scramble(seed + (index + 1) * Hashes.GOLDEN_GAMMA);
         return (z >>> MANTISSA_DROPPED_BITS) * 0x1.0p-53;
     }
 }

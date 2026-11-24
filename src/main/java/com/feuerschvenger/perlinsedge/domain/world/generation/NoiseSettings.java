@@ -45,7 +45,7 @@ public record NoiseSettings(float frequency, int octaves, FractalKind fractal, f
 
     /**
      * Terrain shape of a map type: the frequency and octave count a new map starts with,
-     * and the fractal kind, gain and lacunarity that the tuning panel does not expose.
+     * and the fractal kind, gain and lacunarity.
      *
      * @param mapType the map type
      * @return the height noise profile of that map type

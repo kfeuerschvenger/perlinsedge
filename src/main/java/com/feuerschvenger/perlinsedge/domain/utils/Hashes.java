@@ -7,10 +7,12 @@ package com.feuerschvenger.perlinsedge.domain.utils;
  */
 public final class Hashes {
 
+    /** The splitmix64 increment, the golden ratio scaled to 64 bits, used to spread consecutive inputs apart. */
+    public static final long GOLDEN_GAMMA = 0x9E37_79B9_7F4A_7C15L;
+
     /** Layout and constants of the splitmix64 finalizer. */
     private static final int HIGH_SHIFT = 32;
     private static final long LOW_MASK = 0xFFFF_FFFFL;
-    private static final long GAMMA = 0x9E37_79B9_7F4A_7C15L;
     private static final long MIX_FIRST = 0xBF58_476D_1CE4_E5B9L;
     private static final long MIX_SECOND = 0x94D0_49BB_1331_11EBL;
     private static final int SHIFT_FIRST = 30;
@@ -30,8 +32,18 @@ public final class Hashes {
      * @return the mixed value
      */
     public static long mix(int high, int low) {
-        var z = (((long) high << HIGH_SHIFT) | (low & LOW_MASK)) + GAMMA;
-        z = (z ^ (z >>> SHIFT_FIRST)) * MIX_FIRST;
+        return scramble((((long) high << HIGH_SHIFT) | (low & LOW_MASK)) + GOLDEN_GAMMA);
+    }
+
+    /**
+     * Runs a value through the splitmix64 finalizer, so values that differ by one give unrelated results. The caller
+     * adds {@link #GOLDEN_GAMMA} first when the input is a counter.
+     *
+     * @param value the value to scramble
+     * @return the scrambled value
+     */
+    public static long scramble(long value) {
+        var z = (value ^ (value >>> SHIFT_FIRST)) * MIX_FIRST;
         z = (z ^ (z >>> SHIFT_SECOND)) * MIX_SECOND;
         return z ^ (z >>> SHIFT_FINAL);
     }
