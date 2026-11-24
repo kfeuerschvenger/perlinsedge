@@ -181,7 +181,7 @@ final class RecipeParts {
         if (climate.contains(NoiseField.MOISTURE)) {
             fields.put(NoiseField.MOISTURE, climateNoise(MOISTURE_FREQUENCY));
         }
-        fields.put(NoiseField.STONE, patchNoise(STONE_FREQUENCY));
+        fields.put(NoiseField.ROCK, patchNoise(STONE_FREQUENCY));
         fields.put(NoiseField.CRYSTALS, patchNoise(CRYSTALS_FREQUENCY));
         return fields;
     }

@@ -185,6 +185,46 @@ class GenerationContextTest {
     }
 
     @Test
+    void noTileIsReservedUntilAPassReservesIt() {
+        for (var index = 0; index < context.size(); index++) {
+            assertFalse(context.isReserved(index));
+        }
+
+        context.reserve(ROW);
+
+        assertTrue(context.isReserved(ROW));
+        assertFalse(context.isReserved(ROW + 1));
+        assertFalse(context.isReserved(0));
+    }
+
+    @Test
+    void reservingATileTwiceKeepsItReserved() {
+        context.reserve(ROW);
+        context.reserve(ROW);
+
+        assertTrue(context.isReserved(ROW));
+    }
+
+    @Test
+    void reservingATileOutsideTheMapIsRefused() {
+        final var size = context.size();
+
+        assertThrows(IndexOutOfBoundsException.class, () -> context.reserve(size));
+        assertThrows(IndexOutOfBoundsException.class, () -> context.isReserved(-1));
+    }
+
+    @Test
+    void theSiteListStartsEmptyAndIsTheSameLiveListEveryTime() {
+        assertEquals(0, context.sites().size());
+
+        context.sites().add(ROW);
+
+        assertSame(context.sites(), context.sites());
+        assertEquals(1, context.sites().size());
+        assertEquals(ROW, context.sites().get(0));
+    }
+
+    @Test
     void refusesMissingArguments() {
         final var request = new MapRequest(MapType.DESERT, SEED, WIDTH, HEIGHT);
 

@@ -34,6 +34,8 @@ public final class GenerationContext {
     private final TileType[] ground;
     private final ResourceType[] resources;
     private final long seedKey;
+    private final boolean[] reserved;
+    private final SiteList sites = new SiteList();
     private int spawnIndex = NONE;
     private int spawnHint = NONE;
     private int passOccurrence;
@@ -53,6 +55,7 @@ public final class GenerationContext {
         this.seedKey = Hashes.scramble(request.seed() + Hashes.GOLDEN_GAMMA);
         this.ground = new TileType[request.tileCount()];
         this.resources = new ResourceType[request.tileCount()];
+        this.reserved = new boolean[request.tileCount()];
     }
 
     /**
@@ -258,6 +261,36 @@ public final class GenerationContext {
      */
     public ResourceType[] resources() {
         return resources.clone();
+    }
+
+    /**
+     * Marks a tile as reserved: a pass that carves a clearing or a trail reserves its tiles so that the passes after it
+     * neither fill them with resources nor floor them.
+     *
+     * @param index an index into the arrays
+     */
+    public void reserve(int index) {
+        reserved[index] = true;
+    }
+
+    /**
+     * Tells whether a pass reserved a tile.
+     *
+     * @param index an index into the arrays
+     * @return true when {@link #reserve(int)} was called for the tile
+     */
+    public boolean isReserved(int index) {
+        return reserved[index];
+    }
+
+    /**
+     * Returns the sites that passes collected, such as the centres of clearings. The list is live: the pass that finds
+     * sites appends to it and the pass that joins them reads it.
+     *
+     * @return the list of tile indices, empty until a pass adds to it
+     */
+    public SiteList sites() {
+        return sites;
     }
 
     /**

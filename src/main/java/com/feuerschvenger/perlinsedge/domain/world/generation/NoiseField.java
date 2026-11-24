@@ -14,12 +14,14 @@ public enum NoiseField {
     TEMPERATURE(1L, true),
     /** The moisture, from 0 to 1. */
     MOISTURE(2L, true),
-    /** Where stone outcrops, from 0 to 1. */
-    STONE(3L, true),
+    /** Where rock outcrops, from 0 to 1. */
+    ROCK(3L, true),
     /** Where crystals can grow, from 0 to 1. */
     CRYSTALS(4L, true),
     /** Where trees grow thickly, from 0 to 1. */
-    TREE(5L, true);
+    TREE(5L, true),
+    /** Which patch of ground a tile belongs to, from 0 to 1, varying slowly so patches are large. */
+    PATCH(6L, true);
 
     private final long seedOffset;
     private final boolean normalized;

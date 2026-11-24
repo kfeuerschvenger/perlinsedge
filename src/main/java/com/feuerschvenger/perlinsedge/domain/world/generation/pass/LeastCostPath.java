@@ -1,0 +1,207 @@
+package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
+
+import java.util.Arrays;
+import java.util.Objects;
+
+/**
+ * A* over the grid on a precomputed cost per tile. Moves go in eight directions: stepping onto a tile costs the cost of
+ * that tile, times the square root of two on a diagonal, and a diagonal step is refused when either of the two
+ * orthogonal tiles it cuts across is blocked, so a path never squeezes between two blocked corners. A cost of
+ * {@link Float#POSITIVE_INFINITY} blocks a tile. The heuristic is the octile distance times the lowest cost of any
+ * tile, so it never overestimates, and the path is the cheapest one, only while every open tile costs at least that
+ * lowest cost. The constructor checks it and refuses a cost array that breaks it, or that holds a NaN.
+ * <p>
+ * One instance serves many searches over the cost array it was built with. The instance keeps its own copy of that
+ * array, so a caller that goes on writing to the array it passed does not change the searches, and a new cost layout
+ * needs a new instance. The arrays that a search fills are never cleared: each carries a run number, and a tile whose
+ * number differs from the current run counts as untouched. A search expands at most as many tiles as the grid holds,
+ * a safety bound that an admissible heuristic does not reach.
+ */
+final class LeastCostPath {
+
+    /** What {@link #find(int, int, int[])} returns when it writes no path. */
+    public static final int NOT_FOUND = -1;
+
+    private static final int NO_PARENT = -1;
+    private static final double DIAGONAL = Math.sqrt(2.0);
+    private static final int[] STEP_X = {-1, 0, 1, -1, 1, -1, 0, 1};
+    private static final int[] STEP_Y = {-1, -1, -1, 0, 0, 1, 1, 1};
+
+    private final int width;
+    private final int height;
+    private final float[] cost;
+    private final double minCost;
+    private final double[] distance;
+    private final int[] parent;
+    private final int[] stamp;
+    private final IntMinHeap heap = new IntMinHeap();
+    private int run;
+    private int goalX;
+    private int goalY;
+
+    /**
+     * Creates a searcher.
+     *
+     * @param width   the number of columns
+     * @param height  the number of rows
+     * @param cost    the cost of entering each tile, copied, with {@link Float#POSITIVE_INFINITY} for a blocked tile
+     *                and at least {@code minCost} for every other tile
+     * @param minCost the lowest cost of any open tile, above 0, which scales the heuristic
+     * @throws IllegalArgumentException when the size does not match the cost array, the lowest cost is not positive and
+     *                                  finite, or a cost is NaN or below the lowest cost
+     */
+    LeastCostPath(int width, int height, float[] cost, float minCost) {
+        Objects.requireNonNull(cost, "cost");
+        if (width <= 0 || height <= 0 || cost.length != width * height) {
+            throw new IllegalArgumentException(
+                    "the cost array has " + cost.length + " tiles, not " + width + "x" + height);
+        }
+        if (!Float.isFinite(minCost) || minCost <= 0F) {
+            throw new IllegalArgumentException("the lowest cost must be positive and finite: " + minCost);
+        }
+        requireCostsFrom(cost, minCost);
+        this.width = width;
+        this.height = height;
+        this.cost = cost.clone();
+        this.minCost = minCost;
+        this.distance = new double[cost.length];
+        this.parent = new int[cost.length];
+        this.stamp = new int[cost.length];
+    }
+
+    /** Refuses a cost that is NaN or lower than the lowest cost, which would make the heuristic overestimate. */
+    private static void requireCostsFrom(float[] cost, float minCost) {
+        for (var index = 0; index < cost.length; index++) {
+            if (Float.isNaN(cost[index]) || cost[index] < minCost) {
+                throw new IllegalArgumentException(
+                        "the cost " + cost[index] + " of tile " + index + " is NaN or below the lowest cost " + minCost);
+            }
+        }
+    }
+
+    /**
+     * Finds the cheapest path between two tiles and writes it to {@code out}, start first and goal last.
+     *
+     * @param start the first tile
+     * @param goal  the last tile
+     * @param out   receives the tiles of the path, so it must be long enough for it
+     * @return the number of tiles written, 1 when the start is the goal, or {@link #NOT_FOUND}, with {@code out}
+     * untouched, when either end is blocked, no route exists or the search hit its expansion bound before it reached
+     * the goal
+     * @throws IndexOutOfBoundsException when a tile is outside the grid
+     * @throws IllegalArgumentException  when the path does not fit in {@code out}
+     */
+    int find(int start, int goal, int[] out) {
+        Objects.checkIndex(start, cost.length);
+        Objects.checkIndex(goal, cost.length);
+        if (isBlocked(start) || isBlocked(goal)) {
+            return NOT_FOUND;
+        }
+        beginRun();
+        goalY = goal / width;
+        goalX = goal - goalY * width;
+        touch(start, 0.0, NO_PARENT);
+        var expansions = 0;
+        while (!heap.isEmpty() && expansions < cost.length) {
+            final var key = heap.peekKey();
+            final var node = heap.pop();
+            if (key > keyOf(node)) {
+                continue;
+            }
+            if (node == goal) {
+                return unwind(start, goal, out);
+            }
+            expansions++;
+            expand(node);
+        }
+        return NOT_FOUND;
+    }
+
+    private boolean isBlocked(int index) {
+        return cost[index] >= Float.POSITIVE_INFINITY;
+    }
+
+    /** The priority of a tile: the distance reached so far plus the heuristic, rounded to the heap's float key. */
+    private float keyOf(int index) {
+        return (float) (distance[index] + heuristic(index));
+    }
+
+    /** Starts a search: empties the heap and moves to a new run number, clearing the stamps only when it wraps. */
+    private void beginRun() {
+        heap.clear();
+        run++;
+        if (run == 0) {
+            Arrays.fill(stamp, 0);
+            run = 1;
+        }
+    }
+
+    /** The octile distance between a tile and the goal of the running search, scaled by the lowest cost. */
+    private double heuristic(int index) {
+        final var y = index / width;
+        final var dx = Math.abs(index - y * width - goalX);
+        final var dy = Math.abs(y - goalY);
+        final var straight = Math.max(dx, dy) - Math.min(dx, dy);
+        return minCost * (straight + DIAGONAL * Math.min(dx, dy));
+    }
+
+    /** Records a better way to reach a tile and queues it. */
+    private void touch(int index, double reached, int from) {
+        distance[index] = reached;
+        parent[index] = from;
+        stamp[index] = run;
+        heap.push(index, keyOf(index));
+    }
+
+    /** Relaxes the eight neighbours of a tile. */
+    private void expand(int node) {
+        final var y = node / width;
+        final var x = node - y * width;
+        for (var direction = 0; direction < STEP_X.length; direction++) {
+            final var nx = x + STEP_X[direction];
+            final var ny = y + STEP_Y[direction];
+            if (isOnGrid(nx, ny) && canStep(x, y, nx, ny)) {
+                relax(node, ny * width + nx, STEP_X[direction] != 0 && STEP_Y[direction] != 0);
+            }
+        }
+    }
+
+    private boolean isOnGrid(int x, int y) {
+        return x >= 0 && y >= 0 && x < width && y < height;
+    }
+
+    /** Tells whether a move is open: the target is open and a diagonal does not cut a blocked corner. */
+    private boolean canStep(int x, int y, int nx, int ny) {
+        if (isBlocked(ny * width + nx)) {
+            return false;
+        }
+        final var diagonal = nx != x && ny != y;
+        return !diagonal || !(isBlocked(y * width + nx) || isBlocked(ny * width + x));
+    }
+
+    /** Queues a neighbour when this way to it is cheaper than the one known. */
+    private void relax(int node, int neighbour, boolean diagonal) {
+        final var step =diagonal ? cost[neighbour] * DIAGONAL : cost[neighbour];
+        final var reached = distance[node] + step;
+        if (stamp[neighbour] != run || reached < distance[neighbour]) {
+            touch(neighbour, reached, node);
+        }
+    }
+
+    /** Writes the path from the start to the goal by following the parents back from the goal. */
+    private int unwind(int start, int goal, int[] out) {
+        var length = 1;
+        for (var node = goal; node != start; node = parent[node]) {
+            length++;
+        }
+        if (out.length < length) {
+            throw new IllegalArgumentException("the path has " + length + " tiles and does not fit in " + out.length);
+        }
+        var node = goal;
+        for (var position = length - 1; position >= 0; position--) {
+            out[position] = node;
+            node = parent[node];
+        }
+        return length;
+    }
+}

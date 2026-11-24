@@ -15,13 +15,11 @@ import java.util.Objects;
  * When no tile of the region has such surroundings, the tile of the region nearest to the anchor is taken and the
  * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources.
  * <p>
- * The pass labels the map with one flood fill over an array of labels and an array used as the queue, and creates no
- * object per tile.
+ * The pass labels the map with {@link Regions}, which creates no object per tile.
  */
 public final class SpawnPass implements GenerationPass {
 
     private static final String NAME = "spawn";
-    private static final int NO_LABEL = 0;
     private static final int CENTER_DIVISOR = 2;
 
     private final SpawnParams params;
@@ -42,16 +40,16 @@ public final class SpawnPass implements GenerationPass {
 
     @Override
     public void apply(GenerationContext context) {
-        final var labels = new int[context.size()];
-        final var largest = labelRegions(context, labels);
-        if (largest == NO_LABEL) {
+        final var regions = Regions.label(context.width(), context.height(), index -> isFree(context, index));
+        final var largest = regions.largest();
+        if (largest == Regions.NO_LABEL) {
             throw new IllegalStateException(
                     "the map has no walkable tile free of resources for the player to start on");
         }
         final var anchor = anchorOf(context);
-        var spawn = nearest(context, labels, largest, anchor, true);
+        var spawn = nearest(context, regions, largest, anchor, true);
         if (spawn == GenerationContext.NONE) {
-            spawn = nearest(context, labels, largest, anchor, false);
+            spawn = nearest(context, regions, largest, anchor, false);
             clearAround(context, spawn);
         }
         context.setSpawnIndex(spawn);
@@ -70,69 +68,12 @@ public final class SpawnPass implements GenerationPass {
     }
 
     /**
-     * Gives every free tile the number of its region, counting from 1, and returns the number of the largest region.
-     * The first of several regions of the same size wins, so the answer is stable.
-     *
-     * @return the label of the largest region, or {@code NO_LABEL} when no tile is free
-     */
-    private static int labelRegions(GenerationContext context, int[] labels) {
-        final var queue = new int[labels.length];
-        var label = NO_LABEL;
-        var largest = NO_LABEL;
-        var largestSize = 0;
-        for (var index = 0; index < labels.length; index++) {
-            if (labels[index] == NO_LABEL && isFree(context, index)) {
-                label++;
-                final var size = flood(context, labels, queue, index, label);
-                if (size > largestSize) {
-                    largestSize = size;
-                    largest = label;
-                }
-            }
-        }
-        return largest;
-    }
-
-    /** Labels every free tile connected to a start tile along the four directions, and returns how many it labelled. */
-    private static int flood(GenerationContext context, int[] labels, int[] queue, int start, int label) {
-        final var width = context.width();
-        var head = 0;
-        var tail = 0;
-        labels[start] = label;
-        queue[tail] = start;
-        tail++;
-        while (head < tail) {
-            final var index = queue[head];
-            head++;
-            // One division per tile: the column follows from the row and the index
-            final var y = context.yOf(index);
-            final var x = index - y * width;
-            tail = visit(context, labels, queue, tail, x > 0, index - 1, label);
-            tail = visit(context, labels, queue, tail, x < width - 1, index + 1, label);
-            tail = visit(context, labels, queue, tail, y > 0, index - width, label);
-            tail = visit(context, labels, queue, tail, y < context.height() - 1, index + width, label);
-        }
-        return tail;
-    }
-
-    /** Queues a neighbour when it exists, is free and has no label yet, and returns the new end of the queue. */
-    private static int visit(GenerationContext context, int[] labels, int[] queue, int tail, boolean exists,
-                             int neighbour, int label) {
-        if (!exists || labels[neighbour] != NO_LABEL || !isFree(context, neighbour)) {
-            return tail;
-        }
-        labels[neighbour] = label;
-        queue[tail] = neighbour;
-        return tail + 1;
-    }
-
-    /**
      * Finds the tile of a region nearest to the anchor, the first one in row order when several are equally near.
      *
      * @param needsFreeRadius whether the tile must have free surroundings to the free radius
      * @return the index, or {@link GenerationContext#NONE} when no tile of the region qualifies
      */
-    private int nearest(GenerationContext context, int[] labels, int label, int anchor, boolean needsFreeRadius) {
+    private int nearest(GenerationContext context, Regions regions, int label, int anchor, boolean needsFreeRadius) {
         final var anchorX = context.xOf(anchor);
         final var anchorY = context.yOf(anchor);
         var best = GenerationContext.NONE;
@@ -143,7 +84,7 @@ public final class SpawnPass implements GenerationPass {
                 final var index = context.index(x, y);
                 final long dx = (long) x - anchorX;
                 final var distance = dx * dx + dy * dy;
-                if (labels[index] == label && distance < bestDistance
+                if (regions.labelAt(index) == label && distance < bestDistance
                         && (!needsFreeRadius || hasFreeSurroundings(context, index))) {
                     best = index;
                     bestDistance = distance;
