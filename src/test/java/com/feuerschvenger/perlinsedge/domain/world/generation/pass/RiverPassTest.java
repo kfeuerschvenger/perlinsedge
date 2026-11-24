@@ -225,8 +225,8 @@ class RiverPassTest {
 
         apply(context, params(ONE_RIVER, LONG_MIN, LONG_MAX, ALWAYS, TileType.SHALLOW_WATER));
 
-        assertTrue(rightmostRiverColumn(context) > LAST_SOURCE_COLUMN + BRANCH_MIN + BRANCH_SPREAD,
-                "the farthest column is " + rightmostRiverColumn(context));
+        final var farthest = rightmostRiverColumn(context);
+        assertTrue(farthest > LAST_SOURCE_COLUMN + BRANCH_MIN + BRANCH_SPREAD, "the farthest column is " + farthest);
     }
 
     @Test

@@ -161,7 +161,8 @@ public final class RiverPass implements GenerationPass {
 
         /**
          * Sends a branch out from a tile of the river being traced and returns where the river itself goes next from
-         * there. That step is chosen first and kept free of the branch, so the branch never takes the river's way.
+         * there, or {@link #NO_TILE} when the river has nowhere lower to go. That step is chosen first and kept free of
+         * the branch, so the branch never takes the river's way.
          */
         private int branchOff(int start) {
             final var next = nextPoint(start);
@@ -203,8 +204,8 @@ public final class RiverPass implements GenerationPass {
         }
 
         /**
-         * Picks where a river goes from a tile: one of the lowest neighbours that lie lower than the tile and are
-         * either water or not covered by a river yet.
+         * Picks where a river goes from a tile: one of the lowest neighbours that lie lower than the tile, are either
+         * water or not covered by a river yet, are not a branch of this river and are not reserved for its next step.
          */
         private int nextPoint(int index) {
             final var current = heights[index];
@@ -239,8 +240,12 @@ public final class RiverPass implements GenerationPass {
          * never a branch of its own or the tile the river keeps for its own next step.
          */
         private boolean isOpen(int index, float current) {
-            return heights[index] < current && (!inRiver[index] || isWater(index)) && !isOwnBranch(index)
-                    && index != reserved;
+            return heights[index] < current && isFreeToFlow(index) && index != reserved;
+        }
+
+        /** Tells whether a river may run onto a tile: water, or ground no river covers, and never its own branch. */
+        private boolean isFreeToFlow(int index) {
+            return (!inRiver[index] || isWater(index)) && !isOwnBranch(index);
         }
 
         /** Tells whether a tile belongs to a branch of the river being traced. */
