@@ -16,6 +16,7 @@ import com.feuerschvenger.perlinsedge.ui.view.HintLabel;
 import com.feuerschvenger.perlinsedge.ui.view.InventoryPanel;
 import com.feuerschvenger.perlinsedge.ui.view.ItemHotbarPanel;
 import javafx.event.Event;
+import javafx.event.EventType;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.input.KeyCode;
@@ -23,16 +24,18 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Pane;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Drives a real key press through the scene of an orchestrator built with each set of launch options, to prove the
  * launch flag reaches the key controller.
+ * The class takes a read-write lock on the global debug flag, so it never overlaps another test that touches it.
  */
+@ResourceLock("AppConfig.debug")
 class GameOrchestratorDebugKeysTest {
 
     private static final double VIEW_WIDTH = 800;
@@ -80,10 +83,14 @@ class GameOrchestratorDebugKeysTest {
         });
     }
 
+    private static KeyEvent keyEvent(EventType<KeyEvent> type) {
+        return new KeyEvent(type, "", "", KeyCode.F1, false, false, false, false);
+    }
+
     private void pressF1() {
         FxToolkitSupport.onFx(() -> {
-            Event.fireEvent(scene.getRoot(), new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F1, false, false, false, false));
-            Event.fireEvent(scene.getRoot(), new KeyEvent(KeyEvent.KEY_RELEASED, "", "", KeyCode.F1, false, false, false, false));
+            Event.fireEvent(scene.getRoot(), keyEvent(KeyEvent.KEY_PRESSED));
+            Event.fireEvent(scene.getRoot(), keyEvent(KeyEvent.KEY_RELEASED));
             return null;
         });
     }
@@ -111,9 +118,9 @@ class GameOrchestratorDebugKeysTest {
 
     @Test
     void anOrchestratorWithoutLaunchOptionsIsRefused() {
-        final var thrown = assertThrows(IllegalStateException.class, () -> build(null));
+        final var thrown = assertThrows(NullPointerException.class,
+                () -> new GameOrchestrator(null, null, null, null, null));
 
-        assertInstanceOf(NullPointerException.class, thrown.getCause());
-        assertTrue(thrown.getCause().getMessage().contains("options"));
+        assertTrue(thrown.getMessage().contains("options"));
     }
 }

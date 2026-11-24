@@ -193,6 +193,7 @@ def preview(tiles, decals, path):
     names = list(tiles)
     canvas = Image.new("RGBA", (TILE_W * size * 2 + 64, TOP_H * size * len(names) // 2 + 200), (0x1d, 0x18, 0x30, 255))
     grass_decals = ["tuft-1", "tuft-2", "tuft-3", "pebble-1", "flower-1", "flower-2", "mushroom-1"]
+    rocky_decals = ["pebble-1", "pebble-2", "gravel-1"]
     for i, name in enumerate(names):
         ox = 32 + (i % 2) * TILE_W * size
         oy = 16 + (i // 2) * (TOP_H * size // 2 + 24)
@@ -202,7 +203,7 @@ def preview(tiles, decals, path):
                 sy = oy + (gx + gy) * TOP_H // 2
                 canvas.alpha_composite(tiles[name], (sx, sy))
                 if name in ("grass", "forest", "savanna", "rocky-ground", "swamp") and rng.random() < 0.3:
-                    d = decals[rng.choice(grass_decals)]
+                    d = decals[rng.choice(rocky_decals if name == "rocky-ground" else grass_decals)]
                     canvas.alpha_composite(d, (sx + rng.randint(8, 20), sy + rng.randint(4, 10) - d.height // 2))
                 elif name == "sand" and rng.random() < 0.15:
                     d = decals[rng.choice(["shell-1", "pebble-1"])]

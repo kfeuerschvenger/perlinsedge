@@ -41,7 +41,8 @@ class GroundPassTest {
 
     /** A rule that returns rocky ground above the boundary and sand below, and reads no climate. */
     private static final GroundRule SPLIT = GroundRule.ofHeight(
-            (float height, float temperature, float moisture) -> height >= BOUNDARY ? TileType.ROCKY_GROUND : TileType.SAND);
+            (float height, float temperature, float moisture) ->
+                    height >= BOUNDARY ? TileType.ROCKY_GROUND : TileType.SAND);
 
     private static final Set<NoiseField> BOTH_CLIMATES = Set.of(NoiseField.TEMPERATURE, NoiseField.MOISTURE);
 

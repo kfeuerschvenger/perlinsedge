@@ -40,7 +40,8 @@ class GroundDecalsTest {
 
     @Test
     void aboutOneGreenTileInFourHoldsADecal() {
-        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.ROCKY_GROUND, TileType.SWAMP}) {
+        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA,
+                TileType.ROCKY_GROUND, TileType.SWAMP}) {
             assertEquals(0.25, share(type, 7L), 0.02, type.name());
         }
     }

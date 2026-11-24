@@ -79,7 +79,10 @@ public final class GroundRules {
     private static final Set<NoiseField> TEMPERATURE_AND_MOISTURE = EnumSet.of(NoiseField.TEMPERATURE,
             NoiseField.MOISTURE);
 
-    /** Sea, then forest where it is wet below the rocky ground, then grass, rocky ground and mountains. Reads the moisture. */
+    /**
+     * Sea, then forest where it is wet below the rocky ground, then grass, rocky ground and mountains. Reads the
+     * moisture.
+     */
     public static final GroundRule DENSE_FOREST = new GroundRule(MOISTURE_ONLY,
             (float height, float temperature, float moisture) -> denseForest(height, moisture));
 
@@ -91,7 +94,10 @@ public final class GroundRules {
     public static final GroundRule ISLANDS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> islands(height));
 
-    /** Sea at the bottom, water at the top of the height range, sand below the rocky ground, rocky ground above; no climate. */
+    /**
+     * Sea at the bottom, water at the top of the height range, sand below the rocky ground, rocky ground above; no
+     * climate.
+     */
     public static final GroundRule DESERT = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> desert(height));
 
@@ -198,7 +204,10 @@ public final class GroundRules {
         return TileType.GRASS;
     }
 
-    /** The rivers map: deep sea only at the bottom, sand to the coast, swamp in the wet lowland, grass and rocky ground. */
+    /**
+     * The rivers map: deep sea only at the bottom, sand to the coast, swamp in the wet lowland, grass and rocky
+     * ground.
+     */
     private static TileType rivers(float height, float moisture) {
         if (height < RIVERS_DEEP) {
             return TileType.DEEP_WATER;
