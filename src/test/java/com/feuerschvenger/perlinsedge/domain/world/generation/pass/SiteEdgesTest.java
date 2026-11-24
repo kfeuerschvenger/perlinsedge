@@ -89,6 +89,8 @@ class SiteEdgesTest {
         }
 
         assertThrows(NullPointerException.class, () -> SiteEdges.within(null, WIDTH, FAR));
+        assertThrows(IllegalArgumentException.class, () -> SiteEdges.within(list, 0, FAR));
+        assertThrows(IllegalArgumentException.class, () -> SiteEdges.within(list, -WIDTH, FAR));
         assertThrows(IllegalArgumentException.class, () -> SiteEdges.within(list, WIDTH, -1));
         assertThrows(IllegalArgumentException.class, () -> SiteEdges.within(list, WIDTH, SiteEdges.MAX_LENGTH + 1));
         assertThrows(IllegalArgumentException.class, () -> SiteEdges.within(tooMany, WIDTH, FAR));

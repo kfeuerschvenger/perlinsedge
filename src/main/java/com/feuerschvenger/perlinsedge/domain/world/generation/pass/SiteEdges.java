@@ -13,10 +13,14 @@ import java.util.Objects;
  */
 final class SiteEdges {
 
-    /** The most sites an edge can name, because a position takes 16 bits. */
-    static final int MAX_SITES = 1 << 16;
+    /**
+     * The most sites the build accepts. It tests every pair of sites twice, once to count the edges and once to fill
+     * them, so the work and the size of the edge array grow with the square of this number. A position takes 16 bits,
+     * which would allow far more sites than the pair build can hold.
+     */
+    public static final int MAX_SITES = 4096;
     /** The longest edge the packing holds, because the squared length takes 31 bits. */
-    static final int MAX_LENGTH = 46_340;
+    public static final int MAX_LENGTH = 46_340;
 
     private static final int POSITION_BITS = 16;
     private static final long POSITION_MASK = 0xFFFFL;
@@ -32,11 +36,14 @@ final class SiteEdges {
      * @param width       the number of columns of the grid the indices refer to
      * @param maxDistance the longest edge in tiles, measured between the centres of the tiles
      * @return a new array of packed edges in ascending order
-     * @throws IllegalArgumentException when there are more than {@value #MAX_SITES} sites or the limit is outside
-     *                                  0 to {@value #MAX_LENGTH}
+     * @throws IllegalArgumentException when the width is not positive, there are more than {@value #MAX_SITES} sites
+     *                                  or the limit is outside 0 to {@value #MAX_LENGTH}
      */
     static long[] within(SiteList sites, int width, int maxDistance) {
         Objects.requireNonNull(sites, "sites");
+        if (width <= 0) {
+            throw new IllegalArgumentException("the grid needs at least one column: " + width);
+        }
         if (sites.size() > MAX_SITES) {
             throw new IllegalArgumentException("too many sites for an edge to name them: " + sites.size());
         }
@@ -44,7 +51,7 @@ final class SiteEdges {
             throw new IllegalArgumentException("the longest edge must be from 0 to " + MAX_LENGTH + ": " + maxDistance);
         }
         final var limit = (long) maxDistance * maxDistance;
-        final var edges = new long[count(sites, width, limit)];
+        final var edges = new long[Math.toIntExact(count(sites, width, limit))];
         var filled = 0;
         for (var first = 0; first < sites.size(); first++) {
             for (var second = first + 1; second < sites.size(); second++) {
@@ -93,8 +100,8 @@ final class SiteEdges {
         return (squared << LENGTH_SHIFT) | ((long) first << POSITION_BITS) | second;
     }
 
-    private static int count(SiteList sites, int width, long limit) {
-        var count = 0;
+    private static long count(SiteList sites, int width, long limit) {
+        var count = 0L;
         for (var first = 0; first < sites.size(); first++) {
             for (var second = first + 1; second < sites.size(); second++) {
                 if (squaredDistance(sites, width, first, second) <= limit) {

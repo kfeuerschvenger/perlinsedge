@@ -11,6 +11,9 @@ import java.util.NoSuchElementException;
 final class IntMinHeap {
 
     private static final int INITIAL_CAPACITY = 64;
+    private static final int GROWTH_FACTOR = 2;
+    /** The number of children of a node. */
+    private static final int ARITY = 2;
 
     private int[] nodes = new int[INITIAL_CAPACITY];
     private float[] keys = new float[INITIAL_CAPACITY];
@@ -24,13 +27,13 @@ final class IntMinHeap {
      */
     void push(int node, float key) {
         if (size == nodes.length) {
-            nodes = Arrays.copyOf(nodes, size * 2);
-            keys = Arrays.copyOf(keys, size * 2);
+            nodes = Arrays.copyOf(nodes, size * GROWTH_FACTOR);
+            keys = Arrays.copyOf(keys, size * GROWTH_FACTOR);
         }
         var hole = size;
         size++;
         while (hole > 0) {
-            final var parent = (hole - 1) >>> 1;
+            final var parent = (hole - 1) / ARITY;
             if (keys[parent] <= key) {
                 break;
             }
@@ -104,7 +107,7 @@ final class IntMinHeap {
             nodes[hole] = nodes[child];
             keys[hole] = keys[child];
             hole = child;
-            child = 2 * hole + 1;
+            child = ARITY * hole + 1;
         }
         nodes[hole] = node;
         keys[hole] = key;

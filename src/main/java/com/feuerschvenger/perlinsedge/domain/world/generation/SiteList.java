@@ -10,6 +10,7 @@ import java.util.Objects;
 public final class SiteList {
 
     private static final int INITIAL_CAPACITY = 16;
+    private static final int GROWTH_FACTOR = 2;
 
     private int[] values = new int[INITIAL_CAPACITY];
     private int size;
@@ -21,7 +22,7 @@ public final class SiteList {
      */
     public void add(int index) {
         if (size == values.length) {
-            values = Arrays.copyOf(values, size * 2);
+            values = Arrays.copyOf(values, size * GROWTH_FACTOR);
         }
         values[size] = index;
         size++;

@@ -207,7 +207,9 @@ class GenerationContextTest {
 
     @Test
     void reservingATileOutsideTheMapIsRefused() {
-        assertThrows(IndexOutOfBoundsException.class, () -> context.reserve(context.size()));
+        final var size = context.size();
+
+        assertThrows(IndexOutOfBoundsException.class, () -> context.reserve(size));
         assertThrows(IndexOutOfBoundsException.class, () -> context.isReserved(-1));
     }
 

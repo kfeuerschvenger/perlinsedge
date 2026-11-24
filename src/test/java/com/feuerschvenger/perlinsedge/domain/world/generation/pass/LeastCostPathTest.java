@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.SplittableRandom;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +27,7 @@ class LeastCostPathTest {
     private static final int BIG_SIDE = 300;
     private static final int BIG_COSTS = 4;
     private static final int SHORT_BUFFER = 2;
+    private static final float CHEAPER_THAN_LOWEST = 0.5F;
 
     /** Reads a picture: {@code .} costs 1, {@code #} is blocked and a digit is its own cost. */
     private static float[] costs(String... rows) {
@@ -138,7 +140,7 @@ class LeastCostPathTest {
         final var length = new LeastCostPath(cost.length, 1, cost, 1F).find(0, cost.length - 1, path);
 
         assertEquals(cost.length, length);
-        assertArrayEquals(new int[] {0, 1, 2, 3, 4}, path);
+        assertArrayEquals(IntStream.range(0, cost.length).toArray(), path);
     }
 
     @Test
@@ -287,7 +289,7 @@ class LeastCostPathTest {
     }
 
     @Test
-    void changingTheCostArrayBetweenSearchesChangesThePath() {
+    void theSearcherKeepsItsOwnCopyOfTheCostArray() {
         final var cost = costs("...", "...", "...");
         final var path = new int[cost.length];
         final var search = new LeastCostPath(3, 3, cost, 1F);
@@ -297,8 +299,20 @@ class LeastCostPathTest {
         cost[1] = Float.POSITIVE_INFINITY;
         final var after = search.find(0, 2, path);
 
-        assertArrayEquals(new int[] {0, 1, 2}, straight);
-        assertTrue(after > 0);
+        assertArrayEquals(IntStream.range(0, before).toArray(), straight);
+        assertEquals(before, after);
+        assertArrayEquals(straight, Arrays.copyOf(path, after));
+    }
+
+    @Test
+    void aNewSearcherSeesTheChangedCosts() {
+        final var cost = costs("...", "...", "...");
+        final var path = new int[cost.length];
+        cost[1] = Float.POSITIVE_INFINITY;
+
+        final var length = new LeastCostPath(3, 3, cost, 1F).find(0, 2, path);
+
+        assertTrue(length > 0);
         assertNotEquals(1, path[1]);
     }
 
@@ -347,5 +361,16 @@ class LeastCostPathTest {
         assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, cost, Float.NaN));
         assertThrows(IllegalArgumentException.class,
                 () -> new LeastCostPath(3, 1, cost, Float.POSITIVE_INFINITY));
+    }
+
+    @Test
+    void aCostThatIsNaNOrBelowTheLowestCostIsRefused() {
+        final var cheap = costs("...");
+        cheap[1] = CHEAPER_THAN_LOWEST;
+        final var notANumber = costs("...");
+        notANumber[1] = Float.NaN;
+
+        assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, cheap, 1F));
+        assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, notANumber, 1F));
     }
 }
