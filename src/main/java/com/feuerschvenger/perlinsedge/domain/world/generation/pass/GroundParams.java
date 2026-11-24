@@ -14,7 +14,7 @@ public record GroundParams(GroundRule rule, float ditherAmplitude) {
     /** Checks the rule is set and the amplitude is a number that is not negative. */
     public GroundParams {
         Objects.requireNonNull(rule, "rule");
-        if (!(ditherAmplitude >= 0F) || Float.isInfinite(ditherAmplitude)) {
+        if (Float.isNaN(ditherAmplitude) || ditherAmplitude < 0F || Float.isInfinite(ditherAmplitude)) {
             throw new IllegalArgumentException("the dither amplitude must be a finite number of at least 0: "
                     + ditherAmplitude);
         }

@@ -1,9 +1,12 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -44,20 +47,33 @@ class GroundRulesTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"-0.5, DEEP_WATER", "0.1, DEEP_WATER", "0.17, SHALLOW_WATER", "0.25, SAND", "0.55, SAND",
-            "0.65, HILL", "0.95, HILL"})
+    @CsvSource({"-0.5, DEEP_WATER", "0.1, DEEP_WATER", "0.14, DEEP_WATER", "0.16, SHALLOW_WATER",
+            "0.19, SHALLOW_WATER", "0.21, SAND", "0.25, SAND", "0.55, SAND", "0.65, HILL", "0.95, HILL"})
     void desertHasItsWaterAtTheTopOfTheRange(float height, TileType expected) {
         assertEquals(expected, GroundRules.DESERT.classify(height, WARM, DRY));
     }
 
     @ParameterizedTest
     @CsvSource({
-            "-0.5, 0.1, DEEP_WATER", "-0.5, 0.9, DEEP_WATER", "-0.3, 0.1, ICE", "-0.3, 0.9, SHALLOW_WATER",
-            "-0.1, 0.9, ICE", "0.1, 0.1, SNOW", "0.1, 0.9, GRASS", "0.3, 0.4, SNOW", "0.3, 0.8, FOREST",
-            "0.45, 0.8, GRASS", "0.6, 0.8, SNOW"})
+            "-0.5, 0.1, DEEP_WATER", "-0.5, 0.9, DEEP_WATER", "-0.3, 0.1, ICE", "-0.3, 0.25, ICE",
+            "-0.3, 0.35, SHALLOW_WATER", "-0.3, 0.9, SHALLOW_WATER", "-0.1, 0.9, ICE", "0.1, 0.1, SNOW",
+            "0.1, 0.4, SNOW", "0.1, 0.5, GRASS", "0.1, 0.9, GRASS", "0.3, 0.4, SNOW", "0.3, 0.45, SNOW",
+            "0.3, 0.55, FOREST", "0.3, 0.8, FOREST", "0.45, 0.8, GRASS", "0.6, 0.8, SNOW"})
     void tundraFreezesTheShallowsAndTheCoastAndKeepsDeepWaterOpen(float height, float temperature,
                                                                   TileType expected) {
         assertEquals(expected, GroundRules.TUNDRA.classify(height, temperature, WET));
+    }
+
+    @Test
+    void everyRuleDeclaresTheClimateFieldsItsClassificationReads() {
+        assertEquals(Set.of(NoiseField.TEMPERATURE, NoiseField.MOISTURE), GroundRules.TUNDRA.climateFields());
+        assertEquals(Set.of(NoiseField.MOISTURE), GroundRules.DENSE_FOREST.climateFields());
+        assertEquals(Set.of(NoiseField.MOISTURE), GroundRules.SWAMP.climateFields());
+        assertEquals(Set.of(NoiseField.MOISTURE), GroundRules.RIVERS.climateFields());
+        assertEquals(Set.of(), GroundRules.ISLANDS.climateFields());
+        assertEquals(Set.of(), GroundRules.DESERT.climateFields());
+        assertEquals(Set.of(), GroundRules.MEDITERRANEAN.climateFields());
+        assertEquals(Set.of(), GroundRules.MOUNTAINOUS.climateFields());
     }
 
     @Test

@@ -15,14 +15,18 @@ import java.util.random.RandomGenerator;
 public final class IslandShapePass implements GenerationPass {
 
     private static final String NAME = "island-shape";
-    private static final long SALT = 0x15_1A_4D_5E_ED_00_01L;
-    private static final double TILES_PER_UNIT = 100_000.0;
+    private static final long SALT = 0x0015_1A4D_5EED_0001L;
+    /** The area, in tiles, that {@code islandsPer100kTiles} counts islands in. */
+    private static final double DENSITY_AREA_TILES = 100_000.0;
+    /** A falloff power of exactly this value is a square, which is computed with a multiplication. */
+    private static final float SQUARE_POWER = 2F;
     /** The centres keep this share of the radius away from the edge of the map, so an island is mostly on the map. */
     private static final double EDGE_MARGIN_OF_RADIUS = 0.4;
     /** The margin is kept on both sides of an axis. */
     private static final int MARGIN_SIDES = 2;
 
     private final IslandParams params;
+    private final boolean squaredFalloff;
 
     /**
      * Creates the pass.
@@ -31,6 +35,7 @@ public final class IslandShapePass implements GenerationPass {
      */
     public IslandShapePass(IslandParams params) {
         this.params = Objects.requireNonNull(params, "params");
+        this.squaredFalloff = Float.compare(params.falloffPower(), SQUARE_POWER) == 0;
     }
 
     @Override
@@ -51,14 +56,18 @@ public final class IslandShapePass implements GenerationPass {
         for (var y = 0; y < context.height(); y++) {
             for (var x = 0; x < context.width(); x++) {
                 final var nearest = nearestSquaredDistance(centresX, centresY, x, y);
-                final var effect = nearest >= radiusSquared
-                        ? 0.0
-                        : Math.pow(1.0 - Math.sqrt((double) nearest) / radius, params.falloffPower());
+                final var effect = nearest >= radiusSquared ? 0.0 : falloff(Math.sqrt((double) nearest) / radius);
                 final var index = context.index(x, y);
                 heights[index] = (float) (heights[index] * effect * params.heightGain()
                         + (effect * params.lift() - params.seaOffset()));
             }
         }
+    }
+
+    /** Returns how much of the lift remains at a share of the radius from 0 at the centre to 1 at the edge. */
+    private double falloff(double shareOfRadius) {
+        final var fade = 1.0 - shareOfRadius;
+        return squaredFalloff ? fade * fade : Math.pow(fade, params.falloffPower());
     }
 
     /**
@@ -69,7 +78,7 @@ public final class IslandShapePass implements GenerationPass {
      * @return the island count
      */
     int islandCount(int width, int height) {
-        final var byArea = (int) Math.round((double) width * height * params.islandsPer100kTiles() / TILES_PER_UNIT);
+        final var byArea = (int) Math.round((double) width * height * params.islandsPer100kTiles() / DENSITY_AREA_TILES);
         return Math.max(params.minIslands(), byArea);
     }
 
@@ -93,8 +102,8 @@ public final class IslandShapePass implements GenerationPass {
     private static long nearestSquaredDistance(int[] centresX, int[] centresY, int x, int y) {
         var nearest = Long.MAX_VALUE;
         for (var i = 0; i < centresX.length; i++) {
-            final long dx = x - centresX[i];
-            final long dy = y - centresY[i];
+            final var dx = (long) x - centresX[i];
+            final var dy = (long) y - centresY[i];
             nearest = Math.min(nearest, dx * dx + dy * dy);
         }
         return nearest;

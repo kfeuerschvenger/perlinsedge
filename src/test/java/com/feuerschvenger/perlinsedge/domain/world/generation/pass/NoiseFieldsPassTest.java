@@ -4,12 +4,12 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
-import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSource;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSourceFactory;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.TestContexts;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -27,6 +27,15 @@ class NoiseFieldsPassTest {
     private static final int HEIGHT = 3;
     private static final long SEED = 100L;
     private static final float TOLERANCE = 1e-6F;
+    private static final float TENTH_DIVISOR = 10F;
+    private static final float SECOND_COLUMN_VALUE = 0.1F;
+    private static final float SECOND_ROW_VALUE = -0.1F;
+    private static final float RANGE_SPAN = 2F;
+    private static final float RANGE_OFFSET = 1F;
+    private static final long MOISTURE_SEED_OFFSET = 2L;
+    private static final int CHECKED_X = 4;
+    private static final int CHECKED_Y = 2;
+    private static final int TWO_FIELDS = 2;
     private static final NoiseSettings HEIGHT_SETTINGS = new NoiseSettings(0.02F, 4, FractalKind.FBM, 0.4F, 2F);
     private static final NoiseSettings PLAIN_SETTINGS = new NoiseSettings(0.05F, 0, FractalKind.NONE, 0F, 2F);
 
@@ -37,11 +46,10 @@ class NoiseFieldsPassTest {
     /** A factory whose source returns {@code x / 10 - y / 10}, so every tile has a distinct known value. */
     private final NoiseSourceFactory recording = (long seed, NoiseSettings settings) -> {
         created.put(seed, settings);
-        final NoiseSource source = (float x, float y) -> {
+        return (float x, float y) -> {
             samples.merge(seed, 1, Integer::sum);
-            return x / 10F - y / 10F;
+            return x / TENTH_DIVISOR - y / TENTH_DIVISOR;
         };
-        return source;
     };
 
     private GenerationContext context() {
@@ -61,7 +69,7 @@ class NoiseFieldsPassTest {
         assertTrue(context.hasField(NoiseField.STONE));
         assertFalse(context.hasField(NoiseField.TEMPERATURE));
         assertFalse(context.hasField(NoiseField.TREE));
-        assertEquals(2, created.size());
+        assertEquals(TWO_FIELDS, created.size());
     }
 
     @Test
@@ -73,7 +81,7 @@ class NoiseFieldsPassTest {
         new NoiseFieldsPass(new NoiseFieldsParams(fields)).apply(context());
 
         assertSame(HEIGHT_SETTINGS, created.get(SEED));
-        assertSame(PLAIN_SETTINGS, created.get(SEED + 2));
+        assertSame(PLAIN_SETTINGS, created.get(SEED + MOISTURE_SEED_OFFSET));
     }
 
     @Test
@@ -85,11 +93,10 @@ class NoiseFieldsPassTest {
 
         new NoiseFieldsPass(new NoiseFieldsParams(fields)).apply(context);
 
-        final var x = 4;
-        final var y = 2;
-        final var raw = x / 10F - y / 10F;
-        assertEquals(raw, context.field(NoiseField.HEIGHT)[context.index(x, y)], TOLERANCE);
-        assertEquals((raw + 1F) / 2F, context.field(NoiseField.TEMPERATURE)[context.index(x, y)], TOLERANCE);
+        final var raw = CHECKED_X / TENTH_DIVISOR - CHECKED_Y / TENTH_DIVISOR;
+        assertEquals(raw, context.field(NoiseField.HEIGHT)[context.index(CHECKED_X, CHECKED_Y)], TOLERANCE);
+        assertEquals((raw + RANGE_OFFSET) / RANGE_SPAN,
+                context.field(NoiseField.TEMPERATURE)[context.index(CHECKED_X, CHECKED_Y)], TOLERANCE);
     }
 
     @Test
@@ -102,8 +109,8 @@ class NoiseFieldsPassTest {
 
         assertEquals(WIDTH * HEIGHT, samples.get(SEED));
         assertEquals(0F, context.field(NoiseField.HEIGHT)[context.index(0, 0)], TOLERANCE);
-        assertEquals(0.1F, context.field(NoiseField.HEIGHT)[context.index(1, 0)], TOLERANCE);
-        assertEquals(-0.1F, context.field(NoiseField.HEIGHT)[context.index(0, 1)], TOLERANCE);
+        assertEquals(SECOND_COLUMN_VALUE, context.field(NoiseField.HEIGHT)[context.index(1, 0)], TOLERANCE);
+        assertEquals(SECOND_ROW_VALUE, context.field(NoiseField.HEIGHT)[context.index(0, 1)], TOLERANCE);
     }
 
     @Test
@@ -117,17 +124,17 @@ class NoiseFieldsPassTest {
 
     @Test
     void theParamsCopyTheMapAndRefuseMissingValues() {
-        final var source = new HashMap<NoiseField, NoiseSettings>();
+        final var source = new EnumMap<NoiseField, NoiseSettings>(NoiseField.class);
         source.put(NoiseField.HEIGHT, HEIGHT_SETTINGS);
         final var params = new NoiseFieldsParams(source);
         source.put(NoiseField.TREE, PLAIN_SETTINGS);
-        final var withNullValue = new HashMap<NoiseField, NoiseSettings>();
+        final var withNullValue = new EnumMap<NoiseField, NoiseSettings>(NoiseField.class);
         withNullValue.put(NoiseField.HEIGHT, null);
-        final var withNullKey = new HashMap<NoiseField, NoiseSettings>();
-        withNullKey.put(null, HEIGHT_SETTINGS);
+        final var withNullKey = Collections.singletonMap((NoiseField) null, HEIGHT_SETTINGS);
+        final var copied = params.fields();
 
-        assertEquals(List.of(NoiseField.HEIGHT), List.copyOf(params.fields().keySet()));
-        assertThrows(UnsupportedOperationException.class, () -> params.fields().clear());
+        assertEquals(List.of(NoiseField.HEIGHT), List.copyOf(copied.keySet()));
+        assertThrows(UnsupportedOperationException.class, copied::clear);
         assertThrows(NullPointerException.class, () -> new NoiseFieldsParams(withNullValue));
         assertThrows(NullPointerException.class, () -> new NoiseFieldsParams(withNullKey));
         assertThrows(NullPointerException.class, () -> new NoiseFieldsPass(null));

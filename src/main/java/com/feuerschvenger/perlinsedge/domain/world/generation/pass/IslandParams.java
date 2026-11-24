@@ -4,7 +4,8 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
  * How the height is shaped into islands. Counts and sizes are in tiles and tiles per area, so a bigger map holds more
  * islands of the same size instead of the same islands stretched.
  *
- * @param islandsPer100kTiles how many islands there are for every hundred thousand tiles of map
+ * @param islandsPer100kTiles how many islands there are for every hundred thousand tiles of map, from 0 to 100000,
+ *                            which is one island on every tile
  * @param minIslands          the fewest islands a map has, however small it is, at least 1
  * @param radiusTiles         the distance from an island centre at which its lift has faded to nothing, at least 1
  * @param heightGain          how much the noise height is multiplied by at the centre of an island
@@ -15,13 +16,17 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 public record IslandParams(int islandsPer100kTiles, int minIslands, int radiusTiles, float heightGain, float lift,
                            float seaOffset, float falloffPower) {
 
+    /** The largest density, one island on every tile. A larger one only makes the island count overflow. */
+    public static final int MAX_ISLANDS_PER_100K_TILES = 100_000;
+
     /** Checks the counts and the radius are usable and the falloff is positive. */
     public IslandParams {
-        if (islandsPer100kTiles < 0 || minIslands < 1 || radiusTiles < 1) {
+        if (islandsPer100kTiles < 0 || islandsPer100kTiles > MAX_ISLANDS_PER_100K_TILES || minIslands < 1
+                || radiusTiles < 1) {
             throw new IllegalArgumentException("the island counts and radius are out of range: " + islandsPer100kTiles
                     + " per 100k, at least " + minIslands + ", radius " + radiusTiles);
         }
-        if (!(falloffPower > 0F)) {
+        if (Float.isNaN(falloffPower) || falloffPower <= 0F) {
             throw new IllegalArgumentException("the falloff power must be positive: " + falloffPower);
         }
     }

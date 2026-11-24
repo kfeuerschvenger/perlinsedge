@@ -1,11 +1,16 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+
+import java.util.Set;
 
 /**
  * The ground rule of each map type. Every rule holds the whole classification of its type: where the sea, the shore,
- * the ice and the land begin are all decided by one set of thresholds, so no later step has to correct the result.
- * Heights below a threshold belong to the band of that threshold, and the bands are checked from the lowest up.
+ * the ice and the land begin are all decided by one set of thresholds, so no later step has to correct the result. The
+ * height picks the band a tile belongs to, with the bands checked from the lowest up. Within some bands the moisture
+ * or the temperature picks between two terrains, such as forest or grass on wet or dry ground. Each rule declares the
+ * climate fields it reads, and the others reach it as a constant.
  */
 public final class GroundRules {
 
@@ -20,7 +25,8 @@ public final class GroundRules {
     private static final float DENSE_FOREST_DEEP = -0.4F;
     private static final float DENSE_FOREST_SHALLOW = -0.2F;
 
-    // Swamp: the shallows reach further than in the other maps, and the lowland is swamp where it is wet
+    // Swamp: the shallows reach further than in the other maps; between them and the lowland limit the ground is
+    // swamp where it is wet and grass where it is dry, and above the lowland the height alone gives grass or forest
     private static final float SWAMP_DEEP = -0.4F;
     private static final float SWAMP_SHALLOW = -0.1F;
     private static final float SWAMP_LOWLAND = 0.2F;
@@ -63,34 +69,40 @@ public final class GroundRules {
     private static final float MOUNTAINOUS_SHALLOW = 0.3F;
     private static final float MOUNTAINOUS_GRASS_LIMIT = 0.4F;
 
-    /** Sea, then forest where it is wet below the hills, then grass, hills and mountains. */
-    public static final GroundRule DENSE_FOREST = (float height, float temperature, float moisture) ->
-            denseForest(height, moisture);
+    private static final Set<NoiseField> MOISTURE_ONLY = Set.of(NoiseField.MOISTURE);
+    private static final Set<NoiseField> TEMPERATURE_AND_MOISTURE = Set.of(NoiseField.TEMPERATURE,
+            NoiseField.MOISTURE);
 
-    /** Sea with wide shallows, swamp in the wet lowland, then grass and forest. */
-    public static final GroundRule SWAMP = (float height, float temperature, float moisture) ->
-            swamp(height, moisture);
+    /** Sea, then forest where it is wet below the hills, then grass, hills and mountains. Reads the moisture. */
+    public static final GroundRule DENSE_FOREST = new GroundRule(MOISTURE_ONLY,
+            (float height, float temperature, float moisture) -> denseForest(height, moisture));
 
-    /** Deep sea, shallows, a sand shore, then grass, hills and mountains. */
-    public static final GroundRule ISLANDS = (float height, float temperature, float moisture) -> islands(height);
+    /** Sea with wide shallows, swamp or grass by moisture in the lowland, then grass or forest by height. */
+    public static final GroundRule SWAMP = new GroundRule(MOISTURE_ONLY,
+            (float height, float temperature, float moisture) -> swamp(height, moisture));
 
-    /** Water at the top of the height range, sand below the hills and hills above. */
-    public static final GroundRule DESERT = (float height, float temperature, float moisture) -> desert(height);
+    /** Deep sea, shallows, a sand shore, then grass, hills and mountains. Reads no climate. */
+    public static final GroundRule ISLANDS = GroundRule.ofHeight(
+            (float height, float temperature, float moisture) -> islands(height));
 
-    /** Frozen sea and coast, then snow, forest and grass inland by temperature and moisture. */
-    public static final GroundRule TUNDRA = GroundRules::tundra;
+    /** Water at the top of the height range, sand below the hills and hills above. Reads no climate. */
+    public static final GroundRule DESERT = GroundRule.ofHeight(
+            (float height, float temperature, float moisture) -> desert(height));
 
-    /** Deep sea only at the very bottom, sand, wet swamp lowland, grass and hills. */
-    public static final GroundRule RIVERS = (float height, float temperature, float moisture) ->
-            rivers(height, moisture);
+    /** Frozen sea and coast, then snow, forest and grass inland by temperature and moisture. Reads both. */
+    public static final GroundRule TUNDRA = new GroundRule(TEMPERATURE_AND_MOISTURE, GroundRules::tundra);
 
-    /** Sea, a sand shore, grass up to the hills. */
-    public static final GroundRule MEDITERRANEAN = (float height, float temperature, float moisture) ->
-            mediterranean(height);
+    /** Deep sea only at the very bottom, sand, wet swamp lowland, grass and hills. Reads the moisture. */
+    public static final GroundRule RIVERS = new GroundRule(MOISTURE_ONLY,
+            (float height, float temperature, float moisture) -> rivers(height, moisture));
 
-    /** Water high in the range, grass at the valley floor and hills above. */
-    public static final GroundRule MOUNTAINOUS = (float height, float temperature, float moisture) ->
-            mountainous(height);
+    /** Sea, a sand shore, grass up to the hills. Reads no climate. */
+    public static final GroundRule MEDITERRANEAN = GroundRule.ofHeight(
+            (float height, float temperature, float moisture) -> mediterranean(height));
+
+    /** Water high in the range, grass at the valley floor and hills above. Reads no climate. */
+    public static final GroundRule MOUNTAINOUS = GroundRule.ofHeight(
+            (float height, float temperature, float moisture) -> mountainous(height));
 
     /** Not instantiable: the class only holds the rules. */
     private GroundRules() {

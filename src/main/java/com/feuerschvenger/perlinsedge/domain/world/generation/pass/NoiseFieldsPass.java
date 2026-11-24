@@ -16,7 +16,8 @@ public final class NoiseFieldsPass implements GenerationPass {
 
     private static final String NAME = "noise-fields";
     /** A noise value runs from minus one to one, so adding one and dividing by this span gives zero to one. */
-    private static final float NOISE_RANGE_SPAN = 2F;
+    private static final double NOISE_RANGE_SPAN = 2.0;
+    private static final double NOISE_RANGE_OFFSET = 1.0;
 
     private final NoiseFieldsParams params;
 
@@ -51,8 +52,8 @@ public final class NoiseFieldsPass implements GenerationPass {
         for (var y = 0; y < height; y++) {
             final var row = y * width;
             for (var x = 0; x < width; x++) {
-                final var value = source.getNoise(x, y);
-                values[row + x] = normalized ? (value + 1F) / NOISE_RANGE_SPAN : value;
+                final var value = source.getNoise((float) x, (float) y);
+                values[row + x] = normalized ? (float) ((value + NOISE_RANGE_OFFSET) / NOISE_RANGE_SPAN) : value;
             }
         }
     }
