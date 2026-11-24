@@ -12,6 +12,7 @@ class MapRequestTest {
     private static final long SEED = 7L;
     private static final int WIDTH = 30;
     private static final int HEIGHT = 20;
+    private static final int TWO_ROWS = 2;
 
     @Test
     void keepsWhatItWasGiven() {
@@ -37,7 +38,7 @@ class MapRequestTest {
     @Test
     void refusesASizeWhoseTileCountOverflows() {
         final var error = assertThrows(IllegalArgumentException.class,
-                () -> new MapRequest(MapType.SWAMP, SEED, Integer.MAX_VALUE, 2));
+                () -> new MapRequest(MapType.SWAMP, SEED, Integer.MAX_VALUE, TWO_ROWS));
 
         assertTrue(error.getMessage().contains("more tiles"));
     }

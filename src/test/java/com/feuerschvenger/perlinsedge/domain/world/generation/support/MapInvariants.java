@@ -11,7 +11,8 @@ import java.util.Map;
 
 /**
  * The invariants of generated maps: a common list that every type must satisfy and a per type list that holds what
- * only one identity guarantees. Only properties that hold today are listed; stricter ones are added with the new pipeline.
+ * only one identity guarantees. Only properties that hold today are listed; stricter ones are added with the new
+ * pipeline.
  */
 public final class MapInvariants {
 

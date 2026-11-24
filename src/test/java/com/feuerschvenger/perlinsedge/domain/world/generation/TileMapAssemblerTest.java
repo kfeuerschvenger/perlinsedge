@@ -21,6 +21,8 @@ class TileMapAssemblerTest {
     private static final int STONE_X = 4;
     private static final int STONE_Y = 0;
     private static final float SAMPLE_HEIGHT = 0.25F;
+    private static final float HEIGHT_DELTA = 1e-6F;
+    private static final float NO_HEIGHT = 0F;
 
     private final GenerationContext context = TestContexts.of(WIDTH, HEIGHT);
 
@@ -84,9 +86,9 @@ class TileMapAssemblerTest {
 
         final var with = TileMapAssembler.materialize(context);
 
-        assertEquals(0F, without.getTile(TREE_X, TREE_Y).getHeight());
-        assertEquals(SAMPLE_HEIGHT, with.getTile(TREE_X, TREE_Y).getHeight());
-        assertEquals(0F, with.getTile(0, 0).getHeight());
+        assertEquals(NO_HEIGHT, without.getTile(TREE_X, TREE_Y).getHeight(), HEIGHT_DELTA);
+        assertEquals(SAMPLE_HEIGHT, with.getTile(TREE_X, TREE_Y).getHeight(), HEIGHT_DELTA);
+        assertEquals(NO_HEIGHT, with.getTile(0, 0).getHeight(), HEIGHT_DELTA);
     }
 
     @Test
