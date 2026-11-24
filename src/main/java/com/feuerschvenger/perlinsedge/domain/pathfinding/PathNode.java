@@ -53,7 +53,10 @@ public final class PathNode implements Comparable<PathNode> {
 
     @Override
     public int hashCode() {
-        return 31 * x + y;
+        // x and y take separate halves of the hash, so no two tiles of a map up to 65536 wide collide. A sum such as
+        // 31 * x + y gives a 300 x 300 map only about 9600 distinct values for 90000 tiles, which turns the buckets of
+        // the search maps into trees ordered by the cost compare and makes an unreachable search take minutes
+        return Integer.rotateLeft(x, Short.SIZE) ^ y;
     }
 
 }
