@@ -3,6 +3,7 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
@@ -20,12 +21,28 @@ public final class MapInvariants {
 
     /** How far around the spawn the ground has to be free of resources, as the recipes set it. */
     private static final int SPAWN_RADIUS = 3;
-    /** The most iron ore any single map may have, a scarce share of the thousands of rocky tiles of a range. */
-    private static final int MAX_IRON = 150;
-    /** The most crystals any single map may have. */
-    private static final int MAX_CRYSTALS = 40;
-    /** A map with at least this many rocky tiles has iron ore, as the chance of none is far below one in a million. */
-    private static final int MUCH_ROCK = 2_000;
+    /** The area the guaranteed resource counts are given for, a map of 300 by 300 tiles. */
+    private static final long QUOTA_AREA = 90_000L;
+    /** The fewest iron ore tiles and the most, on a map of {@link #QUOTA_AREA} tiles. */
+    private static final int MIN_IRON = 40;
+    private static final int MAX_IRON = 100;
+    /** The fewest crystal tiles and the most, on a map of {@link #QUOTA_AREA} tiles. */
+    private static final int MIN_CRYSTALS = 10;
+    private static final int MAX_CRYSTALS = 30;
+    /** The fewest stone tiles and the most, on a map of {@link #QUOTA_AREA} tiles. */
+    private static final int MIN_STONE = 200;
+    private static final int MAX_STONE = 600;
+    /** The fewest trees on a map of {@link #QUOTA_AREA} tiles. */
+    private static final int MIN_TREES = 400;
+    /** The share of the land that is rocky ground at the least, on every map type. */
+    private static final double MIN_ROCKY_SHARE = 0.01;
+    /** The rocky share of the land of the types that expose rock, the desert and the mountains. */
+    private static final double MIN_EXPOSED_ROCKY_SHARE = 0.08;
+    /** The share of the land that holds a tree in a dense forest, from the sparse side to the thick side. */
+    private static final double MIN_FOREST_TREE_SHARE = 0.28;
+    private static final double MAX_FOREST_TREE_SHARE = 0.42;
+    /** The share of the land under forest floor in a dense forest at the least. */
+    private static final double MIN_FOREST_FLOOR_SHARE = 0.35;
     /** The share of land a map may cover with resources: open ground stays the common case. */
     private static final double MAX_RESOURCE_SHARE = 0.45;
     /** The fewest trees a desert has on a map of {@link #DESERT_REFERENCE_AREA} tiles, scaled to the area of others. */
@@ -46,7 +63,8 @@ public final class MapInvariants {
         return List.of(MapInvariants::hasTheRequestedSize, MapInvariants::everyTileIsInPlace,
                 MapInvariants::theSpawnIsOnFreeGround, MapInvariants::theSpawnRadiusIsFreeOfResources,
                 MapInvariants::theSpawnIsInTheLargestRegion, MapInvariants::noResourceOnWaterOrIce,
-                MapInvariants::oreLiesOnRockOnly, MapInvariants::oreIsScarce, MapInvariants::muchRockHasIron,
+                MapInvariants::oreLiesOnRockyGroundOnly, MapInvariants::resourcesMeetTheirQuotas,
+                MapInvariants::rockyGroundExists, MapInvariants::forestFloorFollowsTheTrees,
                 MapInvariants::mostLandIsOpen, deterministic(source));
     }
 
@@ -60,8 +78,11 @@ public final class MapInvariants {
         for (var type : MapType.values()) {
             byType.put(type, List.of());
         }
-        byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand, MapInvariants::hasIronAndCrystals));
-        byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::hasIronAndCrystals));
+        byType.put(MapType.DENSE_FOREST,
+                List.of(MapInvariants::denseForestHasThickGroves, MapInvariants::denseForestHasForestFloor));
+        byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand,
+                MapInvariants::rockIsExposed));
+        byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
         return Collections.unmodifiableMap(byType);
     }
 
@@ -118,30 +139,85 @@ public final class MapInvariants {
         }
     }
 
-    private static void oreLiesOnRockOnly(TileMap map, MapSpec spec) {
+    private static void oreLiesOnRockyGroundOnly(TileMap map, MapSpec spec) {
         for (var y = 0; y < map.getHeight(); y++) {
             for (var x = 0; x < map.getWidth(); x++) {
                 final var tile = map.getTile(x, y);
                 final var resource = tile.getWorldResource();
                 final var isOre = resource != null
                         && (resource.getType() == ResourceType.IRON_ORE || resource.getType() == ResourceType.CRYSTALS);
-                require(!isOre || MapStats.isRocky(tile.getType()),
+                require(!isOre || tile.getType() == TileType.ROCKY_GROUND,
                         "ore stands on " + tile.getType() + " at (" + x + "," + y + ")");
             }
         }
     }
 
-    private static void oreIsScarce(TileMap map, MapSpec spec) {
-        final var iron = MapStats.count(map, ResourceType.IRON_ORE);
-        final var crystals = MapStats.count(map, ResourceType.CRYSTALS);
-        require(iron <= MAX_IRON, "too much iron ore: " + iron);
-        require(crystals <= MAX_CRYSTALS, "too many crystals: " + crystals);
+    private static void resourcesMeetTheirQuotas(TileMap map, MapSpec spec) {
+        requireWithin(map, spec, ResourceType.IRON_ORE, MIN_IRON, MAX_IRON);
+        requireWithin(map, spec, ResourceType.CRYSTALS, MIN_CRYSTALS, MAX_CRYSTALS);
+        requireWithin(map, spec, ResourceType.STONE, MIN_STONE, MAX_STONE);
+        requireWithin(map, spec, ResourceType.TREE, MIN_TREES, Integer.MAX_VALUE);
     }
 
-    private static void muchRockHasIron(TileMap map, MapSpec spec) {
+    /** Requires the count of a resource to lie in a range given for a map of {@link #QUOTA_AREA} tiles. */
+    private static void requireWithin(TileMap map, MapSpec spec, ResourceType type, int min, int max) {
+        final var area = (long) spec.size() * spec.size();
+        final var lowest = Math.max(1L, min * area / QUOTA_AREA);
+        final var highest = max == Integer.MAX_VALUE ? Long.MAX_VALUE : (max * area + QUOTA_AREA - 1) / QUOTA_AREA;
+        final var count = MapStats.count(map, type);
+        require(count >= lowest && count <= highest,
+                type + " count " + count + " is outside " + lowest + " to " + highest);
+    }
+
+    private static void rockyGroundExists(TileMap map, MapSpec spec) {
+        final var land = MapStats.landTiles(map);
         final var rocky = MapStats.rockyTiles(map);
-        require(rocky < MUCH_ROCK || MapStats.count(map, ResourceType.IRON_ORE) > 0,
-                "a map with " + rocky + " rocky tiles has no iron ore");
+        require(rocky >= land * MIN_ROCKY_SHARE, "only " + rocky + " of " + land + " land tiles are rocky ground");
+    }
+
+    private static void forestFloorFollowsTheTrees(TileMap map, MapSpec spec) {
+        for (var y = 0; y < map.getHeight(); y++) {
+            for (var x = 0; x < map.getWidth(); x++) {
+                final var tile = map.getTile(x, y);
+                if (tile.getType() == TileType.FOREST) {
+                    require(hasTreeNear(map, x, y), "forest floor without a tree near it at (" + x + "," + y + ")");
+                }
+                final var isFloor = tile.getType() == TileType.GRASS || tile.getType() == TileType.SAVANNA;
+                require(!isFloor || !isTree(tile), "a tree stands on " + tile.getType() + " at (" + x + "," + y + ")");
+            }
+        }
+    }
+
+    private static boolean hasTreeNear(TileMap map, int x, int y) {
+        for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+                final var near = map.isValidCoordinate(x + dx, y + dy) ? map.getTile(x + dx, y + dy) : null;
+                if (near != null && isTree(near)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isTree(Tile tile) {
+        return tile.hasResource() && tile.getWorldResource().getType() == ResourceType.TREE;
+    }
+
+    private static void denseForestHasThickGroves(TileMap map, MapSpec spec) {
+        final var share = MapStats.count(map, ResourceType.TREE) / (double) MapStats.landTiles(map);
+        require(share >= MIN_FOREST_TREE_SHARE && share <= MAX_FOREST_TREE_SHARE,
+                "trees cover " + share + " of the land of a dense forest");
+    }
+
+    private static void denseForestHasForestFloor(TileMap map, MapSpec spec) {
+        final var share = MapStats.count(map, TileType.FOREST) / (double) MapStats.landTiles(map);
+        require(share >= MIN_FOREST_FLOOR_SHARE, "forest floor covers only " + share + " of the land");
+    }
+
+    private static void rockIsExposed(TileMap map, MapSpec spec) {
+        final var share = MapStats.rockyTiles(map) / (double) MapStats.landTiles(map);
+        require(share >= MIN_EXPOSED_ROCKY_SHARE, "rocky ground covers only " + share + " of the land");
     }
 
     private static void mostLandIsOpen(TileMap map, MapSpec spec) {
@@ -156,11 +232,6 @@ public final class MapInvariants {
         }
         require(land > 0 && covered <= land * MAX_RESOURCE_SHARE,
                 covered + " of " + land + " land tiles hold a resource");
-    }
-
-    private static void hasIronAndCrystals(TileMap map, MapSpec spec) {
-        require(MapStats.count(map, ResourceType.IRON_ORE) > 0, "the map has no iron ore");
-        require(MapStats.count(map, ResourceType.CRYSTALS) > 0, "the map has no crystals");
     }
 
     private static void desertTreesStandOnSand(TileMap map, MapSpec spec) {

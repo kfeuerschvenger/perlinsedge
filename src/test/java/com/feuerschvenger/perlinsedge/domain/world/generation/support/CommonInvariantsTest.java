@@ -4,11 +4,14 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.SpawnPoint;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -19,12 +22,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CommonInvariantsTest {
 
     private static final int SIZE = 150;
+    private static final int BIG_SIZE = 300;
     private static final int TINY = 16;
     private static final int TINY_CENTRE = TINY / 2;
 
+    private static Stream<Arguments> typesAndSizes() {
+        return Arrays.stream(MapType.values())
+                .flatMap(type -> Stream.of(SIZE, BIG_SIZE).map(size -> Arguments.of(type, size)));
+    }
+
     @ParameterizedTest
-    @EnumSource(MapType.class)
-    void everyTypeKeepsTheCommonAndPerTypeInvariantsOnTheFixedSeeds(MapType type) {
+    @MethodSource("typesAndSizes")
+    void everyTypeKeepsTheCommonAndPerTypeInvariantsOnTheFixedSeeds(MapType type, int size) {
         final var source = MapSource.current();
         final var runner = new InvariantRunner(source);
         final var invariants = new ArrayList<>(MapInvariants.common(source));
@@ -32,7 +41,7 @@ class CommonInvariantsTest {
 
         var checked = 0;
         for (var seed : FixedSeeds.ALL) {
-            checked += runner.run(new MapSpec(type, seed, SIZE), invariants);
+            checked += runner.run(new MapSpec(type, seed, size), invariants);
         }
 
         assertEquals(FixedSeeds.ALL.size() * invariants.size(), checked);
