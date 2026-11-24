@@ -67,19 +67,21 @@ public final class IslandShapePass implements GenerationPass {
     /** Returns how much of the lift remains at a share of the radius from 0 at the centre to 1 at the edge. */
     private double falloff(double shareOfRadius) {
         final var fade = 1.0 - shareOfRadius;
-        return squaredFalloff ? fade * fade : Math.pow(fade, params.falloffPower());
+        return squaredFalloff ? fade * fade : StrictMath.pow(fade, params.falloffPower());
     }
 
     /**
-     * Returns how many islands a map of a size gets: the density times the area, never below the minimum.
+     * Returns how many islands a map of a size gets: the density times the area, never below the minimum and never
+     * above {@link IslandParams#MAX_ISLANDS}.
      *
      * @param width  the number of columns
      * @param height the number of rows
      * @return the island count
      */
     int islandCount(int width, int height) {
-        final var byArea = (int) Math.round((double) width * height * params.islandsPer100kTiles() / DENSITY_AREA_TILES);
-        return Math.max(params.minIslands(), byArea);
+        final var byArea = (int) Math.round(
+                (double) width * height * params.islandsPer100kTiles() / DENSITY_AREA_TILES);
+        return Math.min(IslandParams.MAX_ISLANDS, Math.max(params.minIslands(), byArea));
     }
 
     /** Draws the centres at random tiles, away from the edge by a share of the radius where the map allows it. */

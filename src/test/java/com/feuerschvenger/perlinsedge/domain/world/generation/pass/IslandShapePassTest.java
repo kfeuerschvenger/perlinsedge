@@ -44,6 +44,9 @@ class IslandShapePassTest {
     private static final int TINY_SIDE = 3;
     private static final int TINY_MIDDLE = 1;
     private static final int HALF = 2;
+    private static final int SINGLE_TILE_SIDE = 1;
+    private static final int OVER_MAX_ISLANDS = IslandParams.MAX_ISLANDS + 1;
+    private static final int HUGE_SIDE = 2_000;
 
     private static final long SEED_SEA = 1L;
     private static final long SEED_CENTRE = 2L;
@@ -92,7 +95,17 @@ class IslandShapePassTest {
         assertEquals(LARGE_COUNT, pass.islandCount(LARGE, LARGE));
         assertEquals(MINIMUM, pass.islandCount(TINY, TINY));
         assertEquals(FLOOR_COUNT, new IslandShapePass(params(DENSITY, FLOOR_COUNT)).islandCount(TINY, TINY));
-        assertEquals(MINIMUM, new IslandShapePass(params(PER_100K, MINIMUM)).islandCount(1, 1));
+        assertEquals(MINIMUM,
+                new IslandShapePass(params(PER_100K, MINIMUM)).islandCount(SINGLE_TILE_SIDE, SINGLE_TILE_SIDE));
+    }
+
+    @Test
+    void theIslandCountNeverExceedsTheMaximum() {
+        final var pass = new IslandShapePass(params(PER_100K, MINIMUM));
+
+        assertEquals(IslandParams.MAX_ISLANDS, pass.islandCount(HUGE_SIDE, HUGE_SIDE));
+        assertEquals(IslandParams.MAX_ISLANDS,
+                new IslandShapePass(params(NO_DENSITY, IslandParams.MAX_ISLANDS)).islandCount(TINY, TINY));
     }
 
     @Test
@@ -211,7 +224,23 @@ class IslandShapePassTest {
         assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, 0, GAIN, LIFT, SEA, FALLOFF));
         assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, RADIUS, GAIN, LIFT, SEA, 0F));
         assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, RADIUS, GAIN, LIFT, SEA, Float.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new IslandParams(1, OVER_MAX_ISLANDS, RADIUS, GAIN, LIFT, SEA, FALLOFF));
+        assertThrows(IllegalArgumentException.class,
+                () -> new IslandParams(1, 1, RADIUS, GAIN, LIFT, SEA, Float.POSITIVE_INFINITY));
         assertThrows(NullPointerException.class, () -> new IslandShapePass(null));
+    }
+
+    @Test
+    void paramsRefuseNonFiniteHeightGainLiftAndSeaOffset() {
+        for (var bad : new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> new IslandParams(1, MINIMUM, RADIUS, bad, LIFT, SEA, FALLOFF));
+            assertThrows(IllegalArgumentException.class,
+                    () -> new IslandParams(1, MINIMUM, RADIUS, GAIN, bad, SEA, FALLOFF));
+            assertThrows(IllegalArgumentException.class,
+                    () -> new IslandParams(1, MINIMUM, RADIUS, GAIN, LIFT, bad, FALLOFF));
+        }
     }
 
     @Test
