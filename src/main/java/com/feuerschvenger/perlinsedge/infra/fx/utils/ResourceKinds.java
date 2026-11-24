@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
-import com.feuerschvenger.perlinsedge.domain.world.generation.pass.DesertFloraPass;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -44,10 +43,10 @@ public final class ResourceKinds {
      * @param map the map
      * @param x   the tile column
      * @param y   the tile row
-     * @return true when a water tile is within {@link DesertFloraPass#PALM_REACH} tiles
+     * @return true when a water tile is within {@link ResourceType#PALM_REACH} tiles
      */
     public static boolean isNearWater(TileMap map, int x, int y) {
-        final int reach = DesertFloraPass.PALM_REACH;
+        final int reach = ResourceType.PALM_REACH;
         for (int dx = -reach; dx <= reach; dx++) {
             for (int dy = -reach; dy <= reach; dy++) {
                 final var tile = map.getTile(x + dx, y + dy);

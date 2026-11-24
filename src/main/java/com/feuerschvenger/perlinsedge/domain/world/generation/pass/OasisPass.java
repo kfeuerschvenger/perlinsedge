@@ -47,16 +47,17 @@ public final class OasisPass implements GenerationPass {
         final var random = context.random(SALT);
         final var count = Math.max(1, context.size() / params.tilesPerOasis());
         for (var i = 0; i < count; i++) {
-            digOne(context, random, margin, spanX, spanY);
+            digOne(context, random, clearRadius, margin, spanX, spanY);
         }
     }
 
     /** Tries places at random until an oasis fits or the attempts run out. */
-    private void digOne(GenerationContext context, RandomGenerator random, int margin, int spanX, int spanY) {
+    private void digOne(GenerationContext context, RandomGenerator random, int clearRadius, int margin, int spanX,
+                        int spanY) {
         for (var attempt = 0; attempt < params.siteAttempts(); attempt++) {
             final var x = margin + random.nextInt(spanX);
             final var y = margin + random.nextInt(spanY);
-            if (isPlainSand(context, x, y, params.radius() + 1)) {
+            if (isPlainSand(context, x, y, clearRadius)) {
                 fill(context, x, y);
                 return;
             }

@@ -46,7 +46,7 @@ class DesertFloraPassTest {
         for (var y = 0; y < SIDE; y++) {
             for (var x = 0; x < SIDE; x++) {
                 final var distance = Math.max(Math.abs(x - POOL_X), Math.abs(y - POOL_Y));
-                final var wet = distance <= DesertFloraPass.PALM_REACH && distance > 0;
+                final var wet = distance <= ResourceType.PALM_REACH && distance > 0;
                 assertEquals(wet, isTree(context, x, y), x + "," + y);
             }
         }
@@ -66,7 +66,7 @@ class DesertFloraPassTest {
         var drySand = 0;
         var dryTrees = 0;
         for (var y = 0; y < BIG_SIDE; y++) {
-            final var wet = Math.abs(y - BIG_SIDE / 2) <= DesertFloraPass.PALM_REACH;
+            final var wet = Math.abs(y - BIG_SIDE / 2) <= ResourceType.PALM_REACH;
             for (var x = 0; x < BIG_SIDE; x++) {
                 if (context.groundAt(context.index(x, y)) != TileType.SAND) {
                     continue;

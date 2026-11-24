@@ -47,8 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class GameOrchestratorTest {
 
-    private static final int WORLD_SIDE = 150;
-
     /** Draws the minimap until told to fail once. */
     private static final class FailingOnceMinimap extends FxMinimapDrawer {
         boolean failNext;
@@ -113,7 +111,8 @@ class GameOrchestratorTest {
 
     /** Rebuilds the world with a map of the given type. */
     private void applyConfig(MapType type) {
-        orchestrator.rebuildWorld(new MapRequest(type, 7L, WORLD_SIDE, WORLD_SIDE));
+        final var world = AppConfig.getInstance().world();
+        orchestrator.rebuildWorld(new MapRequest(type, 7L, world.getWidth(), world.getHeight()));
     }
 
     @Test

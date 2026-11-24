@@ -58,9 +58,9 @@ public final class SpawnPass implements GenerationPass {
 
     /** Returns the tile the spawn should be near: the hint of a pass, or else the centre of the map. */
     private static int anchorOf(GenerationContext context) {
-        return context.spawnHint() != GenerationContext.NONE
-                ? context.spawnHint()
-                : context.index(context.width() / CENTER_DIVISOR, context.height() / CENTER_DIVISOR);
+        return context.spawnHint() == GenerationContext.NONE
+                ? context.index(context.width() / CENTER_DIVISOR, context.height() / CENTER_DIVISOR)
+                : context.spawnHint();
     }
 
     /** Tells whether a tile is walkable ground with no resource on it. */
@@ -98,11 +98,14 @@ public final class SpawnPass implements GenerationPass {
         var head = 0;
         var tail = 0;
         labels[start] = label;
-        queue[tail++] = start;
+        queue[tail] = start;
+        tail++;
         while (head < tail) {
-            final var index = queue[head++];
-            final var x = context.xOf(index);
+            final var index = queue[head];
+            head++;
+            // One division per tile: the column follows from the row and the index
             final var y = context.yOf(index);
+            final var x = index - y * width;
             tail = visit(context, labels, queue, tail, x > 0, index - 1, label);
             tail = visit(context, labels, queue, tail, x < width - 1, index + 1, label);
             tail = visit(context, labels, queue, tail, y > 0, index - width, label);
@@ -133,16 +136,17 @@ public final class SpawnPass implements GenerationPass {
         final var anchorY = context.yOf(anchor);
         var best = GenerationContext.NONE;
         var bestDistance = Long.MAX_VALUE;
-        for (var index = 0; index < labels.length; index++) {
-            if (labels[index] != label) {
-                continue;
-            }
-            final long dx = context.xOf(index) - anchorX;
-            final long dy = context.yOf(index) - anchorY;
-            final var distance = dx * dx + dy * dy;
-            if (distance < bestDistance && (!needsFreeRadius || hasFreeSurroundings(context, index))) {
-                best = index;
-                bestDistance = distance;
+        for (var y = 0; y < context.height(); y++) {
+            final long dy = (long) y - anchorY;
+            for (var x = 0; x < context.width(); x++) {
+                final var index = context.index(x, y);
+                final long dx = (long) x - anchorX;
+                final var distance = dx * dx + dy * dy;
+                if (labels[index] == label && distance < bestDistance
+                        && (!needsFreeRadius || hasFreeSurroundings(context, index))) {
+                    best = index;
+                    bestDistance = distance;
+                }
             }
         }
         return best;
@@ -171,8 +175,10 @@ public final class SpawnPass implements GenerationPass {
         final var radius = params.freeRadius();
         final var x = context.xOf(index);
         final var y = context.yOf(index);
-        for (var ny = Math.max(0, y - radius); ny <= Math.min(context.height() - 1, y + radius); ny++) {
-            for (var nx = Math.max(0, x - radius); nx <= Math.min(context.width() - 1, x + radius); nx++) {
+        final var lastY = Math.min(context.height() - 1, y + radius);
+        final var lastX = Math.min(context.width() - 1, x + radius);
+        for (var ny = Math.max(0, y - radius); ny <= lastY; ny++) {
+            for (var nx = Math.max(0, x - radius); nx <= lastX; nx++) {
                 context.setResource(context.index(nx, ny), null);
             }
         }

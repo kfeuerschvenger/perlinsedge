@@ -34,7 +34,7 @@ public final class VegetationPass implements GenerationPass {
     @Override
     public void apply(GenerationContext context) {
         final var treeNoise = context.field(NoiseField.TREE);
-        final var threshold = 1.0 - (double) params.density();
+        final var threshold = 1.0 - params.density();
         for (var index = 0; index < context.size(); index++) {
             if (context.resourceAt(index) == null && context.groundAt(index).isFertile()
                     && treeNoise[index] > threshold) {

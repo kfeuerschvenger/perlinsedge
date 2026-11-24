@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation;
 
-import com.feuerschvenger.perlinsedge.domain.world.generation.pass.DesertFloraPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSource;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSpec;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
@@ -22,7 +21,7 @@ class DesertFloraTest {
 
     private static final int SIZE = 150;
     private static final long SEED = 20_261_111L;
-    private static final int REACH = DesertFloraPass.PALM_REACH;
+    private static final int REACH = ResourceType.PALM_REACH;
 
     private TileMap map;
 

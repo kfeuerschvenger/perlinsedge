@@ -6,7 +6,7 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
  *
  * @param density   the base tree density, from 0 to 1
  * @param dryFactor what the density is multiplied by on sand with no water nearby, 0 or more and finite
- * @param wetFactor what the density is multiplied by on sand with water within {@link DesertFloraPass#PALM_REACH}, 0
+ * @param wetFactor what the density is multiplied by on sand with water within {@link com.feuerschvenger.perlinsedge.domain.world.model.ResourceType#PALM_REACH}, 0
  *                  or more and finite
  * @param maxChance the largest chance of a tree on any tile, from 0 to 1
  */

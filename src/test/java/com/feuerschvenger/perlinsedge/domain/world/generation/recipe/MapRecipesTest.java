@@ -66,6 +66,7 @@ class MapRecipesTest {
     @Test
     void aMissingRecipeOrTypeIsRefused() {
         assertThrows(NullPointerException.class, () -> new MapRecipes((MapType type) -> null));
-        assertThrows(NullPointerException.class, () -> new MapRecipes().recipeFor(null));
+        final var recipes = new MapRecipes();
+        assertThrows(NullPointerException.class, () -> recipes.recipeFor(null));
     }
 }

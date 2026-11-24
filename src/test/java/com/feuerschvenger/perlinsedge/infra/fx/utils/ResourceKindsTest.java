@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
-import com.feuerschvenger.perlinsedge.domain.world.generation.pass.DesertFloraPass;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -80,7 +79,7 @@ class ResourceKindsTest {
 
     @Test
     void waterIsNearWhenItLiesWithinTheGenerationReachInAnyDirection() {
-        int reach = DesertFloraPass.PALM_REACH;
+        int reach = ResourceType.PALM_REACH;
         TileMap map = new TileMap(21, 21);
         for (int x = 0; x < 21; x++) {
             for (int y = 0; y < 21; y++) {

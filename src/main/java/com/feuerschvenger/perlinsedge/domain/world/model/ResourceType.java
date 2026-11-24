@@ -13,6 +13,12 @@ public enum ResourceType {
     /** Iron ore in rocky ground, only a pickaxe held in hand can mine it. */
     IRON_ORE(ItemType.PICKAXE, ItemType.STONE_TIER);
 
+    /**
+     * How many tiles from water a desert tree still counts as near it: world generation gathers palms within this reach
+     * of water, and the renderer draws the trees within it as palms.
+     */
+    public static final int PALM_REACH = 2;
+
     private final ItemType requiredTool;
     private final int minimumTier;
 
