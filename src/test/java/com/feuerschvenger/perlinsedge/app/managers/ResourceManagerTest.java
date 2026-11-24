@@ -36,7 +36,7 @@ class ResourceManagerTest {
         TileMap map = new TileMap(3, 3);
         for (int x = 0; x < 3; x++) {
             for (int y = 0; y < 3; y++) {
-                map.setTile(x, y, new Tile(x, y, TileType.HILL));
+                map.setTile(x, y, new Tile(x, y, TileType.ROCKY_GROUND));
             }
         }
         tile = map.getTile(1, 1);
@@ -192,7 +192,7 @@ class ResourceManagerTest {
     void farAwayPlayerCannotHarvest() {
         player.setPosition(0, 0);
         TileMap big = new TileMap(6, 6);
-        Tile far = new Tile(5, 5, TileType.HILL);
+        Tile far = new Tile(5, 5, TileType.ROCKY_GROUND);
         big.setTile(5, 5, far);
         far.setWorldResource(new Resource(ResourceType.STONE, 1));
         state.setCurrentMap(big);

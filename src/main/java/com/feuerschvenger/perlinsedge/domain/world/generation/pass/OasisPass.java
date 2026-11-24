@@ -9,7 +9,7 @@ import java.util.random.RandomGenerator;
 
 /**
  * Digs a few small oases into open sand: a pocket of shallow water with a deeper middle tile. The number grows with the
- * map area and every oasis needs a clear stretch of plain sand around it, so none lands on a hill, on the shore of an
+ * map area and every oasis needs a clear stretch of plain sand around it, so none lands on rocky ground, on the shore of an
  * existing lake or at the edge of the map.
  */
 public final class OasisPass implements GenerationPass {

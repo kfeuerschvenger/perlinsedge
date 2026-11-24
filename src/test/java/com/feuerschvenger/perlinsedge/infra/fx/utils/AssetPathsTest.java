@@ -27,7 +27,7 @@ class AssetPathsTest {
         assertEquals("grass", AssetPaths.tileArt(TileType.GRASS));
         assertEquals("forest", AssetPaths.tileArt(TileType.FOREST));
         assertEquals("savanna", AssetPaths.tileArt(TileType.SAVANNA));
-        assertEquals("hill", AssetPaths.tileArt(TileType.HILL));
+        assertEquals("rocky-ground", AssetPaths.tileArt(TileType.ROCKY_GROUND));
         assertEquals("sand", AssetPaths.tileArt(TileType.SAND));
         assertEquals("sand", AssetPaths.tileArt(TileType.BEACH));
         assertEquals("mountain", AssetPaths.tileArt(TileType.MOUNTAIN));
@@ -38,7 +38,7 @@ class AssetPathsTest {
 
     @Test
     void grassyLandIsDrawnAsDunesInTheDesertAndAsSnowInTheTundra() {
-        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.HILL, TileType.SWAMP}) {
+        for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.ROCKY_GROUND, TileType.SWAMP}) {
             assertEquals("dune", AssetPaths.tileArt(MapType.DESERT, type), type.name());
             assertEquals("snow", AssetPaths.tileArt(MapType.TUNDRA, type), type.name());
             assertEquals(AssetPaths.tileArt(type), AssetPaths.tileArt(MapType.MEDITERRANEAN, type), type.name());

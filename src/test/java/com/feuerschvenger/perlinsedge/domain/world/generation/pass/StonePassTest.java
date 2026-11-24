@@ -60,7 +60,7 @@ class StonePassTest {
 
     @Test
     void aTileThatHoldsAResourceKeepsIt() {
-        final var context = map(TileType.HILL, ABOVE);
+        final var context = map(TileType.ROCKY_GROUND, ABOVE);
         context.setResource(0, ResourceType.IRON_ORE);
 
         apply(context);
@@ -73,7 +73,7 @@ class StonePassTest {
     void theAmountOfStoneNeverChangesTheAmountOfIron() {
         var baseline = -1;
         for (var threshold : new float[] {THRESHOLD, HIGH_THRESHOLD, UNREACHABLE}) {
-            final var context = map(TileType.HILL, ABOVE);
+            final var context = map(TileType.ROCKY_GROUND, ABOVE);
             TestContexts.fillField(context, NoiseField.CRYSTALS, BELOW);
 
             new RockResourcePass(new RockResourceParams(IRON_PER_MILLE, 0, THRESHOLD)).apply(context);

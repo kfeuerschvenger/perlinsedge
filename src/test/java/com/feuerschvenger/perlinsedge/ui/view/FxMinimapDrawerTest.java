@@ -41,7 +41,7 @@ class FxMinimapDrawerTest {
 
     /** Counts the unpainted pixels among those that lie well inside the map, where nothing may be missing. */
     private static int holesInside(double tileW, double tileH, double offsetX, double offsetY, int size) {
-        TileMap map = uniformMap(size, TileType.HILL);
+        TileMap map = uniformMap(size, TileType.ROCKY_GROUND);
         int width = 400;
         int height = 240;
         int[] pixels = FxMinimapDrawer.samplePixels(map, width, height, tileW, tileH, offsetX, offsetY);
@@ -74,7 +74,7 @@ class FxMinimapDrawerTest {
 
     @Test
     void pixelsOutsideTheMapStayTransparent() {
-        TileMap map = uniformMap(10, TileType.HILL);
+        TileMap map = uniformMap(10, TileType.ROCKY_GROUND);
 
         int[] pixels = FxMinimapDrawer.samplePixels(map, 100, 60, 2, 1, 50, 5);
 
@@ -95,23 +95,23 @@ class FxMinimapDrawerTest {
 
     @Test
     void aPixelHalfOffTheMapKeepsTheExactColourOfTheTilesUnderIt() {
-        Rgba hill = new Rgba(0.2, 0.4, 0.6, 1);
+        Rgba rocky = new Rgba(0.2, 0.4, 0.6, 1);
 
-        int edge = FxMinimapDrawer.blend(new Rgba[]{hill, hill, null, null});
+        int edge = FxMinimapDrawer.blend(new Rgba[]{rocky, rocky, null, null});
 
         assertEquals(0x80, edge >>> 24, "half the samples are off the map");
-        assertEquals(FxMinimapDrawer.toArgb(hill) & 0xFFFFFF, edge & 0xFFFFFF);
+        assertEquals(FxMinimapDrawer.toArgb(rocky) & 0xFFFFFF, edge & 0xFFFFFF);
         assertEquals(0, FxMinimapDrawer.blend(new Rgba[]{null, null, null, null}));
     }
 
     @Test
     void thePaintedPixelsTakeTheColourOfTheTile() {
-        TileMap map = uniformMap(20, TileType.HILL);
-        Rgba hill = map.getTile(5, 5).getColor();
+        TileMap map = uniformMap(20, TileType.ROCKY_GROUND);
+        Rgba rocky = map.getTile(5, 5).getColor();
 
         int[] pixels = FxMinimapDrawer.samplePixels(map, 100, 60, 2, 1, 50, 5);
 
         // Tile (10, 10) is at the middle of the map, so the pixel under its top corner and a little lower is inside
-        assertEquals(FxMinimapDrawer.toArgb(hill), pixels[(5 + 20 + 3) * 100 + 50]);
+        assertEquals(FxMinimapDrawer.toArgb(rocky), pixels[(5 + 20 + 3) * 100 + 50]);
     }
 }

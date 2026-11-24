@@ -43,21 +43,21 @@ class RockResourcePassTest {
     }
 
     @Test
-    void ironLiesOnHillsAndMountainsOnly() {
+    void ironLiesOnRockyGroundAndMountainsOnly() {
         for (var ground : TileType.values()) {
             final var context = rocky(SMALL_SIDE, ground, BELOW, SEED);
 
             apply(context, ALWAYS, 0);
 
-            final var expected = ground == TileType.HILL || ground == TileType.MOUNTAIN ? context.size() : 0;
+            final var expected = ground == TileType.ROCKY_GROUND || ground == TileType.MOUNTAIN ? context.size() : 0;
             assertEquals(expected, TestContexts.countResource(context, ResourceType.IRON_ORE), ground.name());
         }
     }
 
     @Test
     void crystalsNeedTheCrystalNoiseToPassItsThreshold() {
-        final var low = rocky(SMALL_SIDE, TileType.HILL, BELOW, SEED);
-        final var high = rocky(SMALL_SIDE, TileType.HILL, ABOVE, SEED);
+        final var low = rocky(SMALL_SIDE, TileType.ROCKY_GROUND, BELOW, SEED);
+        final var high = rocky(SMALL_SIDE, TileType.ROCKY_GROUND, ABOVE, SEED);
 
         apply(low, 0, ALWAYS);
         apply(high, 0, ALWAYS);
@@ -78,7 +78,7 @@ class RockResourcePassTest {
 
     @Test
     void theShareOfIronFollowsTheChanceInThousandths() {
-        final var context = rocky(SIDE, TileType.HILL, BELOW, SEED);
+        final var context = rocky(SIDE, TileType.ROCKY_GROUND, BELOW, SEED);
 
         apply(context, PER_MILLE, 0);
 
@@ -89,7 +89,7 @@ class RockResourcePassTest {
 
     @Test
     void ironAndCrystalChancesAreIndependentOfEachOther() {
-        final var context = rocky(SIDE, TileType.HILL, ABOVE, SEED);
+        final var context = rocky(SIDE, TileType.ROCKY_GROUND, ABOVE, SEED);
 
         apply(context, PER_MILLE, PER_MILLE);
 
@@ -102,9 +102,9 @@ class RockResourcePassTest {
 
     @Test
     void theSameSeedGivesTheSameOreAndAnotherSeedGivesOther() {
-        final var first = rocky(SIDE, TileType.HILL, ABOVE, SEED);
-        final var second = rocky(SIDE, TileType.HILL, ABOVE, SEED);
-        final var other = rocky(SIDE, TileType.HILL, ABOVE, OTHER_SEED);
+        final var first = rocky(SIDE, TileType.ROCKY_GROUND, ABOVE, SEED);
+        final var second = rocky(SIDE, TileType.ROCKY_GROUND, ABOVE, SEED);
+        final var other = rocky(SIDE, TileType.ROCKY_GROUND, ABOVE, OTHER_SEED);
 
         apply(first, PER_MILLE, PER_MILLE);
         apply(second, PER_MILLE, PER_MILLE);

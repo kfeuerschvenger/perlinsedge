@@ -19,7 +19,7 @@ class CursorStyleTest {
 
     @Test
     void darkGroundsKeepTheLightCursor() {
-        for (String art : new String[]{"grass", "forest", "hill", "mountain", "swamp", "bed", "bed-deep"}) {
+        for (String art : new String[]{"grass", "forest", "rocky-ground", "mountain", "swamp", "bed", "bed-deep"}) {
             assertFalse(CursorStyle.isLightGround(art), art);
         }
         assertFalse(CursorStyle.isLightGround(null));

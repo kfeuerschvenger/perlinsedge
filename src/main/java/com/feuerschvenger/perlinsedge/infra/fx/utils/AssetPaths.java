@@ -43,9 +43,12 @@ public final class AssetPaths {
     /** The art of the one translucent sheet every water tile is covered with. */
     public static final String WATER_SHEET = "sheet";
 
+    /** The art of the stony ground of the rocky zones. */
+    public static final String ROCKY_GROUND_ART = "rocky-ground";
+
     /** The grassy land types, which look wrong on a map whose ground is sand or snow. */
     private static final List<TileType> GRASSY = List.of(
-            TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.HILL, TileType.SWAMP);
+            TileType.GRASS, TileType.FOREST, TileType.SAVANNA, TileType.ROCKY_GROUND, TileType.SWAMP);
 
     /** The tile art a map type draws in place of the shared art of a tile type. */
     private static final Map<MapType, Map<TileType, String>> BIOME_TILE_ART = Map.of(
@@ -64,7 +67,7 @@ public final class AssetPaths {
         table.put(TileType.GRASS, "grass");
         table.put(TileType.FOREST, "forest");
         table.put(TileType.SAVANNA, "savanna");
-        table.put(TileType.HILL, "hill");
+        table.put(TileType.ROCKY_GROUND, ROCKY_GROUND_ART);
         table.put(TileType.SAND, "sand");
         table.put(TileType.BEACH, "sand");
         table.put(TileType.SHALLOW_WATER, "bed");
