@@ -22,6 +22,8 @@ class RockResourcePassTest {
     private static final int PER_MILLE = 60;
     private static final int ALWAYS = RockResourceParams.PER_MILLE_SCALE;
     private static final float THRESHOLD = 0.8F;
+    private static final float THRESHOLD_ABOVE_ONE = 1.1F;
+    private static final float THRESHOLD_BELOW_ZERO = -0.1F;
     private static final float ABOVE = 0.9F;
     private static final float BELOW = 0.1F;
     private static final double SHARE_TOLERANCE = 0.4;
@@ -116,6 +118,8 @@ class RockResourcePassTest {
         assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(-1, 0, THRESHOLD));
         assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(0, ALWAYS + 1, THRESHOLD));
         assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(0, 0, Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(0, 0, THRESHOLD_ABOVE_ONE));
+        assertThrows(IllegalArgumentException.class, () -> new RockResourceParams(0, 0, THRESHOLD_BELOW_ZERO));
         assertThrows(NullPointerException.class, () -> new RockResourcePass(null));
     }
 }

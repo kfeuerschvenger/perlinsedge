@@ -13,12 +13,12 @@ public record RockResourceParams(int ironPerMille, int crystalsPerMille, float c
     /** The scale the chances are given in. */
     public static final int PER_MILLE_SCALE = 1000;
 
-    /** Checks the chances are in range and the threshold is a number. */
+    /** Checks the chances are in range and the threshold is a number from 0 to 1. */
     public RockResourceParams {
         requirePerMille(ironPerMille, "iron");
         requirePerMille(crystalsPerMille, "crystals");
-        if (Float.isNaN(crystalsThreshold)) {
-            throw new IllegalArgumentException("the crystal threshold is not a number");
+        if (Float.isNaN(crystalsThreshold) || crystalsThreshold < 0F || crystalsThreshold > 1F) {
+            throw new IllegalArgumentException("the crystal threshold must be from 0 to 1: " + crystalsThreshold);
         }
     }
 

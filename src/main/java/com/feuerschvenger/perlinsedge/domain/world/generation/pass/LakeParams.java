@@ -17,7 +17,7 @@ import java.util.Objects;
 public record LakeParams(float maxEndpointHeight, int minRadius, int maxRadius, float depthTolerance,
                          TileType surface) {
 
-    /** Checks the radii are ordered, the heights are finite and the surface is set. */
+    /** Checks the radii are ordered, the heights are finite and the surface is shallow water or ice. */
     public LakeParams {
         if (!Float.isFinite(maxEndpointHeight)) {
             throw new IllegalArgumentException("the endpoint height limit must be finite: " + maxEndpointHeight);
@@ -31,5 +31,8 @@ public record LakeParams(float maxEndpointHeight, int minRadius, int maxRadius, 
                     + depthTolerance);
         }
         Objects.requireNonNull(surface, "surface");
+        if (surface != TileType.SHALLOW_WATER && surface != TileType.ICE) {
+            throw new IllegalArgumentException("the lake surface must be shallow water or ice: " + surface);
+        }
     }
 }
