@@ -5,13 +5,10 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.events.IMapGenerationListener;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
-import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGeneratorFactory;
-import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -22,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 /**
@@ -29,7 +27,7 @@ import java.util.function.Predicate;
  * Handles map creation based on configuration parameters and player position.
  */
 @Slf4j
-public class MapManager implements IMapGenerationListener {
+public class MapManager {
     // Configuration constants
     private static final int MIN_SPAWN_DISTANCE = 10; // Minimum distance from player for enemy spawn
     private static final int MIN_WALKABLE_NEIGHBORS = 2; // Minimum adjacent walkable tiles for valid position
@@ -43,88 +41,65 @@ public class MapManager implements IMapGenerationListener {
 
     // Dependencies
     private final GameStateManager gameState;
-    private final MapGeneratorFactory mapGeneratorFactory;
+    private final MapGenerator mapGenerator;
     /** Draws the candidate tiles of the enemy spawn search. */
     private final Random random = new Random();
 
     // State
     @Getter
-    private MapGenerationContext currentMapContext;
+    private MapRequest currentRequest;
 
     public MapManager(GameStateManager gameState) {
-        this(gameState, new MapGeneratorFactory(FastNoiseLiteAdapter.FACTORY));
+        this(gameState, new MapGenerator(FastNoiseLiteAdapter.FACTORY));
     }
 
     /**
-     * Creates a manager with the factory that builds its generators, so a test can supply a generator that fails.
+     * Creates a manager with its own generator, so a test can supply one that fails.
      *
-     * @param gameState           shared game state
-     * @param mapGeneratorFactory builds the generator for a map type
+     * @param gameState    shared game state
+     * @param mapGenerator generates the maps
      */
-    MapManager(GameStateManager gameState, MapGeneratorFactory mapGeneratorFactory) {
+    MapManager(GameStateManager gameState, MapGenerator mapGenerator) {
         this.gameState = gameState;
-        this.mapGeneratorFactory = mapGeneratorFactory;
+        this.mapGenerator = mapGenerator;
     }
 
     /**
-     * Creates a new map generation context with current configuration.
+     * Creates the request of a map of a type, a seed and the size of the world.
      *
      * @param mapType Type of map to generate
-     * @param seed Random seed for generation
-     * @return Configured generation context
+     * @param seed    Random seed for generation
+     * @return the request, whose settings all come from the recipe of the type and nothing from the current map
      */
-    public MapGenerationContext createMapContext(MapType mapType, long seed) {
-        var worldConfig = AppConfig.getInstance().world();
-        var heightProfile = NoiseSettings.heightProfile(mapType);
-        return new MapGenerationContext(
-                mapType,
-                seed,
-                heightProfile.frequency(),
-                heightProfile.octaves(),
-                worldConfig.getTemperatureNoiseFrequency(),
-                worldConfig.getTemperatureNoiseOctaves(),
-                worldConfig.getMoistureNoiseFrequency(),
-                worldConfig.getMoistureNoiseOctaves(),
-                worldConfig.getStonePatchFrequency(),
-                worldConfig.getStoneThreshold(),
-                worldConfig.getCrystalsPatchFrequency(),
-                worldConfig.getCrystalsThreshold(),
-                worldConfig.getTreeDensity(),
-                worldConfig.getRiverDensity()
-        );
+    public MapRequest createMapRequest(MapType mapType, long seed) {
+        final var world = AppConfig.getInstance().world();
+        return new MapRequest(mapType, seed, world.getWidth(), world.getHeight());
     }
 
     /**
-     * Generates a new map based on the provided context.
-     * The context becomes the current one only once the map exists, so a generation that throws leaves the context
+     * Generates a new map for a request.
+     * The request becomes the current one only once the map exists, so a generation that throws leaves the request
      * that still matches the map on screen.
      *
-     * @param context Map generation parameters
+     * @param request what to generate
      */
-    public void generateNewMap(MapGenerationContext context) {
-        logMapGeneration(context);
+    public void generateNewMap(MapRequest request) {
+        logMapGeneration(request);
 
-        IMapGenerator generator = mapGeneratorFactory.createGenerator(context.getMapType());
-        TileMap newMap = generator.generateMap(
-                AppConfig.getInstance().world().getWidth(),
-                AppConfig.getInstance().world().getHeight(),
-                context
-        );
+        final TileMap newMap = mapGenerator.generate(request, MapManager::logPassTime);
 
-        this.currentMapContext = context;
-        onMapGenerated(newMap, generator);
+        this.currentRequest = request;
+        install(newMap, request.seed());
     }
 
     /**
-     * Callback when map generation completes.
-     * Stores the map and clears the entities and the hit times of the resources that belonged to the previous one.
-     * Enemies are not spawned here: the caller spawns them once the player has a position on the new map,
-     * which keeps them from being placed twice and from landing next to the player.
+     * Stores a generated map and clears the entities and the hit times of the resources that belonged to the previous
+     * one. Enemies are not spawned here: the caller spawns them once the player has a position on the new map, which
+     * keeps them from being placed twice and from landing next to the player.
      */
-    @Override
-    public void onMapGenerated(TileMap newMap, IMapGenerator generator) {
+    private void install(TileMap newMap, long seed) {
         gameState.setCurrentMap(newMap);
-        gameState.setWorldSeed(generator.getSeed());
+        gameState.setWorldSeed(seed);
         gameState.setDroppedItems(new ArrayList<>());
         gameState.setEnemies(new ArrayList<>());
         gameState.getResourceHitTimes().clear();
@@ -251,8 +226,13 @@ public class MapManager implements IMapGenerationListener {
 
     // --- Logging Methods ---
 
-    private void logMapGeneration(MapGenerationContext context) {
-        log.info("Generating {} map with seed {}", context.getMapType().name(), context.getSeed());
+    private void logMapGeneration(MapRequest request) {
+        log.info("Generating {} map with seed {}", request.type().name(), request.seed());
+    }
+
+    /** Logs how long a generation pass took, for the passes of a map that is taking too long. */
+    private static void logPassTime(String pass, long nanos) {
+        log.debug("Generation pass {} took {} us", pass, TimeUnit.NANOSECONDS.toMicros(nanos));
     }
 
     private void logSpawnAttempt(String enemyType, int count) {

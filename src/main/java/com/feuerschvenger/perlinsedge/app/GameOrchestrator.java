@@ -20,7 +20,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.containers.Container;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.utils.GameMode;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
@@ -161,8 +161,7 @@ public class GameOrchestrator {
         AppConfig.getInstance().world().setCurrentMapType(selectedMapType);
 
         var newSeed = seedSource.nextLong();
-        MapGenerationContext newMapContext = mapManager.createMapContext(selectedMapType, newSeed);
-        mapManager.generateNewMap(newMapContext);
+        mapManager.generateNewMap(mapManager.createMapRequest(selectedMapType, newSeed));
 
         playerManager.initializePlayer();
         mapManager.spawnEnemies();
@@ -319,8 +318,8 @@ public class GameOrchestrator {
             return;
         }
         log.debug("Regenerating current map");
-        MapGenerationContext currentContext = mapManager.getCurrentMapContext();
-        rebuildWorld(mapManager.createMapContext(currentContext.getMapType(), seedSource.nextLong()));
+        final MapRequest currentRequest = mapManager.getCurrentRequest();
+        rebuildWorld(mapManager.createMapRequest(currentRequest.type(), seedSource.nextLong()));
     }
 
     /**
@@ -330,7 +329,7 @@ public class GameOrchestrator {
      * The panels, the open container and the modes go back to the fresh-game state, the player is placed on the
      * new map, and only then are the enemies spawned, so they keep their distance from the player's new position.
      * Leaving the game stops the loop and clears the running flag, so the loop is started again whatever happens and
-     * the map keys can try again. When the generation throws, the previous world, map type and context are all still
+     * the map keys can try again. When the generation throws, the previous world, map type and request are all still
      * in place. When a later step throws, the new map is in place without a player to live on it: the map type is
      * set to match it, the player is removed first, the minimap is shown the new map, and the update and render steps
      * skip a frame that has no map or no player. The mode switches are ignored while there is no player. None of
@@ -342,7 +341,7 @@ public class GameOrchestrator {
      * This method is package-private as a seam for tests, and it does not check that a game is running: a caller
      * outside the tests must check that first.
      */
-    void rebuildWorld(MapGenerationContext context) {
+    void rebuildWorld(MapRequest request) {
         var rebuilt = false;
         final TileMap previousMap = gameState.getCurrentMap();
         try {
@@ -354,8 +353,8 @@ public class GameOrchestrator {
             gameState.getStations().clear();
             // And the spawn point, which is a bag lying on it
             gameState.setSpawnBag(null);
-            mapManager.generateNewMap(context);
-            AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+            mapManager.generateNewMap(request);
+            AppConfig.getInstance().world().setCurrentMapType(request.type());
             playerManager.initializePlayer();
             mapManager.spawnEnemies();
             minimapDrawer.updateMap(gameState.getCurrentMap());
@@ -368,7 +367,7 @@ public class GameOrchestrator {
                 // The player goes first: whatever is left to repair may throw, and a player on a map it does not
                 // belong to must not survive that
                 gameState.setPlayer(null);
-                repairAfterReplacedMap(context, e);
+                repairAfterReplacedMap(request, e);
             }
             throw e;
         } finally {
@@ -380,9 +379,9 @@ public class GameOrchestrator {
      * Brings the map type and the minimap in step with a map that replaced the old one before the rebuild failed. A
      * failure here is recorded on the failure of the rebuild instead of hiding it.
      */
-    private void repairAfterReplacedMap(MapGenerationContext context, Throwable rebuildFailure) {
+    private void repairAfterReplacedMap(MapRequest request, Throwable rebuildFailure) {
         try {
-            AppConfig.getInstance().world().setCurrentMapType(context.getMapType());
+            AppConfig.getInstance().world().setCurrentMapType(request.type());
             minimapDrawer.updateMap(gameState.getCurrentMap());
         } catch (RuntimeException e) {
             log.error("The map type and the minimap could not be brought in step with the new map", e);

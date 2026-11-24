@@ -1,8 +1,11 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
-import com.feuerschvenger.perlinsedge.domain.world.generation.IMapGenerator;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerationContext;
-import com.feuerschvenger.perlinsedge.domain.world.generation.MapGeneratorFactory;
+import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerator;
+import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSource;
+import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSourceFactory;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -12,6 +15,7 @@ import com.feuerschvenger.perlinsedge.ui.view.FxToolkitSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,35 +23,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MapManagerTest {
 
-    /** Builds real generators until told to fail. */
-    private static final class SwitchableFactory extends MapGeneratorFactory {
+    /** Samples the real noise until told to fail. */
+    private static final class SwitchableNoise implements NoiseSourceFactory {
         boolean failing;
 
-        SwitchableFactory() {
-            super(FastNoiseLiteAdapter.FACTORY);
-        }
-
         @Override
-        public IMapGenerator createGenerator(MapType mapType) {
+        public NoiseSource create(long seed, NoiseSettings settings) {
             if (failing) {
                 throw new IllegalStateException("generation failed");
             }
-            return super.createGenerator(mapType);
+            return FastNoiseLiteAdapter.FACTORY.create(seed, settings);
         }
     }
 
     private GameStateManager state;
-    private SwitchableFactory factory;
+    private SwitchableNoise noise;
     private MapManager manager;
 
     @BeforeEach
     void setUp() {
         state = new GameStateManager();
-        factory = new SwitchableFactory();
-        manager = new MapManager(state, factory);
+        noise = new SwitchableNoise();
+        manager = new MapManager(state, new MapGenerator(noise));
     }
 
-    private void generate(MapGenerationContext context) {
+    private void generate(MapRequest context) {
         FxToolkitSupport.onFx(() -> {
             manager.generateNewMap(context);
             return null;
@@ -56,26 +56,26 @@ class MapManagerTest {
 
     @Test
     void aFailedGenerationLeavesTheContextAndTheMapOfTheLastSuccessfulOne() {
-        MapGenerationContext first = manager.createMapContext(MapType.DESERT, 1L);
+        MapRequest first = manager.createMapRequest(MapType.DESERT, 1L);
         generate(first);
         TileMap firstMap = state.getCurrentMap();
 
-        factory.failing = true;
-        MapGenerationContext second = manager.createMapContext(MapType.TUNDRA, 2L);
+        noise.failing = true;
+        MapRequest second = manager.createMapRequest(MapType.TUNDRA, 2L);
         assertThrows(IllegalStateException.class, () -> manager.generateNewMap(second));
 
-        assertSame(first, manager.getCurrentMapContext(), "the next regenerate starts from the map type on screen");
+        assertSame(first, manager.getCurrentRequest(), "the next regenerate starts from the map type on screen");
         assertSame(firstMap, state.getCurrentMap());
     }
 
     @Test
     void aFailedFirstGenerationLeavesNoContext() {
-        factory.failing = true;
+        noise.failing = true;
 
-        MapGenerationContext context = manager.createMapContext(MapType.DESERT, 1L);
+        MapRequest context = manager.createMapRequest(MapType.DESERT, 1L);
         assertThrows(IllegalStateException.class, () -> manager.generateNewMap(context));
 
-        assertNull(manager.getCurrentMapContext());
+        assertNull(manager.getCurrentRequest());
         assertNull(state.getCurrentMap());
     }
 
@@ -83,17 +83,42 @@ class MapManagerTest {
     void aNewMapForgetsTheHitTimesOfTheOldOnesResources() {
         state.getResourceHitTimes().put(new Resource(ResourceType.STONE, 1), 5.0);
 
-        generate(manager.createMapContext(MapType.DESERT, 1L));
+        generate(manager.createMapRequest(MapType.DESERT, 1L));
 
         assertTrue(state.getResourceHitTimes().isEmpty());
     }
 
     @Test
+    void theRequestTakesItsTypeFromTheArgumentAndItsSizeFromTheWorld() {
+        final var world = AppConfig.getInstance().world();
+        final var before = world.getCurrentMapType();
+        final var other = before == MapType.DESERT ? MapType.TUNDRA : MapType.DESERT;
+
+        final var request = manager.createMapRequest(other, 3L);
+
+        assertEquals(other, request.type());
+        assertEquals(3L, request.seed());
+        assertEquals(world.getWidth(), request.width());
+        assertEquals(world.getHeight(), request.height());
+        assertEquals(before, world.getCurrentMapType(), "making a request does not touch the world config");
+    }
+
+    @Test
+    void aGeneratedMapKeepsItsSpawnPointAndTheSeedIsRemembered() {
+        final var request = manager.createMapRequest(MapType.DESERT, 9L);
+
+        generate(request);
+
+        assertTrue(state.getCurrentMap().getSpawn().isPresent());
+        assertEquals(9L, state.getWorldSeed());
+    }
+
+    @Test
     void aSuccessfulGenerationBecomesTheCurrentContext() {
-        MapGenerationContext context = manager.createMapContext(MapType.TUNDRA, 5L);
+        MapRequest context = manager.createMapRequest(MapType.TUNDRA, 5L);
 
         generate(context);
 
-        assertSame(context, manager.getCurrentMapContext());
+        assertSame(context, manager.getCurrentRequest());
     }
 }
