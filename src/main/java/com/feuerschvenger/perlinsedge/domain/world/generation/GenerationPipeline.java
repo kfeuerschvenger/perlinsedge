@@ -35,29 +35,36 @@ public final class GenerationPipeline {
      * @param context  the state the passes work on
      * @param passes   the passes, in the order they run
      * @param observer told the time of each pass
-     * @throws IllegalStateException when a pass throws, with the name of the pass in the message and the original
-     *                               exception as the cause
+     * @throws RuntimeException when a pass throws, the original exception itself, with an
+     *                          {@link IllegalStateException} naming the pass attached as a suppressed exception
      */
     public void run(GenerationContext context, List<GenerationPass> passes, PassObserver observer) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(observer, "observer");
+        Objects.requireNonNull(passes, "passes");
         final var occurrences = new HashMap<String, Integer>();
-        for (var pass : passes) {
-            final var name = pass.name();
-            final var occurrence = occurrences.merge(name, 1, Integer::sum) - 1;
-            context.beginPass(occurrence);
-            final var start = clock.getAsLong();
-            apply(pass, name, context);
-            observer.accept(name, clock.getAsLong() - start);
+        try {
+            for (var pass : passes) {
+                Objects.requireNonNull(pass, "pass");
+                final var name = pass.name();
+                final var occurrence = occurrences.merge(name, 1, Integer::sum) - 1;
+                context.beginPass(occurrence);
+                final var start = clock.getAsLong();
+                apply(pass, name, context);
+                observer.accept(name, clock.getAsLong() - start);
+            }
+        } finally {
+            context.beginPass(0);
         }
     }
 
-    /** Applies one pass and names it in the exception when it fails. */
+    /** Applies one pass and, when it fails, rethrows the original exception with the pass named in a suppressed one. */
     private static void apply(GenerationPass pass, String name, GenerationContext context) {
         try {
             pass.apply(context);
         } catch (RuntimeException failure) {
-            throw new IllegalStateException("the pass '" + name + "' failed: " + failure.getMessage(), failure);
+            failure.addSuppressed(new IllegalStateException("the pass '" + name + "' failed"));
+            throw failure;
         }
     }
 }

@@ -35,6 +35,7 @@ public final class GenerationContext {
     private final ResourceType[] resources;
     private int spawnIndex = NONE;
     private int spawnHint = NONE;
+    private final long seedKey;
     private int passOccurrence;
 
     /**
@@ -49,6 +50,7 @@ public final class GenerationContext {
         this.noiseFactory = Objects.requireNonNull(noiseFactory, "noiseFactory");
         this.width = request.width();
         this.height = request.height();
+        this.seedKey = Hashes.scramble(request.seed() + Hashes.GOLDEN_GAMMA);
         this.ground = new TileType[request.tileCount()];
         this.resources = new ResourceType[request.tileCount()];
     }
@@ -287,7 +289,7 @@ public final class GenerationContext {
 
     /**
      * Records which occurrence of its name the pass about to run is, so {@link #random(long)} gives two instances of
-     * the same pass different streams. The pipeline calls it before every pass.
+     * the same pass different streams. The pipeline calls it before every pass, and with 0 once the run ends.
      *
      * @param occurrence how many passes with the same name ran before this one, 0 for the first
      */
@@ -298,9 +300,10 @@ public final class GenerationContext {
     /**
      * Creates the random stream of a pass. The stream depends on the seed, the salt and which occurrence of its name
      * the running pass is, so a pass draws the same numbers whatever other passes run before it, and adding or
-     * reordering a pass of another name never moves them. The first occurrence of a pass, and any pass run outside a
-     * pipeline, gets the plain stream of its salt; each later occurrence of the same pass gets a stream of its own.
-     * Every call returns a new stream that starts from the beginning.
+     * reordering a pass of another name never moves them. The first occurrence of a pass gets the plain stream of its
+     * salt, and so does any call made outside a pipeline run, including after a run that finished or failed; each later
+     * occurrence of the same pass within a run gets a stream of its own. Every call returns a new stream that starts
+     * from the beginning.
      *
      * @param salt a constant of the pass, different for every pass that draws numbers
      * @return a new random stream
@@ -321,7 +324,6 @@ public final class GenerationContext {
      * @return a well spread 64 bit value
      */
     public long tileHash(int x, int y, long salt) {
-        final var seedKey = Hashes.scramble(seed() + Hashes.GOLDEN_GAMMA);
         final var saltKey = Hashes.scramble(salt - Hashes.GOLDEN_GAMMA);
         return Hashes.scramble(Hashes.scramble(Hashes.mix(x, y) ^ seedKey) ^ saltKey);
     }

@@ -4,14 +4,16 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.support.TestContex
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GenerationPipelineTest {
 
@@ -94,7 +96,7 @@ class GenerationPipelineTest {
     }
 
     @Test
-    void aFailingPassIsNamedInTheMessageAndKeepsItsCause() {
+    void aFailingPassKeepsItsOwnExceptionAndIsNamedInASuppressedOne() {
         final var cause = new IllegalArgumentException("bad input");
         final var failing = pass("boom", (GenerationContext ctx) -> {
             throw cause;
@@ -102,12 +104,52 @@ class GenerationPipelineTest {
         final var passes = List.of(pass("a"), failing);
         final var pipeline = new GenerationPipeline();
 
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> pipeline.run(context, passes, PassObserver.NONE));
+
+        assertSame(cause, error);
+        assertEquals(1, error.getSuppressed().length);
+        assertEquals("the pass 'boom' failed", error.getSuppressed()[0].getMessage());
+    }
+
+    @Test
+    void aFailureWithoutAMessageIsNamedWithoutTheWordNull() {
+        final var failing = pass("boom", (GenerationContext ctx) -> {
+            throw new IllegalStateException();
+        });
+        final var passes = List.of(failing);
+        final var pipeline = new GenerationPipeline();
+
         final var error = assertThrows(IllegalStateException.class,
                 () -> pipeline.run(context, passes, PassObserver.NONE));
 
-        assertTrue(error.getMessage().contains("'boom'"), error.getMessage());
-        assertTrue(error.getMessage().contains("bad input"), error.getMessage());
-        assertSame(cause, error.getCause());
+        assertNull(error.getMessage());
+        assertFalse(error.getSuppressed()[0].getMessage().contains("null"));
+    }
+
+    @Test
+    void aContextReusedAfterARunGivesThePlainStream() {
+        final var plain = TestContexts.of(SIZE, SIZE).random(SALT).nextLong();
+        final GenerationPass drawing = pass("draw", (GenerationContext ctx) -> ctx.random(SALT).nextLong());
+
+        new GenerationPipeline().run(context, List.of(drawing, drawing, drawing), PassObserver.NONE);
+
+        assertEquals(plain, context.random(SALT).nextLong());
+    }
+
+    @Test
+    void aContextReusedAfterAFailedRunGivesThePlainStream() {
+        final var plain = TestContexts.of(SIZE, SIZE).random(SALT).nextLong();
+        final GenerationPass drawing = pass("draw", (GenerationContext ctx) -> ctx.random(SALT).nextLong());
+        final var failing = pass("draw", (GenerationContext ctx) -> {
+            throw new IllegalStateException("boom");
+        });
+        final var passes = List.of(drawing, drawing, failing);
+        final var pipeline = new GenerationPipeline();
+
+        assertThrows(IllegalStateException.class, () -> pipeline.run(context, passes, PassObserver.NONE));
+
+        assertEquals(plain, context.random(SALT).nextLong());
     }
 
     @Test
@@ -155,6 +197,9 @@ class GenerationPipelineTest {
 
         assertThrows(NullPointerException.class, () -> pipeline.run(null, none, PassObserver.NONE));
         assertThrows(NullPointerException.class, () -> pipeline.run(context, none, null));
+        assertThrows(NullPointerException.class, () -> pipeline.run(context, null, PassObserver.NONE));
+        assertThrows(NullPointerException.class,
+                () -> pipeline.run(context, Collections.singletonList(null), PassObserver.NONE));
         assertThrows(NullPointerException.class, () -> new GenerationPipeline(null));
     }
 }
