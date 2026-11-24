@@ -201,6 +201,7 @@ public final class RiverPass implements GenerationPass {
             return heights[index] < current && (!inRiver[index] || isWater(index));
         }
 
+        /** Tells whether a tile is water a river flows into. */
         private boolean isWater(int index) {
             return Terrain.isFlowingInto(context.groundAt(index));
         }
