@@ -56,8 +56,9 @@ public final class InvariantRunner {
      * @param spec       what to generate
      * @param invariants what must hold
      * @return the number of invariants that held
-     * @throws AssertionError naming the spec, the failure and the dumped image, when an invariant fails; when the image
-     *                        cannot be written, the original failure is thrown with the write error suppressed on it
+     * @throws AssertionError naming the spec, the failure and the dumped image, when an invariant fails; when the
+     *                        image cannot be written, the original failure is thrown with the write error suppressed
+     *                        on it
      * @throws RuntimeException the original failure of an invariant that throws one, with the error of the painter or
      *                          of the image writer suppressed on it when the dump fails
      */

@@ -2,6 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.world.model;
 
 import lombok.Getter;
 
+import java.util.Optional;
+
 /**
  * Represents a 2D grid of tiles with efficient coordinate-based access.
  * Provides bounds-checked operations for safe tile manipulation.
@@ -16,6 +18,9 @@ public class TileMap {
     // Tile Storage
     private final Tile[][] tiles;
 
+    /** The tile where the player starts, or null when the map was built without one. */
+    private final SpawnPoint spawn;
+
     /** The number of changes the map has seen, see {@link #getRevision()}. */
     private long revision;
 
@@ -25,9 +30,34 @@ public class TileMap {
      * @param height Height of the tile map (number of tiles in the Y direction)
      */
     public TileMap(int width, int height) {
+        this(width, height, null);
+    }
+
+    /**
+     * Constructs a TileMap with specified dimensions and the tile where the player starts.
+     * @param width  Width of the tile map (number of tiles in the X direction)
+     * @param height Height of the tile map (number of tiles in the Y direction)
+     * @param spawn  The starting tile, or null when the map has none
+     * @throws IllegalArgumentException when the spawn point lies outside the map
+     */
+    public TileMap(int width, int height, SpawnPoint spawn) {
         this.width = width;
         this.height = height;
         this.tiles = new Tile[width][height];
+        if (spawn != null && !isValidCoordinate(spawn.x(), spawn.y())) {
+            throw new IllegalArgumentException("the spawn point " + spawn + " is outside the " + width + "x" + height
+                    + " map");
+        }
+        this.spawn = spawn;
+    }
+
+    /**
+     * Returns the tile where the player starts on this map.
+     *
+     * @return the spawn point, or empty when the map was built without one
+     */
+    public Optional<SpawnPoint> getSpawn() {
+        return Optional.ofNullable(spawn);
     }
 
     // ==================================================================

@@ -25,11 +25,11 @@ class InvariantRunnerTest {
     private static final int SIDE = 4;
     private static final String FAILURE_MESSAGE = "always fails";
     private static final MapSpec SPEC = new MapSpec(MapType.DESERT, 1L, SIDE);
-    private static final MapSource EMPTY_MAPS = spec -> new TileMap(spec.size(), spec.size());
-    private static final List<MapInvariant> FAILING = List.of((map, spec) -> {
+    private static final MapSource EMPTY_MAPS = (MapSpec spec) -> new TileMap(spec.size(), spec.size());
+    private static final List<MapInvariant> FAILING = List.of((TileMap map, MapSpec spec) -> {
         throw new AssertionError(FAILURE_MESSAGE);
     });
-    private static final Function<TileMap, BufferedImage> BLANK = map -> new BufferedImage(SIDE, SIDE,
+    private static final Function<TileMap, BufferedImage> BLANK = (TileMap map) -> new BufferedImage(SIDE, SIDE,
             BufferedImage.TYPE_INT_RGB);
 
     @TempDir
@@ -38,7 +38,7 @@ class InvariantRunnerTest {
     @Test
     void aPainterThatThrowsLeavesTheOriginalFailureWithTheErrorSuppressed() {
         final var broken = new IllegalStateException("painter broke");
-        final var runner = new InvariantRunner(EMPTY_MAPS, folder, map -> {
+        final var runner = new InvariantRunner(EMPTY_MAPS, folder, (TileMap map) -> {
             throw broken;
         }, "png");
 
@@ -74,10 +74,10 @@ class InvariantRunnerTest {
 
     @Test
     void aRuntimeFailureOfAnInvariantIsRethrownAsItIsWhenTheDumpFails() {
-        final var runner = new InvariantRunner(EMPTY_MAPS, folder, map -> {
+        final var runner = new InvariantRunner(EMPTY_MAPS, folder, (TileMap map) -> {
             throw new UncheckedIOException(new IOException("disk gone"));
         }, "png");
-        final List<MapInvariant> throwing = List.of((map, spec) -> {
+        final List<MapInvariant> throwing = List.of((TileMap map, MapSpec spec) -> {
             throw new IllegalArgumentException("bad map");
         });
 
@@ -89,7 +89,8 @@ class InvariantRunnerTest {
     @Test
     void aPassingRunReportsHowManyInvariantsHeld() {
         final var runner = new InvariantRunner(EMPTY_MAPS, folder, BLANK, "png");
-        final List<MapInvariant> passing = List.of((map, spec) -> { }, (map, spec) -> { });
+        final MapInvariant holds = (TileMap map, MapSpec spec) -> assertEquals(SIDE, map.getWidth());
+        final List<MapInvariant> passing = List.of(holds, holds);
 
         assertEquals(2, runner.run(SPEC, passing));
     }
