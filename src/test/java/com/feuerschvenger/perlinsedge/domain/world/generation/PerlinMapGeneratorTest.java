@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation;
 
+import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
@@ -102,12 +103,13 @@ class PerlinMapGeneratorTest {
     }
 
     @Test
-    void generatorReportsTheContextHeightSettings() {
+    void generatorAppliesTheContextHeightSettingsToTheGenerationConfig() {
         PerlinMapGenerator generator = new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY);
         generator.generateMap(8, 8, context(MapType.TUNDRA, 3L, 0.033f, 6));
+        var heightNoise = AppConfig.getInstance().generationConfig().getHeightNoiseConfig();
 
-        assertEquals(0.033f, generator.getHeightNoiseFrequency());
-        assertEquals(6, generator.getHeightNoiseOctaves());
+        assertEquals(0.033f, heightNoise.getFrequency());
+        assertEquals(6, heightNoise.getOctaves());
     }
 
     private static int count(TileMap map, ResourceType type, int size) {

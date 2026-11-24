@@ -80,7 +80,7 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final int MIN_RIVER_LENGTH = 100;
     /** Lowest height a river may start at, and the height a source tile has to exceed. */
     private static final float RIVER_SOURCE_MIN_HEIGHT = 0.6F;
-    /** Share of the potential sources that become rivers, before the river density of the map panel scales it. */
+    /** Share of the potential sources that become rivers, before the river density of the map type scales it. */
     private static final float RIVER_SOURCE_SHARE = 0.1F;
     /** A river has to be this long before it may branch, and branches with this chance per step after that. */
     private static final int TRIBUTARY_MIN_RIVER_LENGTH = 30;
@@ -97,7 +97,7 @@ public class PerlinMapGenerator implements IMapGenerator {
     private static final float LAKE_DEPTH_TOLERANCE = 0.05F;
     private static final float ISLAND_FALLOFF_POWER = 2.0F;
 
-    // Multiplier of the tree density of the map panel, per map type
+    // Multiplier of the tree density of the generation config, per map type
     private static final float TREE_FACTOR_DEFAULT = 1.0F;
     private static final float TREE_FACTOR_MEDITERRANEAN = 1.8F;
     private static final float TREE_FACTOR_TUNDRA = 1.5F;
@@ -107,7 +107,7 @@ public class PerlinMapGenerator implements IMapGenerator {
     // tile is ore with a chance of 6 in a thousand, which is about one ore for every hundred and seventy rocky tiles.
     // Crystals need the crystal noise to pass its threshold first and then a chance of their own of 50 in a thousand
     // on the rocky tiles of those patches, and a tile that passes both is crystals, not ore. They are rarer than the
-    // ore while the patches cover less than about an eighth of the rock, which the threshold of the map panel decides.
+    // ore while the patches cover less than about an eighth of the rock, which the stone threshold of the generation config decides.
     // The chance is a hash of the tile, the seed and a salt of each resource, so a map is the same every time it is
     // generated from a seed. The salts make the two chances independent of each other, and a tile that passes both
     // becomes crystals. Both counts are proportional to the area of rocky terrain, so a map with a little rock still
@@ -287,7 +287,7 @@ public class PerlinMapGenerator implements IMapGenerator {
             return;
         }
 
-        // Iron is placed before stone, so the stone threshold of the map panel never changes how much there is
+        // Iron is placed before stone, so the stone threshold of the generation config never changes how much there is
         if (isRockyGround(tile.getType()) && chancePasses(x, y, IRON_SALT, IRON_PER_MILLE)) {
             tile.setWorldResource(new Resource(ResourceType.IRON_ORE, config.getRandom().nextLong()));
             return;
@@ -756,18 +756,5 @@ public class PerlinMapGenerator implements IMapGenerator {
     //  GETTERS (Interface Implementation)
     // ==================================================================
 
-    @Override public MapType getMapType() { return config.getMapType(); }
     @Override public long getSeed() { return config.getSeed(); }
-    @Override public float getHeightNoiseFrequency() { return config.getHeightNoiseConfig().getFrequency(); }
-    @Override public int getHeightNoiseOctaves() { return config.getHeightNoiseConfig().getOctaves(); }
-    @Override public float getTemperatureNoiseFrequency() { return config.getTemperatureNoiseConfig().getFrequency(); }
-    @Override public int getTemperatureNoiseOctaves() { return config.getTemperatureNoiseConfig().getOctaves(); }
-    @Override public float getMoistureNoiseFrequency() { return config.getMoistureNoiseConfig().getFrequency(); }
-    @Override public int getMoistureNoiseOctaves() { return config.getMoistureNoiseConfig().getOctaves(); }
-    @Override public float getStonePatchFrequency() { return config.getStoneNoiseConfig().getFrequency(); }
-    @Override public float getStoneThreshold() { return config.getStoneThreshold(); }
-    @Override public float getCrystalsPatchFrequency() { return config.getCrystalsNoiseConfig().getFrequency(); }
-    @Override public float getCrystalsThreshold() { return config.getCrystalsThreshold(); }
-    @Override public float getTreeDensity() { return config.getTreeDensity(); }
-    @Override public float getRiverDensity() { return config.getRiverDensity(); }
 }
