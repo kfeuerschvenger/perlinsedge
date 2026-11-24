@@ -12,6 +12,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FenceGateTest {
@@ -61,6 +62,16 @@ class FenceGateTest {
         assertTrue(gate.onInteract(map.getTile(4, 4)));
         assertFalse(gate.isOpen());
         assertFalse(map.getTile(4, 4).isWalkable());
+    }
+
+    @Test
+    void aGateIsNotToggledThroughANullTileOrATileItDoesNotStandOn() {
+        FenceGate gate = new FenceGate(4, 4);
+        map.getTile(4, 4).setBuilding(gate);
+
+        assertThrows(NullPointerException.class, () -> gate.toggleOpen(null));
+        assertThrows(IllegalArgumentException.class, () -> gate.toggleOpen(map.getTile(1, 1)));
+        assertFalse(gate.isOpen());
     }
 
     @Test

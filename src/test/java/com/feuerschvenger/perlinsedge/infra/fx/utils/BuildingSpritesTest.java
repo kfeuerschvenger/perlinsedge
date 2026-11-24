@@ -247,7 +247,9 @@ class BuildingSpritesTest {
         gate.setRotation(1);
 
         assertEquals("fence_gate_closed_1", BuildingSprites.spriteName(gate, 0));
-        gate.toggleOpen(new Tile(1, 1, TileType.GRASS));
+        final var gateTile = new Tile(1, 1, TileType.GRASS);
+        gateTile.setBuilding(gate);
+        gate.toggleOpen(gateTile);
         assertEquals("fence_gate_open_1", BuildingSprites.spriteName(gate, 0));
         assertEquals("fence_gate_closed_0", BuildingSprites.restingName(BuildingType.FENCE_GATE, 0));
     }

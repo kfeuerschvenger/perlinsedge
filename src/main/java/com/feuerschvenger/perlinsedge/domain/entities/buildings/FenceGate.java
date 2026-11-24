@@ -4,6 +4,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Objects;
+
 /**
  * A gate in a fence. It runs along one axis of its tile, set by its rotation, and joins the fences at both ends of that
  * axis. Closed, it blocks the player and the enemies like a fence; open, the tile can be walked through. Only the player
@@ -42,8 +44,15 @@ public class FenceGate extends Building {
      * on, so the tile tells its map, which keeps the walkable regions and the shadows right.
      *
      * @param tile the tile the gate stands on
+     * @throws NullPointerException     when the tile is null
+     * @throws IllegalArgumentException when the gate is not the building of the tile
      */
     public void toggleOpen(Tile tile) {
+        Objects.requireNonNull(tile, "tile must not be null");
+        if (tile.getBuilding() != this) {
+            throw new IllegalArgumentException(
+                    "The gate does not stand on the tile (" + tile.getX() + ", " + tile.getY() + ")");
+        }
         this.isOpen = !this.isOpen;
         this.isSolid = !this.isOpen;
         tile.buildingChanged();

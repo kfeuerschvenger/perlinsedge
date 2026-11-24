@@ -169,7 +169,9 @@ class FxBuildingPainterRenderTest {
     void aClosedGateHasRailsBetweenItsPostsAndAnOpenGateOnlyThePosts() {
         final FenceGate closed = new FenceGate(0, 0);
         final FenceGate open = new FenceGate(0, 0);
-        open.toggleOpen(new Tile(0, 0, TileType.GRASS));
+        final Tile gateTile = new Tile(0, 0, TileType.GRASS);
+        gateTile.setBuilding(open);
+        open.toggleOpen(gateTile);
 
         final CanvasProbe closedShot = draw(closed, 1.0);
         final CanvasProbe openShot = draw(open, 1.0);
