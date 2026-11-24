@@ -16,6 +16,9 @@ class StonePassTest {
     private static final float THRESHOLD = 0.79F;
     private static final float ABOVE = 0.9F;
     private static final float BELOW = 0.5F;
+    private static final float HIGH_THRESHOLD = 0.99F;
+    private static final float UNREACHABLE = 3F;
+    private static final int IRON_PER_MILLE = 300;
 
     private static GenerationContext map(TileType ground, float stoneNoise) {
         final var context = TestContexts.of(SIDE, SIDE);
@@ -64,6 +67,22 @@ class StonePassTest {
 
         assertEquals(ResourceType.IRON_ORE, context.resourceAt(0));
         assertEquals(context.size() - 1, TestContexts.countResource(context, ResourceType.STONE));
+    }
+
+    @Test
+    void theAmountOfStoneNeverChangesTheAmountOfIron() {
+        var baseline = -1;
+        for (var threshold : new float[] {THRESHOLD, HIGH_THRESHOLD, UNREACHABLE}) {
+            final var context = map(TileType.HILL, ABOVE);
+            TestContexts.fillField(context, NoiseField.CRYSTALS, BELOW);
+
+            new RockResourcePass(new RockResourceParams(IRON_PER_MILLE, 0, THRESHOLD)).apply(context);
+            new StonePass(new StoneParams(threshold)).apply(context);
+
+            final var iron = TestContexts.countResource(context, ResourceType.IRON_ORE);
+            baseline = baseline < 0 ? iron : baseline;
+            assertEquals(baseline, iron, "threshold " + threshold);
+        }
     }
 
     @Test

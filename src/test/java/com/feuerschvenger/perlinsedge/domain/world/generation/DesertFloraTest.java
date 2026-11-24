@@ -1,13 +1,13 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation;
 
-import com.feuerschvenger.perlinsedge.config.AppConfig;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.DesertFloraPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSource;
+import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSpec;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
-import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,9 +22,8 @@ class DesertFloraTest {
 
     private static final int SIZE = 150;
     private static final long SEED = 20_261_111L;
-    private static final int REACH = 2;
+    private static final int REACH = DesertFloraPass.PALM_REACH;
 
-    private final MapType original = AppConfig.getInstance().world().getCurrentMapType();
     private TileMap map;
 
     @BeforeEach
@@ -32,22 +31,8 @@ class DesertFloraTest {
         map = generate(SEED);
     }
 
-    @AfterEach
-    void restoreMapType() {
-        AppConfig.getInstance().world().setCurrentMapType(original);
-    }
-
     private static TileMap generate(long seed) {
-        AppConfig.WorldConfig world = AppConfig.getInstance().world();
-        world.setCurrentMapType(MapType.DESERT);
-        NoiseSettings profile = NoiseSettings.heightProfile(MapType.DESERT);
-        MapGenerationContext context = new MapGenerationContext(MapType.DESERT, seed, profile.frequency(), profile.octaves(),
-                world.getTemperatureNoiseFrequency(), world.getTemperatureNoiseOctaves(),
-                world.getMoistureNoiseFrequency(), world.getMoistureNoiseOctaves(),
-                world.getStonePatchFrequency(), world.getStoneThreshold(),
-                world.getCrystalsPatchFrequency(), world.getCrystalsThreshold(),
-                world.getTreeDensity(), world.getRiverDensity());
-        return new PerlinMapGenerator(FastNoiseLiteAdapter.FACTORY).generateMap(SIZE, SIZE, context);
+        return MapSource.current().generate(new MapSpec(MapType.DESERT, seed, SIZE));
     }
 
     private boolean waterWithin(int x, int y) {

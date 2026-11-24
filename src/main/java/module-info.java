@@ -19,7 +19,6 @@ module com.feuerschvenger.perlinsedge {
     exports com.feuerschvenger.perlinsedge.domain.strategies;
     exports com.feuerschvenger.perlinsedge.domain.utils;
     exports com.feuerschvenger.perlinsedge.domain.world.generation;
-    exports com.feuerschvenger.perlinsedge.domain.world.generation.util;
     exports com.feuerschvenger.perlinsedge.domain.world.light;
     exports com.feuerschvenger.perlinsedge.domain.world.model;
     exports com.feuerschvenger.perlinsedge.infra.fx.graphics;
