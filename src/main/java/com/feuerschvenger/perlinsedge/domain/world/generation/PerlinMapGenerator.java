@@ -118,8 +118,7 @@ public class PerlinMapGenerator implements IMapGenerator {
     // Salts of the tile hash, one for each resource that is placed by chance
     private static final long IRON_SALT = 0x5DEE_CE66_D1CE_4E5BL;
     private static final long CRYSTALS_SALT = 0xC0DE_D00D_B16B_00B5L;
-    // Odd 64 bit constant that spreads the seed and the salt over the whole hash before the tile is mixed in
-    private static final long HASH_MIX_SEED = 0x9E37_79B9_7F4A_7C15L;
+    // Bits the tile hash is folded by, to feed its upper and lower halves back into the mix
     private static final int HASH_FOLD = 32;
 
     // Desert: one oasis per this many tiles of map, each a pocket of shallow water of this radius in tiles
@@ -312,7 +311,7 @@ public class PerlinMapGenerator implements IMapGenerator {
      * the seed and the salt, so the neighbouring tiles, the seeds and the resources give unrelated answers.
      */
     private boolean chancePasses(int x, int y, long salt, int perMille) {
-        final long tileHash = Hashes.mix(x, y) ^ (config.getSeed() + salt) * HASH_MIX_SEED;
+        final long tileHash = Hashes.mix(x, y) ^ (config.getSeed() + salt) * Hashes.GOLDEN_GAMMA;
         final long hash = Hashes.mix((int) (tileHash >>> HASH_FOLD), (int) tileHash);
         return Math.floorMod(hash, (long) CHANCE_SCALE) < perMille;
     }

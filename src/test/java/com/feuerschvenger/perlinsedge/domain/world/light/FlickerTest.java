@@ -213,4 +213,34 @@ class FlickerTest {
         }
         assertTrue(changes, "the lobes change over time");
     }
+
+    /** The shape and colour drift added to the pinned flickers, so every channel is covered. */
+    private static Flicker pinnedFlicker(long seed) {
+        return crackling(seed).withShape(0.2, 0.5).withColourDrift(new Rgba(1, 0, 0, 1), new Rgba(0, 0, 1, 1), 0.4);
+    }
+
+    private static void assertPinned(long seed, double time, double[] expected) {
+        var flicker = pinnedFlicker(seed);
+        var tolerance = 1e-12;
+        assertEquals(expected[0], flicker.intensityFactor(time), tolerance);
+        assertEquals(expected[1], flicker.radiusFactor(time), tolerance);
+        assertEquals(expected[2], flicker.colourShare(time), tolerance);
+        assertEquals(expected[3], flicker.shapeFactor(0.3, time), tolerance);
+    }
+
+    @Test
+    void outputsArePinnedForFixedSeedsAndTimes() {
+        assertPinned(0, 0.0, new double[]{0.9823569111232505, 1.0135879630186317, 0.7127461053356473,
+                1.064748721560218});
+        assertPinned(0, 7.9, new double[]{1.0578282938891777, 1.0061017845345113, 0.8886102640555026,
+                0.8768526428153425});
+        assertPinned(1, 0.5, new double[]{1.0263712270761531, 1.0263367146762576, 0.4480675319837185,
+                1.0123333697125199});
+        assertPinned(42, 1.25, new double[]{0.9547192708962329, 1.0163215672027863, 0.15649556661262748,
+                1.0564852225160033});
+        assertPinned(-5, 0.0, new double[]{1.0023595696962795, 0.9733009719107767, 0.6398103145459535,
+                1.016034387983858});
+        assertPinned(-5, 7.9, new double[]{1.0722033128952002, 1.0156866989654614, 0.6208718631238823,
+                0.8423939852178733});
+    }
 }

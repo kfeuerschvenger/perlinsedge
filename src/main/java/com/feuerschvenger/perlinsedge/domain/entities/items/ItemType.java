@@ -212,7 +212,7 @@ public enum ItemType {
 
     /**
      * Holds the display names by the ordinal of the constant, built once when the holder is first used. Init order:
-     * the enum is fully initialised before this class is loaded, because the holder is only touched from
+     * the enum is fully initialised before this class is initialised, because the holder is only touched from
      * {@link #getDisplayName()}, so {@code values()} is complete when the table is built. A name cannot be built in
      * the constructor of the constants instead, since the switch that reads the constants runs before they all exist.
      */
