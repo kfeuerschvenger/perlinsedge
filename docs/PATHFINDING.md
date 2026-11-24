@@ -14,7 +14,9 @@ How the player and the enemies find their way across the map, and how an order t
 flowchart TD
     A[Order to a tile] --> B{Player dead or already on the tile?}
     B -->|yes| X[Refused]
-    B -->|no| C[WalkableRegions: same region as the start?]
+    B -->|no| S{Step in progress already ends on the free target tile?}
+    S -->|yes| F[Player walks that single step]
+    S -->|no| C[WalkableRegions: same region as the start?]
     C -->|no| X
     C -->|yes| D[Pathfinder A* search around enemies]
     D -->|no path| X

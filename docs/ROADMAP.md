@@ -56,7 +56,7 @@ When the player stands behind trees or other tall sprites, they are hidden by th
 
 ## Fog of war
 
-An option that starts a game with the whole map hidden, on the world and on the minimap, so the player explores to discover the land and the resources on it. Tiles the player has seen stay revealed and the rest stay dark, and with the option off the map is shown in full as it is today. It needs a record of which tiles were discovered, kept with the game state, a reveal radius around the player that grows as the player moves, a draw path that hides undiscovered tiles and the things standing on them, and a minimap that paints only what has been discovered.
+An option that starts a game with the whole map hidden, on the world and on the minimap, so the player explores to discover the land and the resources on it. Tiles the player has seen stay revealed and the rest stay dark, and with the option off the whole map is shown. It needs a record of which tiles were discovered, kept with the game state, a reveal radius around the player that grows as the player moves, a draw path that hides undiscovered tiles and the things standing on them, and a minimap that paints only what has been discovered.
 
 ## Magic and sinister biomes
 
