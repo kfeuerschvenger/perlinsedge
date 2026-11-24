@@ -50,6 +50,22 @@ class MapRecipesTest {
         assertTrue(names.indexOf("rivers") < names.indexOf("rock-resources"));
     }
 
+    @ParameterizedTest
+    @EnumSource(MapType.class)
+    void everyRecipeMakesRockyZonesBeforeTheOreAndBalancesTheResourcesLast(MapType type) {
+        final var names = new MapRecipes().recipeFor(type).passes().stream().map(GenerationPass::name).toList();
+
+        assertTrue(names.indexOf("rocky-zones") < names.indexOf("rock-resources"));
+        assertTrue(names.indexOf("rock-resources") < names.indexOf("stone"));
+        assertTrue(names.indexOf("stone") < names.indexOf("balance"));
+        assertTrue(names.indexOf("balance") < names.indexOf("spawn"));
+        if (names.contains("forest-floor")) {
+            assertTrue(names.indexOf("vegetation") < names.indexOf("balance"));
+            assertTrue(names.indexOf("balance") < names.indexOf("forest-floor"));
+            assertTrue(names.indexOf("forest-floor") < names.indexOf("spawn"));
+        }
+    }
+
     @Test
     void theSameRegistryAlwaysHandsOutTheSameRecipe() {
         final var recipes = new MapRecipes();

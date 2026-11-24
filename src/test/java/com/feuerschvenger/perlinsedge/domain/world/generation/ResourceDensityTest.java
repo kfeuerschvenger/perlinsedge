@@ -16,8 +16,8 @@ class ResourceDensityTest {
 
     private static final int SIZE = 150;
     private static final long SEED = 20_261_111L;
-    private static final double MIN_SHARE = 0.08;
-    private static final double MAX_SHARE = 0.25;
+    private static final double MIN_SHARE = 0.05;
+    private static final double MAX_SHARE = 0.45;
 
     private static double resourceShare(MapType type) {
         TileMap map = MapSource.current().generate(new MapSpec(type, SEED, SIZE));

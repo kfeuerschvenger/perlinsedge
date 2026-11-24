@@ -18,6 +18,12 @@ final class RiversRecipe {
     private static final float TREE_FREQUENCY = 0.05F;
     private static final float RIVER_DENSITY = 0.04F;
     private static final float TREE_DENSITY = 0.30F;
+    private static final float ROCKY_SHARE = 0.06F;
+    private static final float ROCKY_HEIGHT_BIAS = 0F;
+    private static final int ROCKY_FOOTHILL_REACH = 0;
+    private static final int IRON_PER_MILLE = 40;
+    private static final int IRON_MIN = 55;
+    private static final int IRON_MAX = 105;
 
     /** Not instantiable: the class only builds the recipe. */
     private RiversRecipe() {
@@ -35,9 +41,12 @@ final class RiversRecipe {
                         Set.of(NoiseField.MOISTURE), TREE_FREQUENCY),
                 RecipeParts.ground(GroundRules.RIVERS),
                 RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER),
-                RecipeParts.rock(),
+                RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.greenHosts()),
+                RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),
                 RecipeParts.vegetation(TREE_DENSITY),
+                RecipeParts.balance(IRON_MIN, IRON_MAX, true),
+                RecipeParts.forestFloor(),
                 RecipeParts.spawn()));
     }
 }

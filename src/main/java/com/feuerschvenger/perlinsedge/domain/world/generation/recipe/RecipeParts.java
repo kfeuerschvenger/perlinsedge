@@ -3,6 +3,9 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.recipe;
 import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.BalanceParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundRule;
@@ -10,9 +13,13 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.LakeParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.NoiseFieldsParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.NoiseFieldsPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceBalancePass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceQuota;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourceParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourcePass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockyZoneParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockyZonePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.SpawnParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.SpawnPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.StoneParams;
@@ -20,9 +27,13 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.StonePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.TributaryParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationPass;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -37,17 +48,38 @@ final class RecipeParts {
     private static final int CLIMATE_OCTAVES = 3;
     private static final float TEMPERATURE_FREQUENCY = 0.02F;
     private static final float MOISTURE_FREQUENCY = 0.03F;
-    private static final float STONE_FREQUENCY = 0.06F;
+    /** The rock noise varies slowly, so the rocky zones it picks are blobs of some tens of tiles. */
+    private static final float ROCK_FREQUENCY = 0.035F;
     private static final float CRYSTALS_FREQUENCY = 0.09F;
 
     /** The largest nudge of the height of a tile before the ground rule sees it, which breaks up straight borders. */
     private static final float DITHER_AMPLITUDE = 0.025F;
 
-    // Rock: iron is about one rocky tile in 170, crystals need a patch of the crystal noise and are rarer than iron
-    private static final int IRON_PER_MILLE = 6;
-    private static final int CRYSTALS_PER_MILLE = 50;
-    private static final float CRYSTALS_THRESHOLD = 0.80F;
-    private static final float STONE_THRESHOLD = 0.79F;
+    // Rock: the share of rocky ground that holds each resource before the balancing pass brings the counts into range
+    private static final int CRYSTALS_PER_MILLE = 40;
+    private static final float CRYSTALS_THRESHOLD = 0.62F;
+    private static final int STONE_PER_MILLE = 120;
+    private static final int LOOSE_STONE_PER_TEN_THOUSAND = 4;
+
+    /** The ground that rocky zones can replace in the maps that grow trees. */
+    private static final Set<TileType> GREEN_HOSTS = EnumSet.of(TileType.GRASS, TileType.SAVANNA, TileType.SNOW,
+            TileType.SWAMP);
+    /** The ground that rocky zones replace in the desert. */
+    private static final Set<TileType> SAND_HOSTS = EnumSet.of(TileType.SAND);
+
+    // Quotas per 100,000 tiles of map, inside the guaranteed ranges of 40 to 100 iron, 10 to 30 crystals, 200 to 600
+    // stone and at least 400 trees per 300x300 map
+    private static final int CRYSTALS_MIN = 14;
+    private static final int CRYSTALS_MAX = 32;
+    private static final int STONE_MIN = 240;
+    private static final int STONE_MAX = 620;
+    private static final int TREES_MIN = 470;
+    private static final int ROCKY_CAP_IRON = 80;
+    private static final int ROCKY_CAP_CRYSTALS = 50;
+    private static final int ROCKY_CAP_STONE = 250;
+
+    // The forest floor reaches one tile beyond the trees
+    private static final int FOREST_FLOOR_REACH = 1;
 
     // The player starts with this many tiles around them free of resources
     private static final int SPAWN_FREE_RADIUS = 3;
@@ -87,7 +119,7 @@ final class RecipeParts {
      *
      * @param height  the settings of the height
      * @param climate the climate fields the ground rule reads, a subset of temperature and moisture
-     * @return the pass, which also computes the stone and crystal fields
+     * @return the pass, which also computes the rock and crystal fields
      */
     static NoiseFieldsPass noise(NoiseSettings height, Set<NoiseField> climate) {
         return new NoiseFieldsPass(new NoiseFieldsParams(fieldsOf(height, climate)));
@@ -99,7 +131,7 @@ final class RecipeParts {
      * @param height        the settings of the height
      * @param climate       the climate fields the ground rule reads, a subset of temperature and moisture
      * @param treeFrequency the scale of the tree groves, low for few wide groves and high for many small ones
-     * @return the pass, which also computes the stone, crystal and tree fields
+     * @return the pass, which also computes the rock, crystal and tree fields
      */
     static NoiseFieldsPass noiseWithTrees(NoiseSettings height, Set<NoiseField> climate, float treeFrequency) {
         final var fields = fieldsOf(height, climate);
@@ -134,22 +166,85 @@ final class RecipeParts {
     }
 
     /**
-     * Builds the pass that scatters iron ore and crystals over the rock.
+     * Builds the pass that turns zones of the ground into rocky ground.
      *
-     * @return the pass, the same for every map type
+     * @param landShare  the share of the host ground that becomes rock
+     * @param heightBias how much the height pulls the zones towards high ground, 0 for the noise alone
+     * @param reach      how far from a mountain the ground becomes rocky, 0 for none
+     * @param hosts      the ground that can become rock
+     * @return the pass
      */
-    static RockResourcePass rock() {
-        return new RockResourcePass(new RockResourceParams(IRON_PER_MILLE, CRYSTALS_PER_MILLE,
-                CRYSTALS_THRESHOLD));
+    static RockyZonePass rockyZones(float landShare, float heightBias, int reach, Set<TileType> hosts) {
+        return new RockyZonePass(new RockyZoneParams(landShare, heightBias, reach, hosts));
     }
 
     /**
-     * Builds the pass that puts stone on the land.
+     * Returns the ground that rocky zones replace on a map with trees: grass, savanna, snow and swamp.
+     *
+     * @return a new set
+     */
+    static Set<TileType> greenHosts() {
+        return EnumSet.copyOf(GREEN_HOSTS);
+    }
+
+    /**
+     * Returns the ground that rocky zones replace in the desert.
+     *
+     * @return a new set
+     */
+    static Set<TileType> sandHosts() {
+        return EnumSet.copyOf(SAND_HOSTS);
+    }
+
+    /**
+     * Builds the pass that scatters iron ore and crystals over the rocky ground.
+     *
+     * @param ironPerMille the share of rocky ground that holds iron, in thousandths
+     * @return the pass
+     */
+    static RockResourcePass rock(int ironPerMille) {
+        return new RockResourcePass(new RockResourceParams(ironPerMille, CRYSTALS_PER_MILLE, CRYSTALS_THRESHOLD));
+    }
+
+    /**
+     * Builds the pass that puts stone on the rocky ground and a few loose stones elsewhere.
      *
      * @return the pass, the same for every map type
      */
     static StonePass stone() {
-        return new StonePass(new StoneParams(STONE_THRESHOLD));
+        return new StonePass(new StoneParams(STONE_PER_MILLE, LOOSE_STONE_PER_TEN_THOUSAND));
+    }
+
+    /**
+     * Builds the pass that brings the resources into their guaranteed ranges.
+     *
+     * @param ironMin the fewest iron tiles per 100,000 tiles of map
+     * @param ironMax the most iron tiles per 100,000 tiles of map
+     * @param trees   whether the map has a tree field, which is what lets the pass add missing trees
+     * @return the pass
+     */
+    static ResourceBalancePass balance(int ironMin, int ironMax, boolean trees) {
+        final var quotas = new ArrayList<ResourceQuota>(List.of(
+                new ResourceQuota(ResourceType.IRON_ORE, ironMin, ironMax, ResourceQuota.Host.ROCKY, ROCKY_CAP_IRON),
+                new ResourceQuota(ResourceType.CRYSTALS, CRYSTALS_MIN, CRYSTALS_MAX, ResourceQuota.Host.ROCKY,
+                        ROCKY_CAP_CRYSTALS),
+                new ResourceQuota(ResourceType.STONE, STONE_MIN, STONE_MAX, ResourceQuota.Host.ROCKY,
+                        ROCKY_CAP_STONE)));
+        if (trees) {
+            quotas.add(new ResourceQuota(ResourceType.TREE, TREES_MIN, ResourceQuota.UNLIMITED,
+                    ResourceQuota.Host.FERTILE, 1));
+        }
+        return new ResourceBalancePass(new BalanceParams(quotas));
+    }
+
+    /**
+     * Builds the pass that floors the ground under and around the trees with forest.
+     *
+     * @return the pass, the same for every map with trees
+     */
+    static ForestFloorPass forestFloor() {
+        return new ForestFloorPass(new ForestFloorParams(FOREST_FLOOR_REACH,
+                EnumSet.of(TileType.GRASS, TileType.SAVANNA)));
     }
 
     /**
@@ -171,7 +266,7 @@ final class RecipeParts {
         return new SpawnPass(new SpawnParams(SPAWN_FREE_RADIUS));
     }
 
-    /** The fields every map computes, the height, the stone and the crystals, and the climate fields it asks for. */
+    /** The fields every map computes, the height, the rock and the crystals, and the climate fields it asks for. */
     private static EnumMap<NoiseField, NoiseSettings> fieldsOf(NoiseSettings height, Set<NoiseField> climate) {
         final var fields = new EnumMap<NoiseField, NoiseSettings>(NoiseField.class);
         fields.put(NoiseField.HEIGHT, height);
@@ -181,7 +276,7 @@ final class RecipeParts {
         if (climate.contains(NoiseField.MOISTURE)) {
             fields.put(NoiseField.MOISTURE, climateNoise(MOISTURE_FREQUENCY));
         }
-        fields.put(NoiseField.ROCK, patchNoise(STONE_FREQUENCY));
+        fields.put(NoiseField.ROCK, patchNoise(ROCK_FREQUENCY));
         fields.put(NoiseField.CRYSTALS, patchNoise(CRYSTALS_FREQUENCY));
         return fields;
     }

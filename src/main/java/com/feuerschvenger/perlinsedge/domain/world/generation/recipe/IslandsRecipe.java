@@ -26,6 +26,12 @@ final class IslandsRecipe {
     private static final float ISLAND_LIFT = 0.7F;
     private static final float ISLAND_SEA_OFFSET = 0.5F;
     private static final float ISLAND_FALLOFF_POWER = 2F;
+    private static final float ROCKY_SHARE = 0.06F;
+    private static final float ROCKY_HEIGHT_BIAS = 0F;
+    private static final int ROCKY_FOOTHILL_REACH = 0;
+    private static final int IRON_PER_MILLE = 40;
+    private static final int IRON_MIN = 55;
+    private static final int IRON_MAX = 105;
 
     /** Not instantiable: the class only builds the recipe. */
     private IslandsRecipe() {
@@ -45,9 +51,12 @@ final class IslandsRecipe {
                         ISLAND_HEIGHT_GAIN, ISLAND_LIFT, ISLAND_SEA_OFFSET, ISLAND_FALLOFF_POWER)),
                 RecipeParts.ground(GroundRules.ISLANDS),
                 RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER),
-                RecipeParts.rock(),
+                RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.greenHosts()),
+                RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),
                 RecipeParts.vegetation(TREE_DENSITY),
+                RecipeParts.balance(IRON_MIN, IRON_MAX, true),
+                RecipeParts.forestFloor(),
                 RecipeParts.spawn()));
     }
 }

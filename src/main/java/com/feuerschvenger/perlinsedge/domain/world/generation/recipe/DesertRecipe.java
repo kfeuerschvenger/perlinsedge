@@ -26,6 +26,12 @@ final class DesertRecipe {
     private static final float FLORA_DRY_FACTOR = 0.25F;
     private static final float FLORA_WET_FACTOR = 2.5F;
     private static final float FLORA_MAX_CHANCE = 0.35F;
+    private static final float ROCKY_SHARE = 0.12F;
+    private static final float ROCKY_HEIGHT_BIAS = 0F;
+    private static final int ROCKY_FOOTHILL_REACH = 0;
+    private static final int IRON_PER_MILLE = 30;
+    private static final int IRON_MIN = 70;
+    private static final int IRON_MAX = 110;
 
     /** Not instantiable: the class only builds the recipe. */
     private DesertRecipe() {
@@ -44,10 +50,12 @@ final class DesertRecipe {
                 RecipeParts.ground(GroundRules.DESERT),
                 RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER),
                 new OasisPass(new OasisParams(TILES_PER_OASIS, OASIS_RADIUS, OASIS_SITE_ATTEMPTS)),
-                RecipeParts.rock(),
+                RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.sandHosts()),
+                RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),
                 new DesertFloraPass(new DesertFloraParams(FLORA_DENSITY, FLORA_DRY_FACTOR,
                         FLORA_WET_FACTOR, FLORA_MAX_CHANCE)),
+                RecipeParts.balance(IRON_MIN, IRON_MAX, false),
                 RecipeParts.spawn()));
     }
 }

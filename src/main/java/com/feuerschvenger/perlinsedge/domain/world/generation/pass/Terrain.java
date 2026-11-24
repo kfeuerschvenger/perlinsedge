@@ -10,13 +10,14 @@ final class Terrain {
     }
 
     /**
-     * Tells whether a terrain is the rock that iron ore and crystals lie in.
+     * Tells whether a terrain is the rocky ground that iron ore and crystals lie in. Mountains are rock too, but a
+     * player cannot walk onto them, so nothing is placed on them.
      *
      * @param type the terrain
-     * @return true for rocky ground and mountains
+     * @return true for rocky ground only
      */
     static boolean isRocky(TileType type) {
-        return type == TileType.ROCKY_GROUND || type == TileType.MOUNTAIN;
+        return type == TileType.ROCKY_GROUND;
     }
 
     /**

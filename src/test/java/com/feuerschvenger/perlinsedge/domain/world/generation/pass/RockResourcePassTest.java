@@ -43,13 +43,13 @@ class RockResourcePassTest {
     }
 
     @Test
-    void ironLiesOnRockyGroundAndMountainsOnly() {
+    void ironLiesOnRockyGroundOnly() {
         for (var ground : TileType.values()) {
             final var context = rocky(SMALL_SIDE, ground, BELOW, SEED);
 
             apply(context, ALWAYS, 0);
 
-            final var expected = ground == TileType.ROCKY_GROUND || ground == TileType.MOUNTAIN ? context.size() : 0;
+            final var expected = ground == TileType.ROCKY_GROUND ? context.size() : 0;
             assertEquals(expected, TestContexts.countResource(context, ResourceType.IRON_ORE), ground.name());
         }
     }
@@ -68,7 +68,7 @@ class RockResourcePassTest {
 
     @Test
     void aTileThatPassesBothChancesIsCrystalsNotIron() {
-        final var context = rocky(SMALL_SIDE, TileType.MOUNTAIN, ABOVE, SEED);
+        final var context = rocky(SMALL_SIDE, TileType.ROCKY_GROUND, ABOVE, SEED);
 
         apply(context, ALWAYS, ALWAYS);
 
