@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.config.AppConfig.PlayerConfig.SpriteSheetC
 import com.feuerschvenger.perlinsedge.domain.entities.items.ItemType;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
@@ -102,6 +103,7 @@ public final class SpriteManager {
     private final Map<String, Image> decalSprites = new HashMap<>();
     private final Map<String, Image> waterSprites = new HashMap<>();
     private final Map<String, Image> faceStrips = new HashMap<>();
+    private TilePalette tilePalette;
     private List<Image> shimmerLines = List.of();
     private List<Image> slimeFrames = List.of();
 
@@ -109,6 +111,7 @@ public final class SpriteManager {
         loadTileSprites();
         loadDecalSprites();
         loadWaterSprites();
+        tilePalette = TilePalette.of(tileSprites, waterSprites.get(AssetPaths.WATER_SHEET));
         loadResourceSprites();
         loadEntitySprites();
         loadItemSprites();
@@ -327,33 +330,29 @@ public final class SpriteManager {
     // ==================================================================
 
     /**
-     * Retrieves the tile sprite for a tile of any map, choosing the variant from its coordinates.
-     *
-     * @param type the tile type
-     * @param x    the tile column
-     * @param y    the tile row
-     * @return the sprite, or null when the type has no art
-     */
-    public Image getTileSprite(TileType type, int x, int y) {
-        return getTileSprite(null, type, x, y);
-    }
-
-    /**
-     * Retrieves the tile sprite for a tile of a map type, choosing the variant from its coordinates.
+     * Retrieves the tile sprite for a tile of a map type, choosing the variant from the patch of ground of the tile, so
+     * neighbouring tiles share a variant and the variants form large patches.
      * The map type picks the biome art, for example dunes for grassy land in the desert.
      *
      * @param mapType the map type, or null for the art every map shares
-     * @param type    the tile type
-     * @param x       the tile column
-     * @param y       the tile row
+     * @param tile    the tile
      * @return the sprite, or null when the type has no art
      */
-    public Image getTileSprite(MapType mapType, TileType type, int x, int y) {
-        List<Image> variants = tileSprites.get(AssetPaths.tileArt(mapType, type));
+    public Image getTileSprite(MapType mapType, Tile tile) {
+        List<Image> variants = tileSprites.get(AssetPaths.tileArt(mapType, tile.getType()));
         if (variants == null) {
             return null;
         }
-        return variants.get(SpriteVariants.forTile(x, y, variants.size()));
+        return variants.get(SpriteVariants.forPatch(tile.getPatch(), variants.size()));
+    }
+
+    /**
+     * Retrieves the colours the minimap draws tiles in, which are the average colours of the tile sprites.
+     *
+     * @return the palette, computed once when the art was loaded
+     */
+    public TilePalette getTilePalette() {
+        return tilePalette;
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -8,16 +9,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SpriteVariantsTest {
 
     @Test
-    void aTileAlwaysGetsTheSameVariant() {
-        assertEquals(SpriteVariants.forTile(12, 40, 3), SpriteVariants.forTile(12, 40, 3));
+    void aPatchValueAlwaysGetsTheSameVariant() {
+        assertEquals(SpriteVariants.forPatch(100, 3), SpriteVariants.forPatch(100, 3));
     }
 
     @Test
-    void theVariantStaysInRange() {
-        for (int x = -5; x < 60; x++) {
-            for (int y = -5; y < 60; y++) {
-                int variant = SpriteVariants.forTile(x, y, 3);
-                assertTrue(variant >= 0 && variant < 3, "variant " + variant);
+    void thePatchRangeSplitsIntoEqualBandsOneForEachVariant() {
+        assertEquals(0, SpriteVariants.forPatch(0, 3));
+        assertEquals(0, SpriteVariants.forPatch(85, 3));
+        assertEquals(1, SpriteVariants.forPatch(86, 3));
+        assertEquals(1, SpriteVariants.forPatch(170, 3));
+        assertEquals(2, SpriteVariants.forPatch(171, 3));
+        assertEquals(2, SpriteVariants.forPatch(Tile.MAX_PATCH, 3));
+    }
+
+    @Test
+    void theVariantStaysInRangeForAnyCountAndPatch() {
+        for (int count = 1; count <= 12; count++) {
+            for (int patch = 0; patch <= Tile.MAX_PATCH; patch++) {
+                int variant = SpriteVariants.forPatch(patch, count);
+                assertTrue(variant >= 0 && variant < count, "variant " + variant + " of " + count);
             }
         }
         assertTrue(SpriteVariants.forSeed(Long.MIN_VALUE, 4) >= 0);
@@ -25,20 +36,16 @@ class SpriteVariantsTest {
     }
 
     @Test
-    void everyVariantAppearsAcrossTheMap() {
-        boolean[] seen = new boolean[3];
-        for (int x = 0; x < 20; x++) {
-            for (int y = 0; y < 20; y++) {
-                seen[SpriteVariants.forTile(x, y, 3)] = true;
-            }
+    void aHigherPatchNeverPicksALowerVariant() {
+        for (int patch = 1; patch <= Tile.MAX_PATCH; patch++) {
+            assertTrue(SpriteVariants.forPatch(patch, 3) >= SpriteVariants.forPatch(patch - 1, 3));
         }
-        assertTrue(seen[0] && seen[1] && seen[2]);
     }
 
     @Test
     void oneOrNoVariantsAlwaysAnswerZero() {
-        assertEquals(0, SpriteVariants.forTile(7, 9, 1));
-        assertEquals(0, SpriteVariants.forTile(7, 9, 0));
+        assertEquals(0, SpriteVariants.forPatch(200, 1));
+        assertEquals(0, SpriteVariants.forPatch(200, 0));
         assertEquals(0, SpriteVariants.forSeed(99L, 1));
     }
 

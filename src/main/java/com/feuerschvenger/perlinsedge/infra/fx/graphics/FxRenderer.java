@@ -514,7 +514,7 @@ public class FxRenderer {
     /** Queues a tile in view, the floor on it, and the resource and the building that stand on it. */
     private void queueVisibleTile(FrameState f, Tile tile, int x, int y, double screenX, double screenY) {
         // Tiles with art are drawn from their sprite, the others from the procedural shape
-        final Image tileSprite = tileSpriteFor(f, tile, x, y);
+        final Image tileSprite = tileSpriteFor(f, tile);
 
         // A water tile with art is drawn as its sunk bed and its sheet from the land top, the one without
         // art is a flat stand-in lowered by hand
@@ -535,9 +535,9 @@ public class FxRenderer {
     }
 
     /** Returns the sprite a tile is drawn from, null when it is drawn from the procedural shape or hidden. */
-    private Image tileSpriteFor(FrameState f, Tile tile, int x, int y) {
+    private Image tileSpriteFor(FrameState f, Tile tile) {
         if (!f.grayscaleEnabled) {
-            return spriteManager.getTileSprite(f.mapType, tile.getType(), x, y);
+            return spriteManager.getTileSprite(f.mapType, tile);
         }
         return grayscaleView ? DebugTileSprites.get(GrayscaleTiles.levelFor(tile.getHeight())) : null;
     }
@@ -645,7 +645,7 @@ public class FxRenderer {
         final double screenX = (f.mouseTileX - f.mouseTileY) * f.halfTileWidth + f.offsetX;
         final double topY = (f.mouseTileX + f.mouseTileY) * f.halfTileHeight + f.offsetY
                 + FxObjectShadows.waterDrop(tile.getType().isWater(),
-                spriteManager.getTileSprite(f.mapType, tile.getType(), f.mouseTileX, f.mouseTileY) != null,
+                spriteManager.getTileSprite(f.mapType, tile) != null,
                 f.halfTileHeight);
         renderQueue.add(screenX, topY, topY + f.halfTileHeight + GHOST_DEPTH_NUDGE, previewFor(), null, false, null);
     }
@@ -876,7 +876,7 @@ public class FxRenderer {
         final var building = shadowingBuilding(tile);
         final boolean water = tile.getType().isWater();
         final double drop = FxObjectShadows.waterDrop(water,
-                water && spriteManager.getTileSprite(f.mapType, tile.getType(), x, y) != null, f.halfTileHeight);
+                water && spriteManager.getTileSprite(f.mapType, tile) != null, f.halfTileHeight);
         Image image = null;
         var contactArt = 0;
         if (resource != null) {
@@ -948,7 +948,7 @@ public class FxRenderer {
         final double centerX = (x - y) * halfTileWidth + camera.getX();
         final double topVertexY = (x + y) * halfTileHeight + camera.getY()
                 + FxObjectShadows.waterDrop(tile.getType().isWater(),
-                spriteManager.getTileSprite(activeMapType, tile.getType(), x, y) != null, halfTileHeight);
+                spriteManager.getTileSprite(activeMapType, tile) != null, halfTileHeight);
         final double centerY = topVertexY + halfTileHeight;
         final var art = buildingSprites.imageFor(building, 0);
         final double buildingTopY = art != null

@@ -1,9 +1,13 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.TilePalette;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelFormat;
@@ -46,7 +50,12 @@ public class FxMinimapDrawer {
     private static final int ALPHA_SHIFT = 24;
     private static final int RED_SHIFT = 16;
     private static final int GREEN_SHIFT = 8;
-    private static final double MAX_CHANNEL = 255.0;
+    private static final int CHANNEL_MASK = 0xFF;
+
+    // One pixel per resource tile, over the colour of the tile; trees have none, the dark forest floor shows them
+    private static final int STONE_MARKER = 0xFFCFCFCF;
+    private static final int IRON_MARKER = 0xFFB5502E;
+    private static final int CRYSTALS_MARKER = 0xFF4FE0E8;
 
     // Configuration references
     private final AppConfig.GraphicsConfig graphicsConfig = AppConfig.getInstance().graphics();
@@ -59,6 +68,7 @@ public class FxMinimapDrawer {
 
     // State
     private TileMap map;
+    private MapType mapType;
     private double scaledTileW = BASE_TILE_WIDTH;
     private double scaledTileH = BASE_TILE_HEIGHT;
     private double offsetX;
@@ -102,14 +112,16 @@ public class FxMinimapDrawer {
      * Sets the map to display. The tile layer is cached as an image and rebuilt only when the map is a different
      * instance, so calling this every frame is cheap.
      *
-     * @param newMap The new TileMap to display
+     * @param newMap  The new TileMap to display
+     * @param newType The map type of the map, which picks the colours of its tiles
      */
-    public void updateMap(TileMap newMap) {
+    public void updateMap(TileMap newMap, MapType newType) {
         if (newMap == this.map) {
             return;
         }
 
         this.map = newMap;
+        this.mapType = newType;
         calculateScaling();
         tileLayerDirty = true;
     }
@@ -202,7 +214,10 @@ public class FxMinimapDrawer {
     private void rebuildTileLayer() {
         final int imageWidth = Math.max(1, (int) canvas.getWidth());
         final int imageHeight = Math.max(1, (int) canvas.getHeight());
-        final int[] pixels = samplePixels(map, imageWidth, imageHeight, scaledTileW, scaledTileH, offsetX, offsetY);
+        final var palette = SpriteManager.getInstance().getTilePalette();
+        final var layout = new Layout(imageWidth, imageHeight, scaledTileW, scaledTileH, offsetX, offsetY);
+        final int[] pixels = samplePixels(map, palette, mapType, layout);
+        paintMarkers(map, pixels, layout);
 
         if (tileLayer == null || (int) tileLayer.getWidth() != imageWidth || (int) tileLayer.getHeight() != imageHeight) {
             tileLayer = new WritableImage(imageWidth, imageHeight);
@@ -221,21 +236,23 @@ public class FxMinimapDrawer {
      * downscale and gives the edge of the map a partial alpha instead of a staircase.
      *
      * @param map        the map to paint
-     * @param imageWidth width of the buffer in pixels
-     * @param imageHeight height of the buffer in pixels
-     * @param tileW      half the width of a tile on the minimap
-     * @param tileH      half the height of a tile on the minimap
-     * @param offsetX    x of the top corner of tile (0, 0)
-     * @param offsetY    y of the top corner of tile (0, 0)
+     * @param palette    the colour of each tile type
+     * @param mapType    the map type, which picks the colours of the palette
+     * @param layout     the size of the buffer and where the tiles lie in it
      * @return the pixels in 0xAARRGGBB layout, transparent where the map is not
      */
-    static int[] samplePixels(TileMap map, int imageWidth, int imageHeight, double tileW, double tileH,
-                              double offsetX, double offsetY) {
+    static int[] samplePixels(TileMap map, TilePalette palette, MapType mapType, Layout layout) {
+        final int imageWidth = layout.imageWidth();
+        final int imageHeight = layout.imageHeight();
+        final double tileW = layout.tileW();
+        final double tileH = layout.tileH();
+        final double offsetX = layout.offsetX();
+        final double offsetY = layout.offsetY();
         final var pixels = new int[imageWidth * imageHeight];
         final int width = map.getWidth();
         final int height = map.getHeight();
 
-        final var samples = new Rgba[SAMPLES_PER_PIXEL];
+        final var samples = new int[SAMPLES_PER_PIXEL];
         for (var py = 0; py < imageHeight; py++) {
             for (var px = 0; px < imageWidth; px++) {
                 for (var sample = 0; sample < SAMPLES_PER_PIXEL; sample++) {
@@ -246,7 +263,7 @@ public class FxMinimapDrawer {
                     final int tileX = (int) Math.floor((compX + compY) / 2.0);
                     final int tileY = (int) Math.floor((compY - compX) / 2.0);
                     final boolean onMap = tileX >= 0 && tileY >= 0 && tileX < width && tileY < height;
-                    samples[sample] = onMap ? map.getTile(tileX, tileY).getColor() : null;
+                    samples[sample] = onMap ? palette.argb(mapType, map.getTile(tileX, tileY).getType()) : 0;
                 }
                 pixels[py * imageWidth + px] = blend(samples);
             }
@@ -255,47 +272,90 @@ public class FxMinimapDrawer {
     }
 
     /**
+     * Where the tiles lie in the pixel buffer of the tile layer.
+     *
+     * @param imageWidth  width of the buffer in pixels
+     * @param imageHeight height of the buffer in pixels
+     * @param tileW       half the width of a tile on the minimap
+     * @param tileH       half the height of a tile on the minimap
+     * @param offsetX     x of the top corner of tile (0, 0)
+     * @param offsetY     y of the top corner of tile (0, 0)
+     */
+    record Layout(int imageWidth, int imageHeight, double tileW, double tileH, double offsetX, double offsetY) {
+    }
+
+    /**
      * Averages the samples of one pixel. The colour is weighted by alpha, as a premultiplied average is, so a
      * translucent tile weighs less than an opaque one and the colour is the one the covered area really has. The alpha
      * is the sum of the alphas over all the samples of the pixel, so a pixel half off the map is half transparent and
      * keeps the exact colour of the tiles under it.
      *
-     * @param samples the colours under the pixel, null for a sample that lies off the map
+     * @param samples the colours under the pixel in 0xAARRGGBB layout, 0 for a sample that lies off the map
      * @return the average in 0xAARRGGBB layout, 0 when nothing is covered
      */
-    static int blend(Rgba[] samples) {
-        double alpha = 0;
-        double red = 0;
-        double green = 0;
-        double blue = 0;
-        for (Rgba color : samples) {
-            if (color == null) {
-                continue;
-            }
-            alpha += color.a();
-            red += color.r() * color.a();
-            green += color.g() * color.a();
-            blue += color.b() * color.a();
+    static int blend(int[] samples) {
+        long alpha = 0;
+        long red = 0;
+        long green = 0;
+        long blue = 0;
+        for (int sample : samples) {
+            final long weight = sample >>> ALPHA_SHIFT;
+            alpha += weight;
+            red += weight * ((sample >>> RED_SHIFT) & CHANNEL_MASK);
+            green += weight * ((sample >>> GREEN_SHIFT) & CHANNEL_MASK);
+            blue += weight * (sample & CHANNEL_MASK);
         }
-        if (alpha <= 0) {
+        if (alpha == 0) {
             return 0;
         }
-        return toArgb(new Rgba(red / alpha, green / alpha, blue / alpha, alpha / samples.length));
+        return (int) Math.round(alpha / (double) samples.length) << ALPHA_SHIFT
+                | (int) Math.round(red / (double) alpha) << RED_SHIFT
+                | (int) Math.round(green / (double) alpha) << GREEN_SHIFT
+                | (int) Math.round(blue / (double) alpha);
     }
 
     /**
-     * Packs a colour into the 0xAARRGGBB integer layout of a pixel buffer.
+     * Sets one pixel for every stone, iron and crystals tile, at the centre of the tile on the minimap, over the colour
+     * of the tiles. Trees have no marker. A marker is opaque, so it stays one crisp pixel whatever the scale.
      *
-     * @param color colour with components from 0.0 to 1.0
-     * @return the packed colour
+     * @param map         the map whose resources are marked
+     * @param pixels      the pixel buffer from {@link #samplePixels}, which is changed
+     * @param layout      the size of the buffer and where the tiles lie in it
      */
-    static int toArgb(Rgba color) {
-        return (channel(color.a()) << ALPHA_SHIFT) | (channel(color.r()) << RED_SHIFT)
-                | (channel(color.g()) << GREEN_SHIFT) | channel(color.b());
+    static void paintMarkers(TileMap map, int[] pixels, Layout layout) {
+        final int width = map.getWidth();
+        final int height = map.getHeight();
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                final int marker = markerOf(map.getTile(x, y));
+                if (marker != 0) {
+                    stamp(pixels, layout, x, y, marker);
+                }
+            }
+        }
     }
 
-    private static int channel(double component) {
-        return (int) Math.round(Math.clamp(component, 0.0, 1.0) * MAX_CHANNEL);
+    /** Sets the pixel under the centre of a tile, unless it lies outside the buffer. */
+    private static void stamp(int[] pixels, Layout layout, int tileX, int tileY, int marker) {
+        final int px = (int) Math.floor((tileX - tileY) * layout.tileW() + layout.offsetX());
+        final int py = (int) Math.floor((tileX + tileY + 1) * layout.tileH() + layout.offsetY());
+        if (px >= 0 && py >= 0 && px < layout.imageWidth() && py < layout.imageHeight()) {
+            pixels[py * layout.imageWidth() + px] = marker;
+        }
+    }
+
+    /** Returns the marker colour of the resource of a tile, 0 for a tile without a marked resource. */
+    private static int markerOf(Tile tile) {
+        if (!tile.hasResource()) {
+            return 0;
+        }
+        final ResourceType type = tile.getWorldResource().getType();
+        return switch (type) {
+            case STONE -> STONE_MARKER;
+            case IRON_ORE -> IRON_MARKER;
+            case CRYSTALS -> CRYSTALS_MARKER;
+            case TREE -> 0;
+        };
     }
 
     private void drawPlayerMarker() {

@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.infra.fx.utils;
 
+import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
+
 /**
  * Deterministic variant selection, so the same tile or resource always shows the same sprite without storing a choice.
  */
@@ -22,15 +24,18 @@ public final class SpriteVariants {
     private SpriteVariants() {}
 
     /**
-     * Picks a variant for a tile from its coordinates.
+     * Picks a variant for a tile from its patch value, so the variants follow the slow patches of the map instead of
+     * scattering from tile to tile. The patch range is split into equal bands, one per variant.
      *
-     * @param x     the tile column
-     * @param y     the tile row
+     * @param patch the patch value of the tile, from 0 to {@link Tile#MAX_PATCH}
      * @param count how many variants exist
      * @return an index in [0, count), or 0 when count is not above one
      */
-    public static int forTile(int x, int y, int count) {
-        return forSeed(x * COLUMN_HASH_PRIME ^ y * ROW_HASH_PRIME, count);
+    public static int forPatch(int patch, int count) {
+        if (count <= 1) {
+            return 0;
+        }
+        return Math.min(count - 1, patch * count / (Tile.MAX_PATCH + 1));
     }
 
     /**

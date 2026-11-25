@@ -11,6 +11,9 @@ import java.util.Objects;
  * Represents a game world tile with position, terrain properties, and optional resource.
  */
 public class Tile {
+    /** The largest value of {@link #getPatch()}. */
+    public static final int MAX_PATCH = 255;
+
     // Coordinate Properties (Immutable)
     @Getter
     private final int x;
@@ -23,6 +26,14 @@ public class Tile {
     private float height;
     @Getter
     private TileType type;
+
+    /**
+     * Which patch of ground the tile belongs to, from 0 to {@link #MAX_PATCH}. The value varies slowly across the map
+     * and carries no art meaning of its own: the renderer maps it onto however many looks the ground has, so the
+     * looks form large soft areas instead of scattering tile by tile.
+     */
+    @Getter
+    private int patch;
 
     // Resource Association
     private Resource resource;
@@ -53,6 +64,15 @@ public class Tile {
         this.height = 0;
         this.resource = null;
         this.building = null;
+    }
+
+    /**
+     * Sets the patch of ground the tile belongs to, which is cosmetic and does not count as a change of the map.
+     *
+     * @param patch the patch value, from 0 to {@link #MAX_PATCH}; a value outside the range is clamped into it
+     */
+    public void setPatch(int patch) {
+        this.patch = Math.clamp(patch, 0, MAX_PATCH);
     }
 
     /** @return the colour of this tile's terrain type */

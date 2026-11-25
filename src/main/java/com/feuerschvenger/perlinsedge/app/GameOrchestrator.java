@@ -169,7 +169,7 @@ public class GameOrchestrator {
         mapManager.spawnEnemies();
 
         initializeGameComponents();
-        minimapDrawer.updateMap(gameState.getCurrentMap());
+        minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
         centerOnPlayer();
         startGameLoop();
 
@@ -360,7 +360,7 @@ public class GameOrchestrator {
             AppConfig.getInstance().world().setCurrentMapType(request.type());
             playerManager.initializePlayer();
             mapManager.spawnEnemies();
-            minimapDrawer.updateMap(gameState.getCurrentMap());
+            minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
             centerOnPlayer();
             rebuilt = true;
         } catch (RuntimeException e) {
@@ -385,7 +385,7 @@ public class GameOrchestrator {
     private void repairAfterReplacedMap(MapRequest request, Throwable rebuildFailure) {
         try {
             AppConfig.getInstance().world().setCurrentMapType(request.type());
-            minimapDrawer.updateMap(gameState.getCurrentMap());
+            minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
         } catch (RuntimeException e) {
             log.error("The map type and the minimap could not be brought in step with the new map", e);
             rebuildFailure.addSuppressed(e);
@@ -507,7 +507,7 @@ public class GameOrchestrator {
                 buildingManager::getRotation);
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
         // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
-        minimapDrawer.updateMap(gameState.getCurrentMap());
+        minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
         minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());
         minimapDrawer.draw();
     }

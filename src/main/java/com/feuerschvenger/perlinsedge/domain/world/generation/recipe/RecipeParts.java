@@ -64,6 +64,7 @@ final class RecipeParts {
     /** The rock noise varies slowly, so the rocky zones it picks are blobs of some tens of tiles. */
     private static final float ROCK_FREQUENCY = 0.035F;
     private static final float CRYSTALS_FREQUENCY = 0.09F;
+    private static final float PATCH_FREQUENCY = 0.02F;
 
     /** The largest nudge of the height of a tile before the ground rule sees it, which breaks up straight borders. */
     private static final float DITHER_AMPLITUDE = 0.025F;
@@ -440,7 +441,7 @@ final class RecipeParts {
         return new SpawnPass(new SpawnParams(SPAWN_FREE_RADIUS));
     }
 
-    /** The fields every map computes, the height, the rock and the crystals, and the climate fields it asks for. */
+    /** The fields every map computes (height, rock, crystals, ground patches) and the climate fields it asks for. */
     private static EnumMap<NoiseField, NoiseSettings> fieldsOf(NoiseSettings height, Set<NoiseField> climate) {
         final var fields = new EnumMap<NoiseField, NoiseSettings>(NoiseField.class);
         fields.put(NoiseField.HEIGHT, height);
@@ -452,6 +453,7 @@ final class RecipeParts {
         }
         fields.put(NoiseField.ROCK, patchNoise(ROCK_FREQUENCY));
         fields.put(NoiseField.CRYSTALS, patchNoise(CRYSTALS_FREQUENCY));
+        fields.put(NoiseField.PATCH, patchNoise(PATCH_FREQUENCY));
         return fields;
     }
 
