@@ -71,6 +71,17 @@ class WaterBodyLimitPassTest {
     }
 
     @Test
+    void theKeepCountIsTheMostBodiesAndAMapKeepsNoneWhenEvenTheLargestIsBelowTheMinimum() {
+        final var context = grassWithBodies();
+        final var pass = new WaterBodyLimitPass(new WaterBodyParams(1, BIG + 1, TileType.GRASS));
+
+        pass.apply(context);
+
+        assertEquals(1, pass.keepCount(AREA));
+        assertEquals(AREA, TestContexts.countGround(context, TileType.GRASS));
+    }
+
+    @Test
     void aDensityOfZeroKeepsNoBody() {
         final var context = grassWithBodies();
 

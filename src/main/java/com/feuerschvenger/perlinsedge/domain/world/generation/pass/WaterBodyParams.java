@@ -7,8 +7,9 @@ import java.util.Objects;
 /**
  * How many bodies of water a map keeps. Counts are per area, so a bigger map keeps more bodies.
  *
- * @param keepPer100k  how many bodies are kept for every hundred thousand tiles of map, from 0 to 100000; a map keeps
- *                     at least one body whatever its size when this is above 0, and none when it is 0
+ * @param keepPer100k  how many bodies are kept for every hundred thousand tiles of map, from 0 to 100000; a map may
+ *                     keep at least one body whatever its size when this is above 0, and none when it is 0; it keeps
+ *                     fewer when the largest bodies are smaller than the minimum
  * @param minKeptTiles the fewest tiles a body needs to be kept, at least 1; a smaller body is always filled
  * @param fill         the land that replaces the water of a body that is not kept, which must be solid ground that is
  *                     not ice

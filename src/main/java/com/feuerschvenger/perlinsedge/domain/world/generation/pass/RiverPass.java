@@ -45,14 +45,39 @@ public final class RiverPass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Traces the rivers from random high tiles and floods a lake at the dead end of those that end low. */
     @Override
     public void apply(GenerationContext context) {
         new Flow(context).run();
+    }
+
+    /**
+     * Returns the height below which a dead end may flood a lake: the top of the lowest {@code share} of the selected
+     * tiles. A share of 0 gives {@link Float#NEGATIVE_INFINITY}, so no tile lies below it and no lake is made, and a
+     * share of 1 gives {@link Float#POSITIVE_INFINITY}, so every dead end makes one. On land with a single height no
+     * tile lies lower than another, so any share below 1 also gives {@link Float#NEGATIVE_INFINITY} instead of
+     * flooding a lake at every dead end.
+     *
+     * @param heights the height field
+     * @param isLand  the tiles the share is counted over
+     * @param share   the share of the tiles that may hold a lake, from 0 to 1
+     * @return the ceiling; a tile makes a lake only when its height is below it
+     */
+    static float lakeCeiling(float[] heights, IntPredicate isLand, double share) {
+        if (share >= 1.0) {
+            return Float.POSITIVE_INFINITY;
+        }
+        if (share <= 0.0) {
+            return Float.NEGATIVE_INFINITY;
+        }
+        final var ceiling = FieldQuantile.above(heights, isLand, 1.0 - share);
+        return Float.isInfinite(ceiling) ? Float.NEGATIVE_INFINITY : ceiling;
     }
 
     /** The state of one run: the arrays the rivers are traced over and the buffers of the river being traced. */
@@ -92,7 +117,7 @@ public final class RiverPass implements GenerationPass {
             // Both thresholds are read before the first river is carved, from the land the pass starts with
             final IntPredicate isLand = index -> context.groundAt(index).isLand();
             this.sourceThreshold = FieldQuantile.above(heights, isLand, params.sourceShare());
-            this.lakeCeiling = FieldQuantile.above(heights, isLand, 1.0 - params.lakes().maxEndpointShare());
+            this.lakeCeiling = lakeCeiling(heights, isLand, params.lakes().maxEndpointShare());
         }
 
         /** Starts a number of rivers from random high tiles, the number scaled by the density of the recipe. */
@@ -285,10 +310,10 @@ public final class RiverPass implements GenerationPass {
 
         /** Floods the low land around the end of a river, when the end lies low enough. */
         private void makeLake(int endpoint) {
-            final var lakes = params.lakes();
             if (heights[endpoint] >= lakeCeiling || !context.groundAt(endpoint).isLand()) {
                 return;
             }
+            final var lakes = params.lakes();
             final var radius = lakes.minRadius() + random.nextInt(lakes.maxRadius() - lakes.minRadius());
             final var limit = (float) ((double) heights[endpoint] + lakes.depthTolerance());
             final var x = context.xOf(endpoint);

@@ -9,8 +9,8 @@ import java.util.Objects;
 /**
  * Keeps a map to a few bodies of water. The 4-connected bodies of water, which are every water terrain except ice, are
  * labelled, and only the largest ones survive: a body that is smaller than the minimum, or that is not among the
- * largest {@code keep} bodies, is filled with land. The desert and the Mediterranean lose their ponds this way, and the
- * rivers map loses its puddles before its rivers are cut.
+ * largest {@link #keepCount(int)} bodies, is filled with land, so a map keeps at most that many bodies. The desert and
+ * the Mediterranean lose their ponds this way, and the rivers map loses its puddles before its rivers are cut.
  * <p>
  * The pass reads the ground only, draws no random numbers and creates no object per tile, so it repeats for a seed.
  */
@@ -33,11 +33,13 @@ public final class WaterBodyLimitPass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Fills with land every body of water that is too small or not among the largest ones the map may keep. */
     @Override
     public void apply(GenerationContext context) {
         final var bodies = Regions.label(context.width(), context.height(),
@@ -55,11 +57,12 @@ public final class WaterBodyLimitPass implements GenerationPass {
     }
 
     /**
-     * Returns how many bodies a map of a number of tiles keeps: the density times the area, rounded, and at least one
-     * unless the density is 0.
+     * Returns the most bodies a map of a number of tiles may keep: the density times the area, rounded, and at least
+     * one unless the density is 0. A body that is among the largest of that many but has fewer tiles than the minimum
+     * is filled all the same, so a map may keep fewer bodies than this, or none.
      *
      * @param tiles the number of tiles of the map
-     * @return the number of bodies kept
+     * @return the most bodies the map keeps
      */
     int keepCount(int tiles) {
         if (params.keepPer100k() == 0) {
@@ -68,7 +71,7 @@ public final class WaterBodyLimitPass implements GenerationPass {
         return Math.max(1, (int) Math.round((double) tiles * params.keepPer100k() / DENSITY_AREA_TILES));
     }
 
-    /** Marks, by label, the largest bodies that reach the minimum size, as many as the map keeps. */
+    /** Marks, by label, the largest bodies that reach the minimum size, at most as many as the map may keep. */
     private boolean[] keptBodies(Regions bodies, int keep) {
         final var kept = new boolean[bodies.count() + 1];
         final var bySize = new long[bodies.count()];

@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.function.IntPredicate;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -167,6 +168,25 @@ class RiverPassTest {
 
         assertTrue(TestContexts.countGround(context, TileType.ICE) > 0);
         assertEquals(0, TestContexts.countGround(context, TileType.SHALLOW_WATER));
+    }
+
+    @Test
+    void theLakeCeilingLeavesNoLakeOnFlatLandAndWhenTheShareIsZeroAndAnyEndForAShareOfOne() {
+        final IntPredicate everyTile = index -> true;
+        final var flat = new float[] {FLAT, FLAT, FLAT, FLAT};
+        final var slope = new float[] {0F, 1F, 2F, 3F};
+
+        assertEquals(Float.NEGATIVE_INFINITY, RiverPass.lakeCeiling(flat, everyTile, LAKE_SHARE));
+        assertEquals(Float.NEGATIVE_INFINITY, RiverPass.lakeCeiling(flat, everyTile, 0.0));
+        assertEquals(Float.NEGATIVE_INFINITY, RiverPass.lakeCeiling(slope, everyTile, 0.0));
+        assertEquals(Float.POSITIVE_INFINITY, RiverPass.lakeCeiling(flat, everyTile, 1.0));
+        assertEquals(Float.POSITIVE_INFINITY, RiverPass.lakeCeiling(slope, everyTile, 1.0));
+        final var half = RiverPass.lakeCeiling(slope, everyTile, 0.5);
+        var below = 0;
+        for (var height : slope) {
+            below += height < half ? 1 : 0;
+        }
+        assertEquals(2, below, "the lowest half of the land lies under the ceiling " + half);
     }
 
     @Test
