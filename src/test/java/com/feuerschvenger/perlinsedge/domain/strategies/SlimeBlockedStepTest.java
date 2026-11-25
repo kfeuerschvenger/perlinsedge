@@ -3,7 +3,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -20,7 +21,7 @@ class SlimeBlockedStepTest {
     /** A corridor one tile wide, a chasing slime at its start, a motionless skeleton right ahead and the player far on. */
     private static final class Corridor {
         final TileMap map = new TileMap(30, 1);
-        final EnemyOccupancy occupancy = new EnemyOccupancy();
+        final CreatureOccupancy occupancy = new CreatureOccupancy();
         final Slime slime = new Slime(5, 0);
         final Skeleton blocker = new Skeleton(6, 0);
         final Player player = new Player(13, 0);
@@ -38,7 +39,7 @@ class SlimeBlockedStepTest {
         void run(double seconds) {
             for (int i = 0; i < Math.round(seconds / STEP); i++) {
                 player.heal(1_000);
-                slime.update(STEP, map, player, occupancy);
+                slime.update(STEP, new CreatureContext(map, player, occupancy));
             }
         }
     }

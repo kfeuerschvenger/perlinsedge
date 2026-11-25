@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
@@ -128,14 +130,23 @@ public class Slime extends Enemy {
     /**
      * A hit makes the slime chase the attacker even from outside its aggro range.
      *
-     * @param amount Damage amount to apply
+     * @param source who dealt the damage, or null when the source is not known
      */
     @Override
-    public void takeDamage(double amount) {
-        if (!isDead && getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement) {
+    protected void onHurt(Entity source) {
+        if (getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement) {
             slimeMovement.alert();
         }
-        super.takeDamage(amount);
+    }
+
+    /**
+     * Gives the species of a slime.
+     *
+     * @return {@link Species#SLIME}
+     */
+    @Override
+    public Species species() {
+        return Species.SLIME;
     }
 
     // ==================================================================

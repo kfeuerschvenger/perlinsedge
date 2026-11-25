@@ -56,13 +56,13 @@ class EnemyTilesTest {
     @Test
     void settingTheEnemiesHoldsTheirTilesAndForgetsTheOldOnes() {
         final Slime old = new Slime(9, 9);
-        state.setEnemies(List.of(old));
+        state.setCreatures(List.of(old));
         final Slime fresh = new Slime(3, 3);
 
-        state.setEnemies(List.of(fresh));
+        state.setCreatures(List.of(fresh));
 
-        assertSame(fresh, state.getEnemyOccupancy().ownerOf(3, 3));
-        assertNull(state.getEnemyOccupancy().ownerOf(9, 9));
+        assertSame(fresh, state.getCreatureOccupancy().ownerOf(3, 3));
+        assertNull(state.getCreatureOccupancy().ownerOf(9, 9));
     }
 
     @Test
@@ -73,12 +73,12 @@ class EnemyTilesTest {
         }
         crowd.add(new Skeleton(20, 20));
         crowd.add(new Skeleton(20, 22));
-        state.setEnemies(crowd);
+        state.setCreatures(crowd);
         player.setPosition(10, 10);
 
         for (int tick = 0; tick < 60 * 20; tick++) {
             player.heal(1_000);
-            combat.updateEnemies(STEP);
+            combat.updateCreatures(STEP);
             final Set<String> tiles = new HashSet<>();
             for (Enemy enemy : crowd) {
                 assertTrue(tiles.add(enemy.getCurrentTileX() + "," + enemy.getCurrentTileY()),
@@ -90,32 +90,32 @@ class EnemyTilesTest {
     @Test
     void anEnemyKilledByASwingReleasesItsTilesAtOnce() {
         final Slime slime = new Slime(1, 5);
-        state.setEnemies(List.of(slime));
+        state.setCreatures(List.of(slime));
         slime.takeDamage(slime.getHealth() - 1);
 
         assertEquals(CombatManager.Strike.HIT, combat.strikeEnemy(slime));
 
         assertTrue(slime.isDead());
-        assertNull(state.getEnemyOccupancy().ownerOf(1, 5));
-        assertEquals(0, state.getEnemyOccupancy().heldTileCount());
+        assertNull(state.getCreatureOccupancy().ownerOf(1, 5));
+        assertEquals(0, state.getCreatureOccupancy().heldTileCount());
     }
 
     @Test
     void aTileOfAnEnemyThatDiedOtherwiseIsReleasedOnTheNextUpdate() {
         final Slime slime = new Slime(15, 15);
-        state.setEnemies(List.of(slime));
+        state.setCreatures(List.of(slime));
         slime.takeDamage(1_000);
 
-        combat.updateEnemies(STEP);
+        combat.updateCreatures(STEP);
 
-        assertEquals(0, state.getEnemyOccupancy().heldTileCount());
+        assertEquals(0, state.getCreatureOccupancy().heldTileCount());
     }
 
     @Test
     void aClickOnATileHitsTheOneEnemyOnIt() {
         final Slime near = new Slime(1, 5);
         final Slime beyond = new Slime(2, 5);
-        state.setEnemies(List.of(beyond, near));
+        state.setCreatures(List.of(beyond, near));
         final double beyondHealth = beyond.getHealth();
 
         assertTrue(interactions.interact(1, 5).isAccepted());
@@ -131,7 +131,7 @@ class EnemyTilesTest {
         hopping.setPosX(1.4);
         hopping.setPosY(5.0);
         final Slime standing = new Slime(1, 5);
-        state.setEnemies(List.of(hopping, standing));
+        state.setCreatures(List.of(hopping, standing));
         final double hoppingHealth = hopping.getHealth();
 
         assertTrue(interactions.interact(1, 5).isAccepted());

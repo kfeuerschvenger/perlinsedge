@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
@@ -60,14 +62,23 @@ public class Mimic extends Enemy {
      * A hit wakes the mimic even from outside its activation range, and every hit renews the alert so a mimic that
      * keeps being hurt from afar keeps chasing.
      *
-     * @param amount Damage amount to apply
+     * @param source who dealt the damage, or null when the source is not known
      */
     @Override
-    public void takeDamage(double amount) {
-        if (!isDead && getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
+    protected void onHurt(Entity source) {
+        if (getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
             mimicMovement.setAggroed(true);
         }
-        super.takeDamage(amount);
+    }
+
+    /**
+     * Gives the species of a mimic.
+     *
+     * @return {@link Species#MIMIC}
+     */
+    @Override
+    public Species species() {
+        return Species.MIMIC;
     }
 
 }

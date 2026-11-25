@@ -6,7 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
@@ -684,22 +684,22 @@ public class FxRenderer {
         }
     }
 
-    /** Adds the enemies that are alive to the render queue, and their shadows to the dynamic list. */
+    /** Adds the creatures that are alive to the render queue, and their shadows to the dynamic list. */
     private void queueEnemies(FrameState f, double alpha) {
-        final var enemies = gameState.getEnemies();
-        if (enemies == null) {
+        final var creatures = gameState.getCreatures();
+        if (creatures == null) {
             return;
         }
-        for (int i = 0, count = enemies.size(); i < count; i++) {
-            final var enemy = enemies.get(i);
-            if (!enemy.isDead()) {
-                queueEnemy(f, enemy, alpha);
+        for (int i = 0, count = creatures.size(); i < count; i++) {
+            final var creature = creatures.get(i);
+            if (!creature.isDead()) {
+                queueEnemy(f, creature, alpha);
             }
         }
     }
 
-    /** Adds one enemy to the render queue, and its shadow to the dynamic list when it reaches into the view. */
-    private void queueEnemy(FrameState f, Enemy enemy, double alpha) {
+    /** Adds one creature to the render queue, and its shadow to the dynamic list when it reaches into the view. */
+    private void queueEnemy(FrameState f, Creature enemy, double alpha) {
         final double enemyInterpX = enemy.getInterpolatedX(alpha);
         final double enemyInterpY = enemy.getInterpolatedY(alpha);
 

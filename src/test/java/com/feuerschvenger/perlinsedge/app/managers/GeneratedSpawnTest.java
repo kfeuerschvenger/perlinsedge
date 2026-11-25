@@ -63,7 +63,7 @@ class GeneratedSpawnTest {
     private void placeEnemyAt(int x, int y) {
         final List<Enemy> enemies = new ArrayList<>();
         enemies.add(new Slime(x, y));
-        state.setEnemies(enemies);
+        state.setCreatures(enemies);
     }
 
     @Test

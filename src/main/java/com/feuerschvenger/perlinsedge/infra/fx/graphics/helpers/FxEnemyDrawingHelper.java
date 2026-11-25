@@ -1,9 +1,9 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.CreatureMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
@@ -175,7 +175,7 @@ public final class FxEnemyDrawingHelper {
 
     /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */
     private static SlimeMovementStrategy movementOf(Slime slime) {
-        final EnemyMovementStrategy movementStrategy = slime.getMovementStrategy();
+        final CreatureMovementStrategy movementStrategy = slime.getMovementStrategy();
         return movementStrategy instanceof SlimeMovementStrategy move ? move : null;
     }
 
@@ -216,9 +216,10 @@ public final class FxEnemyDrawingHelper {
      * @param screenX Screen X coordinate for drawing.
      * @param screenY Screen Y coordinate for drawing.
      * @param zoom Current zoom factor.
-     * @param enemy The Enemy entity to draw.
+     * @param enemy The creature to draw.
      */
-    public static void drawGenericEnemy(GraphicsContext gc, double screenX, double screenY, double zoom, Enemy enemy) {
+    public static void drawGenericEnemy(GraphicsContext gc, double screenX, double screenY, double zoom,
+                                        Creature enemy) {
         double size = GENERIC_ENEMY_SIZE * zoom;
         gc.setFill(FxColors.toFx(enemy.getColor()));
         gc.setStroke(Color.BLACK);

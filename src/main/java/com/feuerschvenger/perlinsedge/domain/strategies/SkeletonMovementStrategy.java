@@ -2,8 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -12,7 +12,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
  * to them, diagonals included. It gives up when the player passes the leash range or stays out of the aggro range
  * for the lose time, and then stands still again. See {@link WalkingChaser} for the walk.
  */
-public class SkeletonMovementStrategy implements EnemyMovementStrategy {
+public class SkeletonMovementStrategy implements CreatureMovementStrategy {
 
     private static final double MOVE_SPEED = 2.5; // Tiles per second
 
@@ -28,8 +28,9 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
     }
 
     @Override
-    public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
-        chaser.update(enemy, deltaTime, map, player, occupancy);
+    public void updateMovement(Creature creature, double deltaTime, TileMap map, Player player,
+                               CreatureOccupancy occupancy) {
+        chaser.update(creature, deltaTime, map, player, occupancy);
     }
 
     /** Starts a chase that holds for the lose time whatever the distance, for a skeleton hurt from beyond its range. */

@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FrameStats;
@@ -107,7 +107,7 @@ public final class FxDebugDrawingHelper {
         }
 
         yPos += LINE_HEIGHT;
-        List<Enemy> enemies = gameState.getEnemies();
+        List<Creature> enemies = gameState.getCreatures();
         gc.fillText(String.format("Enemies: %d", (enemies != null ? enemies.size() : 0)), xPos, yPos);
 
         yPos += LINE_HEIGHT;

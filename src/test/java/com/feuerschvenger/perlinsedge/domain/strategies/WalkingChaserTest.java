@@ -3,7 +3,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
@@ -25,7 +26,7 @@ class WalkingChaserTest {
     private static final double STEP = 1.0 / 60.0;
 
     /** Shared by every update of a test, as in the game, where one occupancy lives as long as the map. */
-    private final EnemyOccupancy occupancy = new EnemyOccupancy();
+    private final CreatureOccupancy occupancy = new CreatureOccupancy();
 
     private static TileMap grass(int width, int height) {
         TileMap map = new TileMap(width, height);
@@ -39,7 +40,7 @@ class WalkingChaserTest {
 
     private void run(Skeleton enemy, TileMap map, Player player, double seconds) {
         for (int i = 0; i < Math.round(seconds / STEP); i++) {
-            enemy.update(STEP, map, player, occupancy);
+            enemy.update(STEP, new CreatureContext(map, player, occupancy));
         }
     }
 
@@ -58,14 +59,14 @@ class WalkingChaserTest {
         assertEquals(6, skeleton.getTargetTileX(), "precondition: walking to the tile that gets blocked");
 
         map.getTile(6, 5).setWorldResource(new Resource(ResourceType.STONE, 1));
-        skeleton.update(STEP, map, player, occupancy);
+        skeleton.update(STEP, new CreatureContext(map, player, occupancy));
 
         assertFalse(OccupiedTiles.of(List.of(skeleton)).contains(new PathNode(6, 5)),
                 "the blocked tile is no longer reported as the one it steps to");
 
         boolean wasOnATileCentre = false;
         for (int i = 0; i < 60 * 5; i++) {
-            skeleton.update(STEP, map, player, occupancy);
+            skeleton.update(STEP, new CreatureContext(map, player, occupancy));
             assertFalse(Math.round(skeleton.getPosX()) == 6 && Math.round(skeleton.getPosY()) == 5,
                     "drawn over the blocked tile");
             wasOnATileCentre |= skeleton.getPosX() == skeleton.getCurrentTileX()
@@ -95,7 +96,7 @@ class WalkingChaserTest {
         assertTrue(player.walkAlong(List.of(new PathNode(9, 10))), "precondition: the player steps toward the enemy");
 
         for (int i = 0; i < 60; i++) {
-            skeleton.update(STEP, map, player, occupancy);
+            skeleton.update(STEP, new CreatureContext(map, player, occupancy));
             assertEquals(8.0, skeleton.getPosX(), 1e-9, "stepped toward the player's tile at update " + i);
             assertEquals(8, skeleton.getTargetTileX());
         }
@@ -133,7 +134,7 @@ class WalkingChaserTest {
     /** A corridor one tile wide, a chasing skeleton at its start, a motionless slime right ahead of it and the player far on. */
     private static final class Corridor {
         final TileMap map = grass(30, 1);
-        final EnemyOccupancy occupancy = new EnemyOccupancy();
+        final CreatureOccupancy occupancy = new CreatureOccupancy();
         final Skeleton skeleton = new Skeleton(5, 0);
         final Slime blocker = new Slime(6, 0);
         final Player player = new Player(13, 0);
@@ -148,14 +149,14 @@ class WalkingChaserTest {
         void run(double seconds) {
             for (int i = 0; i < Math.round(seconds / STEP); i++) {
                 player.heal(1_000);
-                skeleton.update(STEP, map, player, occupancy);
+                skeleton.update(STEP, new CreatureContext(map, player, occupancy));
             }
         }
 
         void runTicks(int ticks) {
             for (int i = 0; i < ticks; i++) {
                 player.heal(1_000);
-                skeleton.update(STEP, map, player, occupancy);
+                skeleton.update(STEP, new CreatureContext(map, player, occupancy));
             }
         }
     }

@@ -17,9 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** An enemy holds the tile it stands on and the tile it moves to, and no other enemy may take either. */
-class EnemyOccupancyTest {
+class CreatureOccupancyTest {
 
-    private final EnemyOccupancy occupancy = new EnemyOccupancy();
+    private final CreatureOccupancy occupancy = new CreatureOccupancy();
 
     @Test
     void anEnemyHoldsTheTileItStandsOnAndNoOtherEnemyMayTakeIt() {

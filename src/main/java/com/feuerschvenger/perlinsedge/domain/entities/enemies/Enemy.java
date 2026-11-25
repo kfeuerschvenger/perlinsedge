@@ -1,206 +1,38 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
-import com.feuerschvenger.perlinsedge.domain.entities.Entity;
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
-import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
-import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
-import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
-import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.strategies.CreatureAttackStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.CreatureMovementStrategy;
 
 /**
- * Abstract base class for all enemy entities in the game.
- * Implements the Strategy pattern for customizable movement and attack behaviors.
- * Manages core enemy state including combat cooldowns and visual representation.
+ * The branch of hostile creatures: the monsters. It adds nothing to {@link Creature} but the answer to whether the
+ * creature is hostile, so code that means "monster" keeps asking for an enemy.
  */
-public abstract class Enemy extends Entity {
-    // ==================================================================
-    //  Configuration Defaults
-    // ==================================================================
-    private static final Rgba DEFAULT_ENEMY_COLOR = Rgba.MAGENTA;
-
-    // ==================================================================
-    //  Instance Properties
-    // ==================================================================
-    protected Rgba color;
-    protected double attackDamage;
-    protected double attackCooldown;
-    protected double attackTimer;
-    protected final EnemyMovementStrategy movementStrategy;
-    protected final EnemyAttackStrategy attackStrategy;
-
-    // ==================================================================
-    //  Constructor
-    // ==================================================================
+public abstract class Enemy extends Creature {
 
     /**
      * Creates a new enemy instance.
      *
-     * @param startX            Initial x-coordinate (tile position)
-     * @param startY            Initial y-coordinate (tile position)
-     * @param maxHealth         Maximum health points
-     * @param attackDamage      Base damage per attack
-     * @param attackCooldown    Time between attacks (seconds)
-     * @param movementStrategy  Movement behavior implementation
-     * @param attackStrategy    Attack behavior implementation
+     * @param startX           initial x-coordinate (tile position)
+     * @param startY           initial y-coordinate (tile position)
+     * @param maxHealth        maximum health points
+     * @param attackDamage     base damage per attack
+     * @param attackCooldown   time between attacks (seconds)
+     * @param movementStrategy movement behavior implementation
+     * @param attackStrategy   attack behavior implementation
      */
-    protected Enemy(int startX, int startY, double maxHealth,
-                 double attackDamage, double attackCooldown,
-                 EnemyMovementStrategy movementStrategy,
-                 EnemyAttackStrategy attackStrategy) {
-        super(startX, startY, maxHealth);
-        this.attackDamage = attackDamage;
-        this.attackCooldown = attackCooldown;
-        this.attackTimer = 0.0;
-        this.movementStrategy = movementStrategy;
-        this.attackStrategy = attackStrategy;
-        this.color = DEFAULT_ENEMY_COLOR;
+    protected Enemy(int startX, int startY, double maxHealth, double attackDamage, double attackCooldown,
+                    CreatureMovementStrategy movementStrategy, CreatureAttackStrategy attackStrategy) {
+        super(startX, startY, maxHealth, attackDamage, attackCooldown, movementStrategy, attackStrategy);
     }
 
-    // ==================================================================
-    //  Core Game Loop Methods
-    // ==================================================================
-
     /**
-     * Updates the enemy among the others: it moves only to tiles no other enemy holds, and the occupancy is brought
-     * in line with its tiles before and after the move. This is the single update of every enemy and it is final, so
-     * subclasses add behaviour through {@link #afterUpdate(Player)} and every enemy runs in the same order: cooldown,
-     * movement, attack, hook.
+     * Enemies are hostile.
      *
-     * @param deltaTime Time since last update (seconds)
-     * @param map       Current game map
-     * @param player    Player instance
-     * @param occupancy Which enemy holds which tile, shared by every enemy of the map
+     * @return always true
      */
-    public final void update(double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
-        updateAttackCooldown(deltaTime);
-        occupancy.sync(this);
-        movementStrategy.updateMovement(this, deltaTime, map, player, occupancy);
-        occupancy.sync(this);
-        attackStrategy.updateAttack(this, deltaTime, player);
-        afterUpdate(player);
+    @Override
+    public boolean isHostile() {
+        return true;
     }
-
-    /**
-     * Hook that runs at the end of every update, after the movement and the attack. It does nothing by default.
-     *
-     * @param player Player instance
-     */
-    protected void afterUpdate(Player player) {
-        // No behaviour beyond the strategies by default
-    }
-
-    // ==================================================================
-    //  Combat Management
-    // ==================================================================
-
-    /**
-     * Determines if this enemy can currently attack the player.
-     *
-     * @param player Player instance to evaluate
-     * @return True if attack conditions are satisfied
-     */
-    public boolean canAttack(Player player) {
-        return attackStrategy.canAttack(this, player);
-    }
-
-    /**
-     * Updates the attack cooldown timer.
-     *
-     * @param deltaTime Time since last update (seconds)
-     */
-    public void updateAttackCooldown(double deltaTime) {
-        attackTimer = Math.max(0, attackTimer - deltaTime);
-    }
-
-    /**
-     * Checks if attack cooldown has expired.
-     *
-     * @return True if enemy can perform an attack
-     */
-    public boolean isReadyToAttack() {
-        return attackTimer <= 0;
-    }
-
-    /**
-     * Resets attack cooldown to maximum value.
-     */
-    public void resetAttackCooldown() {
-        attackTimer = attackCooldown;
-    }
-
-    // ==================================================================
-    //  Accessors
-    // ==================================================================
-
-    /** @return Visual representation color */
-    public Rgba getColor() {
-        return color;
-    }
-
-    /** @return Base damage per attack */
-    public double getAttackDamage() {
-        return attackDamage;
-    }
-
-    /** @return Time between attacks (seconds) */
-    public double getAttackCooldown() {
-        return attackCooldown;
-    }
-
-    /** @return Remaining attack cooldown time (seconds) */
-    public double getAttackTimer() {
-        return attackTimer;
-    }
-
-    /** @return Configured movement strategy */
-    public EnemyMovementStrategy getMovementStrategy() {
-        return movementStrategy;
-    }
-
-    /** @return Configured attack strategy */
-    public EnemyAttackStrategy getAttackStrategy() {
-        return attackStrategy;
-    }
-
-    // ==================================================================
-    //  Mutators
-    // ==================================================================
-
-    /**
-     * Sets the visual representation color.
-     *
-     * @param color New color value
-     */
-    public final void setColor(Rgba color) {
-        this.color = color;
-    }
-
-    /**
-     * Sets base damage per attack.
-     *
-     * @param attackDamage New damage value
-     */
-    public void setAttackDamage(double attackDamage) {
-        this.attackDamage = attackDamage;
-    }
-
-    /**
-     * Sets time between attacks.
-     *
-     * @param attackCooldown New cooldown duration (seconds)
-     */
-    public void setAttackCooldown(double attackCooldown) {
-        this.attackCooldown = attackCooldown;
-    }
-
-    /**
-     * Directly sets attack cooldown timer.
-     *
-     * @param attackTimer New cooldown value (seconds)
-     */
-    protected void setAttackTimer(double attackTimer) {
-        this.attackTimer = attackTimer;
-    }
-
 }

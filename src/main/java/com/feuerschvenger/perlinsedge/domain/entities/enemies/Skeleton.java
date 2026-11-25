@@ -1,15 +1,18 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
-import com.feuerschvenger.perlinsedge.domain.strategies.EnemyAttackStrategy;
-import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
+import com.feuerschvenger.perlinsedge.domain.strategies.CreatureAttackStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.CreatureMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
 import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
- * Represents a Skeleton enemy with ranged attack capabilities.
- * Skeletons can shoot arrows at players from a distance, implementing unique combat behavior.
+ * Represents a Skeleton enemy that fights in melee. A skeleton stands still until the player comes within its aggro
+ * range or hurts it, then walks to the player and strikes from within
+ * {@link SkeletonAttackStrategy#ATTACK_RANGE_TILES}. It shoots no arrows.
  */
 public class Skeleton extends Enemy {
     // ==================================================================
@@ -43,8 +46,8 @@ public class Skeleton extends Enemy {
      * @param attackStrategy    Custom attack behavior implementation
      */
     public Skeleton(int startX, int startY,
-                    EnemyMovementStrategy movementStrategy,
-                    EnemyAttackStrategy attackStrategy) {
+                    CreatureMovementStrategy movementStrategy,
+                    CreatureAttackStrategy attackStrategy) {
         this(startX, startY, MAX_HEALTH, ATTACK_DAMAGE,
                 ATTACK_COOLDOWN, movementStrategy, attackStrategy);
     }
@@ -61,7 +64,7 @@ public class Skeleton extends Enemy {
      * @param attackStrategy    Attack behavior implementation
      */
     public Skeleton(int startX, int startY, double maxHealth, double attackDamage, double attackCooldown,
-                    EnemyMovementStrategy movementStrategy, EnemyAttackStrategy attackStrategy) {
+                    CreatureMovementStrategy movementStrategy, CreatureAttackStrategy attackStrategy) {
         super(startX, startY, maxHealth, attackDamage, attackCooldown, movementStrategy, attackStrategy);
         setColor(BONE_COLOR);
     }
@@ -74,14 +77,23 @@ public class Skeleton extends Enemy {
      * A hit makes the skeleton chase the attacker even from outside its aggro range. A skeleton built with another
      * movement strategy has no chase to start and only takes the damage.
      *
-     * @param amount Damage amount to apply
+     * @param source who dealt the damage, or null when the source is not known
      */
     @Override
-    public void takeDamage(double amount) {
-        if (!isDead && getMovementStrategy() instanceof SkeletonMovementStrategy skeletonMovement) {
+    protected void onHurt(Entity source) {
+        if (getMovementStrategy() instanceof SkeletonMovementStrategy skeletonMovement) {
             skeletonMovement.alert();
         }
-        super.takeDamage(amount);
+    }
+
+    /**
+     * Gives the species of a skeleton.
+     *
+     * @return {@link Species#SKELETON}
+     */
+    @Override
+    public Species species() {
+        return Species.SKELETON;
     }
 
     // ==================================================================

@@ -4,7 +4,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -36,7 +37,7 @@ class EnemyCrowdTest {
         final TileMap map;
         final Player player;
         final List<Enemy> enemies = new ArrayList<>();
-        final EnemyOccupancy occupancy = new EnemyOccupancy();
+        final CreatureOccupancy occupancy = new CreatureOccupancy();
 
         Scene(TileMap map, int playerX, int playerY) {
             this.map = map;
@@ -58,7 +59,7 @@ class EnemyCrowdTest {
             for (int tick = 0; tick < Math.round(seconds / STEP); tick++) {
                 player.heal(1_000);
                 for (Enemy enemy : enemies) {
-                    enemy.update(STEP, map, player, occupancy);
+                    enemy.update(STEP, new CreatureContext(map, player, occupancy));
                 }
                 assertNoSharedTile(tick);
             }
@@ -299,13 +300,13 @@ class EnemyCrowdTest {
         final Slime[] slimes = {new Slime(10, 10), new Slime(10, 30)};
         final Player[] players = {new Player(20, 10), new Player(20, 30)};
         for (int i = 0; i < 2; i++) {
-            final EnemyOccupancy occupancy = new EnemyOccupancy();
+            final CreatureOccupancy occupancy = new CreatureOccupancy();
             ((SlimeMovementStrategy) slimes[i].getMovementStrategy()).alert();
             final SlimeMovementStrategy movement = (SlimeMovementStrategy) slimes[i].getMovementStrategy();
             int takeOffs = 0;
             boolean wasJumping = false;
             for (int tick = 0; tick < 600 && takeOffs < 2; tick++) {
-                slimes[i].update(STEP, map, players[i], occupancy);
+                slimes[i].update(STEP, new CreatureContext(map, players[i], occupancy));
                 if (movement.isJumping() && !wasJumping) {
                     takeOffs++;
                     takeOffTick[i] = tick;

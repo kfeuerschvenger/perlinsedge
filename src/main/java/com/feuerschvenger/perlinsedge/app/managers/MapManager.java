@@ -1,11 +1,10 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureFactory;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
@@ -41,8 +40,10 @@ public class MapManager {
     // Dependencies
     private final GameStateManager gameState;
     private final MapGenerator mapGenerator;
-    /** Draws the candidate tiles of the enemy spawn search. */
+    /** Draws the candidate tiles of the creature spawn search. */
     private final Random random = new Random();
+    /** Builds the creatures that are spawned. */
+    private final CreatureFactory creatureFactory = new CreatureFactory();
 
     // State
     @Getter
@@ -100,66 +101,50 @@ public class MapManager {
         gameState.setCurrentMap(newMap);
         gameState.setWorldSeed(seed);
         gameState.setDroppedItems(new ArrayList<>());
-        gameState.setEnemies(new ArrayList<>());
+        gameState.setCreatures(new ArrayList<>());
         gameState.getResourceHitTimes().clear();
         gameState.getDamageNumbers().clear();
     }
 
     /**
-     * Spawns enemies based on configuration settings.
+     * Spawns the monsters based on configuration settings.
      * Ensures safe positioning relative to player.
      */
-    public void spawnEnemies() {
-        List<Enemy> enemies = new ArrayList<>();
+    public void spawnCreatures() {
+        List<Creature> creatures = new ArrayList<>();
         TileMap map = gameState.getCurrentMap();
 
         int[] playerPosition = getPlayerPosition();
-        // Every enemy takes a tile of its own: a tile held by one already spawned is never picked again
-        final var taken = new EnemyOccupancy();
+        // Every creature takes a tile of its own: a tile held by one already spawned is never picked again
+        final var taken = new CreatureOccupancy();
         final var world = AppConfig.getInstance().world();
         final int width = map.getWidth();
         final int height = map.getHeight();
-        spawnEnemyType(enemies, Slime.class, world.getSlimesCount(width, height), playerPosition, map, taken);
-        spawnEnemyType(enemies, Mimic.class, world.getMimicsCount(width, height), playerPosition, map, taken);
-        spawnEnemyType(enemies, Skeleton.class, world.getSkeletonsCount(width, height), playerPosition, map, taken);
+        spawnSpecies(creatures, Species.SLIME, world.getSlimesCount(width, height), playerPosition, map, taken);
+        spawnSpecies(creatures, Species.MIMIC, world.getMimicsCount(width, height), playerPosition, map, taken);
+        spawnSpecies(creatures, Species.SKELETON, world.getSkeletonsCount(width, height), playerPosition, map, taken);
 
-        gameState.setEnemies(enemies);
-        logSpawnSummary(enemies.size());
+        gameState.setCreatures(creatures);
+        logSpawnSummary(creatures.size());
     }
 
     /**
-     * Spawns multiple enemies of a specific type.
+     * Spawns multiple creatures of a species, built by the factory.
      */
-    private void spawnEnemyType(List<Enemy> enemies, Class<? extends Enemy> type, int count,
-                                int[] playerPosition, TileMap map, EnemyOccupancy taken) {
-        logSpawnAttempt(type.getSimpleName(), count);
+    private void spawnSpecies(List<Creature> creatures, Species species, int count,
+                              int[] playerPosition, TileMap map, CreatureOccupancy taken) {
+        logSpawnAttempt(species.name(), count);
 
         for (var i = 0; i < count; i++) {
             int[] position = findSafePosition(playerPosition, map, taken);
             if (position.length > 0) {
-                final var enemy = createEnemy(type, position[0], position[1]);
-                taken.sync(enemy);
-                enemies.add(enemy);
+                final var creature = creatureFactory.create(species, position[0], position[1]);
+                taken.sync(creature);
+                creatures.add(creature);
             } else {
-                logSpawnFailure(type.getSimpleName(), i);
+                logSpawnFailure(species.name(), i);
             }
         }
-    }
-
-    /**
-     * Creates an enemy instance based on type.
-     */
-    private static Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
-        if (type == Slime.class) {
-            return new Slime(x, y);
-        }
-        if (type == Mimic.class) {
-            return new Mimic(x, y);
-        }
-        if (type == Skeleton.class) {
-            return new Skeleton(x, y);
-        }
-        throw new IllegalArgumentException("Unsupported enemy type: " + type);
     }
 
     /**
@@ -171,7 +156,7 @@ public class MapManager {
      *
      * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
-    private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
+    private int[] findSafePosition(int[] playerPosition, TileMap map, CreatureOccupancy taken) {
         final var world = AppConfig.getInstance().world();
         final int maxAttempts = world.getMaxPositioningAttempts();
         final int safeRadius = world.getStartSafeRadius(map.getWidth(), map.getHeight());

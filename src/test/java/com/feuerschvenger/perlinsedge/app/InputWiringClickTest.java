@@ -125,7 +125,7 @@ class InputWiringClickTest {
     @Test
     void aLeftClickOnASlimeInReachAttacksItAndFlashesGreen() {
         final Slime slime = new Slime(3, 2);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
 
         click(3, 2, MouseButton.PRIMARY);
 
@@ -135,7 +135,7 @@ class InputWiringClickTest {
 
     @Test
     void aLeftClickOnAFarSlimeFlashesGreenAndWalksToIt() {
-        state.getEnemies().add(new Slime(7, 2));
+        state.getCreatures().add(new Slime(7, 2));
 
         click(7, 2, MouseButton.PRIMARY);
 
@@ -146,7 +146,7 @@ class InputWiringClickTest {
 
     @Test
     void aRightClickOnASlimeFlashesRedAndDoesNotWalk() {
-        state.getEnemies().add(new Slime(7, 2));
+        state.getCreatures().add(new Slime(7, 2));
 
         click(7, 2, MouseButton.SECONDARY);
 
@@ -156,7 +156,7 @@ class InputWiringClickTest {
 
     @Test
     void aRightClickCancelsThePendingAttack() {
-        state.getEnemies().add(new Slime(7, 2));
+        state.getCreatures().add(new Slime(7, 2));
         click(7, 2, MouseButton.PRIMARY);
 
         click(2, 6, MouseButton.SECONDARY);

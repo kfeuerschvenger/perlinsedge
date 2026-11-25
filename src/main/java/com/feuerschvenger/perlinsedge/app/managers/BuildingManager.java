@@ -551,7 +551,7 @@ public class BuildingManager {
                 return true;
             }
         }
-        for (var enemy : gameState.getEnemies()) {
+        for (var enemy : gameState.getCreatures()) {
             if (!enemy.isDead() && holds(enemy, tileX, tileY)) {
                 return true;
             }

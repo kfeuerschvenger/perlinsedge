@@ -2,8 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig.EnemyConfig.ChaseRange;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
@@ -52,7 +52,7 @@ final class WalkingChaser {
     private int plannedPlayerY = Integer.MIN_VALUE;
     private final Random random;
     /** Which enemy holds which tile, set on every update. */
-    private EnemyOccupancy occupancy;
+    private CreatureOccupancy occupancy;
 
     /**
      * Creates a chaser that is not chasing.
@@ -77,7 +77,7 @@ final class WalkingChaser {
      * @param player    the player being chased
      * @param occupancy which enemy holds which tile: the enemy never steps onto a tile another enemy holds
      */
-    void update(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
+    void update(Creature enemy, double deltaTime, TileMap map, Player player, CreatureOccupancy occupancy) {
         this.occupancy = occupancy;
         pathPlanner.tick(deltaTime);
         secondsUntilRepath -= deltaTime;
@@ -157,7 +157,7 @@ final class WalkingChaser {
         return HELD_WAIT_MIN_SECONDS + (HELD_WAIT_MAX_SECONDS - HELD_WAIT_MIN_SECONDS) * random.nextDouble();
     }
 
-    private void replan(Enemy enemy, TileMap map, Player player) {
+    private void replan(Creature enemy, TileMap map, Player player) {
         secondsUntilRepath = REPATH_INTERVAL_SECONDS;
         plannedPlayerX = player.getCurrentTileX();
         plannedPlayerY = player.getCurrentTileY();
@@ -200,7 +200,7 @@ final class WalkingChaser {
         }
     }
 
-    private void follow(Enemy enemy, double deltaTime, TileMap map, Player player) {
+    private void follow(Creature enemy, double deltaTime, TileMap map, Player player) {
         enemy.snapshot();
         double remaining = speedTilesPerSecond * deltaTime;
         while (remaining > 0 && !path.isEmpty()) {
@@ -217,7 +217,7 @@ final class WalkingChaser {
      *
      * @return true when the enemy must stop for this update, with the path already adjusted to the reason
      */
-    private boolean mustStopBeforeStep(Enemy enemy, PathNode next, TileMap map, Player player) {
+    private boolean mustStopBeforeStep(Creature enemy, PathNode next, TileMap map, Player player) {
         if (isPlayerTile(next, player)) {
             // The player stands on or is stepping to the tile the enemy is walking to: go back to the tile it left
             // and wait, without a new search on every update meanwhile
@@ -240,7 +240,7 @@ final class WalkingChaser {
      *
      * @return true when the tile was reserved and can be walked, false when the enemy has to stand still
      */
-    private boolean claimStep(Enemy enemy, PathNode next) {
+    private boolean claimStep(Creature enemy, PathNode next) {
         if (secondsOfStepWait > 0) {
             // Another enemy held this tile a moment ago: stand still until the wait is over
             return false;
@@ -272,7 +272,7 @@ final class WalkingChaser {
      *
      * @return the distance still left to walk after this step
      */
-    private double advanceTowards(Enemy enemy, PathNode next, double remaining) {
+    private double advanceTowards(Creature enemy, PathNode next, double remaining) {
         final double dx = next.x - enemy.getPosX();
         final double dy = next.y - enemy.getPosY();
         final double distance = Math.hypot(dx, dy);
@@ -295,7 +295,7 @@ final class WalkingChaser {
     }
 
     /** Drops the rest of the path but keeps the step in progress, so the enemy never stops between two tiles. */
-    private void finishCurrentStepOnly(Enemy enemy) {
+    private void finishCurrentStepOnly(Creature enemy) {
         clearBlockedStep();
         if (path.isEmpty()) {
             return;
@@ -309,7 +309,7 @@ final class WalkingChaser {
         }
     }
 
-    private void turnBackToTileCentre(Enemy enemy) {
+    private void turnBackToTileCentre(Creature enemy) {
         path.clear();
         clearBlockedStep();
         enemy.setTargetTileX(enemy.getCurrentTileX());
@@ -323,7 +323,7 @@ final class WalkingChaser {
      * True for the tile the enemy stands on or is already stepping to, when the occupancy really has it as the holder:
      * such a tile is walked without asking again. A tile the enemy only believes to hold is asked for like any other.
      */
-    private boolean isStepHeldBy(Enemy enemy, PathNode node) {
+    private boolean isStepHeldBy(Creature enemy, PathNode node) {
         final boolean ownTile = (node.x == enemy.getTargetTileX() && node.y == enemy.getTargetTileY())
                 || (node.x == enemy.getCurrentTileX() && node.y == enemy.getCurrentTileY());
         return ownTile && occupancy.ownerOf(node.x, node.y) == enemy;
@@ -343,18 +343,18 @@ final class WalkingChaser {
                 || (node.x == player.getTargetTileX() && node.y == player.getTargetTileY());
     }
 
-    private static boolean isMidStep(Enemy enemy) {
+    private static boolean isMidStep(Creature enemy) {
         return Math.abs(enemy.getPosX() - enemy.getCurrentTileX()) > AT_TILE_CENTRE_EPSILON
                 || Math.abs(enemy.getPosY() - enemy.getCurrentTileY()) > AT_TILE_CENTRE_EPSILON;
     }
 
     /** Chebyshev distance of one tile or less: the eight tiles around the player, and the player's own tile. */
-    private static boolean isNextToPlayer(Enemy enemy, Player player) {
+    private static boolean isNextToPlayer(Creature enemy, Player player) {
         return Math.max(Math.abs(player.getCurrentTileX() - enemy.getCurrentTileX()),
                 Math.abs(player.getCurrentTileY() - enemy.getCurrentTileY())) <= 1;
     }
 
-    private static double distanceToPlayer(Enemy enemy, Player player) {
+    private static double distanceToPlayer(Creature enemy, Player player) {
         return Math.hypot((double) player.getCurrentTileX() - enemy.getCurrentTileX(),
                 (double) player.getCurrentTileY() - enemy.getCurrentTileY());
     }

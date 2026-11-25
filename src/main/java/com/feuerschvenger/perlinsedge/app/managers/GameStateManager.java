@@ -5,8 +5,8 @@ import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.ProcessingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.SleepingBag;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.DamageNumbers;
@@ -33,9 +33,9 @@ import java.util.Map;
 public class GameStateManager {
     // Entity State
     private Player player;
-    private final List<Enemy> enemies = new ArrayList<>();
-    /** Which enemy holds which tile, so every enemy stands on a tile of its own. */
-    private final EnemyOccupancy enemyOccupancy = new EnemyOccupancy();
+    private final List<Creature> creatures = new ArrayList<>();
+    /** Which creature holds which tile, so every creature stands on a tile of its own. */
+    private final CreatureOccupancy creatureOccupancy = new CreatureOccupancy();
     private final List<DroppedItem> droppedItems = new ArrayList<>();
 
     // World State
@@ -88,8 +88,8 @@ public class GameStateManager {
     public void resetGameState() {
         // Entity reset
         player = null;
-        enemies.clear();
-        enemyOccupancy.clear();
+        creatures.clear();
+        creatureOccupancy.clear();
         droppedItems.clear();
 
         // World reset
@@ -156,16 +156,16 @@ public class GameStateManager {
     }
 
     /**
-     * Replaces the enemies with a copy of the given list.
+     * Replaces the creatures with a copy of the given list.
      *
-     * @param enemies the new enemies, null clears the list
+     * @param creatures the new creatures, null clears the list
      */
-    public void setEnemies(List<Enemy> enemies) {
-        this.enemies.clear();
-        if (enemies != null) {
-            this.enemies.addAll(enemies);
+    public void setCreatures(List<? extends Creature> creatures) {
+        this.creatures.clear();
+        if (creatures != null) {
+            this.creatures.addAll(creatures);
         }
-        enemyOccupancy.rebuild(this.enemies);
+        creatureOccupancy.rebuild(this.creatures);
     }
 
     /**

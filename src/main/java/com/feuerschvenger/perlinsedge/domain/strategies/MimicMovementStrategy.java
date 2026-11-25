@@ -2,8 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
@@ -11,7 +11,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
  * {@code AppConfig.enemies().mimic()} or hurts it, then it walks the shortest path to the player. It gives up under
  * the same leash rules as every walking enemy and goes back to being a still chest. See {@link WalkingChaser}.
  */
-public class MimicMovementStrategy implements EnemyMovementStrategy {
+public class MimicMovementStrategy implements CreatureMovementStrategy {
 
     private static final double MOVE_SPEED_AGGRO = 3.0; // Tiles per second when aggroed
 
@@ -27,8 +27,9 @@ public class MimicMovementStrategy implements EnemyMovementStrategy {
     }
 
     @Override
-    public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
-        chaser.update(enemy, deltaTime, map, player, occupancy);
+    public void updateMovement(Creature creature, double deltaTime, TileMap map, Player player,
+                               CreatureOccupancy occupancy) {
+        chaser.update(creature, deltaTime, map, player, occupancy);
     }
 
     /**
