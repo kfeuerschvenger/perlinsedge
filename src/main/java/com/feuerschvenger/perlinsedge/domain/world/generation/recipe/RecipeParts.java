@@ -153,9 +153,21 @@ final class RecipeParts {
      * @return the pass
      */
     static RiverPass rivers(float density, TileType surface) {
+        return rivers(density, surface, LAKE_MAX_ENDPOINT_SHARE);
+    }
+
+    /**
+     * Builds the river pass of a map with its own share of river ends that make a lake.
+     *
+     * @param density           how many of the high tiles start a river
+     * @param surface           what the water of a lake is made of, shallow water or ice
+     * @param lakeEndpointShare the share of the land whose river ends may make a lake, 0 for rivers that never do
+     * @return the pass
+     */
+    static RiverPass rivers(float density, TileType surface, float lakeEndpointShare) {
         final var tributaries = new TributaryParams(TRIBUTARY_MIN_RIVER_LENGTH, TRIBUTARY_CHANCE,
                 TRIBUTARY_MIN_LENGTH, TRIBUTARY_LENGTH_SPREAD);
-        final var lakes = new LakeParams(LAKE_MAX_ENDPOINT_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
+        final var lakes = new LakeParams(lakeEndpointShare, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
                 LAKE_DEPTH_TOLERANCE, surface);
         return new RiverPass(new RiverParams(density, RIVER_SOURCE_SHARE, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
                 tributaries, lakes));

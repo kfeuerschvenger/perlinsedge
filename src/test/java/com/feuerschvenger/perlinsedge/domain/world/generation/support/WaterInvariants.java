@@ -40,7 +40,7 @@ final class WaterInvariants {
     /** The share of the longest coast side that is water at the least, on a Mediterranean map. */
     private static final double MIN_COAST_EDGE_WATER_SHARE = 0.80;
     /** The most inland water bodies, which touch no edge, a Mediterranean map holds. */
-    private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 8;
+    private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 6;
 
     /** The fewest and the most land masses of at least {@link WaterStats#MIN_LAND_TILES} tiles on an islands map. */
     private static final int MIN_ISLANDS = 6;
