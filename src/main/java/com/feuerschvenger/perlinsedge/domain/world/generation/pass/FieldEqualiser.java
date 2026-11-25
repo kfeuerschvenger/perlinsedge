@@ -16,6 +16,9 @@ final class FieldEqualiser {
     /** How many equal shares of the tiles the curve is made of. */
     private static final int STEPS = 16;
 
+    /** Twice the steps: the middle of a plateau is the sum of its first and last knots over this. */
+    private static final double DOUBLE_STEPS = 2.0 * STEPS;
+
     /** Not instantiable: the class only holds a static method. */
     private FieldEqualiser() {
     }
@@ -49,7 +52,7 @@ final class FieldEqualiser {
         }
         if (Float.compare(knots[first], value) == 0) {
             final var last = lastTied(knots, first, value);
-            return (float) ((first + last) / (2.0 * STEPS));
+            return (float) ((first + last) / DOUBLE_STEPS);
         }
         final var low = knots[first - 1];
         final var inside = (value - (double) low) / ((double) knots[first] - low);
