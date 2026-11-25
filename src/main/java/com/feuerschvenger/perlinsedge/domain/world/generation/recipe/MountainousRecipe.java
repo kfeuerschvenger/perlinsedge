@@ -10,7 +10,8 @@ import java.util.Set;
 
 /**
  * The recipe of the mountains: ridged rock bands that no one can walk on, cut by narrow passes between valleys that
- * each have a clearing, with lakes high between the peaks, plenty of ore and few trees.
+ * each have a clearing, with lakes high between the peaks, plenty of ore and few trees. Its invariants hold from a
+ * shorter side of {@value MapRecipes#MIN_CONTENT_SIDE} tiles, on a map at most twice as long as it is wide.
  */
 final class MountainousRecipe {
 
@@ -22,7 +23,7 @@ final class MountainousRecipe {
     /** The lowest 10% of the map holds water, in lakes between the peaks, whatever the noise and the map size. */
     private static final float WATER_SHARE = 0.10F;
     /** The height at which the ground rule of the mountains turns the water high between the peaks into ground. */
-    private static final float WATER_LEVEL = 0.3F;
+    private static final float WATER_LEVEL = GroundRules.MOUNTAINOUS_SHALLOW;
     private static final float TREE_DENSITY = 0.05F;
     private static final float ROCKY_SHARE = 0.12F;
     private static final float ROCKY_HEIGHT_BIAS = 1F;
@@ -37,8 +38,11 @@ final class MountainousRecipe {
     private static final int CLEARING_MIN_RADIUS = 3;
     private static final int CLEARING_MAX_RADIUS = 5;
     private static final int SPAWN_CLEARING_RADIUS = 6;
-    private static final int CLEARING_CLEARANCE = 4;
-    /** A valley of at least 30 tiles gets a clearing even when the sampling missed it, so a pass reaches it. */
+    private static final int CLEARING_CLEARANCE = MapRecipes.MOUNTAINOUS_SPAWN_CLEARANCE;
+    /**
+     * A valley of at least 30 tiles gets a clearing even when the sampling missed it, so a pass can reach it. A trail
+     * never crosses water, so a valley that water cuts off from the spawn has its clearing and no trail.
+     */
     private static final int VALLEY_MIN_TILES = 30;
     /** Trails cost 10 a tile through rock, so they cut a pass only where going round is far longer. */
     private static final float TRAIL_NOISE_WEIGHT = 1F;

@@ -1,5 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ClearingPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.recipe.MapRecipes;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
@@ -7,21 +9,22 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
  * The invariants of the two content maps: the dense forest, whose clearings and trails keep the free land joined and
  * leave a glade around the player, and the mountains, whose rock bands cover a share of the map while their passes
  * keep the valleys joined and the player starts on a valley floor. Every share is of tiles the map holds, so a check
- * holds at every size.
+ * holds at every size from {@link MapRecipes#MIN_CONTENT_SIDE} tiles on the shorter side, on a map at most twice as
+ * long as it is wide; outside that the recipes make no promise.
  */
 final class ContentInvariants {
 
     /** The share of the free land that the free region of the spawn holds at the least, in a dense forest. */
     private static final double MIN_FOREST_SPAWN_REGION_SHARE = 0.60;
     /** The radius, in tiles, of the disc around the spawn of a dense forest that holds no resource and no water. */
-    private static final int FREE_DISC_RADIUS = 5;
+    private static final int FREE_DISC_RADIUS = ClearingPass.MIN_SPAWN_RADIUS - 1;
     /** The share of the map that is mountain, from the least to the most. */
     private static final double MIN_MOUNTAIN_SHARE = 0.20;
     private static final double MAX_MOUNTAIN_SHARE = 0.35;
     /** The share of the walkable ground that the region of the spawn holds at the least, in the mountains. */
     private static final double MIN_GROUND_REGION_SHARE = 0.85;
-    /** How many tiles the spawn of the mountains is from the nearest mountain at the least. */
-    private static final int MIN_SPAWN_MOUNTAIN_DISTANCE = 4;
+    /** How many tiles the spawn of the mountains is from the nearest mountain at the least, as the recipe keeps. */
+    private static final int MIN_SPAWN_MOUNTAIN_DISTANCE = MapRecipes.MOUNTAINOUS_SPAWN_CLEARANCE;
 
     /** Not instantiable: the class only holds the checks. */
     private ContentInvariants() {

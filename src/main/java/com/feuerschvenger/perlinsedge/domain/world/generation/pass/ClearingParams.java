@@ -1,7 +1,8 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 /**
- * Where the clearings of a map are and how big.
+ * Where the clearings of a map are and how big. The spacing and the radii are those of a large map: a map whose
+ * shorter side is under three spacings shrinks them in proportion.
  *
  * @param spacing        the least distance between the centres of two clearings in tiles, at least 1
  * @param minRadius      the smallest radius of an ordinary clearing in tiles, at least 1
@@ -11,8 +12,8 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
  *                       or more; the spawn clearing keeps at least this distance and as close to its own radius as the
  *                       land allows
  * @param minRegionTiles the fewest tiles a separate piece of walkable ground has to hold to get a clearing of its own
- *                       when the sampling left it without one, so the trails reach every valley that is not a pocket;
- *                       0 leaves such pieces alone
+ *                       when the sampling left it without one, so every valley that is not a pocket has a place to
+ *                       stand, though a trail reaches it only when no water lies between; 0 leaves such pieces alone
  */
 public record ClearingParams(int spacing, int minRadius, int maxRadius, int spawnRadius, int clearance,
                              int minRegionTiles) {

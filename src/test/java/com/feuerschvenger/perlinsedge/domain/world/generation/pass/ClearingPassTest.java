@@ -6,6 +6,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.Arrays;
 
@@ -47,6 +49,14 @@ class ClearingPassTest {
     private static final int NARROW_MIDDLE = 32;
     private static final int NARROW_TILES = WALL_SIDE * (NARROW_LAST - NARROW_FIRST + 1);
     private static final int MIN_REGION = 30;
+    private static final int SIDES_PER_SPACING = 3;
+    /** The box of tiles reserved before the pass around the middle of the map, 11 tiles across. */
+    private static final int HELD_RADIUS = 5;
+    /** A map of 32 by 32 tiles, whose spacing cannot be the 45 of a large map, and the spacing of a large map. */
+    private static final int SMALL_SIDE = 32;
+    private static final int LARGE_SPACING = 45;
+    /** A map whose sites at the spacing of 1 would pass the most the trails can join. */
+    private static final int CROWDED_SIDE = 200;
 
     private static ClearingParams params(int clearance, int minRegionTiles) {
         return new ClearingParams(SPACING, MIN_RADIUS, MAX_RADIUS, SPAWN_RADIUS, clearance, minRegionTiles);
@@ -145,10 +155,22 @@ class ClearingPassTest {
         for (var first = 0; first < sites.size(); first++) {
             final var x = context.xOf(sites.get(first));
             assertTrue(x >= LAND_FIRST + CLEARANCE && x <= LAND_LAST - CLEARANCE, "clear of the water: site " + first);
+        }
+        assertSpacedApart(context, SPACING);
+    }
+
+    /**
+     * Asserts every pair of ordinary sites, which are all but the first, which is the spawn clearing, is at least the
+     * spacing apart, and that the spawn clearing is at least half the spacing from each.
+     */
+    private static void assertSpacedApart(GenerationContext context, int spacing) {
+        final var sites = context.sites();
+        for (var first = 0; first < sites.size(); first++) {
             for (var second = first + 1; second < sites.size(); second++) {
                 final var dx = context.xOf(sites.get(first)) - context.xOf(sites.get(second));
                 final var dy = context.yOf(sites.get(first)) - context.yOf(sites.get(second));
-                assertTrue(dx * dx + dy * dy >= (SPACING / HALF) * (SPACING / HALF), "spaced apart: " + first + second);
+                final var least = first == 0 ? spacing / HALF : spacing;
+                assertTrue(dx * dx + dy * dy >= least * least, "spaced apart: " + first + " and " + second);
             }
         }
     }
@@ -253,8 +275,116 @@ class ClearingPassTest {
     }
 
     @Test
+    void tilesReservedBeforeThePassHostNeitherASiteNorTheSpawnClearing() {
+        final var context = forest(SIDE, SIDE, SEED);
+        final var held = new boolean[context.size()];
+        for (var y = SIDE / HALF - HELD_RADIUS; y <= SIDE / HALF + HELD_RADIUS; y++) {
+            for (var x = SIDE / HALF - HELD_RADIUS; x <= SIDE / HALF + HELD_RADIUS; x++) {
+                context.reserve(context.index(x, y));
+                held[context.index(x, y)] = true;
+            }
+        }
+
+        apply(context, params(0, NO_REGIONS));
+
+        assertTrue(context.sites().size() > 1, "the map holds several clearings");
+        for (var site = 0; site < context.sites().size(); site++) {
+            assertFalse(held[context.sites().get(site)], "a site stands on a reserved tile: " + site);
+        }
+        assertFalse(held[context.spawnHint()], "the spawn clearing is not on a reserved tile");
+    }
+
+    @Test
+    void aValleyClearingStandsOnATileThatNothingReservedBefore() {
+        final var context = valleys();
+        for (var y = 0; y < WALL_SIDE; y++) {
+            context.reserve(context.index(NARROW_MIDDLE, y));
+        }
+
+        apply(context, params(CLEARANCE, MIN_REGION));
+
+        assertTrue(hasSiteOnTheStrip(context), "the narrow valley got a clearing");
+        for (var site = 0; site < context.sites().size(); site++) {
+            assertNotEquals(NARROW_MIDDLE, context.xOf(context.sites().get(site)), "a site on the reserved column");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"200,60", "60,200"})
+    void aMapThatIsNotSquareHasItsSpawnInTheMiddleAndItsSitesSpacedByItsShorterSide(int width, int height) {
+        final var context = forest(width, height, SEED);
+
+        apply(context, params(CLEARANCE, NO_REGIONS));
+
+        assertEquals(context.index(width / HALF, height / HALF), context.sites().get(0));
+        assertEquals(context.sites().get(0), context.spawnHint());
+        assertTrue(context.sites().size() > MIN_SITES_ON_THE_STRIP, "several sites: " + context.sites().size());
+        assertSpacedApart(context, Math.min(SPACING, Math.min(width, height) / SIDES_PER_SPACING));
+    }
+
+    @Test
+    void aSmallMapShrinksItsClearingsSoMostOfItsLandStaysUnderTrees() {
+        final var shrunk = forest(SMALL_SIDE, SMALL_SIDE, SEED);
+        final var unshrunk = forest(SMALL_SIDE, SMALL_SIDE, SEED);
+
+        apply(shrunk, new ClearingParams(LARGE_SPACING, MIN_RADIUS, MAX_RADIUS, SPAWN_RADIUS, 0, NO_REGIONS));
+        apply(unshrunk, new ClearingParams(SMALL_SIDE / SIDES_PER_SPACING, MIN_RADIUS, MAX_RADIUS, SPAWN_RADIUS, 0,
+                NO_REGIONS));
+
+        assertTrue(reservedCount(shrunk) < reservedCount(unshrunk), "fewer tiles cleared than without shrinking");
+        assertTrue(reservedCount(shrunk) < shrunk.size() / HALF, "most of the land stays under trees");
+        final var spawn = shrunk.sites().get(0);
+        for (var tile = 0; tile < shrunk.size(); tile++) {
+            if (isWithin(shrunk, tile, spawn, ClearingPass.MIN_SPAWN_RADIUS)) {
+                assertTrue(shrunk.isReserved(tile), "the spawn clearing keeps its smallest radius at " + tile);
+            }
+        }
+    }
+
+    @Test
+    void theRadiiOfAMapThatNeedsNoShrinkingAreTheOnesOfTheParameters() {
+        final var context = forest(SIDE, SIDE, SEED);
+
+        apply(context, params(0, NO_REGIONS));
+
+        final var spawn = context.sites().get(0);
+        assertTrue(context.isReserved(spawn + SPAWN_RADIUS), "the spawn clearing has the radius of the parameters");
+    }
+
+    @Test
+    void aMapTooBigForTheTrailsHoldsNoMoreSitesThanTheyCanJoin() {
+        final var context = forest(CROWDED_SIDE, CROWDED_SIDE, SEED);
+
+        apply(context, new ClearingParams(1, 1, 1, 1, 0, NO_REGIONS));
+
+        assertTrue(context.sites().size() > 1, "the map holds several clearings");
+        assertTrue(context.sites().size() <= SiteEdges.MAX_SITES, "sites: " + context.sites().size());
+    }
+
+    @Test
+    void noClearingOpensOnceTheSitesAreAsManyAsTheTrailsCanJoin() {
+        final var context = forest(SIDE, SIDE, SEED);
+        for (var site = 0; site < SiteEdges.MAX_SITES; site++) {
+            context.sites().add(0);
+        }
+
+        apply(context, params(0, NO_REGIONS));
+
+        assertEquals(SiteEdges.MAX_SITES, context.sites().size());
+        assertEquals(0, reservedCount(context));
+    }
+
+    @Test
     void thePassIsNamedForTheTimings() {
         assertEquals("clearings", new ClearingPass(params(0, NO_REGIONS)).name());
+    }
+
+    private static int reservedCount(GenerationContext context) {
+        var count = 0;
+        for (var index = 0; index < context.size(); index++) {
+            count += context.isReserved(index) ? 1 : 0;
+        }
+        return count;
     }
 
     /**

@@ -15,6 +15,22 @@ import java.util.function.Function;
  */
 public final class MapRecipes {
 
+    /**
+     * The shorter side of a map, in tiles, from which the invariants of the dense forest and the mountains are
+     * promised, on a map that is at most twice as long as it is wide. Below it the water can leave too little land, or
+     * too little room away from the rock, for the glade and the distance of the spawn from the rock. On a map longer
+     * than that, or below it, the clearings still shrink to keep the trees in their share of the land, but one water
+     * body can cut the land in two pieces that no trail joins, which the shares of the spawn region cannot allow for.
+     */
+    public static final int MIN_CONTENT_SIDE = 64;
+
+    /**
+     * How far, in tiles, the spawn of the mountains is from the nearest mountain at the least, from
+     * {@link #MIN_CONTENT_SIDE} up. The clearings keep this clearance from rock and the spawn clearing is one of them.
+     * On a map too small for any tile to have it the spawn pass places the player without a clearing, closer to rock.
+     */
+    public static final int MOUNTAINOUS_SPAWN_CLEARANCE = 4;
+
     private final Map<MapType, MapRecipe> recipes;
 
     /** Creates the registry with the recipe of every map type. */

@@ -8,7 +8,11 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import java.util.List;
 import java.util.Set;
 
-/** The recipe of the dense forest: rolling forest on wet ground with a few rivers and thick groves of trees. */
+/**
+ * The recipe of the dense forest: rolling forest on wet ground with a few rivers and thick groves of trees. Its
+ * invariants hold from a shorter side of {@value MapRecipes#MIN_CONTENT_SIDE} tiles, on a map at most twice as long as
+ * it is wide.
+ */
 final class DenseForestRecipe {
 
     private static final float HEIGHT_FREQUENCY = 0.02F;
@@ -19,7 +23,7 @@ final class DenseForestRecipe {
     /** The lowest 10% of the map is sea, whatever the noise, so a small map has a land of one piece to walk on. */
     private static final float WATER_SHARE = 0.10F;
     /** The height at which the ground rule of the dense forest turns the sea into land. */
-    private static final float SEA_LEVEL = -0.2F;
+    private static final float SEA_LEVEL = GroundRules.DENSE_FOREST_SHALLOW;
     /**
      * Trees cover this share of the land, in the groves, on what the clearings and the trails left, which is why they
      * run first: every map, big or small, ends with the same share of trees, inside the 28% to 42% of the land.
