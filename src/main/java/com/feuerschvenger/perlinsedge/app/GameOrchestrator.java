@@ -79,8 +79,6 @@ public class GameOrchestrator {
     private final FxCamera camera;
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
-    /** The map the minimap was last given, so the frame passes the map and its type only when the map is a new one. */
-    private TileMap minimapMap;
     private final Canvas mainCanvas;
     private final InventoryPanel inventoryPanel;
     private final DeathOverlay deathOverlay;
@@ -89,6 +87,8 @@ public class GameOrchestrator {
     private final Random seedSource = new Random();
     private final GameLoop gameLoop;
     private boolean gameActive;
+    /** The map the minimap was last given, so the frame passes the map and its type only when the map is a new one. */
+    private TileMap minimapMap;
     /** Interpolation factor of the last frame, reused to draw the paused frame. */
     private double lastAlpha = 1.0;
     private final InputWiring inputWiring;
@@ -400,8 +400,8 @@ public class GameOrchestrator {
     /** Gives the minimap the current map and the map type that picks its colours. */
     private void showMapOnMinimap() {
         final var map = gameState.getCurrentMap();
-        minimapDrawer.updateMap(map, AppConfig.getInstance().world().getCurrentMapType());
         minimapMap = map;
+        minimapDrawer.updateMap(map, AppConfig.getInstance().world().getCurrentMapType());
     }
 
     /** Starts the loop again without letting a failure to start it hide the failure of the rebuild. */
