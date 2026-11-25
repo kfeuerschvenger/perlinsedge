@@ -13,10 +13,17 @@ import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 public class SlimeAttackStrategy implements CreatureAttackStrategy {
 
     private final SlimeStrikeCycle cycle;
+    private final SlimeMovementStrategy movement;
 
-    public SlimeAttackStrategy() {
-        AppConfig.GameMechanicsConfig mechanics = AppConfig.getInstance().gameMechanics();
+    /**
+     * Creates the attack of a slime, which does not squash while the movement of that slime has it in the air.
+     *
+     * @param movement the movement strategy of the same slime, which tells whether it is jumping
+     */
+    public SlimeAttackStrategy(SlimeMovementStrategy movement) {
+        final var mechanics = AppConfig.getInstance().gameMechanics();
         this.cycle = new SlimeStrikeCycle(mechanics.getSlimeWindupSeconds(), mechanics.getSlimeStrikeWaitSeconds());
+        this.movement = movement;
     }
 
     /**
@@ -34,12 +41,18 @@ public class SlimeAttackStrategy implements CreatureAttackStrategy {
                 && Math.abs(player.getCurrentTileY() - creature.getCurrentTileY()) <= 1;
     }
 
+    /**
+     * Advances the strike cycle and strikes the player when it comes to the strike.
+     *
+     * @param self      the slime
+     * @param deltaTime time since last update in seconds
+     * @param context   what the slime can see of the world: the map, the player and the occupancy
+     */
     @Override
     public void updateAttack(Creature self, double deltaTime, CreatureContext context) {
-        final Player player = context.player();
+        final var player = context.player();
         // A slime in the air does not squash: the telegraph starts on the tile where it lands, so every strike shows it
-        final boolean landed = !(self.getMovementStrategy() instanceof SlimeMovementStrategy movement)
-                || !movement.isJumping();
+        final boolean landed = !movement.isJumping();
         if (cycle.update(deltaTime, landed && isInReach(self, player))) {
             player.takeDamage(self.getAttackDamage());
             self.resetAttackCooldown();
@@ -50,10 +63,12 @@ public class SlimeAttackStrategy implements CreatureAttackStrategy {
      * A slime never strikes through the attack cooldown of the combat manager: its own cycle times the strike and
      * applies the damage in {@link #updateAttack}.
      *
+     * @param self    the slime
+     * @param context what the slime can see of the world
      * @return always false
      */
     @Override
-    public boolean canAttack(Creature creature, Player player) {
+    public boolean canAttack(Creature self, CreatureContext context) {
         return false;
     }
 

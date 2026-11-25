@@ -3,7 +3,6 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.strategies.CreatureMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
@@ -173,10 +172,9 @@ public final class FxEnemyDrawingHelper {
         return SlimeSquash.height(slime.getWindupProgress(), SlimeSquash.breath(gameTime, slime.getBreathPhase()));
     }
 
-    /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */
+    /** Returns the slime movement strategy of a slime. */
     private static SlimeMovementStrategy movementOf(Slime slime) {
-        final CreatureMovementStrategy movementStrategy = slime.getMovementStrategy();
-        return movementStrategy instanceof SlimeMovementStrategy move ? move : null;
+        return slime.getMovementStrategy();
     }
 
     /**

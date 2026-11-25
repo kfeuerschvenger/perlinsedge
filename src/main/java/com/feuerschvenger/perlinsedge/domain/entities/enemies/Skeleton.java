@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
-import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
 import com.feuerschvenger.perlinsedge.domain.strategies.CreatureAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.CreatureMovementStrategy;
@@ -11,7 +10,7 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
  * Represents a Skeleton enemy that fights in melee. A skeleton stands still until the player comes within its aggro
- * range or hurts it, then walks to the player and strikes from within
+ * range or hurts it (its movement strategy reacts to the hit), then walks to the player and strikes from within
  * {@link SkeletonAttackStrategy#ATTACK_RANGE_TILES}. It shoots no arrows.
  */
 public class Skeleton extends Enemy {
@@ -74,19 +73,6 @@ public class Skeleton extends Enemy {
     // ==================================================================
 
     /**
-     * A hit makes the skeleton chase the attacker even from outside its aggro range. A skeleton built with another
-     * movement strategy has no chase to start and only takes the damage.
-     *
-     * @param source who dealt the damage, or null when the source is not known
-     */
-    @Override
-    protected void onHurt(Entity source) {
-        if (getMovementStrategy() instanceof SkeletonMovementStrategy skeletonMovement) {
-            skeletonMovement.alert();
-        }
-    }
-
-    /**
      * Gives the species of a skeleton.
      *
      * @return {@link Species#SKELETON}
@@ -100,6 +86,11 @@ public class Skeleton extends Enemy {
     //  Rendering Properties
     // ==================================================================
 
+    /**
+     * Gives the vertical render offset of a skeleton.
+     *
+     * @return always 0, skeletons render at standard height
+     */
     @Override
     public double getRenderOffsetY() {
         return 0; // Skeletons render at standard height

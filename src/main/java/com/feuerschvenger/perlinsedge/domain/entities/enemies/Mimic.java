@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
-import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.MimicMovementStrategy;
@@ -9,7 +8,8 @@ import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
 
 /**
  * Represents a Mimic enemy that disguises itself as a chest until activated.
- * Mimics remain passive until triggered, then become aggressive toward the player.
+ * Mimics remain passive until triggered, then become aggressive toward the player. A hit wakes a mimic through its
+ * movement strategy, which reacts to being hurt.
  */
 public class Mimic extends Enemy {
     // ==================================================================
@@ -33,14 +33,19 @@ public class Mimic extends Enemy {
      * @param startY Initial Y-coordinate (tile position)
      */
     public Mimic(int startX, int startY) {
+        this(startX, startY, new MimicMovementStrategy(SpawnSeed.of(startX, startY)));
+    }
+
+    /** Wires the attack of the mimic to the movement it shares its aggro with. */
+    private Mimic(int startX, int startY, MimicMovementStrategy movement) {
         super(
                 startX,
                 startY,
                 MAX_HEALTH,
                 ATTACK_DAMAGE,
                 ATTACK_COOLDOWN,
-                new MimicMovementStrategy(SpawnSeed.of(startX, startY)),
-                new MimicAttackStrategy()
+                movement,
+                new MimicAttackStrategy(movement)
         );
         this.setColor(BASE_COLOR);
     }
@@ -49,6 +54,11 @@ public class Mimic extends Enemy {
     //  Rendering Properties
     // ==================================================================
 
+    /**
+     * Gives the vertical render offset of a mimic.
+     *
+     * @return always the offset that keeps it close to the ground, like a chest
+     */
     @Override
     public double getRenderOffsetY() {
         return RENDER_OFFSET_Y;
@@ -57,19 +67,6 @@ public class Mimic extends Enemy {
     // ==================================================================
     //  Behavior Methods
     // ==================================================================
-
-    /**
-     * A hit wakes the mimic even from outside its activation range, and every hit renews the alert so a mimic that
-     * keeps being hurt from afar keeps chasing.
-     *
-     * @param source who dealt the damage, or null when the source is not known
-     */
-    @Override
-    protected void onHurt(Entity source) {
-        if (getMovementStrategy() instanceof MimicMovementStrategy mimicMovement) {
-            mimicMovement.setAggroed(true);
-        }
-    }
 
     /**
      * Gives the species of a mimic.

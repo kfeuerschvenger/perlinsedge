@@ -1,10 +1,9 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
-import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 
 /**
  * Movement of a mimic: it stays still until the player comes within the aggro range of
@@ -18,7 +17,8 @@ public class MimicMovementStrategy implements CreatureMovementStrategy {
     private final WalkingChaser chaser;
 
     /**
-     * Creates a mimic movement that waits as a chest and chases the player once it is woken by the aggro range or by a hit.
+     * Creates a mimic movement that waits as a chest and chases the player once it is woken by the aggro range or by
+     * a hit.
      *
      * @param seed seed of its waits for a tile another enemy holds, such as {@link SpawnSeed#of(int, int)}
      */
@@ -26,10 +26,28 @@ public class MimicMovementStrategy implements CreatureMovementStrategy {
         this.chaser = new WalkingChaser(MOVE_SPEED_AGGRO, AppConfig.getInstance().enemies().mimic(), seed);
     }
 
+    /**
+     * Runs one update of the chase of the mimic.
+     *
+     * @param self      the mimic
+     * @param deltaTime time since last update in seconds
+     * @param context   what the mimic can see of the world: the map, the player and the occupancy
+     */
     @Override
-    public void updateMovement(Creature creature, double deltaTime, TileMap map, Player player,
-                               CreatureOccupancy occupancy) {
-        chaser.update(creature, deltaTime, map, player, occupancy);
+    public void updateMovement(Creature self, double deltaTime, CreatureContext context) {
+        chaser.update(self, deltaTime, context.map(), context.player(), context.occupancy());
+    }
+
+    /**
+     * A hit wakes the mimic even from outside its activation range, and every hit renews the alert so a mimic that
+     * keeps being hurt from afar keeps chasing.
+     *
+     * @param self   the mimic that was hurt
+     * @param source who dealt the damage, or null when the source is not known
+     */
+    @Override
+    public void onHurt(Creature self, Entity source) {
+        setAggroed(true);
     }
 
     /**

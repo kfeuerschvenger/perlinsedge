@@ -10,14 +10,16 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The context hands strategies the map, the player and the occupancy, and nothing else. */
+/** Strategies and the creature read the player from the context they are given, not from anywhere else. */
 class CreatureContextTest {
-    private static final int MAP_SIDE = 6;
+    private static final int MAP_SIDE = 12;
     private static final double STEP = 1.0 / 60.0;
     private static final int SKELETON_TILE = 2;
-    private static final int PLAYER_TILE = 3;
+    private static final int ADJACENT_TILE = 3;
+    private static final int FAR_TILE = 10;
 
     private static TileMap grass() {
         final TileMap map = new TileMap(MAP_SIDE, MAP_SIDE);
@@ -29,28 +31,39 @@ class CreatureContextTest {
         return map;
     }
 
-    @Test
-    void theContextGivesBackTheThreeParts() {
-        final TileMap map = grass();
-        final Player player = new Player(PLAYER_TILE, PLAYER_TILE);
-        final CreatureOccupancy occupancy = new CreatureOccupancy();
-
-        final CreatureContext context = new CreatureContext(map, player, occupancy);
-
-        assertSame(map, context.map());
-        assertSame(player, context.player());
-        assertSame(occupancy, context.occupancy());
+    private static CreatureContext contextWithPlayerAt(int tile) {
+        return new CreatureContext(grass(), new Player(tile, tile), new CreatureOccupancy());
     }
 
     @Test
-    void anAttackStrategyReadsThePlayerFromTheContext() {
+    void anAttackStrikesTheAdjacentPlayerOfTheContextAndStartsTheCooldown() {
         final Skeleton skeleton = new Skeleton(SKELETON_TILE, SKELETON_TILE);
-        final Player player = new Player(PLAYER_TILE, PLAYER_TILE);
-        final double healthBefore = player.getHealth();
+        final CreatureContext context = contextWithPlayerAt(ADJACENT_TILE);
+        final double healthBefore = context.player().getHealth();
 
-        new SkeletonAttackStrategy().updateAttack(skeleton, STEP,
-                new CreatureContext(grass(), player, new CreatureOccupancy()));
+        new SkeletonAttackStrategy().updateAttack(skeleton, STEP, context);
 
-        assertEquals(healthBefore - skeleton.getAttackDamage(), player.getHealth(), 0.0);
+        assertEquals(healthBefore - skeleton.getAttackDamage(), context.player().getHealth(), 0.0);
+        assertFalse(skeleton.isReadyToAttack());
+    }
+
+    @Test
+    void anAttackLeavesAFarPlayerOfTheContextAlone() {
+        final Skeleton skeleton = new Skeleton(SKELETON_TILE, SKELETON_TILE);
+        final CreatureContext context = contextWithPlayerAt(FAR_TILE);
+        final double healthBefore = context.player().getHealth();
+
+        new SkeletonAttackStrategy().updateAttack(skeleton, STEP, context);
+
+        assertEquals(healthBefore, context.player().getHealth(), 0.0);
+        assertTrue(skeleton.isReadyToAttack());
+    }
+
+    @Test
+    void aCreatureAsksItsAttackWhetherItCanAttackTheContextItIsGiven() {
+        final Skeleton skeleton = new Skeleton(SKELETON_TILE, SKELETON_TILE);
+
+        assertTrue(skeleton.canAttack(contextWithPlayerAt(ADJACENT_TILE)));
+        assertFalse(skeleton.canAttack(contextWithPlayerAt(FAR_TILE)));
     }
 }

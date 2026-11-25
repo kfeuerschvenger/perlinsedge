@@ -1,6 +1,5 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 
@@ -21,10 +20,10 @@ public interface CreatureAttackStrategy {
     /**
      * Checks if the creature can attack the player.
      *
-     * @param creature the creature to check
-     * @param player   the player to check
+     * @param self    the creature to check
+     * @param context what the creature can see of the world: the map, the player and the occupancy
      * @return true if attack conditions are met
      */
-    boolean canAttack(Creature creature, Player player);
+    boolean canAttack(Creature self, CreatureContext context);
 
 }

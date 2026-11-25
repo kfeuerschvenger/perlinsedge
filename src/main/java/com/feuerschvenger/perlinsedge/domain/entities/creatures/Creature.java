@@ -60,9 +60,9 @@ public abstract class Creature extends Entity {
 
     /**
      * Updates the creature among the others: it moves only to tiles no other creature holds, and the occupancy is
-     * brought in line with its tiles before and after the move. This is the single update of every creature and it is
-     * final, so subclasses add behaviour through {@link #afterUpdate(Player)} and every creature runs in the same order:
-     * cooldown, movement, attack, hook.
+     * brought in line with its tiles before and after the move. This is the single update of every creature and it
+     * is final, so subclasses add behaviour through {@link #afterUpdate(Player)} and every creature runs in the
+     * same order: cooldown, movement, attack, hook.
      *
      * @param deltaTime time since last update (seconds)
      * @param context   the map, the player and the occupancy shared by every creature of the map
@@ -71,7 +71,7 @@ public abstract class Creature extends Entity {
         final var occupancy = context.occupancy();
         updateAttackCooldown(deltaTime);
         occupancy.sync(this);
-        movementStrategy.updateMovement(this, deltaTime, context.map(), context.player(), occupancy);
+        movementStrategy.updateMovement(this, deltaTime, context);
         occupancy.sync(this);
         attackStrategy.updateAttack(this, deltaTime, context);
         afterUpdate(context.player());
@@ -87,23 +87,24 @@ public abstract class Creature extends Entity {
     }
 
     /**
-     * Hook that runs when a living creature is about to take damage, before the damage is applied. It does nothing by
-     * default; a branch or a species overrides it to wake up, flee or fight back.
+     * Hook that runs when a living creature is about to take damage, before the damage is applied. By default the
+     * movement strategy reacts, which is how a creature wakes up, flees or fights back; a branch can override it to
+     * add a reaction of its own.
      *
      * @param source who dealt the damage, or null when the source is not known
      */
     protected void onHurt(Entity source) {
-        // No reaction by default
+        movementStrategy.onHurt(this, source);
     }
 
     /**
      * Applies damage from a source: a creature that is alive reacts first through {@link #onHurt(Entity)}, then the
-     * damage is applied, which can kill it.
+     * damage is applied, which can kill it. It is final, so no subclass can skip the reaction.
      *
      * @param amount damage amount to apply
      * @param source who dealt the damage, or null when the source is not known
      */
-    public void takeDamage(double amount, Entity source) {
+    public final void takeDamage(double amount, Entity source) {
         if (!isDead) {
             onHurt(source);
         }
@@ -111,23 +112,24 @@ public abstract class Creature extends Entity {
     }
 
     /**
-     * Applies damage from an unknown source, see {@link #takeDamage(double, Entity)}.
+     * Applies damage from an unknown source, see {@link #takeDamage(double, Entity)}. It is final and goes through
+     * the same path as a damage with a source.
      *
      * @param amount damage amount to apply
      */
     @Override
-    public void takeDamage(double amount) {
+    public final void takeDamage(double amount) {
         takeDamage(amount, null);
     }
 
     /**
      * Determines if this creature can currently attack the player.
      *
-     * @param player player instance to evaluate
+     * @param context what the creature can see of the world: the map, the player and the occupancy
      * @return true if attack conditions are satisfied
      */
-    public boolean canAttack(Player player) {
-        return attackStrategy.canAttack(this, player);
+    public boolean canAttack(CreatureContext context) {
+        return attackStrategy.canAttack(this, context);
     }
 
     /**
