@@ -150,8 +150,8 @@ class VegetationPassTest {
         applyByShare(high, DENSITY);
 
         final var expected = (int) (low.size() * DENSITY);
-        assertEquals(expected, TestContexts.countResource(low, ResourceType.TREE), 1);
-        assertEquals(expected, TestContexts.countResource(high, ResourceType.TREE), 1);
+        assertEquals((float) expected, (float) TestContexts.countResource(low, ResourceType.TREE), 1F);
+        assertEquals((float) expected, (float) TestContexts.countResource(high, ResourceType.TREE), 1F);
         assertEquals(ResourceType.TREE, low.resourceAt(low.size() - 1));
         assertNull(low.resourceAt(0));
     }
@@ -166,7 +166,7 @@ class VegetationPassTest {
 
         applyByShare(context, HALF_SHARE);
 
-        assertEquals(context.size() * HALF_SHARE, TestContexts.countResource(context, ResourceType.TREE), 1);
+        assertEquals(context.size() * HALF_SHARE, (float) TestContexts.countResource(context, ResourceType.TREE), 1F);
         assertNull(context.resourceAt(0));
     }
 
@@ -193,7 +193,7 @@ class VegetationPassTest {
         applyByShare(context, HALF_SHARE);
 
         final var land = context.size() - context.size() / QUARTER_DIVISOR;
-        assertEquals(land * HALF_SHARE, TestContexts.countResource(context, ResourceType.TREE), 1);
+        assertEquals(land * HALF_SHARE, (float) TestContexts.countResource(context, ResourceType.TREE), 1F);
     }
 
     @Test

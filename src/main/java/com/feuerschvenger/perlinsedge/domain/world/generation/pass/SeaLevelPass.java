@@ -21,6 +21,8 @@ import java.util.Objects;
 public final class SeaLevelPass implements GenerationPass {
 
     private static final String NAME = "sea-level";
+    /** The whole map as a share, so the water share is taken from it to find the share that lies above the sea. */
+    private static final double WHOLE_SHARE = 1.0;
 
     private final SeaLevelParams params;
 
@@ -43,7 +45,7 @@ public final class SeaLevelPass implements GenerationPass {
     @Override
     public void apply(GenerationContext context) {
         final var heights = context.field(NoiseField.HEIGHT);
-        final var threshold = FieldQuantile.above(heights, index -> true, 1.0 - params.waterShare());
+        final var threshold = FieldQuantile.above(heights, index -> true, WHOLE_SHARE - params.waterShare());
         if (!Float.isFinite(threshold)) {
             return;
         }

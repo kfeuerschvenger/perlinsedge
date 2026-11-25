@@ -15,7 +15,7 @@ class SeaLevelPassTest {
     private static final int TILES = SIDE * SIDE;
     private static final float WATER = 0.3F;
     private static final float LEVEL = -0.2F;
-    private static final int TOLERANCE = 2;
+    private static final float TOLERANCE = 2F;
     private static final float FLOOR = 7F;
     private static final float EPSILON = 1e-4F;
     private static final float FLAT = 0.4F;
@@ -49,7 +49,7 @@ class SeaLevelPassTest {
 
         apply(context, WATER);
 
-        assertEquals(TILES * WATER, below(context, LEVEL), TOLERANCE);
+        assertEquals(TILES * WATER, (float) below(context, LEVEL), TOLERANCE);
     }
 
     @Test
@@ -60,8 +60,8 @@ class SeaLevelPassTest {
         apply(high, WATER);
         apply(low, WATER);
 
-        assertEquals(TILES * WATER, below(high, LEVEL), TOLERANCE);
-        assertEquals(TILES * WATER, below(low, LEVEL), TOLERANCE);
+        assertEquals(TILES * WATER, (float) below(high, LEVEL), TOLERANCE);
+        assertEquals(TILES * WATER, (float) below(low, LEVEL), TOLERANCE);
     }
 
     @Test

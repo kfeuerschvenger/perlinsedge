@@ -23,7 +23,7 @@ class HeightBandPassTest {
     private static final float ALL = 1F;
     private static final float NO_SHARE = 0F;
     private static final float OVER = 1.5F;
-    private static final int TOLERANCE = 1;
+    private static final float TOLERANCE = 1F;
     private static final float FLAT = 0.3F;
     private static final float PEAK = 9F;
 
@@ -49,7 +49,7 @@ class HeightBandPassTest {
         apply(context, QUARTER);
 
         final var band = TestContexts.countGround(context, TileType.MOUNTAIN);
-        assertEquals(TILES * QUARTER, band, TOLERANCE);
+        assertEquals(TILES * QUARTER, (float) band, TOLERANCE);
         assertEquals(TileType.MOUNTAIN, context.groundAt(TILES - 1));
         assertEquals(TileType.GRASS, context.groundAt(0));
         var lowestBand = TILES;
@@ -73,7 +73,8 @@ class HeightBandPassTest {
 
         apply(context, HALF);
 
-        assertEquals((TILES - WATER_TILES) * HALF, TestContexts.countGround(context, TileType.MOUNTAIN), TOLERANCE);
+        assertEquals((TILES - WATER_TILES) * HALF, (float) TestContexts.countGround(context, TileType.MOUNTAIN),
+                TOLERANCE);
         assertEquals(WATER_TILES, TestContexts.countGround(context, TileType.DEEP_WATER));
     }
 
@@ -122,7 +123,7 @@ class HeightBandPassTest {
 
         apply(context, QUARTER);
 
-        assertEquals(TILES * QUARTER, TestContexts.countGround(context, TileType.MOUNTAIN), TOLERANCE);
+        assertEquals(TILES * QUARTER, (float) TestContexts.countGround(context, TileType.MOUNTAIN), TOLERANCE);
         assertEquals(TileType.MOUNTAIN, context.groundAt(TILES - 1));
     }
 

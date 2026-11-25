@@ -21,6 +21,8 @@ import java.util.Objects;
 public final class VegetationPass implements GenerationPass {
 
     private static final String NAME = "vegetation";
+    /** The whole range of the noise, or the whole land, as a share. */
+    private static final double WHOLE_SHARE = 1.0;
 
     private final VegetationParams params;
 
@@ -61,7 +63,7 @@ public final class VegetationPass implements GenerationPass {
      */
     private double thresholdOf(GenerationContext context, float[] treeNoise) {
         if (!params.relative()) {
-            return 1.0 - params.density();
+            return WHOLE_SHARE - params.density();
         }
         var land = 0;
         var growing = 0;
@@ -72,7 +74,7 @@ public final class VegetationPass implements GenerationPass {
         if (growing == 0) {
             return Double.POSITIVE_INFINITY;
         }
-        final var share = Math.min(1.0, (double) params.density() * land / growing);
+        final var share = Math.min(WHOLE_SHARE, (double) params.density() * land / growing);
         // The quantile is the lowest noise that grows a tree, and the comparison is strict, so step just below it
         return Math.nextDown(FieldQuantile.above(treeNoise, index -> canGrow(context, index), share));
     }
