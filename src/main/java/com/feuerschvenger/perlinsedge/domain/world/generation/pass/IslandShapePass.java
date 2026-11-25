@@ -209,7 +209,7 @@ public final class IslandShapePass implements GenerationPass {
                 if (candidate <= smallest) {
                     return false;
                 }
-                candidate = Math.max(smallest, Math.min(candidate - 1, (int) (candidate * SHRINK_FACTOR)));
+                candidate = Math.clamp((int) (candidate * SHRINK_FACTOR), smallest, candidate - 1);
             }
             return true;
         }

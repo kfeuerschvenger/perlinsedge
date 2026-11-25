@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,12 +73,8 @@ class MapSmokeTest {
         for (var seed : FixedSeeds.ALL) {
             final var map = generator.generate(new MapRequest(MapType.MEDITERRANEAN, seed, width, height));
 
-            try {
-                WaterInvariants.mediterraneanKeepsItsRivers(map);
-            } catch (AssertionError failure) {
-                throw new AssertionError("seed " + seed + " " + width + "x" + height + ": " + failure.getMessage(),
-                        failure);
-            }
+            assertDoesNotThrow(() -> WaterInvariants.mediterraneanKeepsItsRivers(map),
+                    "seed " + seed + " " + width + "x" + height);
         }
     }
 
