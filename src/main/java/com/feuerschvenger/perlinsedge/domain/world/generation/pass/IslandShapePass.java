@@ -15,9 +15,10 @@ import java.util.random.RandomGenerator;
  * rejection sampling: a centre is accepted when the island lies whole on the map and at least the spacing times the
  * sum of the two radii from every island placed before. An island that finds no such centre in a few attempts is tried
  * again at a smaller radius, down to the smallest radius, which is the one of the parameters on a map of ordinary size
- * and at most a tenth of the shorter side on a small one. An island that still finds no place is put last at the
- * smallest radius with the lifted discs just touching, so the number of islands the parameters ask for is kept while
- * the map has room for it; only an island that finds no centre even then is dropped. The count is the number of
+ * and at most a tenth of the shorter side on a small one. An island that still finds no place makes the whole layout
+ * start again with every radius shrunk, never with the discs touching, so the number of islands the parameters ask
+ * for is kept while the map has room for it and the coasts of two islands never fuse; only an island that finds no
+ * centre with every radius at the smallest is dropped. The count is the number of
  * discs placed: the pass does not promise that the ground rules and the noise leave each disc a land mass of any size,
  * which the tests measure. The height is
  * lifted around each centre by an amount that fades to nothing at the radius of that island, and where the lifts of
@@ -56,8 +57,11 @@ public final class IslandShapePass implements GenerationPass {
     private static final int PLACEMENT_ATTEMPTS = 400;
     /** An island that finds no place shrinks to this share of its radius, or by one tile when that changes nothing. */
     private static final double SHRINK_FACTOR = 0.8;
-    /** The spacing of the last resort: the lifted discs of two islands just touch. */
-    private static final double TOUCHING_SPACING = 1.0;
+    /**
+     * A layout that leaves an island no place shrinks every radius to this share, or by one tile when that changes
+     * nothing: a small step, so the islands keep as much land as the map has room for.
+     */
+    private static final double RELAYOUT_SHRINK_FACTOR = 0.95;
 
     private final IslandParams params;
     private final boolean squaredFalloff;
@@ -179,24 +183,41 @@ public final class IslandShapePass implements GenerationPass {
         }
 
         /**
-         * Places the islands from the largest radius down and paints the lift of each placed one into the effect. An
-         * island that finds no place at any radius is placed last, at the smallest radius and with the relaxed
-         * spacing, so the count of islands holds whenever the map has room for that many of the smallest size.
+         * Places the islands from the largest radius down and paints the lift of each placed one into the effect. When
+         * an island finds no place even at the smallest radius, the whole layout is made again with every radius
+         * shrunk, never with the discs touching, so the count of islands holds whenever the map has room for that many
+         * of the smallest size and the coasts of two islands never fuse. A map with no room even then keeps the
+         * islands that found one.
          */
         void placeAll(int[] radiiAscending, float[] effect) {
+            final var radii = radiiAscending.clone();
+            while (!layOut(radii) && shrinkAll(radii)) {
+                placed = 0;
+            }
+            for (var i = 0; i < placed; i++) {
+                paint(effect, i);
+            }
+        }
+
+        /** Places every island from the largest down and tells whether all of them found a place. */
+        private boolean layOut(int[] radiiAscending) {
             var unplaced = 0;
             for (var i = radiiAscending.length - 1; i >= 0; i--) {
-                if (place(radiiAscending[i])) {
-                    paint(effect, placed - 1);
-                } else {
-                    unplaced++;
+                unplaced += place(radiiAscending[i]) ? 0 : 1;
+            }
+            return unplaced == 0;
+        }
+
+        /** Shrinks every radius above the smallest one, and tells whether any radius changed. */
+        private boolean shrinkAll(int[] radii) {
+            var changed = false;
+            for (var i = 0; i < radii.length; i++) {
+                if (radii[i] > smallest) {
+                    radii[i] = Math.clamp((int) (radii[i] * RELAYOUT_SHRINK_FACTOR), smallest, radii[i] - 1);
+                    changed = true;
                 }
             }
-            for (var i = 0; i < unplaced; i++) {
-                if (tryPlace(smallest, Math.min(spacing, TOUCHING_SPACING))) {
-                    paint(effect, placed - 1);
-                }
-            }
+            return changed;
         }
 
         /**

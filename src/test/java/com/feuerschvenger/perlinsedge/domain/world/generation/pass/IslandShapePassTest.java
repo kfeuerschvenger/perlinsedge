@@ -230,6 +230,10 @@ class IslandShapePassTest {
         assertFalse(Arrays.equals(first.field(NoiseField.HEIGHT), other.field(NoiseField.HEIGHT)));
     }
 
+    /**
+     * On a map narrower than the margins of the islands the margin gives way: every centre is drawn from the middle of
+     * the map instead of from an empty range, so the pass places its islands and does not throw.
+     */
     @Test
     void aMapNarrowerThanTheMarginsKeepsEveryCentreInTheMiddleOfTheMap() {
         final var context = flatHeightContext(SEED_TINY, TINY_SIDE, FLAT_SEA);
@@ -358,6 +362,26 @@ class IslandShapePassTest {
                 new IslandShapePass(params).apply(context);
 
                 assertEquals(FLOOR_COUNT, centres(context).length, "side " + side + " seed " + seed);
+            }
+        }
+    }
+
+    /**
+     * A crowded map shrinks every radius and lays the islands out again instead of letting their lifted discs touch,
+     * so the lifted land of the five islands is five separate pieces and no two coasts fuse into one.
+     */
+    @Test
+    void theLiftedDiscsOfTheFiveIslandsNeverTouchOnTheSmallMaps() {
+        final var params = new IslandParams(NO_DENSITY, FLOOR_COUNT, RECIPE_SIZE, GAIN, LIFT, SEA, FALLOFF);
+        for (var side : new int[] {SMALLEST_MAP, SMALL}) {
+            for (var seed = 1L; seed <= FIT_SEEDS; seed++) {
+                final var context = flatHeightContext(seed, side, FLAT_SEA);
+
+                new IslandShapePass(params).apply(context);
+
+                final var heights = context.field(NoiseField.HEIGHT);
+                final var lifted = Regions.label(side, side, index -> heights[index] > -SEA + TOLERANCE);
+                assertEquals(FLOOR_COUNT, lifted.count(), "side " + side + " seed " + seed);
             }
         }
     }
