@@ -142,10 +142,7 @@ public class GameOrchestrator {
                 combatManager, containerManager,
                 new InteractionManager.OpenViews(transitions::showOpenContainer, transitions::showStation),
                 hintLabel::show);
-        transitions.setOnPaused(() -> {
-            interactionManager.cancel();
-            render(lastAlpha, 0);
-        });
+        transitions.setOnPaused(this::drawPausedFrame);
         inputWiring = new InputWiring(this.gameState, buildingManager, playerManager, interactionManager, view);
     }
 
@@ -469,6 +466,12 @@ public class GameOrchestrator {
         if (edgeActive[EDGE_RIGHT]) {  // Right
             camera.pan(panSpeed, 0, mainCanvas);
         }
+    }
+
+    /** Cancels the pending interaction and draws the paused frame with the interpolation of the last frame. */
+    private void drawPausedFrame() {
+        interactionManager.cancel();
+        render(lastAlpha, 0);
     }
 
     /**
