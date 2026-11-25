@@ -104,6 +104,10 @@ class WaterBodyLimitPassTest {
         assertEquals(TileType.GRASS, context.groundAt(context.index(0, 4)));
     }
 
+    /**
+     * A river along a diagonal is 8-connected, so as 4-connected pieces its tiles would be bodies of one tile: the
+     * limit leaves rivers out of the bodies, so none of them is filled even when no body is kept.
+     */
     @Test
     void aRiverCarvedAlongADiagonalSurvivesEvenWhenNoBodyIsKept() {
         final var context = TestContexts.of(SIDE, SIDE);

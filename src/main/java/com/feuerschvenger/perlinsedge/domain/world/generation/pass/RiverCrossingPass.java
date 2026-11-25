@@ -118,6 +118,33 @@ public final class RiverCrossingPass implements GenerationPass {
         return Math.clamp(byArea, params.minRivers(), params.maxRivers());
     }
 
+    /**
+     * Tells whether a tile of a river other than the owner lies within the band radius of a tile, in the Chebyshev
+     * distance, which makes the tile unfit for a tributary of the owner.
+     *
+     * @param riverOf the river that carved each tile of the map in reading order, {@link #NO_RIVER} for none
+     * @param width   the number of columns
+     * @param height  the number of rows
+     * @param index   the tile
+     * @param owner   the river whose tributary is looked for, whose own tiles do not count
+     * @return true when a tile of another river lies that close
+     */
+    static boolean hasOtherRiverNear(int[] riverOf, int width, int height, int index, int owner) {
+        final var x = index % width;
+        final var y = index / width;
+        final var lastY = Math.min(height - 1, y + BAND_RADIUS);
+        final var lastX = Math.min(width - 1, x + BAND_RADIUS);
+        for (var ny = Math.max(0, y - BAND_RADIUS); ny <= lastY; ny++) {
+            for (var nx = Math.max(0, x - BAND_RADIUS); nx <= lastX; nx++) {
+                final var river = riverOf[ny * width + nx];
+                if (river != NO_RIVER && river != owner) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** The state of one run: the rivers carved so far, the searcher that holds the costs and the buffers. */
     private final class Crossing {
 
@@ -458,24 +485,7 @@ public final class RiverCrossingPass implements GenerationPass {
          */
         private boolean isOwnFreeBand(int index) {
             return bandOf[index] == owner && context.groundAt(index).isLand() && !inCorridor(index)
-                    && !hasOtherRiverNear(index);
-        }
-
-        /** Tells whether a tile of another river lies within the band radius of a tile, in the Chebyshev distance. */
-        private boolean hasOtherRiverNear(int index) {
-            final var x = index % width;
-            final var y = index / width;
-            final var lastY = Math.min(height - 1, y + BAND_RADIUS);
-            final var lastX = Math.min(width - 1, x + BAND_RADIUS);
-            for (var ny = Math.max(0, y - BAND_RADIUS); ny <= lastY; ny++) {
-                for (var nx = Math.max(0, x - BAND_RADIUS); nx <= lastX; nx++) {
-                    final var river = riverOf[ny * width + nx];
-                    if (river != NO_RIVER && river != owner) {
-                        return true;
-                    }
-                }
-            }
-            return false;
+                    && !hasOtherRiverNear(riverOf, width, height, index, owner);
         }
 
         /** Runs the tributaries of the owner from the highest of the tiles that may be a source for its river. */

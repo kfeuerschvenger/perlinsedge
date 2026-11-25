@@ -33,6 +33,8 @@ class RiverCrossingPassTest {
     private static final int KEEP_OUT = RiverCrossingPass.BAND_RADIUS + 1;
     /** The tiles of a square of three by three, the one in the middle included. */
     private static final int NEIGHBOURS = 9;
+    /** The index of the middle tile of that square along each axis, taken off to get the step from the middle. */
+    private static final int SQUARE_CENTRE = 1;
     /** The steps to the four tiles beside a tile: left, right, up and down. */
     private static final int[] STEP_X = {-1, 1, 0, 0};
     private static final int[] STEP_Y = {0, 0, -1, 1};
@@ -71,6 +73,12 @@ class RiverCrossingPassTest {
     private static final int TILES_HUGE = 1_000 * 1_000;
     private static final int DENSITY = 3;
     private static final int MAX_BOUND = 4;
+    /** The side of the small grid of the tests of the band, and its middle row and column: room for the band around. */
+    private static final int BAND_GRID = 15;
+    private static final int BAND_CENTRE = 7;
+    /** The numbers of the two rivers that carved the grid of the tests of the band. */
+    private static final int FIRST_RIVER = 1;
+    private static final int SECOND_RIVER = 2;
 
     private static GenerationContext grass(int side, long seed) {
         final var context = TestContexts.of(MapType.RIVERS, seed, side, side, TestContexts.FLAT);
@@ -207,8 +215,8 @@ class RiverCrossingPassTest {
             final var tile = queue[head];
             head++;
             for (var around = 0; around < NEIGHBOURS; around++) {
-                final var x = context.xOf(tile) + around % THREE - 1;
-                final var y = context.yOf(tile) + around / THREE - 1;
+                final var x = context.xOf(tile) + around % THREE - SQUARE_CENTRE;
+                final var y = context.yOf(tile) + around / THREE - SQUARE_CENTRE;
                 if (isOnGrid(context, x, y) && labels[context.index(x, y)] == Regions.NO_LABEL
                         && mask.test(context.index(x, y))) {
                     labels[context.index(x, y)] = label;
@@ -382,6 +390,64 @@ class RiverCrossingPassTest {
             assertTrue(distanceBetweenRivers(context) >= KEEP_OUT,
                     "seed " + seed + ": rivers come within " + distanceBetweenRivers(context));
         }
+    }
+
+    /**
+     * Returns the river of each tile of a small grid with the tiles of the rivers set: the first river at the first
+     * tile, the second at the second one.
+     */
+    private static int[] gridWithRivers(int firstTile, int secondTile) {
+        final var riverOf = new int[BAND_GRID * BAND_GRID];
+        riverOf[firstTile] = FIRST_RIVER;
+        riverOf[secondTile] = SECOND_RIVER;
+        return riverOf;
+    }
+
+    /**
+     * The land of the band of a river that lies within the band radius of another river stays closed to its
+     * tributaries: a tile is near another river when a tile of it lies within the band radius in any direction, the
+     * corners of the square included.
+     */
+    @Test
+    void aTileWithinTheBandRadiusOfAnotherRiverIsNearItInEveryDirection() {
+        final var tile = BAND_GRID * BAND_CENTRE + BAND_CENTRE;
+        final var radius = RiverCrossingPass.BAND_RADIUS;
+        final var farCorner = 0;
+
+        for (var dy = -radius; dy <= radius; dy += radius) {
+            for (var dx = -radius; dx <= radius; dx += radius) {
+                final var other = tile + dy * BAND_GRID + dx;
+                assertTrue(RiverCrossingPass.hasOtherRiverNear(gridWithRivers(farCorner, other), BAND_GRID, BAND_GRID,
+                        tile, FIRST_RIVER), "the other river lies at " + dx + "," + dy);
+            }
+        }
+    }
+
+    /** The other river one tile beyond the band radius is not near, and the owner's own river does not count. */
+    @Test
+    void aTileBeyondTheBandRadiusOrBesideOnlyItsOwnRiverIsNotNearAnotherRiver() {
+        final var tile = BAND_GRID * BAND_CENTRE + BAND_CENTRE;
+        final var beyond = tile + RiverCrossingPass.BAND_RADIUS + 1;
+        final var beside = tile + 1;
+        final var farCorner = 0;
+
+        assertFalse(RiverCrossingPass.hasOtherRiverNear(gridWithRivers(farCorner, beyond), BAND_GRID, BAND_GRID, tile,
+                FIRST_RIVER), "the other river lies one tile beyond the radius");
+        assertFalse(RiverCrossingPass.hasOtherRiverNear(gridWithRivers(beside, farCorner), BAND_GRID, BAND_GRID, tile,
+                FIRST_RIVER), "the river beside the tile is the owner's own");
+    }
+
+    /** The scan stops at the edge of the map: a tile in the corner sees the other river inside the grid only. */
+    @Test
+    void theScanForAnotherRiverStopsAtTheEdgeOfTheMap() {
+        final var corner = 0;
+        final var lastTile = BAND_GRID * BAND_GRID - 1;
+        final var inReach = RiverCrossingPass.BAND_RADIUS * BAND_GRID + RiverCrossingPass.BAND_RADIUS;
+
+        assertFalse(RiverCrossingPass.hasOtherRiverNear(gridWithRivers(lastTile, lastTile - 1), BAND_GRID, BAND_GRID,
+                corner, FIRST_RIVER), "the far corner of the grid is out of reach");
+        assertTrue(RiverCrossingPass.hasOtherRiverNear(gridWithRivers(lastTile, inReach), BAND_GRID, BAND_GRID, corner,
+                FIRST_RIVER), "the other river at the radius from the corner is near");
     }
 
     /**
