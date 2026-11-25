@@ -343,8 +343,8 @@ class IslandShapePassTest {
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(2, 1, NO_CAP, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 0F, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 1.5F, SPACING));
-        assertThrows(IllegalArgumentException.class,
-                () -> new IslandSize(1, 1, Math.nextUp(IslandSize.MAX_SHARE_OF_SIDE), SPACING));
+        final var overHalf = Math.nextUp(IslandSize.MAX_SHARE_OF_SIDE);
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, overHalf, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.NaN, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, 0F));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, -SPACING));

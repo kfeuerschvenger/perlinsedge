@@ -534,7 +534,10 @@ public final class RiverCrossingPass implements GenerationPass {
             for (var ny = Math.max(0, y - TRIBUTARY_MIN_REACH); ny <= lastY; ny++) {
                 for (var nx = Math.max(0, x - TRIBUTARY_MIN_REACH); nx <= lastX; nx++) {
                     final var index = ny * width + nx;
-                    anyReach[index] = Math.min(anyReach[index], Math.max(Math.abs(nx - x), Math.abs(ny - y)));
+                    final var reach = Math.max(Math.abs(nx - x), Math.abs(ny - y));
+                    if (reach < anyReach[index]) {
+                        anyReach[index] = reach;
+                    }
                 }
             }
         }
