@@ -2,7 +2,8 @@
 
 Each land tile is a 32x21 block: a 32x16 top diamond in one flat colour with a one pixel darker edge on its two upper sides, which reads as a faint grid across the map, and a 5 pixel side face below.
 A face strip per tile kind is the next 5 pixels of that face, which the game draws under the block where a lower neighbour exposes it, once per 5 pixels of drop.
-Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, gravel, flowers and mushrooms.
+Grass is written as three variants, `grass-1..3`, a little darker to a little lighter than the base colour, which the game picks per tile from the patch value of the tile so they form large soft areas.
+Decals are small separate sprites drawn on top of some tiles: grass tufts, pebbles, gravel, flowers, mushrooms and reeds.
 Water lies over a bed that is a sand block with the same grid edge and side faces as land, sunk 10 pixels per depth level below the land tops: level 1 for shallow, coast and river water and level 2 for deep water.
 The bed colours are mixed toward the water colour when the sprite is baked, 45 percent for level 1 and 75 percent for level 2, so the grid and the decals on the bed fade with depth instead of looking drawn over the water, and the step between two depths shows its side faces.
 One translucent sheet of the water colour is drawn over every water tile, plus three thin highlight lines the game fades in and out.
@@ -11,6 +12,7 @@ The sheet diamond is two pixels narrower on its right side than a land diamond, 
 usage: python -I tools/pixelart/tiles.py [--out src/main/resources/assets] [--preview preview.png]
 """
 import argparse
+import colorsys
 import random
 from pathlib import Path
 
@@ -31,7 +33,8 @@ def darken(colour, amount):
 # top colour, left face colour, right face colour
 LAND = {
     "grass": ("#5aa84a", "#7a4a3a", "#4e2f36"),
-    "forest": ("#4f9c45", "#7a4a3a", "#4e2f36"),
+    # darker than grass, so the trees that stand on forest floor show on the minimap through the average colour
+    "forest": ("#3e7d3a", "#7a4a3a", "#4e2f36"),
     "savanna": ("#a7b05a", "#7a4a3a", "#4e2f36"),
     "rocky-ground": ("#8f8a7a", "#6f6658", "#4f483f"),
     "sand": ("#f0d48e", "#dba867", "#c4925a"),
@@ -45,6 +48,9 @@ LAND = {
     "bed": ("#f0d48e", "#dba867", "#c4925a"),
     "bed-deep": ("#f0d48e", "#dba867", "#c4925a"),
 }
+# lightness and hue shifts of the grass variants, darkest first; the game picks one from the patch value of a tile, so
+# the shifts are small and the variants read as large soft areas of one meadow
+GRASS_SHIFTS = [(-0.04, 0.004), (0.0, 0.0), (0.04, -0.004)]
 GRID = 0.09
 LIP = 0.18
 WATER_COLOUR = "#18a8c8"
@@ -99,6 +105,14 @@ def land_tile(top, left, right, grid=GRID, depth_fog=0.0):
     return img
 
 
+def shifted(colour, lightness, hue):
+    """Moves a #rrggbb colour by a lightness and a hue delta, both in the 0..1 scale of HLS."""
+    r, g, b = (c / 255 for c in hexc(colour))
+    h, l, sat = colorsys.rgb_to_hls(r, g, b)
+    r, g, b = colorsys.hls_to_rgb((h + hue) % 1.0, min(1.0, max(0.0, l + lightness)), sat)
+    return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
+
+
 def face_strip(left, right, depth_fog=0.0):
     """Draws the part of a taller block's faces below the face of a land tile, in the colours of that tile.
 
@@ -127,7 +141,26 @@ def sprite(rows, palette):
     return img
 
 
+REED_PALETTE = {"a": "#8a9a4e", "b": "#5f7a45", "t": "#4e2f36"}
+
+
+def reed(seed, blades):
+    """Draws a clump of reeds: thin vertical blades of one pixel of two greens, each ending in a dark brown tip."""
+    rng = random.Random(seed)
+    width, height = 7, 8
+    columns = sorted(rng.sample(range(width), blades))
+    grid = [["."] * width for _ in range(height)]
+    for index, column in enumerate(columns):
+        top = rng.randint(0, 3)
+        for y in range(top, height):
+            grid[y][column] = "t" if y == top else "ab"[(index + y) % 2]
+    return ["".join(row) for row in grid], REED_PALETTE
+
+
 DECALS = {
+    "reed-1": reed(1, 3),
+    "reed-2": reed(2, 4),
+    "reed-3": reed(3, 5),
     "tuft-1": (["..a...a.", ".ab.a.b.", ".ab.ab..", "..b.b..."], {"a": "#76b04c", "b": "#337a47"}),
     "tuft-2": ([".a..a.", "ab.ab.", ".b.b.."], {"a": "#76b04c", "b": "#337a47"}),
     "tuft-3": (["a.a.a", "babab", ".b.b."], {"a": "#b3d05e", "b": "#459b4c"}),
@@ -218,6 +251,9 @@ def main():
     args = parser.parse_args()
     out = Path(args.out)
     tiles = {name: land_tile(*colours, depth_fog=FOG_OF.get(name, 0.0)) for name, colours in LAND.items()}
+    # grass has numbered variants; the shifted tiles replace the plain one in the written set
+    variants = {f"grass-{n}": land_tile(shifted(LAND["grass"][0], dl, dh), *LAND["grass"][1:])
+                for n, (dl, dh) in enumerate(GRASS_SHIFTS, start=1)}
     faces = {name: face_strip(colours[1], colours[2], depth_fog=FOG_OF.get(name, 0.0)) for name, colours in LAND.items()}
     decals = {name: sprite(*spec) for name, spec in DECALS.items()}
     for name, (rows, palette) in UNDERWATER.items():
@@ -229,7 +265,10 @@ def main():
     (out / "tiles").mkdir(parents=True, exist_ok=True)
     (out / "decals").mkdir(parents=True, exist_ok=True)
     for name, img in tiles.items():
-        img.save(out / "tiles" / f"{name}-1.png")
+        if name != "grass":
+            img.save(out / "tiles" / f"{name}-1.png")
+    for name, img in variants.items():
+        img.save(out / "tiles" / f"{name}.png")
     (out / "faces").mkdir(parents=True, exist_ok=True)
     for name, img in faces.items():
         img.save(out / "faces" / f"{name}.png")
@@ -240,7 +279,7 @@ def main():
         water_top(colour, opacity).save(out / "water" / f"{name}.png")
     for index, width in enumerate(SHIMMER_WIDTHS, start=1):
         shimmer(width).save(out / "water" / f"shimmer-{index}.png")
-    print(f"tiles {len(tiles)}, faces {len(faces)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
+    print(f"tiles {len(tiles) - 1 + len(variants)}, faces {len(faces)}, decals {len(decals)}, water {len(WATER)}, shimmer {len(SHIMMER_WIDTHS)}")
 
 
 if __name__ == "__main__":

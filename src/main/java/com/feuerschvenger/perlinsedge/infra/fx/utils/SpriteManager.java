@@ -32,7 +32,8 @@ public final class SpriteManager {
     private static final int ALPHA_SHIFT = 24;
 
     private static final List<String> RESOURCE_FOLDERS = List.of(
-            AssetPaths.DEFAULT_FOLDER, "dense_forest", "swamp", "desert", "tundra", AssetPaths.SHARED_FOLDER);
+            AssetPaths.DEFAULT_FOLDER, "dense_forest", "swamp", "desert", "tundra", "mediterranean",
+            AssetPaths.SHARED_FOLDER);
 
     /**
      * Metadata container for sprites including image data and vertical offset.

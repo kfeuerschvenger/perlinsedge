@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourceAnchorTest {
 
-    private static final List<String> FOLDERS = List.of("default", "desert", "tundra", "swamp", "dense_forest");
+    private static final List<String> FOLDERS = List.of("default", "desert", "tundra", "swamp", "dense_forest", "mediterranean");
     private static final List<String> LOW = List.of("bush", "rock", "iron");
     private static final List<String> TALL = List.of("tree", "palm", "cactus");
 

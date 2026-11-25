@@ -83,6 +83,36 @@ class GroundDecalsTest {
     }
 
     @Test
+    void swampGroundHoldsReedsAndAnOccasionalTuft() {
+        Set<String> seen = new HashSet<>();
+        int tufts = 0;
+        int total = 0;
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String name = GroundDecals.decalFor(TileType.SWAMP, x, y, 7L);
+                if (name != null) {
+                    seen.add(name);
+                    total++;
+                    tufts += name.startsWith("tuft") ? 1 : 0;
+                }
+            }
+        }
+        assertEquals(new HashSet<>(GroundDecals.SWAMP_DECALS), seen);
+        assertTrue(GroundDecals.ALL.containsAll(seen));
+        assertEquals(0.25, tufts / (double) total, 0.03);
+    }
+
+    @Test
+    void grassOfOtherBiomesHoldsNoReeds() {
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                String name = GroundDecals.decalFor(TileType.GRASS, x, y, 7L);
+                assertFalse(name != null && name.startsWith("reed"), name);
+            }
+        }
+    }
+
+    @Test
     void grassyTilesInTheTundraHoldNoDecalsLikeSnow() {
         for (TileType type : new TileType[]{TileType.GRASS, TileType.FOREST, TileType.ROCKY_GROUND}) {
             for (int x = 0; x < 60; x++) {
