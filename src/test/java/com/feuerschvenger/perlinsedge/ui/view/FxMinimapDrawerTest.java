@@ -8,6 +8,9 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TilePalette;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer.Layout;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -27,12 +30,6 @@ class FxMinimapDrawerTest {
     private static final double MARKER_OFFSET_Y = 5;
     private static final int STONE_X = 6;
     private static final int STONE_Y = 5;
-    private static final int IRON_X = 10;
-    private static final int IRON_Y = 4;
-    private static final int CRYSTALS_X = 12;
-    private static final int CRYSTALS_Y = 13;
-    private static final int TREE_X = 3;
-    private static final int TREE_Y = 8;
     private static final MapType MAP_TYPE = MapType.DENSE_FOREST;
     /** A palette without art, so every tile type has its flat colour. */
     private static final TilePalette FLAT_PALETTE = TilePalette.of(Map.of(), null);
@@ -131,77 +128,27 @@ class FxMinimapDrawerTest {
         assertEquals(FLAT_PALETTE.argb(MapType.DESERT, TileType.GRASS), pixels[(5 + 20 + 3) * 100 + 50]);
     }
 
-    private static TileMap mapWithResources() {
+    @Test
+    void aRefreshWithoutAChangeWritesNothingAndAChangeWritesOnlyTheTouchedPixel() {
         TileMap map = uniformMap(MARKER_MAP_SIZE, TileType.ROCKY_GROUND);
         map.getTile(STONE_X, STONE_Y).setWorldResource(new Resource(ResourceType.STONE, 1L));
-        map.getTile(IRON_X, IRON_Y).setWorldResource(new Resource(ResourceType.IRON_ORE, 1L));
-        map.getTile(CRYSTALS_X, CRYSTALS_Y).setWorldResource(new Resource(ResourceType.CRYSTALS, 1L));
-        map.getTile(TREE_X, TREE_Y).setWorldResource(new Resource(ResourceType.TREE, 1L));
-        return map;
-    }
+        Layout layout = new Layout(MARKER_IMAGE_W, MARKER_IMAGE_H, MARKER_TILE_W, MARKER_TILE_H, MARKER_OFFSET_X,
+                MARKER_OFFSET_Y);
+        MinimapPixels pixels = new MinimapPixels(map, FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MAP_TYPE, layout),
+                layout);
+        WritableImage image = new WritableImage(MARKER_IMAGE_W, MARKER_IMAGE_H);
+        PixelWriter writer = image.getPixelWriter();
+        writer.setPixels(0, 0, MARKER_IMAGE_W, MARKER_IMAGE_H, PixelFormat.getIntArgbInstance(), pixels.snapshot(), 0,
+                MARKER_IMAGE_W);
 
-    /** The index of the pixel under the centre of a tile at the scale and offset the marker tests use. */
-    private static int centreIndex(int x, int y) {
-        int px = (int) Math.floor((x - y) * MARKER_TILE_W + MARKER_OFFSET_X);
-        int py = (int) Math.floor((x + y + 1) * MARKER_TILE_H + MARKER_OFFSET_Y);
-        return py * MARKER_IMAGE_W + px;
-    }
+        assertEquals(0, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "nothing changed yet");
 
-    private static Layout markerLayout(double offsetX) {
-        return new Layout(MARKER_IMAGE_W, MARKER_IMAGE_H, MARKER_TILE_W, MARKER_TILE_H, offsetX, MARKER_OFFSET_Y);
-    }
-
-    private static int[] paint(TileMap map, int[] pixels, double offsetX) {
-        FxMinimapDrawer.paintMarkers(map, pixels, markerLayout(offsetX));
-        return pixels;
-    }
-
-    private static int[] tilePixels(TileMap map) {
-        return FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MAP_TYPE, markerLayout(MARKER_OFFSET_X));
-    }
-
-    @Test
-    void stoneIronAndCrystalsGetOneOpaquePixelAtTheCentreOfTheirTile() {
-        TileMap map = mapWithResources();
-
-        int[] pixels = paint(map, tilePixels(map), MARKER_OFFSET_X);
-
-        assertEquals(0xFFCFCFCF, pixels[centreIndex(STONE_X, STONE_Y)]);
-        assertEquals(0xFFB5502E, pixels[centreIndex(IRON_X, IRON_Y)]);
-        assertEquals(0xFF4FE0E8, pixels[centreIndex(CRYSTALS_X, CRYSTALS_Y)]);
-    }
-
-    @Test
-    void treesAndEmptyTilesKeepTheColourOfTheirTile() {
-        TileMap map = mapWithResources();
-        int[] before = tilePixels(map);
-
-        int[] pixels = paint(map, tilePixels(map), MARKER_OFFSET_X);
-
-        assertEquals(before[centreIndex(TREE_X, TREE_Y)], pixels[centreIndex(TREE_X, TREE_Y)]);
-        assertEquals(before[centreIndex(0, 0)], pixels[centreIndex(0, 0)]);
-    }
-
-    @Test
-    void aDepletedResourceHasNoMarker() {
-        TileMap map = uniformMap(MARKER_MAP_SIZE, TileType.ROCKY_GROUND);
-        Resource stone = new Resource(ResourceType.STONE, 1L);
-        map.getTile(STONE_X, STONE_Y).setWorldResource(stone);
-        stone.takeDamage(Integer.MAX_VALUE);
-
-        int[] pixels = paint(map, new int[MARKER_IMAGE_W * MARKER_IMAGE_H], MARKER_OFFSET_X);
-
-        assertEquals(0, pixels[centreIndex(STONE_X, STONE_Y)]);
-    }
-
-    @Test
-    void aMarkerOutsideTheBufferIsSkipped() {
-        TileMap map = mapWithResources();
-
-        int[] pixels = paint(map, new int[MARKER_IMAGE_W * MARKER_IMAGE_H], MARKER_OFFSET_X + MARKER_IMAGE_W);
-
-        for (int pixel : pixels) {
-            assertEquals(0, pixel);
-        }
+        map.getTile(STONE_X, STONE_Y).setWorldResource(null);
+        assertEquals(1, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "one marker went away");
+        assertEquals(0, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "the change was written once");
+        int ground = FLAT_PALETTE.argb(MAP_TYPE, TileType.ROCKY_GROUND);
+        int stoneColumn = (int) Math.floor((STONE_X - STONE_Y) * MARKER_TILE_W + MARKER_OFFSET_X);
+        int stoneRow = (int) Math.floor((STONE_X + STONE_Y + 1) * MARKER_TILE_H + MARKER_OFFSET_Y);
+        assertEquals(ground, image.getPixelReader().getArgb(stoneColumn, stoneRow));
     }
 }

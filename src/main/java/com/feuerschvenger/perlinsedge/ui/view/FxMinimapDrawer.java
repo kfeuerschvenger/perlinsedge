@@ -2,8 +2,6 @@ package com.feuerschvenger.perlinsedge.ui.view;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
-import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
-import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.SpriteManager;
@@ -11,6 +9,7 @@ import com.feuerschvenger.perlinsedge.infra.fx.utils.TilePalette;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelFormat;
+import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 
@@ -28,6 +27,8 @@ public class FxMinimapDrawer {
     private static final double LINE_WIDTH = 1.5;
     /** Samples taken inside one pixel of the minimap, on a 2 by 2 grid. */
     private static final int SAMPLES_PER_PIXEL = 4;
+    /** Samples taken along one axis of a pixel. */
+    private static final int SAMPLES_PER_AXIS = 2;
     /** Where the samples of a pixel lie along one axis, as a fraction of the pixel. */
     private static final double[] SAMPLE_OFFSETS = {0.25, 0.75};
 
@@ -51,11 +52,6 @@ public class FxMinimapDrawer {
     private static final int RED_SHIFT = 16;
     private static final int GREEN_SHIFT = 8;
     private static final int CHANNEL_MASK = 0xFF;
-
-    // One pixel per resource tile, over the colour of the tile; trees have none, the dark forest floor shows them
-    private static final int STONE_MARKER = 0xFFCFCFCF;
-    private static final int IRON_MARKER = 0xFFB5502E;
-    private static final int CRYSTALS_MARKER = 0xFF4FE0E8;
 
     // Configuration references
     private final AppConfig.GraphicsConfig graphicsConfig = AppConfig.getInstance().graphics();
@@ -85,6 +81,7 @@ public class FxMinimapDrawer {
     private int playerTileX;
     private int playerTileY;
 
+    /** Creates the drawer. */
     public FxMinimapDrawer(Canvas canvas, FxCamera camera, Canvas mainGameCanvas) {
         this.canvas = canvas;
         this.gc = canvas.getGraphicsContext2D();
@@ -114,13 +111,13 @@ public class FxMinimapDrawer {
 
     /**
      * Sets the map to display. The tile layer is cached as an image and rebuilt only when the map is a different
-     * instance, so calling this every frame is cheap.
+     * instance or its map type changed, so calling this every frame is cheap.
      *
      * @param newMap  The new TileMap to display
      * @param newType The map type of the map, which picks the colours of its tiles
      */
     public void updateMap(TileMap newMap, MapType newType) {
-        if (newMap == this.map) {
+        if (newMap == this.map && newType == this.mapType) {
             return;
         }
 
@@ -162,6 +159,7 @@ public class FxMinimapDrawer {
         };
     }
 
+    /** Returns the canvas the minimap is drawn on. */
     public Canvas getCanvas() {
         return canvas;
     }
@@ -170,10 +168,12 @@ public class FxMinimapDrawer {
     //  PRIVATE HELPER METHODS
     // ==================================================================
 
+    /** Clears the canvas before a frame. */
     private void clearCanvas() {
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
     }
 
+    /** Fits the map to the canvas and centres it. */
     private void calculateScaling() {
         if (map == null) {
             return;
@@ -225,19 +225,32 @@ public class FxMinimapDrawer {
         if (tileLayer == null || (int) tileLayer.getWidth() != imageWidth || (int) tileLayer.getHeight() != imageHeight) {
             tileLayer = new WritableImage(imageWidth, imageHeight);
         }
-        uploadLayer(layerPixels.pixels(), imageWidth, imageHeight);
+        uploadLayer(layerPixels.snapshot(), imageWidth, imageHeight);
         tileLayerDirty = false;
     }
 
     /**
-     * Lays the resource markers again when the map changed, which removes the marker of a harvested resource. Only the
-     * markers are laid again, the colours of the tiles are kept, and a frame without a change does no more than compare
-     * the revision of the map.
+     * Brings the markers of the tile layer in step with the map. A frame without a change only compares the revision
+     * of the map, and a change writes only the pixels whose marker changed, not the whole image.
      */
     private void refreshMarkers() {
-        if (layerPixels.isStale()) {
-            uploadLayer(layerPixels.refresh(), (int) tileLayer.getWidth(), (int) tileLayer.getHeight());
+        writeChanged(layerPixels, tileLayer.getPixelWriter(), (int) tileLayer.getWidth());
+    }
+
+    /**
+     * Refreshes the pixels and writes the ones that changed into an image.
+     *
+     * @param pixels     the pixels of the tile layer
+     * @param writer     the writer of the image that shows them
+     * @param imageWidth the width of the image in pixels
+     * @return how many pixels were written, 0 when nothing changed
+     */
+    static int writeChanged(MinimapPixels pixels, PixelWriter writer, int imageWidth) {
+        final int[] changed = pixels.refresh();
+        for (int index : changed) {
+            writer.setArgb(index % imageWidth, index / imageWidth, pixels.pixelAt(index));
         }
+        return changed.length;
     }
 
     /** Copies the pixels into the image of the tile layer. */
@@ -275,12 +288,12 @@ public class FxMinimapDrawer {
         for (var py = 0; py < imageHeight; py++) {
             for (var px = 0; px < imageWidth; px++) {
                 for (var sample = 0; sample < SAMPLES_PER_PIXEL; sample++) {
-                    final double isoX = px + SAMPLE_OFFSETS[sample % 2] - offsetX;
-                    final double isoY = py + SAMPLE_OFFSETS[sample / 2] - offsetY;
+                    final double isoX = px + SAMPLE_OFFSETS[sample % SAMPLES_PER_AXIS] - offsetX;
+                    final double isoY = py + SAMPLE_OFFSETS[sample / SAMPLES_PER_AXIS] - offsetY;
                     final double compX = isoX / tileW;
                     final double compY = isoY / tileH;
-                    final int tileX = (int) Math.floor((compX + compY) / 2.0);
-                    final int tileY = (int) Math.floor((compY - compX) / 2.0);
+                    final int tileX = (int) Math.floor((compX + compY) / ISO_AXIS_DIVISOR);
+                    final int tileY = (int) Math.floor((compY - compX) / ISO_AXIS_DIVISOR);
                     final boolean onMap = tileX >= 0 && tileY >= 0 && tileX < width && tileY < height;
                     samples[sample] = onMap ? palette.argb(mapType, map.getTile(tileX, tileY).getType()) : 0;
                 }
@@ -333,50 +346,7 @@ public class FxMinimapDrawer {
                 | (int) Math.round(blue / (double) alpha);
     }
 
-    /**
-     * Sets one pixel for every stone, iron and crystals tile, at the centre of the tile on the minimap, over the colour
-     * of the tiles. Trees have no marker. A marker is opaque, so it stays one crisp pixel whatever the scale.
-     *
-     * @param map         the map whose resources are marked
-     * @param pixels      the pixel buffer from {@link #samplePixels}, which is changed
-     * @param layout      the size of the buffer and where the tiles lie in it
-     */
-    static void paintMarkers(TileMap map, int[] pixels, Layout layout) {
-        final int width = map.getWidth();
-        final int height = map.getHeight();
-        for (var y = 0; y < height; y++) {
-            for (var x = 0; x < width; x++) {
-                final int marker = markerOf(map.getTile(x, y));
-                if (marker != 0) {
-                    stamp(pixels, layout, x, y, marker);
-                }
-            }
-        }
-    }
-
-    /** Sets the pixel under the centre of a tile, unless it lies outside the buffer. */
-    private static void stamp(int[] pixels, Layout layout, int tileX, int tileY, int marker) {
-        final int px = (int) Math.floor((tileX - tileY) * layout.tileW() + layout.offsetX());
-        final int py = (int) Math.floor((tileX + tileY + 1) * layout.tileH() + layout.offsetY());
-        if (px >= 0 && py >= 0 && px < layout.imageWidth() && py < layout.imageHeight()) {
-            pixels[py * layout.imageWidth() + px] = marker;
-        }
-    }
-
-    /** Returns the marker colour of the resource of a tile, 0 for a tile without a marked resource. */
-    private static int markerOf(Tile tile) {
-        if (!tile.hasResource()) {
-            return 0;
-        }
-        final ResourceType type = tile.getWorldResource().getType();
-        return switch (type) {
-            case STONE -> STONE_MARKER;
-            case IRON_ORE -> IRON_MARKER;
-            case CRYSTALS -> CRYSTALS_MARKER;
-            case TREE -> 0;
-        };
-    }
-
+    /** Draws the player marker over the tile layer. */
     private void drawPlayerMarker() {
         if (!playerVisible) {
             return;
@@ -388,6 +358,7 @@ public class FxMinimapDrawer {
                 PLAYER_MARKER_DIAMETER, PLAYER_MARKER_DIAMETER);
     }
 
+    /** Draws the polygon of the area the main camera sees. */
     private void drawCameraView() {
         final double[] corners = calculateCameraCorners();
         final var polygonX = new double[CAMERA_CORNER_COUNT];
@@ -410,6 +381,7 @@ public class FxMinimapDrawer {
         gc.strokePolygon(polygonX, polygonY, CAMERA_CORNER_COUNT);
     }
 
+    /** Returns the corners of the main canvas as screen coordinates. */
     private double[] calculateCameraCorners() {
         final double width = mainGameCanvas.getWidth();
         final double height = mainGameCanvas.getHeight();
@@ -422,6 +394,7 @@ public class FxMinimapDrawer {
         };
     }
 
+    /** Converts a screen position of the main view to fractional tile coordinates. */
     private double[] screenToTile(double screenX, double screenY) {
         final double zoom = camera.getZoom();
         final double camOffsetX = camera.getX();
@@ -439,6 +412,7 @@ public class FxMinimapDrawer {
         return new double[]{tileX, tileY};
     }
 
+    /** Converts tile coordinates to a position on the minimap. */
     private double[] tileToMiniMap(double tileX, double tileY) {
         return new double[] {
                 (tileX - tileY) * scaledTileW + offsetX,

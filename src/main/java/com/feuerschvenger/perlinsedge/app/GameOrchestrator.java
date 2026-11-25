@@ -79,6 +79,8 @@ public class GameOrchestrator {
     private final FxCamera camera;
     private final FxInputHandler inputHandler;
     private final FxMinimapDrawer minimapDrawer;
+    /** The map the minimap was last given, so the frame passes the map and its type only when the map is a new one. */
+    private TileMap minimapMap;
     private final Canvas mainCanvas;
     private final InventoryPanel inventoryPanel;
     private final DeathOverlay deathOverlay;
@@ -169,7 +171,7 @@ public class GameOrchestrator {
         mapManager.spawnEnemies();
 
         initializeGameComponents();
-        minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
+        showMapOnMinimap();
         centerOnPlayer();
         startGameLoop();
 
@@ -240,6 +242,7 @@ public class GameOrchestrator {
     //  Wiring
     // ==================================================================
 
+    /** Wires the views, the managers and the callbacks to the game that was just created. */
     private void initializeGameComponents() {
         log.debug("Initializing game components");
         setupInventoryCallbacks();
@@ -250,6 +253,7 @@ public class GameOrchestrator {
         inputWiring.registerMouseHandlers();
     }
 
+    /** Connects the item moves of the inventory panel to the game state. */
     private void setupInventoryCallbacks() {
         inventoryPanel.setOnItemDroppedInside((int srcSlot, Container srcContainer, int tgtSlot, Container tgtContainer, Item item) -> {
             containerManager.transferBetweenSlots(srcContainer, srcSlot, tgtContainer, tgtSlot, item);
@@ -264,6 +268,7 @@ public class GameOrchestrator {
         inventoryPanel.setOnCraftRecipe(inventoryManager::handleCraftRecipe);
     }
 
+    /** Builds the controller that turns key presses into game actions. */
     private KeyController createKeyController() {
         var controller = new KeyController(
                 this::handleEscape,
@@ -360,7 +365,7 @@ public class GameOrchestrator {
             AppConfig.getInstance().world().setCurrentMapType(request.type());
             playerManager.initializePlayer();
             mapManager.spawnEnemies();
-            minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
+            showMapOnMinimap();
             centerOnPlayer();
             rebuilt = true;
         } catch (RuntimeException e) {
@@ -385,11 +390,18 @@ public class GameOrchestrator {
     private void repairAfterReplacedMap(MapRequest request, Throwable rebuildFailure) {
         try {
             AppConfig.getInstance().world().setCurrentMapType(request.type());
-            minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
+            showMapOnMinimap();
         } catch (RuntimeException e) {
             log.error("The map type and the minimap could not be brought in step with the new map", e);
             rebuildFailure.addSuppressed(e);
         }
+    }
+
+    /** Gives the minimap the current map and the map type that picks its colours. */
+    private void showMapOnMinimap() {
+        final var map = gameState.getCurrentMap();
+        minimapDrawer.updateMap(map, AppConfig.getInstance().world().getCurrentMapType());
+        minimapMap = map;
     }
 
     /** Starts the loop again without letting a failure to start it hide the failure of the rebuild. */
@@ -450,6 +462,7 @@ public class GameOrchestrator {
         }
     }
 
+    /** Moves the camera while the mouse rests at an edge of the window. */
     private void handleEdgePanning(double deltaTime) {
         boolean[] edgeActive = inputHandler.getEdgeActive();
         double panSpeed = AppConfig.getInstance().core().getPanSpeed() * deltaTime * PAN_REFERENCE_FRAME_RATE;
@@ -506,8 +519,11 @@ public class GameOrchestrator {
         buildingPalettePanel.update(gameState.getPlayer(), buildingManager.getSelectedBuildingType(),
                 buildingManager::getRotation);
         deathOverlay.update(gameState.isPlayerDead(), gameState.getPlayerRespawnTimer());
-        // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame
-        minimapDrawer.updateMap(gameState.getCurrentMap(), AppConfig.getInstance().world().getCurrentMapType());
+        // The tile layer is cached inside the drawer, only the player marker and the camera view move per frame, so
+        // the map and its type are passed only when the map is a new one
+        if (gameState.getCurrentMap() != minimapMap) {
+            showMapOnMinimap();
+        }
         minimapDrawer.setPlayerTile(gameState.getPlayer().getCurrentTileX(), gameState.getPlayer().getCurrentTileY());
         minimapDrawer.draw();
     }
