@@ -4,6 +4,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.BalanceParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.EdgeCoastParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.EdgeCoastPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundParams;
@@ -157,6 +159,17 @@ final class RecipeParts {
                 LAKE_DEPTH_TOLERANCE, surface);
         return new RiverPass(new RiverParams(density, RIVER_SOURCE_SHARE, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
                 tributaries, lakes));
+    }
+
+    /**
+     * Builds the pass that lowers the land along one edge of the map into a long coast.
+     *
+     * @param depthTiles how many tiles in from the edge the coast reaches
+     * @param drop       how far the height drops at the edge
+     * @return the pass
+     */
+    static EdgeCoastPass edgeCoast(int depthTiles, float drop) {
+        return new EdgeCoastPass(new EdgeCoastParams(depthTiles, drop));
     }
 
     /**

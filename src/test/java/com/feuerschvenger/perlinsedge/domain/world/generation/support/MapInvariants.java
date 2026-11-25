@@ -87,7 +87,9 @@ public final class MapInvariants {
         byType.put(MapType.RIVERS, List.of(WaterInvariants::riversAreFewLongAndConnected,
                 WaterInvariants::riversMapKeepsItsWaterInTheRivers, WaterInvariants::theForestGrowsAlongTheRivers));
         byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
-        byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist));
+        byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist,
+                WaterInvariants::mediterraneanHasALongCoastOnOneEdge,
+                WaterInvariants::mediterraneanHasFewInlandWaterBodies));
         return Collections.unmodifiableMap(byType);
     }
 
@@ -306,6 +308,21 @@ public final class MapInvariants {
         }
         return a.getType() == b.getType() && a.getVisualSeed() == b.getVisualSeed() && a.getHealth() == b.getHealth()
                 && a.isDepleted() == b.isDepleted();
+    }
+
+    /**
+     * Requires a count to be at most a value given for a map of 300 by 300 tiles, scaled to the area of the map and
+     * rounded up.
+     *
+     * @param what  what is counted, for the message
+     * @param count the number counted
+     * @param spec  the map, which gives the area
+     * @param max   the highest count on a map of 300 by 300 tiles
+     */
+    static void requireAtMostScaled(String what, long count, MapSpec spec, int max) {
+        final var area = (long) spec.size() * spec.size();
+        final var highest = (max * area + QUOTA_AREA - 1) / QUOTA_AREA;
+        require(count <= highest, what + " count " + count + " is above " + highest);
     }
 
     /** Fails with a message unless a condition holds. */

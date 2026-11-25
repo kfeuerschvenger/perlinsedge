@@ -37,7 +37,23 @@ final class WaterInvariants {
     private static final int GALLERY_REACH = 3;
     private static final double MIN_GALLERY_FACTOR = 1.5;
 
+    /** The share of the longest coast side that is water at the least, on a Mediterranean map. */
+    private static final double MIN_COAST_EDGE_WATER_SHARE = 0.80;
+    /** The most inland water bodies, which touch no edge, a Mediterranean map holds. */
+    private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 6;
+
     private WaterInvariants() {
+    }
+
+    static void mediterraneanHasALongCoastOnOneEdge(TileMap map, MapSpec spec) {
+        final var share = WaterStats.wettestEdgeShare(map);
+        MapInvariants.require(share >= MIN_COAST_EDGE_WATER_SHARE,
+                "the wettest edge is only " + share + " water");
+    }
+
+    static void mediterraneanHasFewInlandWaterBodies(TileMap map, MapSpec spec) {
+        final var inland = WaterStats.waterBodies(map).countInland(WaterStats.MIN_BODY_TILES, Integer.MAX_VALUE);
+        MapInvariants.requireAtMostScaled("inland water body", inland, spec, MAX_MEDITERRANEAN_INLAND_BODIES);
     }
 
     static void theSpawnRegionHoldsMostOfTheLand(TileMap map, MapSpec spec) {
