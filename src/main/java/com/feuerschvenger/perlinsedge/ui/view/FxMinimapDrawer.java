@@ -222,7 +222,8 @@ public class FxMinimapDrawer {
         final var layout = new Layout(imageWidth, imageHeight, scaledTileW, scaledTileH, offsetX, offsetY);
         layerPixels = new MinimapPixels(map, samplePixels(map, palette, mapType, layout), layout);
 
-        if (tileLayer == null || (int) tileLayer.getWidth() != imageWidth || (int) tileLayer.getHeight() != imageHeight) {
+        if (tileLayer == null || (int) tileLayer.getWidth() != imageWidth
+                || (int) tileLayer.getHeight() != imageHeight) {
             tileLayer = new WritableImage(imageWidth, imageHeight);
         }
         uploadLayer(layerPixels.snapshot(), imageWidth, imageHeight);
@@ -366,7 +367,8 @@ public class FxMinimapDrawer {
 
         // Convert corners to minimap coordinates
         for (var i = 0; i < CAMERA_CORNER_COUNT; i++) {
-            final double[] tilePos = screenToTile(corners[i * COORDINATES_PER_CORNER], corners[i * COORDINATES_PER_CORNER + 1]);
+            final double[] tilePos = screenToTile(corners[i * COORDINATES_PER_CORNER],
+                    corners[i * COORDINATES_PER_CORNER + 1]);
             final double[] miniPos = tileToMiniMap(tilePos[0], tilePos[1]);
             polygonX[i] = miniPos[0];
             polygonY[i] = miniPos[1];

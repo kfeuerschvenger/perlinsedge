@@ -8,6 +8,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import com.feuerschvenger.perlinsedge.infra.fx.utils.TilePalette;
 import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer.Layout;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class FxMinimapDrawerTest {
 
@@ -30,6 +33,7 @@ class FxMinimapDrawerTest {
     private static final double MARKER_OFFSET_Y = 5;
     private static final int STONE_X = 6;
     private static final int STONE_Y = 5;
+    private static final int STONE_MARKER = 0xFFCFCFCF;
     private static final MapType MAP_TYPE = MapType.DENSE_FOREST;
     /** A palette without art, so every tile type has its flat colour. */
     private static final TilePalette FLAT_PALETTE = TilePalette.of(Map.of(), null);
@@ -141,14 +145,35 @@ class FxMinimapDrawerTest {
         writer.setPixels(0, 0, MARKER_IMAGE_W, MARKER_IMAGE_H, PixelFormat.getIntArgbInstance(), pixels.snapshot(), 0,
                 MARKER_IMAGE_W);
 
+        int stoneColumn = (int) Math.floor((STONE_X - STONE_Y) * MARKER_TILE_W + MARKER_OFFSET_X);
+        int stoneRow = (int) Math.floor((STONE_X + STONE_Y + 1) * MARKER_TILE_H + MARKER_OFFSET_Y);
+        assertEquals(STONE_MARKER, image.getPixelReader().getArgb(stoneColumn, stoneRow), "the stone is marked");
+
         assertEquals(0, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "nothing changed yet");
 
         map.getTile(STONE_X, STONE_Y).setWorldResource(null);
         assertEquals(1, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "one marker went away");
         assertEquals(0, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "the change was written once");
         int ground = FLAT_PALETTE.argb(MAP_TYPE, TileType.ROCKY_GROUND);
-        int stoneColumn = (int) Math.floor((STONE_X - STONE_Y) * MARKER_TILE_W + MARKER_OFFSET_X);
-        int stoneRow = (int) Math.floor((STONE_X + STONE_Y + 1) * MARKER_TILE_H + MARKER_OFFSET_Y);
         assertEquals(ground, image.getPixelReader().getArgb(stoneColumn, stoneRow));
+    }
+
+    @Test
+    void theSameMapWithAnotherTypeIsPaintedAgainInTheColoursOfTheNewType() {
+        FxToolkitSupport.onFx(() -> {
+            TileMap map = uniformMap(MARKER_MAP_SIZE, TileType.GRASS);
+            Canvas canvas = new Canvas(MARKER_IMAGE_W, MARKER_IMAGE_H);
+            FxMinimapDrawer drawer = new FxMinimapDrawer(canvas, new FxCamera(0, 0, 1.0), new Canvas(1, 1));
+            drawer.updateMap(map, MapType.DENSE_FOREST);
+            drawer.draw();
+            int forest = canvas.snapshot(null, null).getPixelReader().getArgb(MARKER_IMAGE_W / 2, MARKER_IMAGE_H / 2);
+
+            drawer.updateMap(map, MapType.DESERT);
+            drawer.draw();
+            int desert = canvas.snapshot(null, null).getPixelReader().getArgb(MARKER_IMAGE_W / 2, MARKER_IMAGE_H / 2);
+
+            assertNotEquals(forest, desert, "the layer was rebuilt with the colours of the desert");
+            return null;
+        });
     }
 }
