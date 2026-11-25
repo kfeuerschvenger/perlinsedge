@@ -29,11 +29,13 @@ public final class VegetationPass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Puts a tree on every tile that may grow one where the tree noise is above the threshold of its place. */
     @Override
     public void apply(GenerationContext context) {
         final var treeNoise = context.field(NoiseField.TREE);

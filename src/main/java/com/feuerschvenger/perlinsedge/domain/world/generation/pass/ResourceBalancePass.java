@@ -43,11 +43,13 @@ public final class ResourceBalancePass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Thins the resources that exceed their maximum and adds the ones that fall short of their minimum. */
     @Override
     public void apply(GenerationContext context) {
         final var random = context.random(SALT);
@@ -98,6 +100,7 @@ public final class ResourceBalancePass implements GenerationPass {
         return missing;
     }
 
+    /** Counts the tiles that hold a resource of a type. */
     private static int count(GenerationContext context, ResourceType type) {
         var found = 0;
         for (var index = 0; index < context.size(); index++) {
@@ -126,6 +129,7 @@ public final class ResourceBalancePass implements GenerationPass {
         }
     }
 
+    /** Adds the missing resources of a quota on the host tiles it asks for, rocky ground or fertile ground. */
     private static void add(ResourceQuota quota, int missing, RockyFill rocky, FertileFill fertile, int[] scratch) {
         if (quota.host() == ResourceQuota.Host.ROCKY) {
             rocky.add(quota, missing);

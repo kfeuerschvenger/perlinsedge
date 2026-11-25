@@ -16,11 +16,13 @@ public final class LandmassHintPass implements GenerationPass {
 
     private static final String NAME = "landmass-hint";
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Sets the spawn hint to the tile of the largest piece of walkable land nearest to its centroid. */
     @Override
     public void apply(GenerationContext context) {
         final var land = Regions.label(context.width(), context.height(),

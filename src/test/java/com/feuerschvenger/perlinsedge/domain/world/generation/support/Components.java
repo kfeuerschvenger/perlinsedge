@@ -206,7 +206,7 @@ public final class Components {
             head++;
             final var x = index % width;
             final var y = index / width;
-            record(x, y);
+            include(x, y);
             tail = visit(map, selected, queue, tail, x - 1, y);
             tail = visit(map, selected, queue, tail, x + 1, y);
             tail = visit(map, selected, queue, tail, x, y - 1);
@@ -215,7 +215,7 @@ public final class Components {
     }
 
     /** Counts a tile into the size and the bounding box of the current component. */
-    private void record(int x, int y) {
+    private void include(int x, int y) {
         sizes[count]++;
         minX[count] = Math.min(minX[count], x);
         maxX[count] = Math.max(maxX[count], x);

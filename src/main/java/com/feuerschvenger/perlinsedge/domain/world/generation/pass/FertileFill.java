@@ -25,6 +25,7 @@ final class FertileFill {
     private final GenerationContext context;
     private final RandomGenerator random;
 
+    /** Prepares the fill of one generation, which draws from the stream it is given. */
     FertileFill(GenerationContext context, RandomGenerator random) {
         this.context = context;
         this.random = random;
@@ -66,6 +67,7 @@ final class FertileFill {
         }
     }
 
+    /** Tells whether a tile is free, not reserved and of a ground the host accepts, so a resource may be added. */
     private boolean isCandidate(int index, ResourceQuota.Host host) {
         return context.resourceAt(index) == null && !context.isReserved(index)
                 && host.accepts(context.groundAt(index));
