@@ -6,6 +6,7 @@ import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DistanceTransformTest {
@@ -45,6 +46,30 @@ class DistanceTransformTest {
         for (var index = 0; index < sources.length; index++) {
             assertEquals(nearestBySearch(sources, index), distance[index], "tile " + index);
         }
+    }
+
+    /** A transform into an array that held an older one overwrites it, returns that array and matches a new one. */
+    @Test
+    void theTransformIntoAnArrayOverwritesItAndGivesTheSameDistancesAsANewOne() {
+        final var source = CENTRE * SIDE + CENTRE;
+        final var reused = new int[SIDE * SIDE];
+        DistanceTransform.chebyshev(SIDE, SIDE, index -> index == 0, reused);
+
+        final var returned = DistanceTransform.chebyshev(SIDE, SIDE, index -> index == source, reused);
+
+        assertSame(reused, returned);
+        assertArrayEquals(DistanceTransform.chebyshev(SIDE, SIDE, index -> index == source), reused);
+    }
+
+    /** An array that does not have one entry for every tile cannot receive the distances. */
+    @Test
+    void anArrayOfTheWrongSizeIsRefused() {
+        final var wrong = new int[SIDE];
+
+        assertThrows(IllegalArgumentException.class,
+                () -> DistanceTransform.chebyshev(SIDE, SIDE, index -> true, wrong));
+        assertThrows(NullPointerException.class,
+                () -> DistanceTransform.chebyshev(SIDE, SIDE, index -> true, null));
     }
 
     private static int nearestBySearch(boolean[] sources, int index) {

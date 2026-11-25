@@ -28,6 +28,8 @@ class LeastCostPathTest {
     private static final int BIG_COSTS = 4;
     private static final int SHORT_BUFFER = 2;
     private static final float CHEAPER_THAN_LOWEST = 0.5F;
+    private static final float SLACK = 2.5F;
+    private static final float HALF = 0.5F;
 
     /** Reads a picture: {@code .} costs 1, {@code #} is blocked and a digit is its own cost. */
     private static float[] costs(String... rows) {
@@ -266,6 +268,39 @@ class LeastCostPathTest {
     }
 
     @Test
+    void aHeuristicWeightKeepsEveryPathWithinThatFactorOfTheCheapestOne() {
+        final var random = new SplittableRandom(SEED);
+        final var size = RANDOM_SIDE * RANDOM_SIDE;
+        final var cost = randomCosts(random, size);
+        final var search = new LeastCostPath(RANDOM_SIDE, RANDOM_SIDE, cost, 1F, SLACK);
+        final var path = new int[size];
+
+        for (var query = 0; query < QUERIES; query++) {
+            final var start = random.nextInt(size);
+            final var goal = random.nextInt(size);
+
+            final var length = search.find(start, goal, path);
+
+            final var cheapest = reference(cost, RANDOM_SIDE, RANDOM_SIDE, start, goal);
+            if (cheapest == Double.POSITIVE_INFINITY) {
+                assertEquals(LeastCostPath.NOT_FOUND, length, "query " + query);
+            } else {
+                assertTrue(costOf(cost, RANDOM_SIDE, path, length) <= SLACK * cheapest + TOLERANCE, "query " + query);
+            }
+        }
+    }
+
+    @Test
+    void aHeuristicWeightBelowOneOrNotFiniteIsRefused() {
+        final var cost = costs("...");
+
+        assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, cost, 1F, HALF));
+        assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, cost, 1F, Float.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LeastCostPath(3, 1, cost, 1F, Float.POSITIVE_INFINITY));
+    }
+
+    @Test
     void oneInstanceGivesTheSamePathAsAFreshOneAfterManySearches() {
         final var random = new SplittableRandom(SEED);
         final var size = RANDOM_SIDE * RANDOM_SIDE;
@@ -302,6 +337,43 @@ class LeastCostPathTest {
         assertArrayEquals(IntStream.range(0, before).toArray(), straight);
         assertEquals(before, after);
         assertArrayEquals(straight, Arrays.copyOf(path, after));
+    }
+
+    @Test
+    void aCostSetOnTheSearcherChangesTheLaterSearches() {
+        final var cost = costs("...", "...", "...");
+        final var path = new int[cost.length];
+        final var search = new LeastCostPath(3, 3, cost, 1F);
+        search.find(0, 2, path);
+        assertEquals(1, path[1]);
+
+        search.setCost(1, Float.POSITIVE_INFINITY);
+        final var length = search.find(0, 2, path);
+
+        assertTrue(length > 0);
+        assertNotEquals(1, path[1]);
+    }
+
+    @Test
+    void theSearcherReportsTheCostItHoldsNow() {
+        final var cost = costs("...", "...", "...");
+        final var search = new LeastCostPath(3, 3, cost, 1F);
+
+        assertEquals(1F, search.costAt(1));
+        search.setCost(1, Float.POSITIVE_INFINITY);
+
+        assertEquals(Float.POSITIVE_INFINITY, search.costAt(1));
+        assertEquals(1F, cost[1], "the array the caller passed is a copy, not the searcher's");
+        assertThrows(IndexOutOfBoundsException.class, () -> search.costAt(9));
+    }
+
+    @Test
+    void aCostThatCouldBreakTheHeuristicIsRefused() {
+        final var search = new LeastCostPath(3, 3, costs("...", "...", "..."), 1F);
+
+        assertThrows(IllegalArgumentException.class, () -> search.setCost(0, CHEAPER_THAN_LOWEST));
+        assertThrows(IllegalArgumentException.class, () -> search.setCost(0, Float.NaN));
+        assertThrows(IndexOutOfBoundsException.class, () -> search.setCost(9, 1F));
     }
 
     @Test

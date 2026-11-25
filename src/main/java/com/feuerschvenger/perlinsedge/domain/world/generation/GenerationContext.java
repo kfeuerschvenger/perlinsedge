@@ -264,8 +264,9 @@ public final class GenerationContext {
     }
 
     /**
-     * Marks a tile as reserved: a pass that carves a clearing or a trail reserves its tiles so that the passes after it
-     * neither fill them with resources nor floor them.
+     * Marks a tile as reserved: a pass that wants a tile to stay as it left it reserves it, so that the passes after it
+     * neither fill it with resources nor floor it. The spawn pass reserves the area around the player, and the passes
+     * that carve clearings and trails reserve what they carve.
      *
      * @param index an index into the arrays
      */
@@ -313,9 +314,8 @@ public final class GenerationContext {
     }
 
     /**
-     * Returns the tile a pass asked the spawn to be near, such as the middle of a clearing. This is an extension point
-     * that no recipe uses yet: the content pass that clears a spawn area in the forest is the first one meant to set
-     * it.
+     * Returns the tile a pass asked the spawn to be near, such as the middle of a clearing or of the largest island.
+     * The spawn pass takes the free tile nearest to it, and to the centre of the map when no pass set a hint.
      *
      * @return the index, or {@link #NONE} when no pass asked for one
      */
@@ -324,8 +324,8 @@ public final class GenerationContext {
     }
 
     /**
-     * Sets the tile the spawn should be near. This is an extension point that no recipe uses yet: the content pass
-     * that clears a spawn area in the forest is the first one meant to call it.
+     * Sets the tile the spawn should be near, for a pass that knows where the player belongs, such as the one that
+     * clears a spawn area in the forest or the one that finds the largest island.
      *
      * @param index an index into the arrays, or {@link #NONE}
      * @throws IndexOutOfBoundsException when the index is neither {@link #NONE} nor inside the map

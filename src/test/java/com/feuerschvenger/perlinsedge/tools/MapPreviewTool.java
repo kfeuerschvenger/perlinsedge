@@ -3,11 +3,13 @@ package com.feuerschvenger.perlinsedge.tools;
 import com.feuerschvenger.perlinsedge.domain.world.generation.PassObserver;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceBalancePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.recipe.MapRecipes;
+import com.feuerschvenger.perlinsedge.domain.world.generation.support.Components;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.FixedSeeds;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapPainter;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSource;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapSpec;
 import com.feuerschvenger.perlinsedge.domain.world.generation.support.MapStats;
+import com.feuerschvenger.perlinsedge.domain.world.generation.support.WaterStats;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -48,6 +50,10 @@ public final class MapPreviewTool {
     private static final MapRecipes RECIPES = new MapRecipes();
     private static final double NANOS_PER_MILLI = 1_000_000.0;
     private static final long PERCENT = 100L;
+    /** A river component smaller than this is a puddle or a stub and is left out of the report. */
+    private static final int MIN_REPORTED_RIVER = 20;
+    /** The report lists this many of the largest islands, so a shattered map does not flood the log. */
+    private static final int MAX_LISTED_ISLANDS = 16;
 
     private MapPreviewTool() {
     }
@@ -87,6 +93,7 @@ public final class MapPreviewTool {
         final var elapsed = System.nanoTime() - start;
         counts.add(map);
         reportShortfalls(spec, map);
+        reportShapes(spec, map);
         ImageIO.write(MapPainter.paint(map), "png", OUTPUT.resolve(spec.label() + ".png").toFile());
         return elapsed;
     }
@@ -101,9 +108,42 @@ public final class MapPreviewTool {
                 .forEach(missing -> LOG.warn("{} is short of its quota: {}", spec.label(), missing));
     }
 
+    /** Logs the sizes of the river components of a rivers map and of the islands of an islands map. */
+    private static void reportShapes(MapSpec spec, TileMap map) {
+        if (spec.type() == MapType.RIVERS) {
+            final var rivers = WaterStats.rivers(map);
+            LOG.info("    {} rivers: {} components, the {} of at least {} tiles span {}", spec.label(),
+                    rivers.count(), rivers.countAtLeast(MIN_REPORTED_RIVER), MIN_REPORTED_RIVER, spans(rivers));
+        }
+        if (spec.type() == MapType.ISLANDS) {
+            final var land = WaterStats.landMasses(map);
+            final var sizes = Arrays.stream(land.sizes()).filter(size -> size >= WaterStats.MIN_LAND_TILES).sorted()
+                    .toArray();
+            final var landTiles = MapStats.landTiles(map);
+            LOG.info("    {} land {}% of the map, largest island {}% of the land, islands of at least {} tiles: {}, "
+                            + "the {} largest are {}", spec.label(),
+                    PERCENT * landTiles / ((long) map.getWidth() * map.getHeight()),
+                    PERCENT * land.largest() / landTiles, WaterStats.MIN_LAND_TILES, sizes.length, MAX_LISTED_ISLANDS,
+                    Arrays.toString(Arrays.copyOfRange(sizes, Math.max(0, sizes.length - MAX_LISTED_ISLANDS),
+                            sizes.length)));
+        }
+    }
+
+    private static String spans(Components components) {
+        final var text = new StringBuilder();
+        for (var label = 1; label <= components.count(); label++) {
+            if (components.sizeOf(label) >= MIN_REPORTED_RIVER) {
+                text.append(components.spanX(label)).append('x').append(components.spanY(label)).append(" (")
+                        .append(components.sizeOf(label)).append(" tiles) ");
+            }
+        }
+        return text.toString().trim();
+    }
+
     /** The lowest and highest count of the resources and of the rocky ground over the maps of one type. */
     private static final class Counts {
-        private static final String[] NAMES = {"iron", "crystals", "stone", "trees", "rocky%", "forest%"};
+        private static final String[] NAMES = {"iron", "crystals", "stone", "trees", "rocky%", "forest%", "water%",
+                "bodies", "spawnRegion%", "riverTiles"};
         private final long[] low = new long[NAMES.length];
         private final long[] high = new long[NAMES.length];
         private boolean empty = true;
@@ -114,7 +154,11 @@ public final class MapPreviewTool {
                     MapStats.count(map, ResourceType.CRYSTALS), MapStats.count(map, ResourceType.STONE),
                     MapStats.count(map, ResourceType.TREE),
                     PERCENT * MapStats.count(map, TileType.ROCKY_GROUND) / land,
-                    PERCENT * MapStats.count(map, TileType.FOREST) / land};
+                    PERCENT * MapStats.count(map, TileType.FOREST) / land,
+                    Math.round(PERCENT * WaterStats.waterShare(map)),
+                    WaterStats.waterBodies(map).countAtLeast(WaterStats.MIN_BODY_TILES),
+                    Math.round(PERCENT * WaterStats.spawnRegionShareOfLand(map)),
+                    MapStats.count(map, TileType.RIVER)};
             for (var metric = 0; metric < values.length; metric++) {
                 low[metric] = empty ? values[metric] : Math.min(low[metric], values[metric]);
                 high[metric] = empty ? values[metric] : Math.max(high[metric], values[metric]);

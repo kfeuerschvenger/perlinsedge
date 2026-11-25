@@ -7,17 +7,20 @@ import java.util.Objects;
 import java.util.function.IntConsumer;
 
 /**
- * Chooses the tile where the player starts, and runs before the passes that balance the resources and floor the forest,
- * so that they leave the area around the player alone. The free tiles, walkable ground that holds
- * no resource, are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never
- * shut into a pocket; on a sea of islands that region is the largest island. Within it the spawn is the tile nearest to
- * the anchor, which is the spawn hint a pass left in the context, such as the middle of a clearing, or the centre of
- * the map, whose surroundings are free of resources and walkable to the free radius of the parameters.
+ * Chooses the tile where the player starts, and runs before the passes that balance the resources and floor the
+ * forest, so that they leave the area around the player alone. The free tiles, walkable ground that holds no resource,
+ * are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never shut into a
+ * pocket. When a pass left a spawn hint in the context, the region is the largest one inside the piece of land that
+ * holds the hint, the walkable ground with resources ignored: on a sea of islands the hint lies on the largest island,
+ * and the spawn stays there however the trees and stones have cut the island, instead of moving to a larger free
+ * region of a smaller island. Without a hint the region is the largest one of the map. Within the region the spawn is
+ * the tile nearest to the anchor, which is the spawn hint, such as the middle of a clearing, or the centre of the map,
+ * whose surroundings are free of resources and walkable to the free radius of the parameters.
  * <p>
  * When no tile of the region has such surroundings, the tile of the region nearest to the anchor is taken and the
- * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources. In both
- * cases the square of the free radius around the spawn is reserved, so no later pass puts a resource there or floors
- * it, and the area stays free in the final map whatever the balancing pass has to add elsewhere.
+ * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources. In
+ * both cases the square of the free radius around the spawn is reserved, so no later pass puts a resource there or
+ * floors it, and the area stays free in the final map whatever the balancing pass has to add elsewhere.
  * <p>
  * The pass labels the map with {@link Regions}, which creates no object per tile.
  */
@@ -37,27 +40,56 @@ public final class SpawnPass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Picks the region, finds the spawn in it and reserves the area around it, clearing the resources if it must. */
     @Override
     public void apply(GenerationContext context) {
         final var regions = Regions.label(context.width(), context.height(), index -> isFree(context, index));
-        final var largest = regions.largest();
-        if (largest == Regions.NO_LABEL) {
+        if (regions.largest() == Regions.NO_LABEL) {
             throw new IllegalStateException(
                     "the map has no walkable tile free of resources for the player to start on");
         }
         final var anchor = anchorOf(context);
-        var spawn = nearest(context, regions, largest, anchor, true);
+        final var region = regionOf(context, regions);
+        var spawn = nearest(context, regions, region, anchor, true);
         if (spawn == GenerationContext.NONE) {
-            spawn = nearest(context, regions, largest, anchor, false);
+            spawn = nearest(context, regions, region, anchor, false);
             clearAround(context, spawn);
         }
         reserveAround(context, spawn);
         context.setSpawnIndex(spawn);
+    }
+
+    /**
+     * Returns the free region the spawn is taken in: the largest one inside the piece of land of the spawn hint when
+     * a pass left one on walkable ground, else the largest one of the map. The map's largest region is also the
+     * fallback when the hinted piece of land holds no free region at all, because resources cover every tile of it,
+     * so the player starts on another piece of land instead of the pass failing.
+     */
+    private static int regionOf(GenerationContext context, Regions regions) {
+        if (context.spawnHint() == GenerationContext.NONE) {
+            return regions.largest();
+        }
+        final var land = Regions.label(context.width(), context.height(),
+                index -> context.groundAt(index).isWalkable());
+        final var hinted = land.labelAt(context.spawnHint());
+        if (hinted == Regions.NO_LABEL) {
+            return regions.largest();
+        }
+        var best = Regions.NO_LABEL;
+        for (var index = 0; index < context.size(); index++) {
+            final var label = regions.labelAt(index);
+            if (label != Regions.NO_LABEL && land.labelAt(index) == hinted
+                    && (best == Regions.NO_LABEL || regions.sizeOf(label) > regions.sizeOf(best))) {
+                best = label;
+            }
+        }
+        return best == Regions.NO_LABEL ? regions.largest() : best;
     }
 
     /** Returns the tile the spawn should be near: the hint of a pass, or else the centre of the map. */

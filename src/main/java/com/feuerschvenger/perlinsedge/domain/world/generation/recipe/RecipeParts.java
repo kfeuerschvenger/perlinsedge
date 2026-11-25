@@ -4,6 +4,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.FractalKind;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseSettings;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.BalanceParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.EdgeCoastParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.EdgeCoastPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundParams;
@@ -15,6 +17,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.NoiseFieldsPa
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceBalancePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceQuota;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverCrossingParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverCrossingPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourceParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourcePass;
@@ -27,6 +31,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.StonePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.TributaryParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.WaterBodyLimitPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.WaterBodyParams;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
@@ -84,14 +90,16 @@ final class RecipeParts {
     private static final int SPAWN_FREE_RADIUS = 3;
 
     // Rivers: the same everywhere but their density and the surface of their lakes
-    private static final float RIVER_SOURCE_MIN_HEIGHT = 0.6F;
+    /** A river starts on the highest tenth of the land, which every height profile has, unlike a fixed height. */
+    private static final float RIVER_SOURCE_SHARE = 0.10F;
     private static final int RIVER_MIN_LENGTH = 100;
     private static final int RIVER_MAX_LENGTH = 300;
     private static final int TRIBUTARY_MIN_RIVER_LENGTH = 30;
     private static final float TRIBUTARY_CHANCE = 0.01F;
     private static final int TRIBUTARY_MIN_LENGTH = 20;
     private static final int TRIBUTARY_LENGTH_SPREAD = 50;
-    private static final float LAKE_MAX_ENDPOINT_HEIGHT = 0.4F;
+    /** A river that dead ends in the lowest 40% of the land floods a lake. */
+    private static final float LAKE_MAX_ENDPOINT_SHARE = 0.4F;
     private static final int LAKE_MIN_RADIUS = 2;
     private static final int LAKE_MAX_RADIUS = 5;
     private static final float LAKE_DEPTH_TOLERANCE = 0.05F;
@@ -145,12 +153,78 @@ final class RecipeParts {
      * @return the pass
      */
     static RiverPass rivers(float density, TileType surface) {
+        return rivers(density, surface, LAKE_MAX_ENDPOINT_SHARE);
+    }
+
+    /**
+     * Builds the river pass of a map with its own share of river ends that make a lake.
+     *
+     * @param density           how many of the high tiles start a river
+     * @param surface           what the water of a lake is made of, shallow water or ice
+     * @param lakeEndpointShare the share of the land whose river ends may make a lake, 0 for rivers that never do
+     * @return the pass
+     */
+    static RiverPass rivers(float density, TileType surface, float lakeEndpointShare) {
+        return rivers(density, surface, lakeEndpointShare, 0);
+    }
+
+    /**
+     * Builds the river pass of a map whose rivers are all real ones: a river that dead ends before a number of tiles
+     * is taken back and another source is tried.
+     *
+     * @param density           how many of the high tiles start a river
+     * @param surface           what the water of a lake is made of, shallow water or ice
+     * @param lakeEndpointShare the share of the land whose river ends may make a lake, 0 for rivers that never do
+     * @param minKeptTiles      the fewest tiles a river covers to stay, at most the river length before a branch
+     * @return the pass
+     */
+    static RiverPass rivers(float density, TileType surface, float lakeEndpointShare, int minKeptTiles) {
         final var tributaries = new TributaryParams(TRIBUTARY_MIN_RIVER_LENGTH, TRIBUTARY_CHANCE,
                 TRIBUTARY_MIN_LENGTH, TRIBUTARY_LENGTH_SPREAD);
-        final var lakes = new LakeParams(LAKE_MAX_ENDPOINT_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
+        final var lakes = new LakeParams(lakeEndpointShare, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
                 LAKE_DEPTH_TOLERANCE, surface);
-        return new RiverPass(new RiverParams(density, RIVER_SOURCE_MIN_HEIGHT, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
-                tributaries, lakes));
+        return new RiverPass(new RiverParams(density, RIVER_SOURCE_SHARE, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
+                tributaries, lakes, minKeptTiles));
+    }
+
+    /**
+     * Builds the pass that lowers the land along one edge of the map into a long coast.
+     *
+     * @param depthShare how far in from the edge the coast reaches, as a share of the size of the map across it
+     * @param drop       how far the height drops at the edge
+     * @return the pass
+     */
+    static EdgeCoastPass edgeCoast(float depthShare, float drop) {
+        return new EdgeCoastPass(new EdgeCoastParams(depthShare, drop));
+    }
+
+    /**
+     * Builds the pass that cuts rivers across the whole map from one edge to the opposite one.
+     *
+     * @param riversPer100k      how many rivers there are for every 100,000 tiles of map
+     * @param minRivers          the fewest rivers a map has
+     * @param maxRivers          the most rivers a map has
+     * @param heightWeight       how much a river avoids high ground
+     * @param meanderWeight      how much a river avoids dry ground
+     * @param tributariesPerRiver how many short streams join each river
+     * @return the pass
+     */
+    static RiverCrossingPass riverCrossing(int riversPer100k, int minRivers, int maxRivers, float heightWeight,
+                                           float meanderWeight, int tributariesPerRiver) {
+        return new RiverCrossingPass(new RiverCrossingParams(riversPer100k, minRivers, maxRivers, heightWeight,
+                meanderWeight, tributariesPerRiver));
+    }
+
+    /**
+     * Builds the pass that keeps a map to a few bodies of water.
+     *
+     * @param keepPer100k  how many of the largest bodies stay for every 100,000 tiles of map
+     * @param minKeptTiles the fewest tiles a body needs to stay
+     * @param fill         the land that replaces the bodies that do not stay
+     * @return the pass
+     */
+    static WaterBodyLimitPass waterBodyLimit(int keepPer100k, int minKeptTiles, TileType fill) {
+        return new WaterBodyLimitPass(new WaterBodyParams(keepPer100k, minKeptTiles, fill));
     }
 
     /**
@@ -266,7 +340,19 @@ final class RecipeParts {
      * @return the pass
      */
     static VegetationPass vegetation(float density) {
-        return new VegetationPass(new VegetationParams(density));
+        return new VegetationPass(new VegetationParams(density, 0, 0F));
+    }
+
+    /**
+     * Builds the pass that grows trees thicker along the rivers.
+     *
+     * @param density    how thickly the trees grow away from the water
+     * @param waterReach how many tiles from a river the trees grow thicker
+     * @param waterBonus how much thicker, as a share of the tree noise range
+     * @return the pass
+     */
+    static VegetationPass vegetationNearWater(float density, int waterReach, float waterBonus) {
+        return new VegetationPass(new VegetationParams(density, waterReach, waterBonus));
     }
 
     /**
