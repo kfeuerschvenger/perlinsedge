@@ -142,9 +142,8 @@ public final class RiverCrossingPass implements GenerationPass {
         private Regions landmasses;
         /** The tiles that may start a tributary, the first {@code candidates} of them filled, kept between rivers. */
         private final int[] sources;
-        /** For each tile, its distance to the river of the owner, to the other rivers and to every river. */
+        /** For each tile, its distance to the river of the owner and to every river. */
         private final int[] ownerReach;
-        private final int[] otherReach;
         private final int[] anyReach;
         /** The label, among the pieces of open land, of the river of the owner. */
         private int ownerLand;
@@ -170,7 +169,6 @@ public final class RiverCrossingPass implements GenerationPass {
             this.bandOf = new int[context.size()];
             this.sources = new int[context.size()];
             this.ownerReach = new int[context.size()];
-            this.otherReach = new int[context.size()];
             this.anyReach = new int[context.size()];
             this.vertical = random.nextBoolean();
         }
@@ -411,11 +409,9 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
-        /** Measures how far every tile is from the river of the owner and from the other rivers. */
+        /** Measures how far every tile is from the river of the owner. */
         private void measureReach() {
             DistanceTransform.chebyshev(width, height, index -> riverOf[index] == owner, ownerReach);
-            DistanceTransform.chebyshev(width, height,
-                    index -> riverOf[index] != NO_RIVER && riverOf[index] != owner, otherReach);
         }
 
         /** Measures how far every tile is from any river, once, before the first tributary is carved. */
@@ -455,10 +451,31 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
-        /** Tells whether a tile is land of the band of the owner, outside the middle strip and clear of other rivers. */
+        /**
+         * Tells whether a tile is land of the band of the owner, outside the middle strip and clear of other rivers.
+         * The band lies within the band radius of the river of the owner, so a scan of the square of that radius
+         * around the tile is all the clearance needs, and no distance is measured over the whole map for it.
+         */
         private boolean isOwnFreeBand(int index) {
             return bandOf[index] == owner && context.groundAt(index).isLand() && !inCorridor(index)
-                    && otherReach[index] > BAND_RADIUS;
+                    && !hasOtherRiverNear(index);
+        }
+
+        /** Tells whether a tile of another river lies within the band radius of a tile, in the Chebyshev distance. */
+        private boolean hasOtherRiverNear(int index) {
+            final var x = index % width;
+            final var y = index / width;
+            final var lastY = Math.min(height - 1, y + BAND_RADIUS);
+            final var lastX = Math.min(width - 1, x + BAND_RADIUS);
+            for (var ny = Math.max(0, y - BAND_RADIUS); ny <= lastY; ny++) {
+                for (var nx = Math.max(0, x - BAND_RADIUS); nx <= lastX; nx++) {
+                    final var river = riverOf[ny * width + nx];
+                    if (river != NO_RIVER && river != owner) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /** Runs the tributaries of the owner from the highest of the tiles that may be a source for its river. */
@@ -552,15 +569,19 @@ public final class RiverCrossingPass implements GenerationPass {
             var nearestDistance = Long.MAX_VALUE;
             for (var i = 0; i < riverTileCount; i++) {
                 final var tile = riverTiles[i];
-                if (riverOf[tile] == owner && squaredDistance(source, tile) < nearestDistance && isBank(tile)) {
+                if (riverOf[tile] != owner) {
+                    continue;
+                }
+                final var distance = squaredDistance(source, tile);
+                if (distance < nearestDistance && isBank(tile)) {
                     nearest = tile;
-                    nearestDistance = squaredDistance(source, tile);
+                    nearestDistance = distance;
                 }
             }
             return nearest;
         }
 
-        /** Tells whether a tile has beside it, in any of the eight directions, an open tile of no river of the owner. */
+        /** Tells whether a tile has an open tile of no river of the owner beside it, in any of the eight directions. */
         private boolean isBank(int tile) {
             final var x = tile % width;
             final var y = tile / width;

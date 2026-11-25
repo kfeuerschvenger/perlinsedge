@@ -48,7 +48,7 @@ class DistanceTransformTest {
         }
     }
 
-    /** A transform into an array that held an older one overwrites it, returns that same array and matches a new one. */
+    /** A transform into an array that held an older one overwrites it, returns that array and matches a new one. */
     @Test
     void theTransformIntoAnArrayOverwritesItAndGivesTheSameDistancesAsANewOne() {
         final var source = CENTRE * SIDE + CENTRE;

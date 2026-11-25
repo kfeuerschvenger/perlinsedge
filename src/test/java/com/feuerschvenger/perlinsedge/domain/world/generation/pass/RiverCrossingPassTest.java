@@ -7,9 +7,12 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.IntPredicate;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,8 +29,13 @@ class RiverCrossingPassTest {
     private static final int WIDE_SIDE = 120;
     private static final int TOO_SMALL = 24;
     private static final int MIN_SPAN = 32;
-    /** The closest two rivers may come: the keep-out band of the pass, of which a stroke may take one tile. */
-    private static final int KEEP_OUT = RiverCrossingPass.BAND_RADIUS;
+    /** The closest two rivers may come: the band is closed up to the band radius, so the next tile is one farther. */
+    private static final int KEEP_OUT = RiverCrossingPass.BAND_RADIUS + 1;
+    /** The tiles of a square of three by three, the one in the middle included. */
+    private static final int NEIGHBOURS = 9;
+    /** The steps to the four tiles beside a tile: left, right, up and down. */
+    private static final int[] STEP_X = {-1, 1, 0, 0};
+    private static final int[] STEP_Y = {0, 0, -1, 1};
     private static final int MIN_VALLEY_TILES = 40;
     /** A line between the two slots of the first lane, which both rivers of that lane would like to follow. */
     private static final int SHARED_VALLEY = 10;
@@ -156,19 +164,59 @@ class RiverCrossingPassTest {
         return closest;
     }
 
-    /** Returns the labels of the rivers that have a tile at most one tile from a tile, the tile's own label included. */
-    private static Set<Integer> riversBeside(GenerationContext context, Regions rivers, int tile) {
+    /** Returns the labels of the rivers with a tile at most one tile from a tile, the tile's own label included. */
+    private static Set<Integer> riversBeside(GenerationContext context, int[] rivers, int tile) {
         final var beside = new HashSet<Integer>();
         for (var dy = -1; dy <= 1; dy++) {
             for (var dx = -1; dx <= 1; dx++) {
                 final var x = context.xOf(tile) + dx;
                 final var y = context.yOf(tile) + dy;
-                if (isOnGrid(context, x, y) && rivers.labelAt(context.index(x, y)) != Regions.NO_LABEL) {
-                    beside.add(rivers.labelAt(context.index(x, y)));
+                if (isOnGrid(context, x, y) && rivers[context.index(x, y)] != Regions.NO_LABEL) {
+                    beside.add(rivers[context.index(x, y)]);
                 }
             }
         }
         return beside;
+    }
+
+    /**
+     * Labels the 8-connected pieces of the tiles a mask selects, from 1 in reading order, with 0 for the others. A
+     * stream touching another one at a corner is one piece, which the 4-connected {@link Regions} would split.
+     */
+    private static int[] labelEightConnected(GenerationContext context, IntPredicate mask) {
+        final var labels = new int[context.size()];
+        final var queue = new int[context.size()];
+        var count = 0;
+        for (var start = 0; start < labels.length; start++) {
+            if (labels[start] == Regions.NO_LABEL && mask.test(start)) {
+                count++;
+                floodEightConnected(context, mask, labels, queue, start, count);
+            }
+        }
+        return labels;
+    }
+
+    /** Gives a label to the start tile and to every selected tile joined to it along the eight directions. */
+    private static void floodEightConnected(GenerationContext context, IntPredicate mask, int[] labels, int[] queue,
+                                            int start, int label) {
+        var head = 0;
+        var tail = 1;
+        labels[start] = label;
+        queue[0] = start;
+        while (head < tail) {
+            final var tile = queue[head];
+            head++;
+            for (var around = 0; around < NEIGHBOURS; around++) {
+                final var x = context.xOf(tile) + around % THREE - 1;
+                final var y = context.yOf(tile) + around / THREE - 1;
+                if (isOnGrid(context, x, y) && labels[context.index(x, y)] == Regions.NO_LABEL
+                        && mask.test(context.index(x, y))) {
+                    labels[context.index(x, y)] = label;
+                    queue[tail] = context.index(x, y);
+                    tail++;
+                }
+            }
+        }
     }
 
     /** Tells whether a column and a row lie on the grid of the context. */
@@ -347,17 +395,17 @@ class RiverCrossingPassTest {
             final var with = highEastGrass(seed);
             apply(without, rivers(TWO, NONE, NONE, NO_TRIBUTARIES));
             apply(with, rivers(TWO, NONE, NONE, TRIBUTARIES));
-            final var rivers = Regions.label(WIDE_SIDE, WIDE_SIDE, index -> isRiver(without, index));
+            final var rivers = labelEightConnected(without, index -> isRiver(without, index));
             final var reach = DistanceTransform.chebyshev(WIDE_SIDE, WIDE_SIDE, index -> isRiver(without, index));
-            final var streams = Regions.label(WIDE_SIDE, WIDE_SIDE,
-                    index -> isRiver(with, index) && !isRiver(without, index));
+            final var streams = labelEightConnected(with, index -> isRiver(with, index) && !isRiver(without, index));
+            final var streamCount = Arrays.stream(streams).max().orElse(0);
 
-            assertTrue(streams.count() >= TWO, "seed " + seed + ": " + streams.count() + " streams");
-            for (var stream = 1; stream <= streams.count(); stream++) {
+            assertTrue(streamCount >= TWO, "seed " + seed + ": " + streamCount + " streams");
+            for (var stream = 1; stream <= streamCount; stream++) {
                 var farthest = 0;
                 final var joined = new HashSet<Integer>();
                 for (var index = 0; index < with.size(); index++) {
-                    if (streams.labelAt(index) == stream) {
+                    if (streams[index] == stream) {
                         farthest = Math.max(farthest, reach[index]);
                         joined.addAll(riversBeside(with, rivers, index));
                     }
@@ -368,6 +416,62 @@ class RiverCrossingPassTest {
                 assertTrue(farthest <= RiverCrossingPass.TRIBUTARY_MAX_REACH, label + " ends at " + farthest);
             }
         }
+    }
+
+    /**
+     * The sources of the tributaries are checked again after each one is carved, so a source keeps the minimum reach
+     * from every tributary carved before it. The free end of a stream, a tile with a single river tile beside it, is
+     * where it starts, so no two free ends lie closer than the minimum reach. Without the new check the sources of the
+     * highest land, which lie close together, start streams that begin beside each other and merge.
+     */
+    @Test
+    void aTributarySourceIsCheckedAgainAfterEachCarveSoNoTwoStreamsStartBesideEachOther() {
+        var withSeveralStreams = 0;
+        for (var seed = 1L; seed <= SEEDS; seed++) {
+            final var without = highEastGrass(seed);
+            final var with = highEastGrass(seed);
+            apply(without, rivers(ONE, NONE, NONE, NO_TRIBUTARIES));
+            apply(with, rivers(ONE, NONE, NONE, TRIBUTARIES));
+
+            final var ends = freeEnds(without, with);
+
+            withSeveralStreams += ends.size() > 1 ? 1 : 0;
+            for (var first = 0; first < ends.size(); first++) {
+                for (var second = first + 1; second < ends.size(); second++) {
+                    final var apart = Math.max(
+                            Math.abs(with.xOf(ends.get(first)) - with.xOf(ends.get(second))),
+                            Math.abs(with.yOf(ends.get(first)) - with.yOf(ends.get(second))));
+                    assertTrue(apart >= RiverCrossingPass.TRIBUTARY_MIN_REACH,
+                            "seed " + seed + ": two streams start " + apart + " apart");
+                }
+            }
+        }
+        assertTrue(withSeveralStreams > 0, "some seed gives a river more than one stream");
+    }
+
+    /**
+     * Returns the free ends of the streams a pass added to a river: the new river tiles that have a single river tile
+     * beside them along the four directions, which is the tile a stream starts from.
+     */
+    private static List<Integer> freeEnds(GenerationContext without, GenerationContext with) {
+        final var ends = new ArrayList<Integer>();
+        for (var index = 0; index < with.size(); index++) {
+            if (isRiver(with, index) && !isRiver(without, index) && riverNeighbours(with, index) == 1) {
+                ends.add(index);
+            }
+        }
+        return ends;
+    }
+
+    /** Counts the river tiles beside a tile along the four directions. */
+    private static int riverNeighbours(GenerationContext context, int tile) {
+        var count = 0;
+        for (var around = 0; around < STEP_X.length; around++) {
+            final var x = context.xOf(tile) + STEP_X[around];
+            final var y = context.yOf(tile) + STEP_Y[around];
+            count += isOnGrid(context, x, y) && isRiver(context, context.index(x, y)) ? 1 : 0;
+        }
+        return count;
     }
 
     @Test

@@ -15,6 +15,7 @@ final class DistanceTransform {
     /** The distance of a tile when no tile is selected. */
     public static final int UNREACHABLE = Integer.MAX_VALUE / 2;
 
+    /** Not instantiable: the class only holds the transforms. */
     private DistanceTransform() {
     }
 
