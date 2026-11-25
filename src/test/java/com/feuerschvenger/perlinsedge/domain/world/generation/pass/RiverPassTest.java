@@ -25,7 +25,7 @@ class RiverPassTest {
     private static final int HEIGHT = 12;
     private static final float TOP = 1F;
     private static final float STEP = 0.04F;
-    private static final float SOURCE_MIN = 0.6F;
+    private static final float SOURCE_SHARE = 0.4F;
     private static final int LAST_SOURCE_COLUMN = 9;
     private static final float MANY_RIVERS = 0.5F;
     private static final float ONE_RIVER = 0.0001F;
@@ -38,17 +38,21 @@ class RiverPassTest {
     private static final int BRANCH_SPREAD = 3;
     private static final float ALWAYS = 1F;
     private static final float NEVER = 0F;
-    private static final float LAKE_MAX_HEIGHT = 0.4F;
+    private static final float LAKE_SHARE = 0.4F;
     private static final int LAKE_MIN_RADIUS = 2;
     private static final int LAKE_MAX_RADIUS = 4;
     private static final float LAKE_TOLERANCE = 0.05F;
     private static final int WATER_COLUMN = 12;
     private static final int FLOODED_ROWS = 5;
     private static final float FLAT = 0.5F;
-    private static final float LOWEST = 0F;
+    /** Scales the ramp so that no tile reaches the heights an absolute source height used to ask for. */
+    private static final float LOW_LAND_SCALE = 0.1F;
+    private static final float ALL_LAND = 1F;
     private static final long BRANCH_SEEDS = 10L;
     private static final long OTHER_SEED = 77L;
     private static final long SEED = 5L;
+    /** A seed whose shuffle starts the river on the highest tile, where the funnel expects it. */
+    private static final long FUNNEL_SEED = 3L;
     private static final int LANE_ROW = 5;
     private static final float WALL = 2F;
     private static final int FUNNEL_WIDTH = 6;
@@ -57,7 +61,8 @@ class RiverPassTest {
     private static final int MIDDLE_ROW = 1;
     private static final int SOURCE_COLUMN = 0;
     private static final int FORK_COLUMN = 2;
-    private static final float FUNNEL_SOURCE_MIN = 0.9F;
+    private static final float FUNNEL_SOURCE_HEIGHT = 0.9F;
+    private static final float FUNNEL_SHARE = 0.4F;
     private static final float MAIN_HEIGHT = 0.8F;
     private static final float BRANCH_HEIGHT = 0.85F;
     private static final float JOIN_HEIGHT = 0.5F;
@@ -77,20 +82,20 @@ class RiverPassTest {
 
     private static RiverParams params(float density, int minLength, int maxLength, float branchChance,
                                       TileType surface) {
-        return params(SOURCE_MIN, density, minLength, maxLength, branchChance, surface);
+        return params(SOURCE_SHARE, density, minLength, maxLength, branchChance, surface);
     }
 
-    private static RiverParams params(float sourceMin, float density, int minLength, int maxLength,
+    private static RiverParams params(float sourceShare, float density, int minLength, int maxLength,
                                       float branchChance, TileType surface) {
-        return new RiverParams(density, sourceMin, minLength, maxLength,
+        return new RiverParams(density, sourceShare, minLength, maxLength,
                 new TributaryParams(0, branchChance, BRANCH_MIN, BRANCH_SPREAD),
-                new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, surface));
+                new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, surface));
     }
 
     private static RiverParams plain(float density, int minLength, int maxLength) {
-        return new RiverParams(density, SOURCE_MIN, minLength, maxLength,
+        return new RiverParams(density, SOURCE_SHARE, minLength, maxLength,
                 new TributaryParams(NO_BRANCH_BEFORE, NEVER, BRANCH_MIN, BRANCH_SPREAD),
-                new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                         TileType.SHALLOW_WATER));
     }
 
@@ -165,16 +170,29 @@ class RiverPassTest {
     }
 
     @Test
-    void aRiverThatDeadEndsHighMakesNoLake() {
+    void aLakeShareOfZeroMakesNoLakeAtADeadEnd() {
+        final var context = ramp(SEED);
+        final var noLakes = new RiverParams(ONE_RIVER, SOURCE_SHARE, LONG_MIN, LONG_MAX,
+                new TributaryParams(NO_BRANCH_BEFORE, NEVER, BRANCH_MIN, BRANCH_SPREAD),
+                new LakeParams(NEVER, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, TileType.SHALLOW_WATER));
+
+        apply(context, noLakes);
+
+        assertEquals(0, TestContexts.countGround(context, TileType.SHALLOW_WATER));
+        assertTrue(TestContexts.countGround(context, TileType.RIVER) > 0);
+    }
+
+    @Test
+    void aMapWhoseLandNeverGetsHighStillHasSourcesBecauseTheyAreRelative() {
         final var context = ramp(SEED);
         final var heights = context.field(NoiseField.HEIGHT);
         for (var index = 0; index < heights.length; index++) {
-            heights[index] += TOP;
+            heights[index] = heights[index] / TOP * LOW_LAND_SCALE;
         }
 
-        apply(context, plain(ONE_RIVER, LONG_MIN, LONG_MAX));
+        apply(context, plain(MANY_RIVERS, SHORT_MIN, SHORT_MAX));
 
-        assertEquals(0, TestContexts.countGround(context, TileType.SHALLOW_WATER));
+        assertTrue(TestContexts.countGround(context, TileType.RIVER) > 0);
     }
 
     @Test
@@ -186,8 +204,8 @@ class RiverPassTest {
             final var branching = ramp(seed);
 
             // Branches only start where the ground is high, so the whole ramp counts as high
-            apply(plainRiver, params(LOWEST, ONE_RIVER, SHORT_MAX, SHORT_MAX + 1, NEVER, TileType.SHALLOW_WATER));
-            apply(branching, params(LOWEST, ONE_RIVER, SHORT_MAX, SHORT_MAX + 1, ALWAYS, TileType.SHALLOW_WATER));
+            apply(plainRiver, params(ALL_LAND, ONE_RIVER, SHORT_MAX, SHORT_MAX + 1, NEVER, TileType.SHALLOW_WATER));
+            apply(branching, params(ALL_LAND, ONE_RIVER, SHORT_MAX, SHORT_MAX + 1, ALWAYS, TileType.SHALLOW_WATER));
 
             without += TestContexts.countGround(plainRiver, TileType.RIVER);
             withBranches += TestContexts.countGround(branching, TileType.RIVER);
@@ -231,11 +249,11 @@ class RiverPassTest {
 
     @Test
     void aRiverNeverStepsOntoTheTilesOfItsOwnBranch() {
-        final var context = TestContexts.of(MapType.RIVERS, SEED, FUNNEL_WIDTH, FUNNEL_HEIGHT, TestContexts.FLAT);
+        final var context = TestContexts.of(MapType.RIVERS, FUNNEL_SEED, FUNNEL_WIDTH, FUNNEL_HEIGHT, TestContexts.FLAT);
         final var heights = TestContexts.fillField(context, NoiseField.HEIGHT, WALL);
         TestContexts.fillGround(context, TileType.DEEP_WATER);
         land(context, heights, SOURCE_COLUMN, MIDDLE_ROW, TOP);
-        land(context, heights, FORK_COLUMN - 1, MIDDLE_ROW, FUNNEL_SOURCE_MIN);
+        land(context, heights, FORK_COLUMN - 1, MIDDLE_ROW, FUNNEL_SOURCE_HEIGHT);
         land(context, heights, FORK_COLUMN, MIDDLE_ROW, MAIN_HEIGHT);
         land(context, heights, FORK_COLUMN, FIRST_ROW, BRANCH_HEIGHT);
         land(context, heights, FORK_COLUMN + 1, FIRST_ROW, JOIN_HEIGHT);
@@ -243,10 +261,10 @@ class RiverPassTest {
         // The branch covers three tiles, from the start of the fork to the join, and the river would reach the tile
         // beyond the join only by walking along the branch
         final var oneBranchOfThree = new TributaryParams(0, ALWAYS, BRANCH_MIN, 1);
-        final var lakes = new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+        final var lakes = new LakeParams(NEVER, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                 TileType.SHALLOW_WATER);
 
-        apply(context, new RiverParams(ONE_RIVER, FUNNEL_SOURCE_MIN, LONG_MIN, LONG_MAX, oneBranchOfThree, lakes));
+        apply(context, new RiverParams(ONE_RIVER, FUNNEL_SHARE, LONG_MIN, LONG_MAX, oneBranchOfThree, lakes));
 
         assertEquals(TileType.GRASS, context.groundAt(context.index(FORK_COLUMN + 2, FIRST_ROW)));
         assertEquals(TileType.RIVER, context.groundAt(context.index(FORK_COLUMN + 1, FIRST_ROW)));
@@ -294,28 +312,34 @@ class RiverPassTest {
     @Test
     void theParametersRefuseNumbersThatCannotWork() {
         final var tributaries = new TributaryParams(0, NEVER, BRANCH_MIN, BRANCH_SPREAD);
-        final var lakes = new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+        final var lakes = new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                 TileType.ICE);
 
         assertThrows(IllegalArgumentException.class,
-                () -> new RiverParams(0F, SOURCE_MIN, SHORT_MIN, SHORT_MAX, tributaries, lakes));
+                () -> new RiverParams(MANY_RIVERS, 1.5F, SHORT_MIN, SHORT_MAX, tributaries, lakes));
         assertThrows(IllegalArgumentException.class,
-                () -> new RiverParams(MANY_RIVERS, SOURCE_MIN, SHORT_MAX, SHORT_MAX, tributaries, lakes));
+                () -> new RiverParams(MANY_RIVERS, Float.NaN, SHORT_MIN, SHORT_MAX, tributaries, lakes));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LakeParams(-NEVER - 1F, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, TileType.ICE));
+        assertThrows(IllegalArgumentException.class,
+                () -> new RiverParams(0F, SOURCE_SHARE, SHORT_MIN, SHORT_MAX, tributaries, lakes));
+        assertThrows(IllegalArgumentException.class,
+                () -> new RiverParams(MANY_RIVERS, SOURCE_SHARE, SHORT_MAX, SHORT_MAX, tributaries, lakes));
         assertThrows(IllegalArgumentException.class, () -> new TributaryParams(0, 2F, BRANCH_MIN, BRANCH_SPREAD));
         assertThrows(IllegalArgumentException.class, () -> new TributaryParams(0, NEVER, 0, BRANCH_SPREAD));
         assertThrows(IllegalArgumentException.class,
-                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MAX_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                () -> new LakeParams(LAKE_SHARE, LAKE_MAX_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                         TileType.ICE));
         assertThrows(NullPointerException.class,
-                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, null));
+                () -> new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE, null));
         assertThrows(IllegalArgumentException.class,
-                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                () -> new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                         TileType.DEEP_WATER));
         assertThrows(IllegalArgumentException.class,
-                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                () -> new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                         TileType.RIVER));
         assertThrows(IllegalArgumentException.class,
-                () -> new LakeParams(LAKE_MAX_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                () -> new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
                         TileType.GRASS));
         assertThrows(NullPointerException.class, () -> new RiverPass(null));
     }

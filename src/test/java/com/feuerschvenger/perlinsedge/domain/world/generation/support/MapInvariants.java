@@ -43,6 +43,10 @@ public final class MapInvariants {
     private static final double MAX_FOREST_TREE_SHARE = 0.42;
     /** The share of the land under forest floor in a dense forest at the least. */
     private static final double MIN_FOREST_FLOOR_SHARE = 0.35;
+    /** The share of the map that is ice at the least, in the tundra. */
+    private static final double MIN_TUNDRA_ICE_SHARE = 0.15;
+    /** The share of the land that is snow at the least, in the tundra. */
+    private static final double MIN_TUNDRA_SNOW_SHARE = 0.10;
     /** The share of land a map may cover with resources: open ground stays the common case. */
     private static final double MAX_RESOURCE_SHARE = 0.45;
 
@@ -79,6 +83,8 @@ public final class MapInvariants {
         byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand,
                 MapInvariants::rockIsExposed));
         byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
+        byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
+        byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist));
         return Collections.unmodifiableMap(byType);
     }
 
@@ -214,6 +220,19 @@ public final class MapInvariants {
     private static void rockIsExposed(TileMap map, MapSpec spec) {
         final var share = MapStats.rockyTiles(map) / (double) MapStats.landTiles(map);
         require(share >= MIN_EXPOSED_ROCKY_SHARE, "rocky ground covers only " + share + " of the land");
+    }
+
+    private static void tundraIsFrozenAndSnowy(TileMap map, MapSpec spec) {
+        final var area = (double) map.getWidth() * map.getHeight();
+        final var ice = MapStats.count(map, TileType.ICE) / area;
+        final var snow = MapStats.count(map, TileType.SNOW) / (double) MapStats.landTiles(map);
+        require(ice >= MIN_TUNDRA_ICE_SHARE, "ice covers only " + ice + " of the map");
+        require(snow >= MIN_TUNDRA_SNOW_SHARE, "snow covers only " + snow + " of the land");
+    }
+
+    /** Relative river sources give every height profile rivers, which an absolute source height did not. */
+    private static void riversExist(TileMap map, MapSpec spec) {
+        require(MapStats.count(map, TileType.RIVER) > 0, "the map has no river tile");
     }
 
     private static void mostLandIsOpen(TileMap map, MapSpec spec) {

@@ -84,14 +84,16 @@ final class RecipeParts {
     private static final int SPAWN_FREE_RADIUS = 3;
 
     // Rivers: the same everywhere but their density and the surface of their lakes
-    private static final float RIVER_SOURCE_MIN_HEIGHT = 0.6F;
+    /** A river starts on the highest tenth of the land, which every height profile has, unlike a fixed height. */
+    private static final float RIVER_SOURCE_SHARE = 0.10F;
     private static final int RIVER_MIN_LENGTH = 100;
     private static final int RIVER_MAX_LENGTH = 300;
     private static final int TRIBUTARY_MIN_RIVER_LENGTH = 30;
     private static final float TRIBUTARY_CHANCE = 0.01F;
     private static final int TRIBUTARY_MIN_LENGTH = 20;
     private static final int TRIBUTARY_LENGTH_SPREAD = 50;
-    private static final float LAKE_MAX_ENDPOINT_HEIGHT = 0.4F;
+    /** A river that dead ends in the lowest 40% of the land floods a lake. */
+    private static final float LAKE_MAX_ENDPOINT_SHARE = 0.4F;
     private static final int LAKE_MIN_RADIUS = 2;
     private static final int LAKE_MAX_RADIUS = 5;
     private static final float LAKE_DEPTH_TOLERANCE = 0.05F;
@@ -147,9 +149,9 @@ final class RecipeParts {
     static RiverPass rivers(float density, TileType surface) {
         final var tributaries = new TributaryParams(TRIBUTARY_MIN_RIVER_LENGTH, TRIBUTARY_CHANCE,
                 TRIBUTARY_MIN_LENGTH, TRIBUTARY_LENGTH_SPREAD);
-        final var lakes = new LakeParams(LAKE_MAX_ENDPOINT_HEIGHT, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
+        final var lakes = new LakeParams(LAKE_MAX_ENDPOINT_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
                 LAKE_DEPTH_TOLERANCE, surface);
-        return new RiverPass(new RiverParams(density, RIVER_SOURCE_MIN_HEIGHT, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
+        return new RiverPass(new RiverParams(density, RIVER_SOURCE_SHARE, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
                 tributaries, lakes));
     }
 

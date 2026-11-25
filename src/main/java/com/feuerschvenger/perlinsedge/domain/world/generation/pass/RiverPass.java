@@ -7,10 +7,12 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 import java.util.Objects;
+import java.util.function.IntPredicate;
 import java.util.random.RandomGenerator;
 
 /**
- * Carves rivers into the ground. A river starts on a high land tile and runs downhill, always to the lowest of the
+ * Carves rivers into the ground. A river starts on a land tile among the highest share of the land, so every map has
+ * sources whatever its height profile, and runs downhill, always to the lowest of the
  * neighbours that are lower than the tile it stands on, until it reaches water, runs out of length or has nowhere
  * lower to go. A river that dead ends low enough floods the low ground around its end into a lake, and a long river
  * may send out a branch. The tiles a river covers become {@link TileType#RIVER}.
@@ -65,6 +67,10 @@ public final class RiverPass implements GenerationPass {
         private final RandomGenerator random;
         /** The tiles a river may start on, of which the first {@code sourceCount} are filled. */
         private final int[] sources;
+        /** The lowest height a river or a branch may start at: the sources are the highest share of the land. */
+        private final float sourceThreshold;
+        /** A dead end makes a lake only below this height: the lowest share of the land lies under it. */
+        private final float lakeCeiling;
         private int sourceCount;
         /** For each tile, the number of the river whose branch covers it, 0 for none. */
         private final int[] branchOwner;
@@ -83,6 +89,10 @@ public final class RiverPass implements GenerationPass {
             this.branch = new int[params.tributaries().maxLength()];
             this.random = context.random(SALT);
             this.sources = new int[context.size()];
+            // Both thresholds are read before the first river is carved, from the land the pass starts with
+            final IntPredicate isLand = index -> context.groundAt(index).isLand();
+            this.sourceThreshold = FieldQuantile.above(heights, isLand, params.sourceShare());
+            this.lakeCeiling = FieldQuantile.above(heights, isLand, 1.0 - params.lakes().maxEndpointShare());
         }
 
         /** Starts a number of rivers from random high tiles, the number scaled by the density of the recipe. */
@@ -99,10 +109,10 @@ public final class RiverPass implements GenerationPass {
             }
         }
 
-        /** Finds every land tile above the source height. */
+        /** Finds every land tile at or above the source height. */
         private void collectSources() {
             for (var index = 0; index < sources.length; index++) {
-                if (context.groundAt(index).isLand() && heights[index] > params.sourceMinHeight()) {
+                if (context.groundAt(index).isLand() && heights[index] >= sourceThreshold) {
                     sources[sourceCount] = index;
                     sourceCount++;
                 }
@@ -190,7 +200,7 @@ public final class RiverPass implements GenerationPass {
          * branch instead of stopping at the water the branch made.
          */
         private void walkBranch(int start, int maxLength) {
-            if (!context.groundAt(start).isLand() || heights[start] < params.sourceMinHeight()) {
+            if (!context.groundAt(start).isLand() || heights[start] < sourceThreshold) {
                 return;
             }
             var index = start;
@@ -276,7 +286,7 @@ public final class RiverPass implements GenerationPass {
         /** Floods the low land around the end of a river, when the end lies low enough. */
         private void makeLake(int endpoint) {
             final var lakes = params.lakes();
-            if (heights[endpoint] >= lakes.maxEndpointHeight() || !context.groundAt(endpoint).isLand()) {
+            if (heights[endpoint] >= lakeCeiling || !context.groundAt(endpoint).isLand()) {
                 return;
             }
             final var radius = lakes.minRadius() + random.nextInt(lakes.maxRadius() - lakes.minRadius());
