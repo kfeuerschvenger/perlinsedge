@@ -51,6 +51,38 @@ class MapRecipesTest {
 
     @ParameterizedTest
     @EnumSource(MapType.class)
+    void onlyTheForestAndTheMountainsOpenClearingsAndCutTrailsAndTheyDoItBeforeTheSpawn(MapType type) {
+        final var names = new MapRecipes().recipeFor(type).passes().stream().map(GenerationPass::name).toList();
+        final var hasContent = type == MapType.DENSE_FOREST || type == MapType.MOUNTAINOUS;
+
+        assertEquals(hasContent, names.contains("clearings"));
+        assertEquals(hasContent, names.contains("trails"));
+        if (hasContent) {
+            assertTrue(names.contains("sea-level"));
+            assertTrue(names.indexOf("stone") < names.indexOf("clearings"));
+            assertTrue(names.indexOf("clearings") < names.indexOf("trails"));
+            assertTrue(names.indexOf("trails") < names.indexOf("spawn"));
+            assertTrue(names.indexOf("sea-level") < names.indexOf("ground"));
+        }
+    }
+
+    @Test
+    void theForestGrowsItsTreesOnWhatTheClearingsAndTrailsLeaveAndTheMountainsRaiseTheirBandsBeforeTheRivers() {
+        final var forest = new MapRecipes().recipeFor(MapType.DENSE_FOREST).passes().stream()
+                .map(GenerationPass::name).toList();
+        final var mountains = new MapRecipes().recipeFor(MapType.MOUNTAINOUS).passes().stream()
+                .map(GenerationPass::name).toList();
+
+        assertTrue(forest.contains("vegetation"));
+        assertTrue(forest.indexOf("trails") < forest.indexOf("vegetation"));
+        assertTrue(mountains.contains("height-band"));
+        assertTrue(mountains.indexOf("ground") < mountains.indexOf("height-band"));
+        assertTrue(mountains.indexOf("height-band") < mountains.indexOf("rivers"));
+        assertTrue(mountains.indexOf("vegetation") < mountains.indexOf("clearings"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(MapType.class)
     void everyRecipeMakesRockyZonesBeforeTheOreAndBalancesTheResourcesAfterTheSpawn(MapType type) {
         final var names = new MapRecipes().recipeFor(type).passes().stream().map(GenerationPass::name).toList();
 

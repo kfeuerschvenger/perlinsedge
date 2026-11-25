@@ -80,11 +80,16 @@ public final class MapInvariants {
         for (var type : MapType.values()) {
             byType.put(type, List.of());
         }
-        byType.put(MapType.DENSE_FOREST,
-                List.of(MapInvariants::denseForestHasThickGroves, MapInvariants::denseForestHasForestFloor));
+        byType.put(MapType.DENSE_FOREST, List.of(MapInvariants::denseForestHasThickGroves,
+                MapInvariants::denseForestHasForestFloor,
+                onMap(ContentInvariants::denseForestSpawnRegionHoldsMostFreeLand),
+                onMap(ContentInvariants::denseForestSpawnHasAFreeDisc)));
         byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand, MapInvariants::rockIsExposed,
                 WaterInvariants::desertHasFewWaterBodies, WaterInvariants::desertHasRareOases));
-        byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
+        byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed,
+                onMap(ContentInvariants::mountainsCoverPartOfTheMap),
+                onMap(ContentInvariants::mountainousSpawnRegionHoldsTheGround),
+                onMap(ContentInvariants::mountainousSpawnIsInAValley)));
         byType.put(MapType.ISLANDS, List.of(WaterInvariants::islandsAreSeveralAndSomeAreSmall,
                 WaterInvariants::islandsShareTheMapWithTheSea,
                 onMap(WaterInvariants::theSpawnIsOnTheLargestIsland)));

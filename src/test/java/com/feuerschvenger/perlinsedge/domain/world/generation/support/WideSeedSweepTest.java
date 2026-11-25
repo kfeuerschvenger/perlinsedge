@@ -35,7 +35,7 @@ class WideSeedSweepTest {
      * sweep really generated a map for every one of its distinct seeds, so a sweep that shrinks cannot pass quietly.
      */
     @ParameterizedTest
-    @EnumSource(value = MapType.class, names = {"RIVERS", "ISLANDS", "MEDITERRANEAN"})
+    @EnumSource(value = MapType.class, names = {"RIVERS", "ISLANDS", "MEDITERRANEAN", "DENSE_FOREST", "MOUNTAINOUS"})
     void theInvariantsHoldOnEverySeedOfTheSweep(MapType type) {
         final var generated = new HashSet<Long>();
         final MapSource source = spec -> {

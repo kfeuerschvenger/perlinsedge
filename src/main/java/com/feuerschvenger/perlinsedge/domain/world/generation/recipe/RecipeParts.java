@@ -8,9 +8,13 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.EdgeCoastPara
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.EdgeCoastPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ForestFloorPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ClearingParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ClearingPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.GroundRule;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.HeightBandParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.HeightBandPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.LakeParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.NoiseFieldsParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.NoiseFieldsPass;
@@ -24,10 +28,14 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourceP
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourcePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockyZoneParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockyZonePass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.SeaLevelParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.SeaLevelPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.SpawnParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.SpawnPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.StoneParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.StonePass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.TrailNetworkPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.TrailParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.TributaryParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationPass;
@@ -344,6 +352,17 @@ final class RecipeParts {
     }
 
     /**
+     * Builds the pass that grows trees over a fixed share of the land, so a map holds the same share of trees whatever
+     * its noise or size and whatever the passes before it reserved.
+     *
+     * @param share the share of the land the trees cover, from the places where the tree noise is highest
+     * @return the pass
+     */
+    static VegetationPass vegetationByShare(float share) {
+        return new VegetationPass(new VegetationParams(share, 0, 0F, true));
+    }
+
+    /**
      * Builds the pass that grows trees thicker along the rivers.
      *
      * @param density    how thickly the trees grow away from the water
@@ -353,6 +372,63 @@ final class RecipeParts {
      */
     static VegetationPass vegetationNearWater(float density, int waterReach, float waterBonus) {
         return new VegetationPass(new VegetationParams(density, waterReach, waterBonus));
+    }
+
+    /**
+     * Builds the pass that gives a map the same share of water whatever its noise and size.
+     *
+     * @param waterShare the share of the map that lies below the level
+     * @param level      the height that the ground rule of the map type counts as the top of its water
+     * @return the pass
+     */
+    static SeaLevelPass seaLevel(float waterShare, float level) {
+        return new SeaLevelPass(new SeaLevelParams(waterShare, level));
+    }
+
+    /**
+     * Builds the pass that turns the highest part of the land into a band of rock.
+     *
+     * @param landShare the share of the land that becomes the band
+     * @param band      the terrain of the band
+     * @return the pass
+     */
+    static HeightBandPass heightBand(float landShare, TileType band) {
+        return new HeightBandPass(new HeightBandParams(landShare, band));
+    }
+
+    /**
+     * Builds the pass that opens clearings in the vegetation and the spawn clearing.
+     *
+     * @param spacing     the least distance between two clearings in tiles
+     * @param minRadius   the smallest radius of an ordinary clearing
+     * @param maxRadius   the largest radius of an ordinary clearing
+     * @param spawnRadius the radius of the clearing the player starts in
+     * @param clearance   how far the clearings keep from water and mountains
+     * @param minRegion   the fewest tiles a piece of walkable ground has to hold to get a clearing when the sampling
+     *                    missed it, 0 for none
+     * @return the pass
+     */
+    static ClearingPass clearings(int spacing, int minRadius, int maxRadius, int spawnRadius, int clearance,
+                                  int minRegion) {
+        return new ClearingPass(new ClearingParams(spacing, minRadius, maxRadius, spawnRadius, clearance,
+                minRegion));
+    }
+
+    /**
+     * Builds the pass that joins the clearings with trails.
+     *
+     * @param noiseWeight  how much a thick grove adds to the cost of a tile
+     * @param treeCost     what clearing a resource adds to the cost of a tile
+     * @param mountainCost what a mountain tile costs, or {@link Float#POSITIVE_INFINITY} when no trail crosses one
+     * @param extraPer100k how many trails beyond the tree there are for every 100,000 tiles of map
+     * @param maxWidth     the widest trail in tiles
+     * @param reach        the longest distance between two clearings a trail joins directly
+     * @return the pass
+     */
+    static TrailNetworkPass trails(float noiseWeight, float treeCost, float mountainCost, int extraPer100k,
+                                   int maxWidth, int reach) {
+        return new TrailNetworkPass(new TrailParams(noiseWeight, treeCost, mountainCost, extraPer100k, maxWidth,
+                reach));
     }
 
     /**

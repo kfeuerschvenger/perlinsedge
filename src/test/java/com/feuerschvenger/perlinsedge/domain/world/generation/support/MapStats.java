@@ -83,6 +83,38 @@ public final class MapStats {
     }
 
     /**
+     * Counts the tiles of walkable ground, with or without resources.
+     *
+     * @param map the map
+     * @return the number of walkable tiles
+     */
+    public static int walkableTiles(TileMap map) {
+        var count = 0;
+        for (var y = 0; y < map.getHeight(); y++) {
+            for (var x = 0; x < map.getWidth(); x++) {
+                count += map.getTile(x, y).getType().isWalkable() ? 1 : 0;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Counts the free tiles, walkable ground with no resource on it.
+     *
+     * @param map the map
+     * @return the number of free tiles
+     */
+    public static int freeTiles(TileMap map) {
+        var count = 0;
+        for (var y = 0; y < map.getHeight(); y++) {
+            for (var x = 0; x < map.getWidth(); x++) {
+                count += isFree(map.getTile(x, y)) ? 1 : 0;
+            }
+        }
+        return count;
+    }
+
+    /**
      * Counts the tiles of a terrain.
      *
      * @param map  the map

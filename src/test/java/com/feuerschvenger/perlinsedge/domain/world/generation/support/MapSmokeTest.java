@@ -8,10 +8,12 @@ import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -122,6 +124,36 @@ class MapSmokeTest {
     private static Stream<Arguments> sweepSizes() {
         return Stream.of(Arguments.of(ONE_HUNDRED, ONE_HUNDRED), Arguments.of(MEDIUM, MEDIUM),
                 Arguments.of(WIDE_WIDTH, WIDE_HEIGHT));
+    }
+
+    /**
+     * The forest and the mountains hold the invariants of their type on every seed of a sweep at the small sizes and on
+     * the wide map, and the common ones too on the squares, whose quotas the invariants scale by the side. A share of
+     * trees, a free glade at the spawn and a spawn region that holds most of the land have to survive a map that sees
+     * only a few periods of the noise.
+     */
+    @ParameterizedTest
+    @EnumSource(value = MapType.class, names = {"DENSE_FOREST", "MOUNTAINOUS"})
+    void theContentMapsHoldTheirInvariantsOnEverySeedOfTheSmallSizeSweep(MapType type) {
+        final var source = MapSource.current();
+        final var perType = MapInvariants.perType().get(type);
+        final var common = MapInvariants.common(source);
+        for (var seed : FixedSeeds.sweep(SWEEP_SOURCE, SWEEP_SEEDS)) {
+            requireInvariants(type, seed, SMALL, SMALL, perType, common);
+            requireInvariants(type, seed, MEDIUM, MEDIUM, perType, common);
+            requireInvariants(type, seed, WIDE_WIDTH, WIDE_HEIGHT, perType, List.of());
+        }
+    }
+
+    /** Generates a map and checks the per type invariants and then the common ones, naming the map in a failure. */
+    private void requireInvariants(MapType type, long seed, int width, int height, List<MapInvariant> perType,
+                                   List<MapInvariant> common) {
+        final var map = generator.generate(new MapRequest(type, seed, width, height));
+        final var spec = new MapSpec(type, seed, Math.min(width, height));
+        final var label = type + "-" + seed + "-" + width + "x" + height;
+        for (var invariant : Stream.concat(perType.stream(), common.stream()).toList()) {
+            assertDoesNotThrow(() -> invariant.check(map, spec), label);
+        }
     }
 
     /** The rivers of a Mediterranean map survive its water limit at every size, wide maps included. */
