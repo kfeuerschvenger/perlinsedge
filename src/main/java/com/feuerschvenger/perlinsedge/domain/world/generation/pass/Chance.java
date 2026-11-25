@@ -47,7 +47,8 @@ final class Chance {
     }
 
     /**
-     * Tells whether a tile passes a chance given in ten thousandths, for the rare things a thousandth is too coarse for.
+     * Tells whether a tile passes a chance given in ten thousandths, for the rare things a thousandth is too coarse
+     * for.
      *
      * @param context        the generation, which supplies the seed
      * @param x              the column

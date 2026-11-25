@@ -159,7 +159,8 @@ class MapGeneratorTest {
             }
 
             assertTrue(stone > 0, "stone is generated on " + type);
-            assertTrue(iron * STONE_PER_IRON_ELSEWHERE < stone, type + ": " + iron + " iron against " + stone + " stone");
+            assertTrue(iron * STONE_PER_IRON_ELSEWHERE < stone,
+                    type + ": " + iron + " iron against " + stone + " stone");
         }
     }
 

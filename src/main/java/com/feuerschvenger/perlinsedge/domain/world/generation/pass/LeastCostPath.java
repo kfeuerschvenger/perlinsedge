@@ -76,8 +76,8 @@ final class LeastCostPath {
         final var copy = new float[cost.length];
         for (var index = 0; index < cost.length; index++) {
             if (Float.isNaN(cost[index]) || cost[index] < minCost) {
-                throw new IllegalArgumentException(
-                        "the cost " + cost[index] + " of tile " + index + " is NaN or below the lowest cost " + minCost);
+                throw new IllegalArgumentException("the cost " + cost[index] + " of tile " + index
+                        + " is NaN or below the lowest cost " + minCost);
             }
             copy[index] = cost[index];
         }

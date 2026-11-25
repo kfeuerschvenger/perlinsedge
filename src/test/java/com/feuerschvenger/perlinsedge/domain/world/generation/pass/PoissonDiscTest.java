@@ -83,7 +83,8 @@ class PoissonDiscTest {
 
     @Test
     void separateHostAreasEachGetSites() {
-        final IntPredicate strips = index -> index / SIDE < STRIP_HEIGHT || index / SIDE >= STRIP_GAP_ROW + STRIP_HEIGHT;
+        final IntPredicate strips =
+                index -> index / SIDE < STRIP_HEIGHT || index / SIDE >= STRIP_GAP_ROW + STRIP_HEIGHT;
 
         final var sites = sample(SIDE, SIDE, strips, SPACING, SEED);
 
