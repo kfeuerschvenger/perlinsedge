@@ -27,6 +27,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.StonePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.TributaryParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.WaterBodyLimitPass;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.WaterBodyParams;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
@@ -153,6 +155,18 @@ final class RecipeParts {
                 LAKE_DEPTH_TOLERANCE, surface);
         return new RiverPass(new RiverParams(density, RIVER_SOURCE_SHARE, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
                 tributaries, lakes));
+    }
+
+    /**
+     * Builds the pass that keeps a map to a few bodies of water.
+     *
+     * @param keepPer100k  how many of the largest bodies stay for every 100,000 tiles of map
+     * @param minKeptTiles the fewest tiles a body needs to stay
+     * @param fill         the land that replaces the bodies that do not stay
+     * @return the pass
+     */
+    static WaterBodyLimitPass waterBodyLimit(int keepPer100k, int minKeptTiles, TileType fill) {
+        return new WaterBodyLimitPass(new WaterBodyParams(keepPer100k, minKeptTiles, fill));
     }
 
     /**

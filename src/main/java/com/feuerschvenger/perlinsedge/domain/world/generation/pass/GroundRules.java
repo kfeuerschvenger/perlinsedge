@@ -35,14 +35,10 @@ public final class GroundRules {
     private static final float ISLANDS_SHALLOW = -0.4F;
     private static final float ISLANDS_SAND = -0.2F;
 
-    // Sea shared by the maps whose own water lies high in the range: the sea below these heights comes first, and the
-    // type's own water lies above them
+    // Sea shared by the maps whose own water lies high in the range, and by the desert, whose only water besides the
+    // sea is dug later: the sea below these heights comes first, and the type's own water lies above them
     private static final float HIGH_WATER_SEA_DEEP = -0.4F;
     private static final float HIGH_WATER_SEA_SHALLOW = -0.2F;
-
-    // Desert: the floor is high, so its water lies at the top of the range
-    private static final float DESERT_DEEP = 0.15F;
-    private static final float DESERT_SHALLOW = 0.2F;
 
     // Tundra: the sea freezes where it is cold, the inland is snow where it is cold or high
     private static final float TUNDRA_DEEP = -0.4F;
@@ -87,7 +83,7 @@ public final class GroundRules {
     public static final GroundRule ISLANDS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> islands(height));
 
-    /** Sea at the bottom, water at the top of the height range and sand everywhere else; no climate. */
+    /** Sea at the bottom of the height range and sand everywhere else, with no inland water; no climate. */
     public static final GroundRule DESERT = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> desert(height));
 
@@ -150,18 +146,9 @@ public final class GroundRules {
         return highGround(height);
     }
 
-    /** The desert: sea at the bottom, then water at the top of the range, sand everywhere else. */
+    /** The desert: sea at the bottom, sand everywhere else. The oases are dug into the sand by a later pass. */
     private static TileType desert(float height) {
-        if (isHighWaterSea(height)) {
-            return highWaterSea(height);
-        }
-        if (height < DESERT_DEEP) {
-            return TileType.DEEP_WATER;
-        }
-        if (height < DESERT_SHALLOW) {
-            return TileType.SHALLOW_WATER;
-        }
-        return TileType.SAND;
+        return isHighWaterSea(height) ? highWaterSea(height) : TileType.SAND;
     }
 
     /** The tundra: deep water, then ice or shallows by temperature, an icy coast, snow and grass. */

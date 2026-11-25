@@ -12,7 +12,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import java.util.List;
 import java.util.Set;
 
-/** The recipe of the desert: sand and rocky ground with water high in the height range, oases and palms and cacti. */
+/** The recipe of the desert: sand and rocky ground, a trimmed sea, a few rare oases and palms and cacti. */
 final class DesertRecipe {
 
     private static final float HEIGHT_FREQUENCY = 0.04F;
@@ -20,8 +20,10 @@ final class DesertRecipe {
     private static final float HEIGHT_GAIN = 0.6F;
     /** The tree noise only orders the sand where the balancing pass adds palms and cacti, in small groves. */
     private static final float TREE_FREQUENCY = 0.05F;
-    private static final float RIVER_DENSITY = 0.003F;
-    private static final int TILES_PER_OASIS = 5000;
+    /** The sea keeps its few largest bodies and every pond below the minimum turns to sand. */
+    private static final int WATER_KEEP_PER_100K = 4;
+    private static final int WATER_MIN_KEPT_TILES = 30;
+    private static final int TILES_PER_OASIS = 15_000;
     private static final int OASIS_RADIUS = 2;
     private static final int OASIS_SITE_ATTEMPTS = 400;
     private static final float FLORA_DENSITY = 0.10F;
@@ -50,7 +52,7 @@ final class DesertRecipe {
                         RecipeParts.height(HEIGHT_FREQUENCY, HEIGHT_OCTAVES, FractalKind.RIDGED, HEIGHT_GAIN),
                         Set.of(), TREE_FREQUENCY),
                 RecipeParts.ground(GroundRules.DESERT),
-                RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER),
+                RecipeParts.waterBodyLimit(WATER_KEEP_PER_100K, WATER_MIN_KEPT_TILES, TileType.SAND),
                 new OasisPass(new OasisParams(TILES_PER_OASIS, OASIS_RADIUS, OASIS_SITE_ATTEMPTS)),
                 RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.sandHosts()),
                 RecipeParts.rock(IRON_PER_MILLE),

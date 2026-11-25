@@ -16,7 +16,8 @@ class ResourceDensityTest {
 
     private static final int SIZE = 150;
     private static final long SEED = 20_261_111L;
-    private static final double MIN_SHARE = 0.05;
+    /** The desert is the sparsest map, with cacti and palms only, so the band starts low. */
+    private static final double MIN_SHARE = 0.02;
     private static final double MAX_SHARE = 0.45;
 
     private static double resourceShare(MapType type) {

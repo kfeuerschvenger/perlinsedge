@@ -80,8 +80,8 @@ public final class MapInvariants {
         }
         byType.put(MapType.DENSE_FOREST,
                 List.of(MapInvariants::denseForestHasThickGroves, MapInvariants::denseForestHasForestFloor));
-        byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand,
-                MapInvariants::rockIsExposed));
+        byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand, MapInvariants::rockIsExposed,
+                WaterInvariants::desertHasFewWaterBodies, WaterInvariants::desertHasRareOases));
         byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
         byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
         byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist));
@@ -163,12 +163,25 @@ public final class MapInvariants {
 
     /** Requires the count of a resource to lie in a range given for a map of {@link #QUOTA_AREA} tiles. */
     private static void requireWithin(TileMap map, MapSpec spec, ResourceType type, int min, int max) {
+        requireScaled(type.toString(), MapStats.count(map, type), spec, min, max);
+    }
+
+    /**
+     * Requires a count to lie in a range given for a map of 300 by 300 tiles, scaled to the area of the map: the
+     * lowest is rounded down and is at least 1, and the highest is rounded up.
+     *
+     * @param what  what is counted, for the message
+     * @param count the number counted
+     * @param spec  the map, which gives the area
+     * @param min   the lowest count on a map of 300 by 300 tiles
+     * @param max   the highest count on a map of 300 by 300 tiles, or {@link Integer#MAX_VALUE} for no highest
+     */
+    static void requireScaled(String what, long count, MapSpec spec, int min, int max) {
         final var area = (long) spec.size() * spec.size();
         final var lowest = Math.max(1L, min * area / QUOTA_AREA);
         final var highest = max == Integer.MAX_VALUE ? Long.MAX_VALUE : (max * area + QUOTA_AREA - 1) / QUOTA_AREA;
-        final var count = MapStats.count(map, type);
-        require(count >= lowest && count <= highest,
-                type + " count " + count + " is outside " + lowest + " to " + highest);
+        require(count >= lowest && count <= highest, what + " count " + count + " is outside " + lowest + " to "
+                + highest);
     }
 
     private static void rockyGroundExists(TileMap map, MapSpec spec) {
@@ -292,7 +305,8 @@ public final class MapInvariants {
                 && a.isDepleted() == b.isDepleted();
     }
 
-    private static void require(boolean condition, String message) {
+    /** Fails with a message unless a condition holds. */
+    static void require(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError(message);
         }

@@ -20,6 +20,7 @@ public final class Components {
     private static final int GROWTH_FACTOR = 2;
 
     private final int width;
+    private final int height;
     private final int[] labels;
     private int count;
     private int[] sizes = new int[INITIAL_CAPACITY];
@@ -30,6 +31,7 @@ public final class Components {
 
     private Components(TileMap map, Predicate<TileType> selected) {
         this.width = map.getWidth();
+        this.height = map.getHeight();
         this.labels = new int[map.getWidth() * map.getHeight()];
         final var queue = new int[labels.length];
         for (var start = 0; start < labels.length; start++) {
@@ -123,6 +125,32 @@ public final class Components {
      */
     public int spanY(int label) {
         return maxY[label] - minY[label] + 1;
+    }
+
+    /**
+     * Tells whether a component reaches the edge of the map.
+     *
+     * @param label a label from 1 to {@link #count()}
+     * @return true when one of its tiles lies in the first or last row or column
+     */
+    public boolean touchesEdge(int label) {
+        return minX[label] == 0 || minY[label] == 0 || maxX[label] == width - 1 || maxY[label] == height - 1;
+    }
+
+    /**
+     * Counts the components that lie wholly inside the map, away from its edge, and have a number of tiles within a
+     * range.
+     *
+     * @param minTiles the fewest tiles
+     * @param maxTiles the most tiles
+     * @return the number of components that touch no edge and hold from {@code minTiles} to {@code maxTiles} tiles
+     */
+    public int countInland(int minTiles, int maxTiles) {
+        var found = 0;
+        for (var label = 1; label <= count; label++) {
+            found += !touchesEdge(label) && sizes[label] >= minTiles && sizes[label] <= maxTiles ? 1 : 0;
+        }
+        return found;
     }
 
     /**

@@ -102,6 +102,25 @@ class WaterStatsTest {
     }
 
     @Test
+    void inlandComponentsAreTheOnesThatTouchNoEdgeWithinASizeRange() {
+        final var map = map(new SpawnPoint(0, 0),
+                "~gggggg",
+                "ggg~~gg",
+                "ggg~~gg",
+                "ggggggg",
+                "gg~gggg",
+                "ggggg~~");
+
+        final var bodies = WaterStats.waterBodies(map);
+
+        assertTrue(bodies.touchesEdge(bodies.labelAt(0, 0)));
+        assertTrue(bodies.touchesEdge(bodies.labelAt(6, 5)));
+        assertEquals(2, bodies.countInland(1, MIN_FIVE));
+        assertEquals(1, bodies.countInland(2, MIN_FIVE));
+        assertEquals(0, bodies.countInland(MIN_FIVE, MIN_FIVE + 1));
+    }
+
+    @Test
     void theSpawnRegionIsTheWalkableLandConnectedToTheSpawn() {
         final var map = map(new SpawnPoint(0, 0),
                 "gg~gg",

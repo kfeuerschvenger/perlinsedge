@@ -49,9 +49,9 @@ class GroundRulesTest {
 
     @ParameterizedTest
     @CsvSource({"-0.5, DEEP_WATER", "-0.45, DEEP_WATER", "-0.35, SHALLOW_WATER", "-0.25, SHALLOW_WATER",
-            "-0.15, DEEP_WATER", "0.1, DEEP_WATER", "0.14, DEEP_WATER", "0.16, SHALLOW_WATER",
-            "0.19, SHALLOW_WATER", "0.21, SAND", "0.25, SAND", "0.55, SAND", "0.65, SAND", "0.95, SAND"})
-    void desertHasASeaAtTheBottomAndItsWaterAtTheTopOfTheRange(float height, TileType expected) {
+            "-0.15, SAND", "0.1, SAND", "0.14, SAND", "0.16, SAND", "0.19, SAND", "0.21, SAND", "0.25, SAND",
+            "0.55, SAND", "0.65, SAND", "0.95, SAND"})
+    void desertHasASeaAtTheBottomOfTheRangeAndNoInlandWater(float height, TileType expected) {
         assertEquals(expected, GroundRules.DESERT.classify(height, WARM, DRY));
     }
 

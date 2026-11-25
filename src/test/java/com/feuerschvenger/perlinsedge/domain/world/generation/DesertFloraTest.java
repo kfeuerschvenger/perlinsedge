@@ -14,7 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The desert grows scattered cacti and palms, with the palms gathered around the water and a few oases dug into open sand.
+ * The desert grows scattered cacti and palms, with the palms gathered around the water and a few oases dug into open
+ * sand.
  * The map is generated on a fixed seed, so the counts are repeatable.
  */
 class DesertFloraTest {
@@ -22,6 +23,11 @@ class DesertFloraTest {
     private static final int SIZE = 150;
     private static final long SEED = 20_261_111L;
     private static final int REACH = ResourceType.PALM_REACH;
+    /** The desert has no ponds around which palms gather, so its trees are the cacti and the palms of a few oases. */
+    private static final int MIN_TREES = 400;
+    /** One oasis per 15,000 tiles, so a map of 150 by 150 tiles holds one and no more than a few. */
+    private static final int MIN_OASES = 1;
+    private static final int MAX_OASES = 6;
 
     private TileMap map;
 
@@ -62,7 +68,7 @@ class DesertFloraTest {
                 }
             }
         }
-        assertTrue(trees >= 500, "trees " + trees);
+        assertTrue(trees >= MIN_TREES, "trees " + trees);
     }
 
     @Test
@@ -131,7 +137,7 @@ class DesertFloraTest {
                 oases += ring ? 1 : 0;
             }
         }
-        assertTrue(oases >= 2 && oases <= 12, "oases " + oases);
+        assertTrue(oases >= MIN_OASES && oases <= MAX_OASES, "oases " + oases);
     }
 
     @Test
