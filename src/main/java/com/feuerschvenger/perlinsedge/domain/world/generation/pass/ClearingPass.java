@@ -125,8 +125,8 @@ public final class ClearingPass implements GenerationPass {
             this.spacing = Math.max(fitting, spacingForSiteLimit());
             this.minRadius = scaled(params.minRadius(), scale);
             this.maxRadius = scaled(params.maxRadius(), scale);
-            this.spawnRadius = Math.max(Math.min(params.spawnRadius(), MIN_SPAWN_RADIUS),
-                    scaled(params.spawnRadius(), scale));
+            this.spawnRadius = Math.clamp(scaled(params.spawnRadius(), scale),
+                    Math.min(params.spawnRadius(), MIN_SPAWN_RADIUS), params.spawnRadius());
         }
 
         /** Returns a radius shrunk by the scale, which is at least the least radius. */
