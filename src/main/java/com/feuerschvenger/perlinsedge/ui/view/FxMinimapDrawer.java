@@ -77,6 +77,8 @@ public class FxMinimapDrawer {
     // Cached tile layer, rebuilt only when the map changes
     private WritableImage tileLayer;
     private boolean tileLayerDirty = true;
+    /** The pixels of the tile layer, whose markers follow the resources of the map. */
+    private MinimapPixels layerPixels;
 
     // Player marker, drawn on top of the cached layer every frame
     private boolean playerVisible;
@@ -102,6 +104,8 @@ public class FxMinimapDrawer {
 
         if (tileLayerDirty) {
             rebuildTileLayer();
+        } else {
+            refreshMarkers();
         }
         gc.drawImage(tileLayer, 0, 0);
         drawCameraView();
@@ -216,15 +220,30 @@ public class FxMinimapDrawer {
         final int imageHeight = Math.max(1, (int) canvas.getHeight());
         final var palette = SpriteManager.getInstance().getTilePalette();
         final var layout = new Layout(imageWidth, imageHeight, scaledTileW, scaledTileH, offsetX, offsetY);
-        final int[] pixels = samplePixels(map, palette, mapType, layout);
-        paintMarkers(map, pixels, layout);
+        layerPixels = new MinimapPixels(map, samplePixels(map, palette, mapType, layout), layout);
 
         if (tileLayer == null || (int) tileLayer.getWidth() != imageWidth || (int) tileLayer.getHeight() != imageHeight) {
             tileLayer = new WritableImage(imageWidth, imageHeight);
         }
+        uploadLayer(layerPixels.pixels(), imageWidth, imageHeight);
+        tileLayerDirty = false;
+    }
+
+    /**
+     * Lays the resource markers again when the map changed, which removes the marker of a harvested resource. Only the
+     * markers are laid again, the colours of the tiles are kept, and a frame without a change does no more than compare
+     * the revision of the map.
+     */
+    private void refreshMarkers() {
+        if (layerPixels.isStale()) {
+            uploadLayer(layerPixels.refresh(), (int) tileLayer.getWidth(), (int) tileLayer.getHeight());
+        }
+    }
+
+    /** Copies the pixels into the image of the tile layer. */
+    private void uploadLayer(int[] pixels, int imageWidth, int imageHeight) {
         tileLayer.getPixelWriter().setPixels(0, 0, imageWidth, imageHeight,
                 PixelFormat.getIntArgbInstance(), pixels, 0, imageWidth);
-        tileLayerDirty = false;
     }
 
     /**
