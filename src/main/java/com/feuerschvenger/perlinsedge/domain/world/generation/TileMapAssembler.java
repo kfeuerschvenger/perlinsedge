@@ -24,6 +24,9 @@ public final class TileMapAssembler {
     /** Low bits of a hash dropped so the rest fills the 53 bits of a double mantissa. */
     private static final int UNIT_SHIFT = 11;
 
+    /** The weight of one step of the 53 bits a hash is cut to, which turns them into a value from 0 up to 1. */
+    private static final double UNIT_SCALE = 0x1.0p-53;
+
     /** Width of the interval [-1, 1) a unit hash is mapped to. */
     private static final double UNIT_SPAN = 2.0;
 
@@ -73,7 +76,7 @@ public final class TileMapAssembler {
 
     /** Quantizes a patch field value, nudged by the jitter of its tile, to the 0..255 a tile stores. */
     private static int patchOf(GenerationContext context, float value, int x, int y) {
-        final var unit = ((context.tileHash(x, y, PATCH_JITTER_SALT) >>> UNIT_SHIFT) * 0x1.0p-53) * UNIT_SPAN - 1.0;
+        final var unit = ((context.tileHash(x, y, PATCH_JITTER_SALT) >>> UNIT_SHIFT) * UNIT_SCALE) * UNIT_SPAN - 1.0;
         return (int) Math.round((value + unit * PATCH_JITTER_AMPLITUDE) * Tile.MAX_PATCH);
     }
 

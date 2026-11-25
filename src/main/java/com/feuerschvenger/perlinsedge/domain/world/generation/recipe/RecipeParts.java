@@ -64,6 +64,7 @@ final class RecipeParts {
     /** The rock noise varies slowly, so the rocky zones it picks are blobs of some tens of tiles. */
     private static final float ROCK_FREQUENCY = 0.035F;
     private static final float CRYSTALS_FREQUENCY = 0.09F;
+    /** The patch noise varies slower than the rock noise, so the ground variants form patches of tens of tiles. */
     private static final float PATCH_FREQUENCY = 0.02F;
 
     /** The largest nudge of the height of a tile before the ground rule sees it, which breaks up straight borders. */

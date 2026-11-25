@@ -17,7 +17,9 @@ class GroundPatchTest {
     private static final int BANDS = 3;
     /** Neighbours in the same band; independent per-tile choices among three bands would agree a third of the time. */
     private static final double MIN_SAME_BAND_SHARE = 0.85;
-    private static final double MIN_BAND_SHARE = 0.05;
+    /** The share each band should have is a third; the jitter of each tile and the ties allow some slack. */
+    private static final double MIN_BAND_SHARE = 0.27;
+    private static final long[] SEEDS = {7L, 99L, 2024L};
 
     private final MapGenerator generator = new MapGenerator(FastNoiseLiteAdapter.FACTORY);
 
@@ -49,17 +51,37 @@ class GroundPatchTest {
     }
 
     @Test
-    void everyBandCoversAFairShareOfTheMap() {
-        final var map = generator.generate(new MapRequest(MapType.DENSE_FOREST, SEED, SIZE, SIZE));
+    void everyBandCoversAFairShareOfTheMapForEverySeedAndMapType() {
+        for (MapType type : MapType.values()) {
+            for (long seed : SEEDS) {
+                final var map = generator.generate(new MapRequest(type, seed, SIZE, SIZE));
+                final var counts = new int[BANDS];
+                for (var y = 0; y < SIZE; y++) {
+                    for (var x = 0; x < SIZE; x++) {
+                        counts[band(map.getTile(x, y))]++;
+                    }
+                }
+
+                for (var band = 0; band < BANDS; band++) {
+                    assertTrue(counts[band] >= MIN_BAND_SHARE * SIZE * SIZE,
+                            type + " seed " + seed + " band " + band + " has " + counts[band]);
+                }
+            }
+        }
+    }
+
+    @Test
+    void aMapThatIsNotSquareAlsoSplitsEvenly() {
+        final var map = generator.generate(new MapRequest(MapType.DENSE_FOREST, SEED, SIZE * 2, SIZE));
         final var counts = new int[BANDS];
         for (var y = 0; y < SIZE; y++) {
-            for (var x = 0; x < SIZE; x++) {
+            for (var x = 0; x < SIZE * 2; x++) {
                 counts[band(map.getTile(x, y))]++;
             }
         }
 
         for (var band = 0; band < BANDS; band++) {
-            assertTrue(counts[band] >= MIN_BAND_SHARE * SIZE * SIZE, "band " + band + " has " + counts[band]);
+            assertTrue(counts[band] >= MIN_BAND_SHARE * SIZE * SIZE * 2, "band " + band + " has " + counts[band]);
         }
     }
 

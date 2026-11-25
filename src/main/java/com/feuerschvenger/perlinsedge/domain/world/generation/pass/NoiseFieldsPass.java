@@ -10,7 +10,7 @@ import java.util.Objects;
 /**
  * Samples every noise field of the recipe once into its array. It is the only pass that calls a noise source, so the
  * passes after it read plain arrays. The fields that {@link NoiseField#isNormalized()} are brought from the -1..1 of
- * the noise to 0..1 here.
+ * the noise to 0..1 here, and the patch field is then spread so that equal bands of it cover equal shares of the map.
  */
 public final class NoiseFieldsPass implements GenerationPass {
 
@@ -30,11 +30,13 @@ public final class NoiseFieldsPass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name of the pass. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Samples every field of the recipe into the context. */
     @Override
     public void apply(GenerationContext context) {
         for (var entry : params.fields().entrySet()) {
@@ -55,6 +57,9 @@ public final class NoiseFieldsPass implements GenerationPass {
                 final var value = source.getNoise((float) x, (float) y);
                 values[row + x] = normalized ? (float) ((value + NOISE_RANGE_OFFSET) / NOISE_RANGE_SPAN) : value;
             }
+        }
+        if (field == NoiseField.PATCH) {
+            FieldEqualiser.spread(values);
         }
     }
 }
