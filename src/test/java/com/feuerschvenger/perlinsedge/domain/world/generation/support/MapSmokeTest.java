@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -30,6 +31,9 @@ class MapSmokeTest {
     private static final int MIN_ISLANDS = 5;
     private static final int WIDE_WIDTH = 200;
     private static final int WIDE_HEIGHT = 120;
+    /** How many seeds the sweep of the small sizes draws, from a stream seeded the day the sweep was added. */
+    private static final int SWEEP_SEEDS = 30;
+    private static final long SWEEP_SOURCE = 20_261_125L;
 
     private final MapGenerator generator = new MapGenerator(FastNoiseLiteAdapter.FACTORY);
 
@@ -64,6 +68,60 @@ class MapSmokeTest {
         final var islands = WaterStats.landMasses(map).countAtLeast(WaterStats.MIN_LAND_TILES);
 
         assertTrue(islands >= MIN_ISLANDS, "seed " + seed + " has " + islands + " islands");
+    }
+
+    /**
+     * The minimum of five islands holds for the seeds that once lost one, because the fifth disc found no place or
+     * its coast fused with another, at the sides where it happened.
+     */
+    @ParameterizedTest
+    @CsvSource({"50,171", "100,40", "100,218"})
+    void anIslandsMapKeepsFiveIslandsForTheSeedsThatLostOneToCrowding(int size, long seed) {
+        final var map = generator.generate(new MapRequest(MapType.ISLANDS, seed, size, size));
+
+        final var islands = WaterStats.landMasses(map).countAtLeast(WaterStats.MIN_LAND_TILES);
+
+        assertTrue(islands >= MIN_ISLANDS, "seed " + seed + " size " + size + " has " + islands + " islands");
+    }
+
+    /** The Mediterranean keeps a real river for the seeds whose rivers once dead ended in a tile or two. */
+    @ParameterizedTest
+    @CsvSource({"150,150,69", "150,150,46", "150,150,221", "200,120,67", "200,120,179", "200,120,144"})
+    void aMediterraneanMapKeepsARealRiverForTheSeedsThatLeftStubs(int width, int height, long seed) {
+        final var map = generator.generate(new MapRequest(MapType.MEDITERRANEAN, seed, width, height));
+
+        assertDoesNotThrow(() -> WaterInvariants.mediterraneanKeepsItsRivers(map),
+                "seed " + seed + " " + width + "x" + height);
+    }
+
+    /**
+     * A wide sweep of seeds at the small sizes: every islands map keeps five islands, and its share of land when it is
+     * square, and every Mediterranean map keeps its rivers, so a regression that only a few seeds in a hundred show is
+     * still caught.
+     */
+    @ParameterizedTest
+    @MethodSource("sweepSizes")
+    void theSmallSizesHoldTheirIslandsAndRiversOnEverySeedOfTheSweep(int width, int height) {
+        for (var seed : FixedSeeds.sweep(SWEEP_SOURCE, SWEEP_SEEDS)) {
+            final var islands = generator.generate(new MapRequest(MapType.ISLANDS, seed, width, height));
+            final var label = "seed " + seed + " " + width + "x" + height;
+            final var count = WaterStats.landMasses(islands).countAtLeast(WaterStats.MIN_LAND_TILES);
+
+            assertTrue(count >= MIN_ISLANDS, label + " has " + count + " islands");
+            if (width == height) {
+                // A wide map holds the minimum of five islands in a smaller share of the land, which is not a defect
+                assertDoesNotThrow(() -> WaterInvariants.islandsShareTheMapWithTheSea(islands,
+                        new MapSpec(MapType.ISLANDS, seed, width)), label);
+            }
+            final var sea = generator.generate(new MapRequest(MapType.MEDITERRANEAN, seed, width, height));
+            assertDoesNotThrow(() -> WaterInvariants.mediterraneanKeepsItsRivers(sea), label);
+        }
+    }
+
+    /** Returns the sizes of the sweep: a square of 100, one of 150 and the wide map of 200 by 120. */
+    private static Stream<Arguments> sweepSizes() {
+        return Stream.of(Arguments.of(ONE_HUNDRED, ONE_HUNDRED), Arguments.of(MEDIUM, MEDIUM),
+                Arguments.of(WIDE_WIDTH, WIDE_HEIGHT));
     }
 
     /** The rivers of a Mediterranean map survive its water limit at every size, wide maps included. */

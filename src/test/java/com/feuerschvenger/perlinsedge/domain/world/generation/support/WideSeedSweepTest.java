@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,12 +27,7 @@ class WideSeedSweepTest {
 
     /** Returns the seeds of the sweep, the same every time. */
     private static List<Long> sweepSeeds() {
-        final var random = new SplittableRandom(SWEEP_SOURCE);
-        final var seeds = new ArrayList<Long>();
-        for (var i = 0; i < SEEDS; i++) {
-            seeds.add(random.nextLong());
-        }
-        return seeds;
+        return FixedSeeds.sweep(SWEEP_SOURCE, SEEDS);
     }
 
     /**
