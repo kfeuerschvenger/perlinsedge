@@ -168,7 +168,7 @@ public class GameOrchestrator {
         mapManager.generateNewMap(mapManager.createMapRequest(selectedMapType, newSeed));
 
         playerManager.initializePlayer();
-        mapManager.spawnEnemies();
+        mapManager.spawnCreatures();
 
         initializeGameComponents();
         showMapOnMinimap();
@@ -364,7 +364,7 @@ public class GameOrchestrator {
             mapManager.generateNewMap(request);
             AppConfig.getInstance().world().setCurrentMapType(request.type());
             playerManager.initializePlayer();
-            mapManager.spawnEnemies();
+            mapManager.spawnCreatures();
             showMapOnMinimap();
             centerOnPlayer();
             rebuilt = true;
@@ -454,7 +454,7 @@ public class GameOrchestrator {
         }
         itemDropManager.update();
         stationManager.update(deltaTime);
-        combatManager.updateEnemies(deltaTime);
+        combatManager.updateCreatures(deltaTime);
 
         if (gameState.shouldCenterCamera()) {
             centerOnPlayer();

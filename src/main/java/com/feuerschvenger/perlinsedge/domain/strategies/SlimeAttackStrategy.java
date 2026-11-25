@@ -2,44 +2,74 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 
 /**
  * Implements the attack behavior for Slime enemies.
  * A slime strikes a player on a tile next to its own, after a squash that telegraphs the strike and followed by a wait,
  * see {@link SlimeStrikeCycle}. Both times come from {@code AppConfig}.
  */
-public class SlimeAttackStrategy implements EnemyAttackStrategy {
+public class SlimeAttackStrategy implements CreatureAttackStrategy {
 
     private final SlimeStrikeCycle cycle;
+    private final SlimeMovementStrategy movement;
 
-    public SlimeAttackStrategy() {
-        AppConfig.GameMechanicsConfig mechanics = AppConfig.getInstance().gameMechanics();
+    /**
+     * Creates the attack of a slime, which does not squash while the movement of that slime has it in the air.
+     * The two strategies of one slime must be paired: the strike reads the jump of the movement it is given, so a
+     * strike paired with another slime's movement would squash on the wrong jump. {@code Slime} builds both and
+     * checks the pairing with {@link #isPairedWith}. The class sits in another package than {@code Slime}, so the
+     * constructor cannot be package-private.
+     *
+     * @param movement the movement strategy of the same slime, which tells whether it is jumping
+     */
+    public SlimeAttackStrategy(SlimeMovementStrategy movement) {
+        final var mechanics = AppConfig.getInstance().gameMechanics();
         this.cycle = new SlimeStrikeCycle(mechanics.getSlimeWindupSeconds(), mechanics.getSlimeStrikeWaitSeconds());
+        this.movement = movement;
     }
 
     /**
-     * Tells whether a player is within the reach of an enemy: on the same tile or on one of the eight tiles around it.
-     * The slime stops hopping and starts its strike cycle while this holds.
+     * Tells whether this strike reads the jump of the given movement.
      *
-     * @param enemy  the enemy
-     * @param player the player
-     * @return true when the player is alive and no more than one tile away in each direction
+     * @param other the movement strategy to compare with
+     * @return true when this strike was built for that movement
      */
-    public static boolean isInReach(Enemy enemy, Player player) {
-        return !player.isDead()
-                && Math.abs(player.getCurrentTileX() - enemy.getCurrentTileX()) <= 1
-                && Math.abs(player.getCurrentTileY() - enemy.getCurrentTileY()) <= 1;
+    public boolean isPairedWith(SlimeMovementStrategy other) {
+        return movement == other;
     }
 
+    /**
+     * Tells whether a player is within the reach of a creature: on the same tile or on one of the eight tiles around
+     * it.
+     * The slime stops hopping and starts its strike cycle while this holds.
+     *
+     * @param creature the creature
+     * @param player   the player
+     * @return true when the player is alive and no more than one tile away in each direction
+     */
+    public static boolean isInReach(Creature creature, Player player) {
+        return !player.isDead()
+                && Math.abs(player.getCurrentTileX() - creature.getCurrentTileX()) <= 1
+                && Math.abs(player.getCurrentTileY() - creature.getCurrentTileY()) <= 1;
+    }
+
+    /**
+     * Advances the strike cycle and strikes the player when it comes to the strike.
+     *
+     * @param self      the slime
+     * @param deltaTime time since last update in seconds
+     * @param context   what the slime can see of the world: the map, the player and the occupancy
+     */
     @Override
-    public void updateAttack(Enemy enemy, double deltaTime, Player player) {
+    public void updateAttack(Creature self, double deltaTime, CreatureContext context) {
+        final var player = context.player();
         // A slime in the air does not squash: the telegraph starts on the tile where it lands, so every strike shows it
-        final boolean landed = !(enemy.getMovementStrategy() instanceof SlimeMovementStrategy movement)
-                || !movement.isJumping();
-        if (cycle.update(deltaTime, landed && isInReach(enemy, player))) {
-            player.takeDamage(enemy.getAttackDamage());
-            enemy.resetAttackCooldown();
+        final boolean landed = !movement.isJumping();
+        if (cycle.update(deltaTime, landed && isInReach(self, player))) {
+            player.takeDamage(self.getAttackDamage());
+            self.resetAttackCooldown();
         }
     }
 
@@ -47,10 +77,12 @@ public class SlimeAttackStrategy implements EnemyAttackStrategy {
      * A slime never strikes through the attack cooldown of the combat manager: its own cycle times the strike and
      * applies the damage in {@link #updateAttack}.
      *
+     * @param self    the slime
+     * @param context what the slime can see of the world
      * @return always false
      */
     @Override
-    public boolean canAttack(Enemy enemy, Player player) {
+    public boolean canAttack(Creature self, CreatureContext context) {
         return false;
     }
 

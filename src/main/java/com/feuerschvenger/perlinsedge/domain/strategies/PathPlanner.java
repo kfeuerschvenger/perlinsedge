@@ -6,7 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.pathfinding.TilePenalty;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
 /**
- * Bounds the cost of an enemy chasing the player.
+ * Bounds the cost of a hostile creature chasing the player (hostile-only: animals never chase the player).
  * Each search is capped, and after a search that finds nothing the planner refuses to search again for a growing
  * delay. Without that, an enemy aggroed on a player it cannot reach would expand every reachable tile of the map
  * on every step.
@@ -77,7 +77,7 @@ final class PathPlanner {
      * @param startY  start tile Y
      * @param targetX target tile X
      * @param targetY target tile Y
-     * @param penalty extra cost of entering a tile, such as one another enemy holds
+     * @param penalty extra cost of entering a tile, such as one another creature holds
      * @return the path, or an unreachable outcome when none was found or the planner is backing off
      */
     PathResult findPath(TileMap map, int startX, int startY, int targetX, int targetY, TilePenalty penalty) {

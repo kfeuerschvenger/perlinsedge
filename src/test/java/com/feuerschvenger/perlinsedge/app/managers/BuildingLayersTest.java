@@ -306,7 +306,7 @@ class BuildingLayersTest {
 
     private Slime slimeOn(int x, int y) {
         final Slime slime = new Slime(x, y);
-        state.setEnemies(List.of(slime));
+        state.setCreatures(List.of(slime));
         return slime;
     }
 
@@ -440,7 +440,7 @@ class BuildingLayersTest {
 
         assertTrue(map.getTile(5, 2).hasFloor());
         assertEquals(1, hints.size());
-        state.setEnemies(List.of());
+        state.setCreatures(List.of());
         assertTrue(manager.removeFloor(5, 2));
     }
 

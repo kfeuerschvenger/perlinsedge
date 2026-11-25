@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SpawnSeed;
@@ -42,6 +43,10 @@ public class Slime extends Enemy {
 
     /** The breath phase of the slime, fixed at spawn, see {@link #getBreathPhase()}. */
     private final double breathPhase;
+    /** The hop of the slime, the same object the base holds as its movement strategy, typed for slime queries. */
+    private final SlimeMovementStrategy movement;
+    /** The strike of the slime, the same object the base holds as its attack strategy. */
+    private final SlimeAttackStrategy strike;
 
     // ==================================================================
     //  Constructor
@@ -54,17 +59,50 @@ public class Slime extends Enemy {
      * @param startY Initial Y-coordinate (tile position)
      */
     public Slime(int startX, int startY) {
-        super(
-                startX,
-                startY,
-                MAX_HEALTH,
-                ATTACK_DAMAGE,
-                ATTACK_COOLDOWN,
-                new SlimeMovementStrategy(SpawnSeed.of(startX, startY), restFractionAt(startX, startY)),
-                new SlimeAttackStrategy()
-        );
+        this(startX, startY,
+                new SlimeMovementStrategy(SpawnSeed.of(startX, startY), restFractionAt(startX, startY)));
+    }
+
+    /** Wires the strike of the slime to the hop it shares its state with. */
+    private Slime(int startX, int startY, SlimeMovementStrategy movement) {
+        this(startX, startY, movement, new SlimeAttackStrategy(movement));
+    }
+
+    /** Builds the slime from its two strategies, which it keeps typed and which must be paired. */
+    private Slime(int startX, int startY, SlimeMovementStrategy movement, SlimeAttackStrategy strike) {
+        super(startX, startY, MAX_HEALTH, ATTACK_DAMAGE, ATTACK_COOLDOWN, movement, paired(movement, strike));
+        this.movement = movement;
+        this.strike = strike;
         setColor(selectRandomColor());
         this.breathPhase = breathPhaseAt(startX, startY);
+    }
+
+    /** Returns the strike when it reads the jump of the given movement, and refuses it otherwise. */
+    private static SlimeAttackStrategy paired(SlimeMovementStrategy movement, SlimeAttackStrategy strike) {
+        if (!strike.isPairedWith(movement)) {
+            throw new IllegalArgumentException("The strike of a slime must read the jump of its own movement");
+        }
+        return strike;
+    }
+
+    /**
+     * Gives the hop of the slime, typed so the renderer and the tests read its jump without a cast.
+     *
+     * @return the movement strategy of this slime
+     */
+    @Override
+    public SlimeMovementStrategy getMovementStrategy() {
+        return movement;
+    }
+
+    /**
+     * Gives the strike of the slime, typed so the renderer and the tests read its squash without a cast.
+     *
+     * @return the attack strategy of this slime
+     */
+    @Override
+    public SlimeAttackStrategy getAttackStrategy() {
+        return strike;
     }
 
     /**
@@ -106,8 +144,8 @@ public class Slime extends Enemy {
      */
     @Override
     public double getRenderOffsetY() {
-        if (getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement && slimeMovement.isJumping()) {
-            return calculateJumpOffset(slimeMovement);
+        if (movement.isJumping()) {
+            return calculateJumpOffset(movement);
         }
         return BASE_RENDER_OFFSET_Y;
     }
@@ -118,7 +156,7 @@ public class Slime extends Enemy {
      * @return 0 when the slime is not squashing, rising to 1 at the moment of the strike
      */
     public double getWindupProgress() {
-        return getAttackStrategy() instanceof SlimeAttackStrategy strike ? strike.getWindupProgress() : 0.0;
+        return strike.getWindupProgress();
     }
 
     // ==================================================================
@@ -126,16 +164,13 @@ public class Slime extends Enemy {
     // ==================================================================
 
     /**
-     * A hit makes the slime chase the attacker even from outside its aggro range.
+     * Gives the species of a slime.
      *
-     * @param amount Damage amount to apply
+     * @return {@link Species#SLIME}
      */
     @Override
-    public void takeDamage(double amount) {
-        if (!isDead && getMovementStrategy() instanceof SlimeMovementStrategy slimeMovement) {
-            slimeMovement.alert();
-        }
-        super.takeDamage(amount);
+    public Species species() {
+        return Species.SLIME;
     }
 
     // ==================================================================

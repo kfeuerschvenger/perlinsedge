@@ -167,8 +167,8 @@ public class PlayerManager {
         if (next == null) {
             return;
         }
-        if (OccupiedTiles.contains(gameState.getEnemies(), next.x, next.y)) {
-            player.haltBefore(OccupiedTiles.of(gameState.getEnemies()));
+        if (OccupiedTiles.contains(gameState.getCreatures(), next.x, next.y)) {
+            player.haltBefore(OccupiedTiles.of(gameState.getCreatures()));
         } else if (isBlockedTerrain(next)) {
             player.haltBefore(Set.of(next));
         }
@@ -269,7 +269,7 @@ public class PlayerManager {
     public boolean movePlayer(TileMap map, int targetX, int targetY) {
         var player = getPlayer();
         return player != null
-                && player.moveTo(map, targetX, targetY, OccupiedTiles.of(gameState.getEnemies()));
+                && player.moveTo(map, targetX, targetY, OccupiedTiles.of(gameState.getCreatures()));
     }
 
     /**
@@ -431,11 +431,11 @@ public class PlayerManager {
      * Checks if enemies are within minimum safe distance.
      */
     private boolean isEnemyTooClose(int x, int y) {
-        if (gameState.getEnemies() == null) {
+        if (gameState.getCreatures() == null) {
             return false;
         }
 
-        return gameState.getEnemies().stream().anyMatch(enemy ->
+        return gameState.getCreatures().stream().anyMatch(enemy ->
                 Math.abs(enemy.getCurrentTileX() - x) < MIN_ENEMY_DISTANCE &&
                         Math.abs(enemy.getCurrentTileY() - y) < MIN_ENEMY_DISTANCE
         );

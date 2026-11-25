@@ -6,7 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Fence;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
@@ -150,8 +150,8 @@ final class FxRenderableDrawer {
             drawBuilding(building, r);
         } else if (object instanceof Player) {
             drawPlayer(r);
-        } else if (object instanceof Enemy) {
-            drawEnemy(r);
+        } else if (object instanceof Creature) {
+            drawCreature(r);
         } else if (object instanceof DroppedItem) {
             drawDroppedItem(r);
         } else if (object instanceof TileHighlight h) {
@@ -263,18 +263,18 @@ final class FxRenderableDrawer {
     }
 
     /**
-     * Draws an enemy entity on the canvas.
+     * Draws a creature entity on the canvas.
      *
-     * @param r The Renderable object containing enemy information.
+     * @param r The Renderable object containing creature information.
      */
-    private void drawEnemy(Renderable r) {
-        final var enemy = (Enemy) r.object();
+    private void drawCreature(Renderable r) {
+        final var creature = (Creature) r.object();
         final double zoom = camera.getZoom();
 
-        if (enemy instanceof Slime slime) {
+        if (creature instanceof Slime slime) {
             FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, slime, gameTime);
         } else {
-            FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, enemy);
+            FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, creature);
         }
     }
 

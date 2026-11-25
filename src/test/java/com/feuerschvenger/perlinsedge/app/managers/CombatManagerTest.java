@@ -26,7 +26,7 @@ class CombatManagerTest {
         player = new Player(5, 5);
         slime = new Slime(5, 5);
         state.setPlayer(player);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
     }
 
     @Test

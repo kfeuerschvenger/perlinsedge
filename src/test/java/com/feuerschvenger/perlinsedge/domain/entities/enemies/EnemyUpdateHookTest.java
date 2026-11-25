@@ -1,7 +1,8 @@
 package com.feuerschvenger.perlinsedge.domain.entities.enemies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SkeletonMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
@@ -36,7 +37,7 @@ class EnemyUpdateHookTest {
         };
 
         for (int i = 0; i < 5; i++) {
-            skeleton.update(1.0 / 60.0, grass(), new Player(8, 8), new EnemyOccupancy());
+            skeleton.update(1.0 / 60.0, new CreatureContext(grass(), new Player(8, 8), new CreatureOccupancy()));
         }
 
         assertEquals(5, calls[0]);
@@ -55,7 +56,7 @@ class EnemyUpdateHookTest {
         final Player player = new Player(8, 2);
         ((SkeletonMovementStrategy) skeleton.getMovementStrategy()).alert();
 
-        skeleton.update(0.25, map, player, new EnemyOccupancy());
+        skeleton.update(0.25, new CreatureContext(map, player, new CreatureOccupancy()));
 
         assertTrue(skeleton.getPosX() > 2.0, "precondition: the skeleton moved");
         assertEquals(skeleton.getPosX(), xAtHook[0], 1e-12, "the hook sees the position after the move");

@@ -2,7 +2,8 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.LootManager;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.entities.items.Item;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
@@ -13,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Manages combat interactions between player and enemies.
@@ -29,11 +29,12 @@ public class CombatManager {
     private final GameStateManager gameState;
 
     /**
-     * Updates all enemies in the game world.
+     * Updates all creatures in the game world. The attack of a creature belongs to its attack strategy, which runs
+     * inside {@link Creature#update(double, CreatureContext)}, so nothing here strikes the player.
      *
      * @param deltaTime Time since last update in seconds
      */
-    public void updateEnemies(double deltaTime) {
+    public void updateCreatures(double deltaTime) {
         var player = gameState.getPlayer();
         TileMap map = gameState.getCurrentMap();
 
@@ -42,42 +43,18 @@ public class CombatManager {
         }
 
         // Create a safe copy to avoid concurrent modification
-        List<Enemy> enemies = new ArrayList<>(gameState.getEnemies());
-        final var occupancy = gameState.getEnemyOccupancy();
+        List<Creature> creatures = new ArrayList<>(gameState.getCreatures());
+        final var occupancy = gameState.getCreatureOccupancy();
+        final var context = new CreatureContext(map, player, occupancy);
 
-        for (Enemy enemy : enemies) {
-            // Skip dead enemies (should be removed but just in case), which hold no tile
-            if (enemy.isDead()) {
-                occupancy.release(enemy);
+        for (Creature creature : creatures) {
+            // Skip dead creatures (should be removed but just in case), which hold no tile
+            if (creature.isDead()) {
+                occupancy.release(creature);
                 continue;
             }
 
-            // Update enemy state
-            enemy.update(deltaTime, map, player, occupancy);
-
-            // Handle enemy attacks on player
-            handleEnemyAttack(enemy, player, deltaTime);
-        }
-    }
-
-    /**
-     * Handles enemy attack logic against the player.
-     */
-    private void handleEnemyAttack(Enemy enemy, Player player, double deltaTime) {
-        if (!enemy.canAttack(player)) {
-            return;
-        }
-
-        // Update enemy attack cooldown
-        enemy.updateAttackCooldown(deltaTime);
-
-        if (enemy.isReadyToAttack()) {
-            player.takeDamage(enemy.getAttackDamage());
-            enemy.resetAttackCooldown();
-            if (log.isDebugEnabled()) {
-                log.debug("{} attacked player. Player health: {}",
-                        enemy.getClass().getSimpleName(), String.format(Locale.ROOT, "%.1f", player.getHealth()));
-            }
+            creature.update(deltaTime, context);
         }
     }
 
@@ -100,7 +77,7 @@ public class CombatManager {
      * @return {@link Strike#HIT} when the swing landed, {@link Strike#COOLDOWN} when it must wait, and
      *         {@link Strike#REFUSED} when the enemy is not within melee reach of the tile the player stands on
      */
-    public Strike strikeEnemy(Enemy target) {
+    public Strike strikeEnemy(Creature target) {
         if (!isValidAttackState() || target == null || target.isDead()) {
             return Strike.REFUSED;
         }
@@ -134,41 +111,41 @@ public class CombatManager {
     }
 
     /** Deals the damage of the item in hand to an enemy, shows the number and processes its death. */
-    private void damage(Enemy enemy, Player player) {
-        // The number shows what the hit took off, so a blow that kills an enemy with little health left shows what was left
-        final double healthBefore = enemy.getHealth();
-        enemy.takeDamage(player.getAttackDamage());
-        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, healthBefore - enemy.getHealth(),
-                enemy.getPosX(), enemy.getPosY(), gameState.getGameTime());
-        if (enemy.isDead()) {
-            handleEnemyDeath(enemy);
+    private void damage(Creature creature, Player player) {
+        // The number shows what the hit took off, so a blow that kills a creature shows only the health it had left
+        final double healthBefore = creature.getHealth();
+        creature.takeDamage(player.getAttackDamage(), player);
+        gameState.getDamageNumbers().spawn(DamageNumbers.Kind.ENEMY, healthBefore - creature.getHealth(),
+                creature.getPosX(), creature.getPosY(), gameState.getGameTime());
+        if (creature.isDead()) {
+            handleCreatureDeath(creature);
         }
     }
 
     /**
-     * Handles enemy death sequence:
+     * Handles creature death sequence:
      * 1. Generates loot drops
      * 2. Creates dropped items in world
-     * 3. Removes enemy from active list
+     * 3. Removes creature from active list
      */
-    private void handleEnemyDeath(Enemy enemy) {
-        generateLootDrops(enemy);
-        gameState.getEnemies().remove(enemy);
-        gameState.getEnemyOccupancy().release(enemy);
-        log.debug("{} defeated", enemy.getClass().getSimpleName());
+    private void handleCreatureDeath(Creature creature) {
+        generateLootDrops(creature);
+        gameState.getCreatures().remove(creature);
+        gameState.getCreatureOccupancy().release(creature);
+        log.debug("{} defeated", creature.getClass().getSimpleName());
     }
 
     /**
-     * Generates and registers loot drops at enemy's position.
+     * Generates and registers loot drops at the creature's position.
      */
-    private void generateLootDrops(Enemy enemy) {
-        List<Item> drops = LootManager.getInstance().generateLootForEnemy(enemy.getClass());
+    private void generateLootDrops(Creature creature) {
+        List<Item> drops = LootManager.getInstance().generateLootForEnemy(creature.getClass());
 
         for (Item item : drops) {
             gameState.getDroppedItems().add(
                     new DroppedItem(
-                            enemy.getCurrentTileX(),
-                            enemy.getCurrentTileY(),
+                            creature.getCurrentTileX(),
+                            creature.getCurrentTileY(),
                             item,
                             gameState.getGameTime(),
                             DroppedItem.DropSource.ENEMY

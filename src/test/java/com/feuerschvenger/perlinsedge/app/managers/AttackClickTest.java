@@ -53,7 +53,7 @@ class AttackClickTest {
 
     private Slime slimeAt(int x, int y) {
         final Slime slime = new Slime(x, y);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
         return slime;
     }
 
@@ -160,7 +160,7 @@ class AttackClickTest {
         final Slime slime = slimeAt(8, 5);
         interactions.interact(8, 5);
 
-        state.getEnemies().remove(slime);
+        state.getCreatures().remove(slime);
         tick(1);
 
         assertFalse(interactions.hasPending());

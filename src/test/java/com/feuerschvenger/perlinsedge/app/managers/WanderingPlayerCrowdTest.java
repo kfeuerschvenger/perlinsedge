@@ -60,7 +60,7 @@ class WanderingPlayerCrowdTest {
         state.setCurrentMap(map);
         state.setPlayer(player);
         final List<Enemy> enemies = ring(slimes, 10, radius);
-        state.setEnemies(enemies);
+        state.setCreatures(enemies);
         final PlayerManager players = new PlayerManager(state, null, null);
         final CombatManager combat = new CombatManager(state);
 
@@ -80,7 +80,7 @@ class WanderingPlayerCrowdTest {
                 lastX = player.getCurrentTileX();
                 lastY = player.getCurrentTileY();
             }
-            combat.updateEnemies(STEP);
+            combat.updateCreatures(STEP);
             assertClear(enemies, player, tick);
         }
         assertTrue(steps >= 20, "the player walked on only " + steps + " tiles");

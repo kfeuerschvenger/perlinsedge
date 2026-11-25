@@ -2,7 +2,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -32,7 +33,7 @@ class SlimeHopTest {
         final TileMap map = new TileMap(60, 20);
         final Slime slime = new Slime(TAKE_OFF_X, TAKE_OFF_Y);
         final Player player = new Player(16, 10);
-        final EnemyOccupancy occupancy = new EnemyOccupancy();
+        final CreatureOccupancy occupancy = new CreatureOccupancy();
         final SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
         double maxTick;
         double maxPhaseTick;
@@ -50,7 +51,7 @@ class SlimeHopTest {
             final double x = slime.getPosX();
             final double y = slime.getPosY();
             final double phase = movement.getJumpPhase();
-            slime.update(STEP, map, player, occupancy);
+            slime.update(STEP, new CreatureContext(map, player, occupancy));
             maxTick = Math.max(maxTick, Math.hypot(slime.getPosX() - x, slime.getPosY() - y));
             // The landing resets the phase to the ground value, which is not a step of the arc
             if (movement.isJumping()) {
