@@ -54,8 +54,12 @@ class IslandShapePassTest {
     private static final int FOUR_ISLANDS = 4;
     private static final int PER_100K = 100_000;
     private static final int OVER_100K = PER_100K + 1;
-    private static final int TINY_SIDE = 3;
-    private static final int TINY_MIDDLE = 1;
+    /** A side of 4 is narrower than the margin of a radius of 2: the centres are drawn in the middle two tiles. */
+    private static final int TINY_SIDE = 4;
+    private static final int TINY_MIDDLE_FIRST = 1;
+    private static final int TINY_MIDDLE_LAST = 2;
+    private static final int ODD_TINY_SIDE = 3;
+    private static final int ODD_SMALL_SIDE = 5;
     private static final int HALF = 2;
     private static final int SINGLE_TILE_SIDE = 1;
     private static final int OVER_MAX_ISLANDS = IslandParams.MAX_ISLANDS + 1;
@@ -227,15 +231,36 @@ class IslandShapePassTest {
     }
 
     @Test
-    void aMapSmallerThanTheMarginsPutsEveryCentreInTheMiddleAndLiftsEveryTile() {
+    void aMapNarrowerThanTheMarginsKeepsEveryCentreInTheMiddleOfTheMap() {
         final var context = flatHeightContext(SEED_TINY, TINY_SIDE, FLAT_SEA);
 
         new IslandShapePass(params(DENSITY, FOUR_ISLANDS)).apply(context);
 
-        for (var value : context.field(NoiseField.HEIGHT)) {
-            assertTrue(value > -SEA, "tile not lifted: " + value);
+        final var centres = centres(context);
+        assertTrue(centres.length >= 1, "an island was placed");
+        for (var centre : centres) {
+            final var inTheMiddle = context.xOf(centre) >= TINY_MIDDLE_FIRST && context.xOf(centre) <= TINY_MIDDLE_LAST
+                    && context.yOf(centre) >= TINY_MIDDLE_FIRST && context.yOf(centre) <= TINY_MIDDLE_LAST;
+            assertTrue(inTheMiddle, "the centre " + centre + " lies off the middle");
         }
-        assertEquals(context.index(TINY_MIDDLE, TINY_MIDDLE), highestIndex(context));
+    }
+
+    /** On a side that is odd the largest radius rounds down, so an island of that radius lies whole on the map. */
+    @Test
+    void anIslandLiesWholeOnAMapWhoseSideIsOdd() {
+        for (var side : new int[] {ODD_TINY_SIDE, ODD_SMALL_SIDE}) {
+            final var context = flatHeightContext(SEED_TINY, side, FLAT_SEA);
+            final var heights = context.field(NoiseField.HEIGHT);
+
+            new IslandShapePass(params(NO_DENSITY, FOUR_ISLANDS)).apply(context);
+
+            for (var index = 0; index < context.size(); index++) {
+                final var onBorder = context.xOf(index) == 0 || context.yOf(index) == 0
+                        || context.xOf(index) == side - 1 || context.yOf(index) == side - 1;
+                assertTrue(!onBorder || Math.abs(heights[index] + SEA) < TOLERANCE,
+                        "side " + side + ": an island reaches the edge at " + index);
+            }
+        }
     }
 
     /** Returns the indices of the island centres, which are the tiles lifted by the whole lift. */

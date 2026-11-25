@@ -15,8 +15,11 @@ import java.util.random.RandomGenerator;
  * rejection sampling: a centre is accepted when the island lies whole on the map and at least the spacing times the
  * sum of the two radii from every island placed before. An island that finds no such centre in a few attempts is tried
  * again at a smaller radius, down to the smallest radius, which is the one of the parameters on a map of ordinary size
- * and at most a tenth of the shorter side on a small one, so the number of islands the parameters ask for is kept while
- * the map has room for it; only an island that does not fit even at the smallest radius is dropped. The height is
+ * and at most a tenth of the shorter side on a small one. An island that still finds no place is put last at the
+ * smallest radius with the lifted discs just touching, so the number of islands the parameters ask for is kept while
+ * the map has room for it; only an island that finds no centre even then is dropped. The count is the number of
+ * discs placed: the pass does not promise that the ground rules and the noise leave each disc a land mass of any size,
+ * which the tests measure. The height is
  * lifted around each centre by an amount that fades to nothing at the radius of that island, and where the lifts of
  * two islands meet the higher one counts. Beyond every radius the height is the sea floor, so the noise only shapes
  * the coasts.
@@ -53,6 +56,8 @@ public final class IslandShapePass implements GenerationPass {
     private static final int PLACEMENT_ATTEMPTS = 400;
     /** An island that finds no place shrinks to this share of its radius, or by one tile when that changes nothing. */
     private static final double SHRINK_FACTOR = 0.8;
+    /** The spacing of the last resort: the lifted discs of two islands just touch. */
+    private static final double TOUCHING_SPACING = 1.0;
 
     private final IslandParams params;
     private final boolean squaredFalloff;
@@ -122,9 +127,13 @@ public final class IslandShapePass implements GenerationPass {
         return radii;
     }
 
-    /** Returns the largest radius on a map of a shorter side: the one of the parameters, or the share of the side. */
+    /**
+     * Returns the largest radius on a map of a shorter side: the one of the parameters, or the share of the side
+     * rounded down, so an island of that radius lies whole on the map: on a side of 65 the cap at half the side is 32,
+     * a disc of 64 across, and not 33, which would not fit.
+     */
     private int largestRadius(int shorterSide) {
-        final var cap = Math.max(1, (int) Math.round(shorterSide * (double) params.size().maxShareOfSide()));
+        final var cap = Math.max(1, (int) (shorterSide * (double) params.size().maxShareOfSide()));
         return Math.min(params.size().maxRadius(), cap);
     }
 
@@ -151,7 +160,14 @@ public final class IslandShapePass implements GenerationPass {
         private final int smallest;
         private int placed;
 
-        /** Prepares room for the centres and radii of up to {@code count} islands, none below the smallest radius. */
+        /**
+         * Prepares room for the centres and radii of up to {@code count} islands, none below the smallest radius.
+         *
+         * @param context  the generation, which gives the size of the map
+         * @param random   the stream the centres are drawn from
+         * @param count    the most islands that are placed
+         * @param smallest the smallest radius an island is made, in tiles
+         */
         Layout(GenerationContext context, RandomGenerator random, int count, int smallest) {
             this.context = context;
             this.random = random;
@@ -162,34 +178,49 @@ public final class IslandShapePass implements GenerationPass {
             this.placedRadii = new int[count];
         }
 
-        /** Places the islands from the largest radius down and paints the lift of each placed one into the effect. */
+        /**
+         * Places the islands from the largest radius down and paints the lift of each placed one into the effect. An
+         * island that finds no place at any radius is placed last, at the smallest radius and with the relaxed
+         * spacing, so the count of islands holds whenever the map has room for that many of the smallest size.
+         */
         void placeAll(int[] radiiAscending, float[] effect) {
+            var unplaced = 0;
             for (var i = radiiAscending.length - 1; i >= 0; i--) {
                 if (place(radiiAscending[i])) {
+                    paint(effect, placed - 1);
+                } else {
+                    unplaced++;
+                }
+            }
+            for (var i = 0; i < unplaced; i++) {
+                if (tryPlace(smallest, Math.min(spacing, TOUCHING_SPACING))) {
                     paint(effect, placed - 1);
                 }
             }
         }
 
-        /** Places an island at the radius, or a smaller one when no centre keeps the spacing, and tells if it fits. */
+        /**
+         * Places an island at the radius, or a smaller one when no centre keeps the spacing down to the smallest
+         * radius, which is always tried, and tells if it fits.
+         */
         private boolean place(int radius) {
             var candidate = radius;
-            while (candidate >= smallest) {
-                if (tryPlace(candidate)) {
-                    return true;
+            while (!tryPlace(candidate, spacing)) {
+                if (candidate <= smallest) {
+                    return false;
                 }
-                candidate = Math.min(candidate - 1, (int) (candidate * SHRINK_FACTOR));
+                candidate = Math.max(smallest, Math.min(candidate - 1, (int) (candidate * SHRINK_FACTOR)));
             }
-            return false;
+            return true;
         }
 
-        /** Tries centres until one keeps the spacing, and records the island there. */
-        private boolean tryPlace(int radius) {
+        /** Tries centres until one keeps the given spacing, and records the island there. */
+        private boolean tryPlace(int radius, double requiredSpacing) {
             final var margin = (int) Math.round(radius * EDGE_MARGIN_OF_RADIUS);
             for (var attempt = 0; attempt < PLACEMENT_ATTEMPTS; attempt++) {
                 final var x = centreOnAxis(context.width(), margin);
                 final var y = centreOnAxis(context.height(), margin);
-                if (isClear(x, y, radius)) {
+                if (isClear(x, y, radius, requiredSpacing)) {
                     centresX[placed] = x;
                     centresY[placed] = y;
                     placedRadii[placed] = radius;
@@ -200,10 +231,10 @@ public final class IslandShapePass implements GenerationPass {
             return false;
         }
 
-        /** Tells whether a centre keeps the spacing from every island placed so far. */
-        private boolean isClear(int x, int y, int radius) {
+        /** Tells whether a centre keeps a spacing from every island placed so far. */
+        private boolean isClear(int x, int y, int radius, double requiredSpacing) {
             for (var i = 0; i < placed; i++) {
-                final var needed = spacing * (radius + placedRadii[i]);
+                final var needed = requiredSpacing * (radius + placedRadii[i]);
                 final double dx = (double) x - centresX[i];
                 final double dy = (double) y - centresY[i];
                 if (dx * dx + dy * dy < needed * needed) {

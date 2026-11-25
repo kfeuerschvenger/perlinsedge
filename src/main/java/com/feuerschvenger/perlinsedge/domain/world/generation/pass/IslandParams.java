@@ -5,8 +5,9 @@ import java.util.Objects;
 /**
  * How the height is shaped into islands. Counts and sizes are in tiles and tiles per area, so a bigger map holds more
  * islands of the same size instead of the same islands stretched. The count is how many islands are placed: an island
- * that finds no place that keeps the spacing from the others in a few attempts is made smaller and tried again, and is
- * dropped only when it does not fit even at the smallest radius, so a crowded map holds fewer.
+ * that finds no place that keeps the spacing from the others in a few attempts is made smaller and tried again, then
+ * put at the smallest radius with the islands just touching, and is dropped only when it does not fit even there, so a
+ * crowded map holds fewer.
  *
  * @param islandsPer100kTiles how many islands there are for every hundred thousand tiles of map, from 0 to 100000,
  *                            which is one island on every tile; the island count of a map never exceeds

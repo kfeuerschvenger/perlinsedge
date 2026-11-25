@@ -11,8 +11,8 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
  * @param maxShareOfSide  the largest radius an island may have as a share of the shorter side of the map, above 0 and
  *                        at most {@link #MAX_SHARE_OF_SIDE}, which is the largest radius for which an island still
  *                        lies whole on the map; the radii of a map whose side gives a smaller cap are drawn between
- *                        the smallest radius and the cap, and between the cap and itself when the cap is below the
- *                        smallest
+ *                        the smallest radius and the cap, and the smallest radius of such a map is lowered to at
+ *                        most the cap, so the cap is never below the smallest radius
  * @param spacing         how far apart two islands lie, as a multiple of the sum of their two radii: 1 lets the lifted
  *                        discs of two islands just touch and more leaves a stretch of sea between them, finite and
  *                        above 0
