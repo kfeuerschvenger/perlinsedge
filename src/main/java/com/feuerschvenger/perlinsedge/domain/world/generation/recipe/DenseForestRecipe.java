@@ -23,6 +23,12 @@ final class DenseForestRecipe {
     private static final int IRON_PER_MILLE = 40;
     private static final int IRON_MIN = 55;
     private static final int IRON_MAX = 105;
+    /**
+     * The most trees per 100,000 tiles of map. The land is about four fifths of a dense forest map, so this keeps the
+     * trees under the 42% of the land that closes the 28% to 42% band the map type holds, which the density alone
+     * only calibrates.
+     */
+    private static final int TREES_MAX = 32_000;
 
     /** Not instantiable: the class only builds the recipe. */
     private DenseForestRecipe() {
@@ -44,8 +50,8 @@ final class DenseForestRecipe {
                 RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),
                 RecipeParts.vegetation(TREE_DENSITY),
-                RecipeParts.balance(IRON_MIN, IRON_MAX, true),
-                RecipeParts.forestFloor(),
-                RecipeParts.spawn()));
+                RecipeParts.spawn(),
+                RecipeParts.balance(IRON_MIN, IRON_MAX, RecipeParts.fertileTrees(TREES_MAX)),
+                RecipeParts.forestFloor()));
     }
 }

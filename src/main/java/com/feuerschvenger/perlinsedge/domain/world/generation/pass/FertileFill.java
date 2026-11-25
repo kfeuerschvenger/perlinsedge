@@ -8,9 +8,13 @@ import java.util.function.IntPredicate;
 import java.util.random.RandomGenerator;
 
 /**
- * Adds a resource to the free fertile tiles where the tree noise is highest, so new trees thicken the groves that
- * already stand. The share of candidate tiles that passes the threshold starts at what is missing and widens until
- * enough tiles pass, then a random choice of the passing tiles gets the resource.
+ * Adds a resource to the free tiles of a host terrain where the tree noise is highest, so new trees thicken the groves
+ * that already stand. The share of candidate tiles that passes the threshold starts at what is missing and widens until
+ * enough tiles pass, then a random choice of the passing tiles gets the resource. When the tree noise is the same on
+ * every candidate tile, no tile is above another and the share widens to every candidate, so the random choice alone
+ * decides.
+ * <p>
+ * The fill owns the buffer it works in, one slot per tile of the map.
  */
 final class FertileFill {
 
@@ -20,21 +24,21 @@ final class FertileFill {
     private final int[] buffer;
     private final RandomGenerator random;
 
-    FertileFill(GenerationContext context, int[] buffer, RandomGenerator random) {
+    FertileFill(GenerationContext context, RandomGenerator random) {
         this.context = context;
-        this.buffer = buffer;
+        this.buffer = new int[context.size()];
         this.random = random;
     }
 
     /**
-     * Puts the resource on up to {@code missing} free fertile tiles.
+     * Puts the resource on up to {@code missing} free tiles of the host terrain.
      *
      * @param type    the resource
      * @param missing how many tiles to add
+     * @param host    the terrain that can hold the resource
      */
-    void add(ResourceType type, int missing) {
-        final var tree = context.field(NoiseField.TREE);
-        final IntPredicate candidate = this::isCandidate;
+    void add(ResourceType type, int missing, ResourceQuota.Host host) {
+        final IntPredicate candidate = index -> isCandidate(index, host);
         var candidates = 0;
         for (var index = 0; index < context.size(); index++) {
             candidates += candidate.test(index) ? 1 : 0;
@@ -42,6 +46,7 @@ final class FertileFill {
         if (candidates == 0) {
             return;
         }
+        final var tree = context.field(NoiseField.TREE);
         var share = Math.min(1.0, (double) missing / candidates);
         var found = collect(tree, candidate, FieldQuantile.above(tree, candidate, share));
         while (found < missing && share < 1.0) {
@@ -55,8 +60,9 @@ final class FertileFill {
         }
     }
 
-    private boolean isCandidate(int index) {
-        return context.resourceAt(index) == null && !context.isReserved(index) && context.groundAt(index).isFertile();
+    private boolean isCandidate(int index, ResourceQuota.Host host) {
+        return context.resourceAt(index) == null && !context.isReserved(index)
+                && host.accepts(context.groundAt(index));
     }
 
     /** Writes the candidate tiles at or above the threshold into the buffer and returns how many. */

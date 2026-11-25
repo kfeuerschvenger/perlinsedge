@@ -1,13 +1,16 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourceQuotaTest {
 
@@ -53,6 +56,27 @@ class ResourceQuotaTest {
         assertThrows(NullPointerException.class,
                 () -> new ResourceQuota(null, MIN, MAX, ResourceQuota.Host.ROCKY, CAP));
         assertThrows(NullPointerException.class, () -> new ResourceQuota(ResourceType.TREE, MIN, MAX, null, CAP));
+    }
+
+    @Test
+    void theFactoriesBuildQuotasOnFertileGroundAndOnSandWithAnyZoneCap() {
+        final var fertile = ResourceQuota.onFertile(ResourceType.TREE, MIN, MAX);
+        final var sand = ResourceQuota.onSand(ResourceType.TREE, MIN, ResourceQuota.UNLIMITED);
+
+        assertEquals(ResourceQuota.Host.FERTILE, fertile.host());
+        assertEquals(ResourceQuota.Host.SAND, sand.host());
+        assertEquals(MAX, fertile.maxPer100k());
+        assertEquals(ResourceQuota.UNLIMITED, sand.maxPer100k());
+    }
+
+    @Test
+    void eachHostAcceptsItsOwnGroundOnly() {
+        assertTrue(ResourceQuota.Host.ROCKY.accepts(TileType.ROCKY_GROUND));
+        assertFalse(ResourceQuota.Host.ROCKY.accepts(TileType.MOUNTAIN));
+        assertTrue(ResourceQuota.Host.FERTILE.accepts(TileType.GRASS));
+        assertFalse(ResourceQuota.Host.FERTILE.accepts(TileType.ROCKY_GROUND));
+        assertTrue(ResourceQuota.Host.SAND.accepts(TileType.SAND));
+        assertFalse(ResourceQuota.Host.SAND.accepts(TileType.GRASS));
     }
 
     @Test

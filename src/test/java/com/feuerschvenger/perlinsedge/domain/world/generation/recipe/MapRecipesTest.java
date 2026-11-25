@@ -11,7 +11,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,11 +31,11 @@ class MapRecipesTest {
 
     @ParameterizedTest
     @EnumSource(MapType.class)
-    void everyMapTypeHasARecipeOfItsOwnTypeThatEndsWithTheSpawn(MapType type) {
+    void everyMapTypeHasARecipeOfItsOwnTypeWithASpawnPass(MapType type) {
         final var recipe = new MapRecipes().recipeFor(type);
 
         assertEquals(type, recipe.type());
-        assertInstanceOf(SpawnPass.class, recipe.passes().getLast());
+        assertEquals(1, recipe.passes().stream().filter(SpawnPass.class::isInstance).count());
     }
 
     @ParameterizedTest
@@ -52,17 +51,19 @@ class MapRecipesTest {
 
     @ParameterizedTest
     @EnumSource(MapType.class)
-    void everyRecipeMakesRockyZonesBeforeTheOreAndBalancesTheResourcesLast(MapType type) {
+    void everyRecipeMakesRockyZonesBeforeTheOreAndBalancesTheResourcesAfterTheSpawn(MapType type) {
         final var names = new MapRecipes().recipeFor(type).passes().stream().map(GenerationPass::name).toList();
 
         assertTrue(names.indexOf("rocky-zones") < names.indexOf("rock-resources"));
         assertTrue(names.indexOf("rock-resources") < names.indexOf("stone"));
-        assertTrue(names.indexOf("stone") < names.indexOf("balance"));
-        assertTrue(names.indexOf("balance") < names.indexOf("spawn"));
+        assertTrue(names.indexOf("stone") < names.indexOf("spawn"));
+        assertTrue(names.indexOf("spawn") < names.indexOf("balance"));
         if (names.contains("forest-floor")) {
-            assertTrue(names.indexOf("vegetation") < names.indexOf("balance"));
+            assertTrue(names.indexOf("vegetation") < names.indexOf("spawn"));
             assertTrue(names.indexOf("balance") < names.indexOf("forest-floor"));
-            assertTrue(names.indexOf("forest-floor") < names.indexOf("spawn"));
+        }
+        if (names.contains("desert-flora")) {
+            assertTrue(names.indexOf("desert-flora") < names.indexOf("spawn"));
         }
     }
 

@@ -1,8 +1,10 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * How many tiles of one resource a map holds, per 100,000 tiles of map, so the range scales with the area.
@@ -12,7 +14,8 @@ import java.util.Objects;
  * @param maxPer100k      the most tiles per 100,000 tiles of map, from the minimum up to {@link #UNLIMITED}
  * @param host            where missing resources are added
  * @param zoneCapPerMille for a {@link Host#ROCKY} resource, the most of a rocky zone in thousandths that the first
- *                        round of adding fills with it, from 1 to 1000, so no resource takes a whole zone
+ *                        round of adding fills with the resource, the tiles it already holds there included, from 1 to
+ *                        1000, so no resource takes a whole zone; the other hosts have no zones and ignore it
  */
 public record ResourceQuota(ResourceType type, int minPer100k, int maxPer100k, Host host, int zoneCapPerMille) {
 
@@ -25,9 +28,27 @@ public record ResourceQuota(ResourceType type, int minPer100k, int maxPer100k, H
     /** Where a resource that is missing is added. */
     public enum Host {
         /** On the free tiles of rocky ground, zone by zone from the largest. */
-        ROCKY,
+        ROCKY(type -> type == TileType.ROCKY_GROUND),
         /** On the free fertile tiles where the tree noise is highest. */
-        FERTILE
+        FERTILE(TileType::isFertile),
+        /** On the free sand tiles where the tree noise is highest, for the palms and cacti of a desert. */
+        SAND(type -> type == TileType.SAND);
+
+        private final Predicate<TileType> accepted;
+
+        Host(Predicate<TileType> accepted) {
+            this.accepted = accepted;
+        }
+
+        /**
+         * Tells whether a resource of this host can be added on a terrain.
+         *
+         * @param ground the terrain of a tile
+         * @return true when the terrain is of this host
+         */
+        public boolean accepts(TileType ground) {
+            return accepted.test(ground);
+        }
     }
 
     /** Checks the type and the host are set and the range and the cap are valid. */
@@ -40,6 +61,30 @@ public record ResourceQuota(ResourceType type, int minPer100k, int maxPer100k, H
         if (zoneCapPerMille < 1 || zoneCapPerMille > MAX_CAP) {
             throw new IllegalArgumentException("the zone cap must be from 1 to " + MAX_CAP + ": " + zoneCapPerMille);
         }
+    }
+
+    /**
+     * Creates the quota of a resource that is added on fertile ground, which has no zones and so no zone cap.
+     *
+     * @param type       the resource
+     * @param minPer100k the fewest tiles per 100,000 tiles of map
+     * @param maxPer100k the most tiles per 100,000 tiles of map, or {@link #UNLIMITED}
+     * @return the quota
+     */
+    public static ResourceQuota onFertile(ResourceType type, int minPer100k, int maxPer100k) {
+        return new ResourceQuota(type, minPer100k, maxPer100k, Host.FERTILE, MAX_CAP);
+    }
+
+    /**
+     * Creates the quota of a resource that is added on sand, which has no zones and so no zone cap.
+     *
+     * @param type       the resource
+     * @param minPer100k the fewest tiles per 100,000 tiles of map
+     * @param maxPer100k the most tiles per 100,000 tiles of map, or {@link #UNLIMITED}
+     * @return the quota
+     */
+    public static ResourceQuota onSand(ResourceType type, int minPer100k, int maxPer100k) {
+        return new ResourceQuota(type, minPer100k, maxPer100k, Host.SAND, MAX_CAP);
     }
 
     /**

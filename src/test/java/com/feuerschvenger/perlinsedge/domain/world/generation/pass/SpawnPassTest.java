@@ -127,6 +127,33 @@ class SpawnPassTest {
     }
 
     @Test
+    void theSquareAroundTheSpawnIsReservedSoLaterPassesLeaveItFree() {
+        final var context = grass(OPEN_SIDE, OPEN_SIDE);
+
+        pass(RADIUS).apply(context);
+
+        for (var index = 0; index < context.size(); index++) {
+            final var near = Math.abs(context.xOf(index) - spawnX(context)) <= RADIUS
+                    && Math.abs(context.yOf(index) - spawnY(context)) <= RADIUS;
+            assertEquals(near, context.isReserved(index), "tile " + index);
+        }
+    }
+
+    @Test
+    void theSquareAroundAClearedSpawnIsReservedToo() {
+        final var context = grass(PACKED, PACKED);
+        for (var index = 0; index < context.size(); index++) {
+            context.setResource(index, ResourceType.TREE);
+        }
+        context.setResource(context.index(PACKED_CLEAR, PACKED_CLEAR), null);
+
+        pass(RADIUS).apply(context);
+
+        assertTrue(context.isReserved(context.index(PACKED_CLEAR - RADIUS, PACKED_CLEAR + RADIUS)));
+        assertTrue(context.isReserved(context.index(PACKED_CLEAR, PACKED_CLEAR)));
+    }
+
+    @Test
     void aMapWithNoFreeWalkableTileIsRefused() {
         final var context = TestContexts.of(PACKED, PACKED);
         TestContexts.fillGround(context, TileType.DEEP_WATER);

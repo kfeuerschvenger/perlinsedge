@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -29,6 +31,14 @@ class ResourceBalancePassTest {
     private static final int ROCKY_TILES = BIG_ZONE_SIDE * BIG_ZONE_SIDE + SMALL_ZONE_SIDE * SMALL_ZONE_SIDE;
     private static final int BLOCKED_TILES = 2;
     private static final float NEAR_THE_TOP = 0.8F;
+    private static final int KEPT = 7;
+    private static final int MISSING_IRON = 10;
+    private static final int MISSING_STONE = 60;
+    private static final int MISSING_TREES = 90;
+    private static final int PLANTED_TREES = 200;
+    private static final int TREE_CAP = 50;
+    private static final int SHORT_ZONE_SIDE = 3;
+    private static final int ONE_TILE = 1;
     private static final long SEED = 5L;
     private static final long OTHER_SEED = 6L;
 
@@ -83,23 +93,21 @@ class ResourceBalancePassTest {
                 context.setResource(index, ResourceType.IRON_ORE);
             }
         }
-        final var kept = 7;
         context.setResource(0, ResourceType.STONE);
 
-        balance(context, rocky(ResourceType.IRON_ORE, 0, kept, ALL_OF_THE_ZONE));
+        balance(context, rocky(ResourceType.IRON_ORE, 0, KEPT, ALL_OF_THE_ZONE));
 
-        assertEquals(kept, TestContexts.countResource(context, ResourceType.IRON_ORE));
+        assertEquals(KEPT, TestContexts.countResource(context, ResourceType.IRON_ORE));
         assertEquals(ResourceType.STONE, context.resourceAt(0), "another resource is not touched");
     }
 
     @Test
     void aMissingResourceGoesToTheLargestZoneFirst() {
         final var context = twoZones(SEED);
-        final var missing = 10;
 
-        balance(context, rocky(ResourceType.IRON_ORE, missing, ResourceQuota.UNLIMITED, ALL_OF_THE_ZONE));
+        balance(context, rocky(ResourceType.IRON_ORE, MISSING_IRON, ResourceQuota.UNLIMITED, ALL_OF_THE_ZONE));
 
-        assertTrue(TestContexts.countResource(context, ResourceType.IRON_ORE) >= missing);
+        assertTrue(TestContexts.countResource(context, ResourceType.IRON_ORE) >= MISSING_IRON);
         assertEquals(TestContexts.countResource(context, ResourceType.IRON_ORE),
                 countInBigZone(context, ResourceType.IRON_ORE));
     }
@@ -120,11 +128,10 @@ class ResourceBalancePassTest {
     @Test
     void aSecondRoundFillsTheZonesBeyondTheirCapWhenTheResourceIsStillMissing() {
         final var context = twoZones(SEED);
-        final var missing = 60;
 
-        balance(context, rocky(ResourceType.STONE, missing, ResourceQuota.UNLIMITED, TENTH_OF_THE_ZONE));
+        balance(context, rocky(ResourceType.STONE, MISSING_STONE, ResourceQuota.UNLIMITED, TENTH_OF_THE_ZONE));
 
-        assertTrue(TestContexts.countResource(context, ResourceType.STONE) >= missing);
+        assertTrue(TestContexts.countResource(context, ResourceType.STONE) >= MISSING_STONE);
     }
 
     @Test
@@ -173,12 +180,10 @@ class ResourceBalancePassTest {
             tree[index] = (float) index / AREA;
         }
         context.setGround(AREA - 1, TileType.ROCKY_GROUND);
-        final var missing = 90;
 
-        balance(context, new ResourceQuota(ResourceType.TREE, per100k(missing), ResourceQuota.UNLIMITED,
-                ResourceQuota.Host.FERTILE, 1));
+        balance(context, ResourceQuota.onFertile(ResourceType.TREE, per100k(MISSING_TREES), ResourceQuota.UNLIMITED));
 
-        assertEquals(missing, TestContexts.countResource(context, ResourceType.TREE));
+        assertEquals(MISSING_TREES, TestContexts.countResource(context, ResourceType.TREE));
         assertNull(context.resourceAt(AREA - 1), "rocky ground is not fertile");
         for (var index = 0; index < AREA; index++) {
             if (context.resourceAt(index) == ResourceType.TREE) {
@@ -196,8 +201,7 @@ class ResourceBalancePassTest {
             context.reserve(index);
         }
 
-        balance(context, new ResourceQuota(ResourceType.TREE, PER_100K, ResourceQuota.UNLIMITED,
-                ResourceQuota.Host.FERTILE, 1));
+        balance(context, ResourceQuota.onFertile(ResourceType.TREE, PER_100K, ResourceQuota.UNLIMITED));
 
         assertEquals(0, TestContexts.countResource(context, ResourceType.TREE));
     }
@@ -211,10 +215,93 @@ class ResourceBalancePassTest {
             context.setResource(index, ResourceType.TREE);
         }
 
-        balance(context, new ResourceQuota(ResourceType.TREE, 1, ResourceQuota.UNLIMITED,
-                ResourceQuota.Host.FERTILE, 1));
+        balance(context, ResourceQuota.onFertile(ResourceType.TREE, ONE_TILE, ResourceQuota.UNLIMITED));
 
         assertEquals(AREA, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    @Test
+    void treesAboveTheirMaximumAreThinnedOnFertileGround() {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        TestContexts.fillField(context, NoiseField.TREE, NEAR_THE_TOP);
+        for (var index = 0; index < PLANTED_TREES; index++) {
+            context.setResource(index, ResourceType.TREE);
+        }
+
+        balance(context, ResourceQuota.onFertile(ResourceType.TREE, 0, per100k(TREE_CAP)));
+
+        assertEquals(TREE_CAP, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    @Test
+    void palmsAndCactiAreAddedOnSandOnly() {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        for (var index = 0; index < AREA / 2; index++) {
+            context.setGround(index, TileType.SAND);
+        }
+        TestContexts.fillField(context, NoiseField.TREE, NEAR_THE_TOP);
+
+        balance(context, ResourceQuota.onSand(ResourceType.TREE, per100k(MISSING_TREES), ResourceQuota.UNLIMITED));
+
+        assertEquals(MISSING_TREES, TestContexts.countResource(context, ResourceType.TREE));
+        for (var index = 0; index < AREA; index++) {
+            assertTrue(context.resourceAt(index) == null || context.groundAt(index) == TileType.SAND);
+        }
+    }
+
+    @Test
+    void aMissingResourceLeavesAShortfallWhenTheRockHasNoRoomAndNothingThrows() {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        fillSquare(context, 0, SHORT_ZONE_SIDE);
+        final var quota = rocky(ResourceType.IRON_ORE, MISSING_IRON, ResourceQuota.UNLIMITED, ALL_OF_THE_ZONE);
+        final var pass = new ResourceBalancePass(new BalanceParams(List.of(quota)));
+
+        assertDoesNotThrow(() -> pass.apply(context));
+
+        final var zoneTiles = SHORT_ZONE_SIDE * SHORT_ZONE_SIDE;
+        assertEquals(zoneTiles, TestContexts.countResource(context, ResourceType.IRON_ORE));
+        assertEquals(Map.of(ResourceType.IRON_ORE, quota.minFor(AREA) - zoneTiles), pass.shortfalls(context));
+    }
+
+    @Test
+    void aMapThatMeetsEveryMinimumHasNoShortfall() {
+        final var context = twoZones(SEED);
+        final var pass = new ResourceBalancePass(new BalanceParams(List.of(
+                rocky(ResourceType.IRON_ORE, MISSING_IRON, ResourceQuota.UNLIMITED, ALL_OF_THE_ZONE))));
+
+        pass.apply(context);
+
+        assertTrue(pass.shortfalls(context).isEmpty());
+    }
+
+    @Test
+    void theShortfallsOfACountedMapFollowTheQuotasMinimums() {
+        final var pass = new ResourceBalancePass(new BalanceParams(List.of(
+                rocky(ResourceType.IRON_ORE, MISSING_IRON, ResourceQuota.UNLIMITED, ALL_OF_THE_ZONE),
+                rocky(ResourceType.STONE, MISSING_STONE, ResourceQuota.UNLIMITED, ALL_OF_THE_ZONE))));
+
+        final var missing = pass.shortfalls(type -> type == ResourceType.IRON_ORE ? MISSING_IRON : 0, AREA);
+
+        assertEquals(1, missing.size());
+        assertEquals(MISSING_STONE, missing.get(ResourceType.STONE));
+    }
+
+    @Test
+    void theZoneCapCountsTheTilesThatAlreadyHoldTheResource() {
+        final var context = twoZones(SEED);
+        final var bigCap = BIG_ZONE_SIDE * BIG_ZONE_SIDE * TENTH_OF_THE_ZONE / ALL_OF_THE_ZONE;
+        for (var index = 0; index < bigCap; index++) {
+            context.setResource(context.index(index, 0), ResourceType.IRON_ORE);
+        }
+        final var smallCap = SMALL_ZONE_SIDE * SMALL_ZONE_SIDE * TENTH_OF_THE_ZONE / ALL_OF_THE_ZONE;
+
+        balance(context, rocky(ResourceType.IRON_ORE, bigCap + smallCap, ResourceQuota.UNLIMITED, TENTH_OF_THE_ZONE));
+
+        assertEquals(bigCap, countInBigZone(context, ResourceType.IRON_ORE));
+        assertEquals(bigCap + smallCap, TestContexts.countResource(context, ResourceType.IRON_ORE));
     }
 
     @Test

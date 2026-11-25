@@ -30,7 +30,6 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.VegetationPas
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -115,18 +114,7 @@ final class RecipeParts {
     }
 
     /**
-     * Builds the noise pass of a map that has no trees, and so no tree field.
-     *
-     * @param height  the settings of the height
-     * @param climate the climate fields the ground rule reads, a subset of temperature and moisture
-     * @return the pass, which also computes the rock and crystal fields
-     */
-    static NoiseFieldsPass noise(NoiseSettings height, Set<NoiseField> climate) {
-        return new NoiseFieldsPass(new NoiseFieldsParams(fieldsOf(height, climate)));
-    }
-
-    /**
-     * Builds the noise pass of a map with trees.
+     * Builds the noise pass of a map.
      *
      * @param height        the settings of the height
      * @param climate       the climate fields the ground rule reads, a subset of temperature and moisture
@@ -220,21 +208,45 @@ final class RecipeParts {
      *
      * @param ironMin the fewest iron tiles per 100,000 tiles of map
      * @param ironMax the most iron tiles per 100,000 tiles of map
-     * @param trees   whether the map has a tree field, which is what lets the pass add missing trees
+     * @param trees   the quota of the trees, which names the ground that hosts the trees the pass adds
      * @return the pass
      */
-    static ResourceBalancePass balance(int ironMin, int ironMax, boolean trees) {
-        final var quotas = new ArrayList<ResourceQuota>(List.of(
+    static ResourceBalancePass balance(int ironMin, int ironMax, ResourceQuota trees) {
+        return new ResourceBalancePass(new BalanceParams(List.of(
                 new ResourceQuota(ResourceType.IRON_ORE, ironMin, ironMax, ResourceQuota.Host.ROCKY, ROCKY_CAP_IRON),
                 new ResourceQuota(ResourceType.CRYSTALS, CRYSTALS_MIN, CRYSTALS_MAX, ResourceQuota.Host.ROCKY,
                         ROCKY_CAP_CRYSTALS),
                 new ResourceQuota(ResourceType.STONE, STONE_MIN, STONE_MAX, ResourceQuota.Host.ROCKY,
-                        ROCKY_CAP_STONE)));
-        if (trees) {
-            quotas.add(new ResourceQuota(ResourceType.TREE, TREES_MIN, ResourceQuota.UNLIMITED,
-                    ResourceQuota.Host.FERTILE, 1));
-        }
-        return new ResourceBalancePass(new BalanceParams(quotas));
+                        ROCKY_CAP_STONE),
+                trees)));
+    }
+
+    /**
+     * Builds the quota of the trees of a map whose trees stand on fertile ground, with no maximum.
+     *
+     * @return the quota, which asks for at least {@link #TREES_MIN} trees per 100,000 tiles
+     */
+    static ResourceQuota fertileTrees() {
+        return fertileTrees(ResourceQuota.UNLIMITED);
+    }
+
+    /**
+     * Builds the quota of the trees of a map whose trees stand on fertile ground.
+     *
+     * @param maxPer100k the most trees per 100,000 tiles of map, or {@link ResourceQuota#UNLIMITED}
+     * @return the quota
+     */
+    static ResourceQuota fertileTrees(int maxPer100k) {
+        return ResourceQuota.onFertile(ResourceType.TREE, TREES_MIN, maxPer100k);
+    }
+
+    /**
+     * Builds the quota of the trees of the desert, the palms and cacti, which stand on sand.
+     *
+     * @return the quota, which asks for at least {@link #TREES_MIN} trees per 100,000 tiles, with no maximum
+     */
+    static ResourceQuota sandTrees() {
+        return ResourceQuota.onSand(ResourceType.TREE, TREES_MIN, ResourceQuota.UNLIMITED);
     }
 
     /**

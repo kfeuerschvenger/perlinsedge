@@ -1,6 +1,7 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationContext;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 import java.util.Arrays;
@@ -8,9 +9,9 @@ import java.util.random.RandomGenerator;
 
 /**
  * Adds a resource to the free tiles of rocky ground, zone by zone from the largest. The zones are the 4-connected
- * regions of rocky ground, labelled once. A first round gives each zone, largest first, at most a share of its tiles;
- * when the zones are used up before the resource is, a second round takes whatever free tiles are left. The tiles of a
- * zone are taken in a random order.
+ * regions of rocky ground, labelled once. A first round gives each zone, largest first, at most a share of its tiles,
+ * counting the tiles that already hold the resource; when the zones are used up before the resource is, a second round
+ * takes whatever free tiles are left. The tiles of a zone are taken in a random order.
  */
 final class RockyFill {
 
@@ -39,12 +40,12 @@ final class RockyFill {
     /**
      * Puts a resource on up to {@code missing} free rocky tiles.
      *
-     * @param quota   the quota of the resource, which gives its type and how much of a zone it may take in the first
+     * @param quota   the quota of the resource, which gives its type and how much of a zone it may fill in the first
      *                round
      * @param missing how many tiles to add
      */
     void add(ResourceQuota quota, int missing) {
-        final var free = new Free(context, zones);
+        final var free = new Free(context, zones, quota.type());
         final var left = round(quota, missing, free, true);
         round(quota, left, free, false);
     }
@@ -55,7 +56,7 @@ final class RockyFill {
         for (var position = bySize.length - 1; position >= 0 && left > 0; position--) {
             final var label = (int) (bySize[position] & LABEL_MASK);
             final var open = free.count[label] - free.taken[label];
-            final var room = capped ? Math.max(0, capOf(label, quota) - free.taken[label]) : open;
+            final var room = capped ? Math.max(0, capOf(label, quota) - free.held[label] - free.taken[label]) : open;
             final var take = Math.min(left, Math.min(room, open));
             place(quota, free, label, take);
             left -= take;
@@ -64,7 +65,7 @@ final class RockyFill {
     }
 
     private int capOf(int label, ResourceQuota quota) {
-        return Math.max(1, zones.sizeOf(label) * quota.zoneCapPerMille() / PER_MILLE);
+        return (int) Math.max(1L, (long) zones.sizeOf(label) * quota.zoneCapPerMille() / PER_MILLE);
     }
 
     /** Picks {@code take} random free tiles of a zone that are not used yet and gives them the resource. */
@@ -80,18 +81,25 @@ final class RockyFill {
     /**
      * The free tiles of the zones grouped by zone: the tiles of zone {@code label} are
      * {@code tiles[start[label]]} onwards, {@code count[label]} of them, and {@code taken[label]} of those are used.
+     * {@code held[label]} is how many tiles of the zone already hold the resource being added.
      */
     private static final class Free {
         private final int[] tiles;
         private final int[] start;
         private final int[] count;
         private final int[] taken;
+        private final int[] held;
 
-        private Free(GenerationContext context, Regions zones) {
+        private Free(GenerationContext context, Regions zones, ResourceType type) {
             count = new int[zones.count() + 1];
+            held = new int[count.length];
             var total = 0;
             for (var index = 0; index < context.size(); index++) {
-                if (zones.labelAt(index) != Regions.NO_LABEL && isFree(context, index)) {
+                if (zones.labelAt(index) == Regions.NO_LABEL) {
+                    continue;
+                }
+                held[zones.labelAt(index)] += context.resourceAt(index) == type ? 1 : 0;
+                if (isFree(context, index)) {
                     count[zones.labelAt(index)]++;
                     total++;
                 }

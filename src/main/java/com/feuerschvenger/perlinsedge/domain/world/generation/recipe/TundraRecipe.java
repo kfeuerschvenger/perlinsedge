@@ -45,8 +45,8 @@ final class TundraRecipe {
                 RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),
                 RecipeParts.vegetation(TREE_DENSITY),
-                RecipeParts.balance(IRON_MIN, IRON_MAX, true),
-                RecipeParts.forestFloor(),
-                RecipeParts.spawn()));
+                RecipeParts.spawn(),
+                RecipeParts.balance(IRON_MIN, IRON_MAX, RecipeParts.fertileTrees()),
+                RecipeParts.forestFloor()));
     }
 }

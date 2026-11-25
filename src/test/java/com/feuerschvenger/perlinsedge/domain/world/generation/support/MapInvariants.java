@@ -45,10 +45,6 @@ public final class MapInvariants {
     private static final double MIN_FOREST_FLOOR_SHARE = 0.35;
     /** The share of land a map may cover with resources: open ground stays the common case. */
     private static final double MAX_RESOURCE_SHARE = 0.45;
-    /** The fewest trees a desert has on a map of {@link #DESERT_REFERENCE_AREA} tiles, scaled to the area of others. */
-    private static final int MIN_DESERT_TREES = 300;
-    /** The area the minimum number of desert trees is given for, a map of 150 by 150 tiles. */
-    private static final int DESERT_REFERENCE_AREA = 22_500;
 
     private MapInvariants() {
     }
@@ -234,19 +230,16 @@ public final class MapInvariants {
                 covered + " of " + land + " land tiles hold a resource");
     }
 
+    /** The desert guarantees the minimum of trees every map type does, so only where they stand is its own. */
     private static void desertTreesStandOnSand(TileMap map, MapSpec spec) {
-        var trees = 0;
         for (var y = 0; y < map.getHeight(); y++) {
             for (var x = 0; x < map.getWidth(); x++) {
                 final var tile = map.getTile(x, y);
                 final var isTree = tile.hasResource() && tile.getWorldResource().getType() == ResourceType.TREE;
-                trees += isTree ? 1 : 0;
                 require(!isTree || tile.getType() == TileType.SAND,
                         "a desert tree stands on " + tile.getType() + " at (" + x + "," + y + ")");
             }
         }
-        require(trees >= MIN_DESERT_TREES * spec.size() * spec.size() / DESERT_REFERENCE_AREA,
-                "the desert has only " + trees + " trees");
     }
 
     private static MapInvariant deterministic(MapSource source) {
