@@ -102,7 +102,7 @@ public final class IslandShapePass implements GenerationPass {
      * {@code i + 1} of {@code count}. A map therefore always has islands of every size, with a large one among them,
      * instead of the luck of the draw giving it only small ones.
      */
-    private int[] drawRadii(RandomGenerator random, int count, int smallest, int largest) {
+    private static int[] drawRadii(RandomGenerator random, int count, int smallest, int largest) {
         final var span = largest - smallest;
         final var radii = new int[count];
         for (var i = 0; i < count; i++) {

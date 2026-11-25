@@ -200,7 +200,7 @@ public final class RiverCrossingPass implements GenerationPass {
 
         /** The cost of a land tile from its height as a share of the land's range, its moisture and its place. */
         private float landCost(int index) {
-            final var relativeHeight = ((double) heights[index] - lowest) / range;
+            final var relativeHeight = (heights[index] - lowest) / range;
             final var wet = Math.clamp(moisture[index], 0.0, 1.0);
             return (float) (BASE_COST + params.heightWeight() * relativeHeight
                     + params.meanderWeight() * (1.0 - wet) + corridorPenalty(index));
@@ -271,12 +271,12 @@ public final class RiverCrossingPass implements GenerationPass {
          */
         private double lanePosition(int river, int slotCount, boolean anywhere) {
             final var inFirstLane = river % LANE_SIDES == 0;
-            final var slots = inFirstLane ? (slotCount + 1) / LANE_SIDES : slotCount / LANE_SIDES;
             final var start = inFirstLane ? FIRST_LANE_START : SECOND_LANE_START;
             final var end = inFirstLane ? FIRST_LANE_END : SECOND_LANE_END;
             if (anywhere) {
                 return start + random.nextDouble() * (end - start);
             }
+            final var slots = inFirstLane ? (slotCount + 1) / LANE_SIDES : slotCount / LANE_SIDES;
             final var slotWidth = (end - start) / slots;
             final int slot = river / LANE_SIDES;
             final var middle = start + slotWidth * (slot + HALF);
