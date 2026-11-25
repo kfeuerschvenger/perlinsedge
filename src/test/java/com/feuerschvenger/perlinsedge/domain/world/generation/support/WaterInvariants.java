@@ -45,6 +45,8 @@ final class WaterInvariants {
     /** The fewest and the most land masses of at least {@link WaterStats#MIN_LAND_TILES} tiles on an islands map. */
     private static final int MIN_ISLANDS = 6;
     private static final int MAX_ISLANDS = 18;
+    /** The fewest islands a map has at any size, whatever the scaling by area gives: the minimum of the recipe. */
+    private static final int FEWEST_ISLANDS_ANY_SIZE = 5;
     /** The fewest islands that are small, from {@link WaterStats#MIN_LAND_TILES} to this many tiles. */
     private static final int MIN_SMALL_ISLANDS = 3;
     private static final int MAX_SMALL_ISLAND_TILES = 1_500;
@@ -61,8 +63,10 @@ final class WaterInvariants {
 
     static void islandsAreSeveralAndSomeAreSmall(TileMap map, MapSpec spec) {
         final var land = WaterStats.landMasses(map);
-        MapInvariants.requireScaled("island", land.countAtLeast(WaterStats.MIN_LAND_TILES), spec, MIN_ISLANDS,
-                MAX_ISLANDS);
+        final var islands = land.countAtLeast(WaterStats.MIN_LAND_TILES);
+        MapInvariants.requireScaled("island", islands, spec, MIN_ISLANDS, MAX_ISLANDS);
+        MapInvariants.require(islands >= FEWEST_ISLANDS_ANY_SIZE,
+                "the map has " + islands + " islands, a map of any size has at least " + FEWEST_ISLANDS_ANY_SIZE);
         MapInvariants.requireScaled("small island", land.countWithin(WaterStats.MIN_LAND_TILES,
                 MAX_SMALL_ISLAND_TILES), spec, MIN_SMALL_ISLANDS, Integer.MAX_VALUE);
     }
@@ -79,15 +83,27 @@ final class WaterInvariants {
         }
     }
 
-    static void theSpawnIsOnTheLargestIsland(TileMap map, MapSpec spec) {
+    /**
+     * The spawn is on the largest island, in the largest region of free tiles of that island, which is not always the
+     * largest free region of the map.
+     */
+    static void theSpawnIsOnTheLargestIsland(TileMap map) {
         final var land = WaterStats.landMasses(map);
         final var spawn = map.getSpawn().orElseThrow();
-        final var spawnIsland = land.sizeOf(land.labelAt(spawn.x(), spawn.y()));
+        final var spawnLabel = land.labelAt(spawn.x(), spawn.y());
+        final var spawnIsland = land.sizeOf(spawnLabel);
         MapInvariants.require(spawnIsland == land.largest(), "the spawn is on an island of " + spawnIsland
                 + " tiles but the largest holds " + land.largest());
+        final var regions = MapStats.regionSizes(map);
+        final var spawnRegion = regions[spawn.y() * map.getWidth() + spawn.x()];
+        for (var index = 0; index < regions.length; index++) {
+            final var onTheIsland = land.labelAt(index % map.getWidth(), index / map.getWidth()) == spawnLabel;
+            MapInvariants.require(!onTheIsland || regions[index] <= spawnRegion, "the spawn region has " + spawnRegion
+                    + " free tiles but the island holds a free region of " + regions[index]);
+        }
     }
 
-    static void mediterraneanHasALongCoastOnOneEdge(TileMap map, MapSpec spec) {
+    static void mediterraneanHasALongCoastOnOneEdge(TileMap map) {
         final var share = WaterStats.wettestEdgeShare(map);
         MapInvariants.require(share >= MIN_COAST_EDGE_WATER_SHARE,
                 "the wettest edge is only " + share + " water");
@@ -98,13 +114,13 @@ final class WaterInvariants {
         MapInvariants.requireAtMostScaled("inland water body", inland, spec, MAX_MEDITERRANEAN_INLAND_BODIES);
     }
 
-    static void theSpawnRegionHoldsMostOfTheLand(TileMap map, MapSpec spec) {
+    static void theSpawnRegionHoldsMostOfTheLand(TileMap map) {
         final var share = WaterStats.spawnRegionShareOfLand(map);
         MapInvariants.require(share >= MIN_SPAWN_REGION_SHARE,
                 "the spawn region holds only " + share + " of the land");
     }
 
-    static void riversAreFewLongAndConnected(TileMap map, MapSpec spec) {
+    static void riversAreFewLongAndConnected(TileMap map) {
         final var rivers = WaterStats.rivers(map);
         MapInvariants.require(rivers.count() >= MIN_RIVER_COMPONENTS && rivers.count() <= MAX_RIVER_COMPONENTS,
                 rivers.count() + " river components, expected " + MIN_RIVER_COMPONENTS + " to "
@@ -119,7 +135,7 @@ final class WaterInvariants {
         MapInvariants.require(share >= MIN_RIVER_SHARE, "rivers cover only " + share + " of the map");
     }
 
-    static void riversMapKeepsItsWaterInTheRivers(TileMap map, MapSpec spec) {
+    static void riversMapKeepsItsWaterInTheRivers(TileMap map) {
         final var area = (double) map.getWidth() * map.getHeight();
         final var stillWater = WaterStats.waterShare(map) - MapStats.count(map, TileType.RIVER) / area;
         MapInvariants.require(stillWater <= MAX_RIVERS_MAP_STILL_WATER_SHARE,
@@ -128,7 +144,7 @@ final class WaterInvariants {
         MapInvariants.require(sand <= MAX_RIVERS_MAP_SAND_SHARE, "sand covers " + sand + " of the land");
     }
 
-    static void theForestGrowsAlongTheRivers(TileMap map, MapSpec spec) {
+    static void theForestGrowsAlongTheRivers(TileMap map) {
         final var near = new boolean[map.getWidth() * map.getHeight()];
         markAroundRivers(map, near);
         var nearLand = 0;

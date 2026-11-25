@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * The invariants of generated maps: a common list that every type must satisfy and a per type list that holds what
@@ -65,7 +66,7 @@ public final class MapInvariants {
                 MapInvariants::theSpawnIsInTheLargestRegion, MapInvariants::noResourceOnWaterOrIce,
                 MapInvariants::oreLiesOnRockyGroundOnly, MapInvariants::resourcesMeetTheirQuotas,
                 MapInvariants::rockyGroundExists, MapInvariants::forestFloorFollowsTheTrees,
-                MapInvariants::mostLandIsOpen, WaterInvariants::theSpawnRegionHoldsMostOfTheLand,
+                MapInvariants::mostLandIsOpen, onMap(WaterInvariants::theSpawnRegionHoldsMostOfTheLand),
                 deterministic(source));
     }
 
@@ -85,14 +86,21 @@ public final class MapInvariants {
                 WaterInvariants::desertHasFewWaterBodies, WaterInvariants::desertHasRareOases));
         byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
         byType.put(MapType.ISLANDS, List.of(WaterInvariants::islandsAreSeveralAndSomeAreSmall,
-                WaterInvariants::islandsShareTheMapWithTheSea, WaterInvariants::theSpawnIsOnTheLargestIsland));
-        byType.put(MapType.RIVERS, List.of(WaterInvariants::riversAreFewLongAndConnected,
-                WaterInvariants::riversMapKeepsItsWaterInTheRivers, WaterInvariants::theForestGrowsAlongTheRivers));
+                WaterInvariants::islandsShareTheMapWithTheSea,
+                onMap(WaterInvariants::theSpawnIsOnTheLargestIsland)));
+        byType.put(MapType.RIVERS, List.of(onMap(WaterInvariants::riversAreFewLongAndConnected),
+                onMap(WaterInvariants::riversMapKeepsItsWaterInTheRivers),
+                onMap(WaterInvariants::theForestGrowsAlongTheRivers)));
         byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
         byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist,
-                WaterInvariants::mediterraneanHasALongCoastOnOneEdge,
+                onMap(WaterInvariants::mediterraneanHasALongCoastOnOneEdge),
                 WaterInvariants::mediterraneanHasFewInlandWaterBodies));
         return Collections.unmodifiableMap(byType);
+    }
+
+    /** Adapts a check that needs only the map to an invariant, which also receives the spec it ignores. */
+    private static MapInvariant onMap(Consumer<TileMap> check) {
+        return (TileMap map, MapSpec spec) -> check.accept(map);
     }
 
     private static void hasTheRequestedSize(TileMap map, MapSpec spec) {
@@ -129,7 +137,16 @@ public final class MapInvariants {
         }
     }
 
+    /**
+     * The spawn is in the largest region of free tiles of the map. The islands are the exception: the player starts
+     * on the largest island, whose free region can be smaller than the one of another island once the trees have cut
+     * it, and {@link WaterInvariants#theSpawnIsOnTheLargestIsland(TileMap)} holds the spawn to the largest free region
+     * of that island instead.
+     */
     private static void theSpawnIsInTheLargestRegion(TileMap map, MapSpec spec) {
+        if (spec.type() == MapType.ISLANDS) {
+            return;
+        }
         final var spawn = map.getSpawn().orElseThrow();
         final var sizes = MapStats.regionSizes(map);
         final var spawnRegion = sizes[spawn.y() * map.getWidth() + spawn.x()];

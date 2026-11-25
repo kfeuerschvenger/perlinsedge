@@ -22,10 +22,15 @@ final class IslandsRecipe {
     private static final float RIVER_DENSITY = 0.03F;
     private static final float TREE_DENSITY = 0.304F;
     private static final int ISLANDS_PER_100K_TILES = 10;
-    private static final int MIN_ISLANDS = 3;
-    /** The radii run from a small islet to a large island and the islands keep a little sea between them. */
+    private static final int MIN_ISLANDS = 5;
+    /**
+     * The radii run from a small islet to a large island, no island has a radius above 30% of the shorter side of the
+     * map, and the islands keep a little sea between them. A map holds at least five islands whatever its size, which
+     * keeps the land of a small map in several pieces and its largest island from taking the map.
+     */
     private static final int ISLAND_MIN_RADIUS = 12;
     private static final int ISLAND_MAX_RADIUS = 70;
+    private static final float ISLAND_MAX_SHARE_OF_SIDE = 0.3F;
     private static final float ISLAND_SPACING = 1.05F;
     private static final float ISLAND_HEIGHT_GAIN = 0.6F;
     private static final float ISLAND_LIFT = 0.9F;
@@ -53,7 +58,8 @@ final class IslandsRecipe {
                         RecipeParts.height(HEIGHT_FREQUENCY, HEIGHT_OCTAVES, FractalKind.FBM, HEIGHT_GAIN),
                         Set.of(), TREE_FREQUENCY),
                 new IslandShapePass(new IslandParams(ISLANDS_PER_100K_TILES, MIN_ISLANDS,
-                        new IslandSize(ISLAND_MIN_RADIUS, ISLAND_MAX_RADIUS, ISLAND_SPACING),
+                        new IslandSize(ISLAND_MIN_RADIUS, ISLAND_MAX_RADIUS, ISLAND_MAX_SHARE_OF_SIDE,
+                                ISLAND_SPACING),
                         ISLAND_HEIGHT_GAIN, ISLAND_LIFT, ISLAND_SEA_OFFSET, ISLAND_FALLOFF_POWER)),
                 RecipeParts.ground(GroundRules.ISLANDS),
                 RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER),

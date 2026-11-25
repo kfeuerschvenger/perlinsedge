@@ -22,6 +22,8 @@ class SpawnPassTest {
     private static final int CHANNEL = 30;
     private static final int SMALL_SIDE_X = 35;
     private static final int SMALL_SIDE_Y = 5;
+    private static final int WALL = 33;
+    private static final int NARROW_SIDE_X = 31;
     private static final int HINT_SIDE = 41;
     private static final int HINT = 10;
     private static final int PACKED = 9;
@@ -71,7 +73,19 @@ class SpawnPassTest {
     }
 
     @Test
-    void theSpawnIsInTheLargestRegionEvenWhenTheHintIsInASmallerOne() {
+    void withoutAHintTheSpawnIsInTheLargestRegionOfTheMap() {
+        final var context = grass(WIDE, WIDE_HEIGHT);
+        for (var y = 0; y < WIDE_HEIGHT; y++) {
+            context.setGround(context.index(CHANNEL, y), TileType.DEEP_WATER);
+        }
+
+        pass(0).apply(context);
+
+        assertTrue(spawnX(context) < CHANNEL, "the spawn is on the large side: " + spawnX(context));
+    }
+
+    @Test
+    void withAHintTheSpawnStaysOnTheLandOfTheHintEvenWhenAnotherPieceIsLarger() {
         final var context = grass(WIDE, WIDE_HEIGHT);
         for (var y = 0; y < WIDE_HEIGHT; y++) {
             context.setGround(context.index(CHANNEL, y), TileType.DEEP_WATER);
@@ -80,7 +94,22 @@ class SpawnPassTest {
 
         pass(0).apply(context);
 
-        assertTrue(spawnX(context) < CHANNEL, "the spawn is on the large side: " + spawnX(context));
+        assertEquals(SMALL_SIDE_X, spawnX(context));
+        assertEquals(SMALL_SIDE_Y, spawnY(context));
+    }
+
+    @Test
+    void withinTheLandOfTheHintTheLargestFreeRegionWinsEvenWhenTheHintIsInASmallerOne() {
+        final var context = grass(WIDE, WIDE_HEIGHT);
+        for (var y = 0; y < WIDE_HEIGHT; y++) {
+            context.setGround(context.index(CHANNEL, y), TileType.DEEP_WATER);
+            context.setResource(context.index(WALL, y), ResourceType.STONE);
+        }
+        context.setSpawnHint(context.index(NARROW_SIDE_X, SMALL_SIDE_Y));
+
+        pass(0).apply(context);
+
+        assertTrue(spawnX(context) > WALL, "the spawn is in the wider part of the hinted land: " + spawnX(context));
     }
 
     @Test

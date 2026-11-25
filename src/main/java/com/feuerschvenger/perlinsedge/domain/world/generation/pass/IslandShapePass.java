@@ -10,12 +10,15 @@ import java.util.random.RandomGenerator;
 
 /**
  * Turns the height field into a sea with islands of several sizes. Every island has its own radius between the bounds
- * of the parameters, skewed towards the small end so a map has a few large islands and several small ones, and the
- * islands are placed from the largest down by rejection sampling: a centre is accepted when it lies at least the
- * spacing times the sum of the two radii from every island placed before, and an island that finds no such centre in
- * a few attempts is dropped. The height is lifted around each centre by an amount that fades to nothing at the radius
- * of that island, and where the lifts of two islands meet the higher one counts. Beyond every radius the height is the
- * sea floor, so the noise only shapes the coasts.
+ * of the parameters, the largest one capped at a share of the shorter side of the map and the radii skewed towards the
+ * small end so a map has a few large islands and several small ones. The islands are placed from the largest down by
+ * rejection sampling: a centre is accepted when the island lies whole on the map and at least the spacing times the
+ * sum of the two radii from every island placed before. An island that finds no such centre in a few attempts is tried
+ * again at a smaller radius, down to the smallest radius, so the number of islands the parameters ask for is kept while
+ * the map has room for it; only an island that does not fit even at the smallest radius is dropped. The height is
+ * lifted around each centre by an amount that fades to nothing at the radius of that island, and where the lifts of
+ * two islands meet the higher one counts. Beyond every radius the height is the sea floor, so the noise only shapes
+ * the coasts.
  * <p>
  * The pass draws from one seeded stream and works on the height array and one effect array, so it repeats for a seed
  * and creates no object per tile.
@@ -28,12 +31,20 @@ public final class IslandShapePass implements GenerationPass {
     private static final double DENSITY_AREA_TILES = 100_000.0;
     /** A falloff power of exactly this value is a square, which is computed with a multiplication. */
     private static final float SQUARE_POWER = 2F;
-    /** The centres keep this share of the radius away from the edge of the map, so an island is mostly on the map. */
-    private static final double EDGE_MARGIN_OF_RADIUS = 0.4;
+    /**
+     * The centres keep this share of the radius away from the edge of the map, so an island lies whole on the map: an
+     * island cut by the edge would lose a random part of its area and make the share of the largest island vary.
+     */
+    private static final double EDGE_MARGIN_OF_RADIUS = 1.0;
+    private static final double HALF = 0.5;
+    /** The share of its slice that the size of an island is drawn in, around the middle of the slice. */
+    private static final double SLICE_JITTER = 0.5;
     /** The margin is kept on both sides of an axis. */
     private static final int MARGIN_SIDES = 2;
-    /** How many centres are tried for an island before it is dropped. */
+    /** How many centres are tried for an island at one radius before it is tried at a smaller one. */
     private static final int PLACEMENT_ATTEMPTS = 100;
+    /** An island that finds no place shrinks to this share of its radius, or by one tile when that changes nothing. */
+    private static final double SHRINK_FACTOR = 0.8;
 
     private final IslandParams params;
     private final boolean squaredFalloff;
@@ -48,21 +59,25 @@ public final class IslandShapePass implements GenerationPass {
         this.squaredFalloff = Float.compare(params.falloffPower(), SQUARE_POWER) == 0;
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Places the islands and turns the height into the sea floor and the lift of each island over the noise. */
     @Override
     public void apply(GenerationContext context) {
         final var heights = context.field(NoiseField.HEIGHT);
         final var random = context.random(SALT);
-        final var radii = drawRadii(random, islandCount(context.width(), context.height()));
+        final var largest = largestRadius(Math.min(context.width(), context.height()));
+        final var smallest = Math.min(params.size().minRadius(), largest);
+        final var radii = drawRadii(random, islandCount(context.width(), context.height()), smallest, largest);
         final var effect = new float[context.size()];
-        new Layout(context, random, radii.length).placeAll(radii, effect);
+        new Layout(context, random, radii.length, smallest).placeAll(radii, effect);
         for (var index = 0; index < effect.length; index++) {
-            heights[index] = (float) (heights[index] * effect[index] * params.heightGain()
-                    + (effect[index] * params.lift() - params.seaOffset()));
+            final double lifted = (double) effect[index] * params.lift() - params.seaOffset();
+            heights[index] = (float) ((double) heights[index] * effect[index] * params.heightGain() + lifted);
         }
     }
 
@@ -87,16 +102,21 @@ public final class IslandShapePass implements GenerationPass {
      * {@code i + 1} of {@code count}. A map therefore always has islands of every size, with a large one among them,
      * instead of the luck of the draw giving it only small ones.
      */
-    private int[] drawRadii(RandomGenerator random, int count) {
-        final var size = params.size();
-        final var span = size.maxRadius() - size.minRadius();
+    private int[] drawRadii(RandomGenerator random, int count, int smallest, int largest) {
+        final var span = largest - smallest;
         final var radii = new int[count];
         for (var i = 0; i < count; i++) {
-            final var u = (i + random.nextDouble()) / count;
-            radii[i] = size.minRadius() + (int) Math.round(span * u * u);
+            final var u = (i + HALF + (random.nextDouble() - HALF) * SLICE_JITTER) / count;
+            radii[i] = smallest + (int) Math.round(span * u * u);
         }
         Arrays.sort(radii);
         return radii;
+    }
+
+    /** Returns the largest radius on a map of a shorter side: the one of the parameters, or the share of the side. */
+    private int largestRadius(int shorterSide) {
+        final var cap = Math.max(1, (int) Math.round(shorterSide * (double) params.size().maxShareOfSide()));
+        return Math.min(params.size().maxRadius(), cap);
     }
 
     /** The islands placed so far, with the centres and radii that later islands have to keep their distance from. */
@@ -107,12 +127,18 @@ public final class IslandShapePass implements GenerationPass {
         private final int[] centresX;
         private final int[] centresY;
         private final int[] placedRadii;
+        /** The spacing of the parameters as a double, read once instead of for every pair of islands. */
+        private final double spacing;
+        /** The radius below which an island is not made smaller to find a place. */
+        private final int smallest;
         private int placed;
 
-        /** Prepares room for the centres and radii of up to {@code count} islands. */
-        Layout(GenerationContext context, RandomGenerator random, int count) {
+        /** Prepares room for the centres and radii of up to {@code count} islands, none below the smallest radius. */
+        Layout(GenerationContext context, RandomGenerator random, int count, int smallest) {
             this.context = context;
             this.random = random;
+            this.spacing = params.size().spacing();
+            this.smallest = smallest;
             this.centresX = new int[count];
             this.centresY = new int[count];
             this.placedRadii = new int[count];
@@ -127,8 +153,20 @@ public final class IslandShapePass implements GenerationPass {
             }
         }
 
-        /** Tries centres until one keeps the spacing, and records the island there. */
+        /** Places an island at the radius, or a smaller one when no centre keeps the spacing, and tells if it fits. */
         private boolean place(int radius) {
+            var candidate = radius;
+            while (candidate >= smallest) {
+                if (tryPlace(candidate)) {
+                    return true;
+                }
+                candidate = Math.min(candidate - 1, (int) (candidate * SHRINK_FACTOR));
+            }
+            return false;
+        }
+
+        /** Tries centres until one keeps the spacing, and records the island there. */
+        private boolean tryPlace(int radius) {
             final var margin = (int) Math.round(radius * EDGE_MARGIN_OF_RADIUS);
             for (var attempt = 0; attempt < PLACEMENT_ATTEMPTS; attempt++) {
                 final var x = centreOnAxis(context.width(), margin);
@@ -147,7 +185,7 @@ public final class IslandShapePass implements GenerationPass {
         /** Tells whether a centre keeps the spacing from every island placed so far. */
         private boolean isClear(int x, int y, int radius) {
             for (var i = 0; i < placed; i++) {
-                final var needed = (double) params.size().spacing() * (radius + placedRadii[i]);
+                final var needed = spacing * (radius + placedRadii[i]);
                 final double dx = (double) x - centresX[i];
                 final double dy = (double) y - centresY[i];
                 if (dx * dx + dy * dy < needed * needed) {

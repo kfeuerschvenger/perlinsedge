@@ -20,7 +20,9 @@ class IslandShapePassTest {
     private static final int SIDE = 60;
     private static final int RADIUS = 6;
     private static final float SPACING = 1.05F;
-    private static final IslandSize SIZE = new IslandSize(RADIUS, RADIUS, SPACING);
+    /** A share of the side at which the cap on the radius never bites on the maps of these tests. */
+    private static final float NO_CAP = 1F;
+    private static final IslandSize SIZE = new IslandSize(RADIUS, RADIUS, NO_CAP, SPACING);
     private static final float GAIN = 1.5F;
     private static final float LIFT = 0.7F;
     private static final float SEA = 0.5F;
@@ -70,10 +72,17 @@ class IslandShapePassTest {
     private static final int ISLET_RADIUS = 3;
     private static final int BIG_RADIUS = 20;
     private static final int ISLAND_SIZE_RATIO = 4;
+    private static final int HALF_SIDE = SIDE / 2;
+    /** A tenth of the side of the small map, which is the radius of 3. */
+    private static final float CAP_SHARE = 0.1F;
+    private static final int HUGE_RADIUS = 25;
+    private static final int SIX_ISLANDS = 6;
+    private static final long SHRINK_SEEDS = 10L;
 
     private static IslandParams params(int per100k, int minimum) {
         return new IslandParams(per100k, minimum, SIZE, GAIN, LIFT, SEA, FALLOFF);
     }
+
 
     /** One island and no more, wherever the seed puts it, so what lies around it is the sea. */
     private static IslandParams singleIsland() {
@@ -232,7 +241,7 @@ class IslandShapePassTest {
     @Test
     void islandsKeepTheirSpacingFromEachOther() {
         final var context = flatHeightContext(SEED_SPACING, ROOMY_SIDE, FLAT_SEA);
-        final var wide = new IslandSize(RADIUS, RADIUS, WIDE_SPACING);
+        final var wide = new IslandSize(RADIUS, RADIUS, NO_CAP, WIDE_SPACING);
 
         new IslandShapePass(new IslandParams(NO_DENSITY, SEVEN_ISLANDS, wide, GAIN, LIFT, SEA, FALLOFF))
                 .apply(context);
@@ -262,7 +271,7 @@ class IslandShapePassTest {
     @Test
     void theRadiiRunFromSmallIsletsToLargeIslandsOnTheSameMap() {
         final var context = flatHeightContext(SEED_SPACING, HUGE_ROOMY_SIDE, FLAT_SEA);
-        final var varied = new IslandSize(ISLET_RADIUS, BIG_RADIUS, SPACING);
+        final var varied = new IslandSize(ISLET_RADIUS, BIG_RADIUS, NO_CAP, SPACING);
 
         new IslandShapePass(new IslandParams(NO_DENSITY, NINE_ISLANDS, varied, GAIN, LIFT, SEA, FALLOFF))
                 .apply(context);
@@ -277,13 +286,46 @@ class IslandShapePassTest {
     }
 
     @Test
+    void theLargestRadiusIsCappedAtAShareOfTheShorterSideOfTheMap() {
+        final var context = flatHeightContext(SEED_CENTRE, HALF_SIDE, FLAT_SEA);
+        final var capped = new IslandSize(RADIUS, RADIUS, CAP_SHARE, SPACING);
+
+        new IslandShapePass(new IslandParams(NO_DENSITY, MINIMUM, capped, GAIN, LIFT, SEA, FALLOFF)).apply(context);
+
+        final var heights = context.field(NoiseField.HEIGHT);
+        final var centre = highestIndex(context);
+        final var cx = context.xOf(centre);
+        final var half = RADIUS / HALF;
+        final var edgeX = cx + half < HALF_SIDE ? cx + half : cx - half;
+        final var insideX = cx + half - 1 < HALF_SIDE ? cx + half - 1 : cx - half + 1;
+        assertEquals(-SEA, heights[context.index(edgeX, context.yOf(centre))], TOLERANCE);
+        assertTrue(heights[context.index(insideX, context.yOf(centre))] > -SEA + TOLERANCE);
+    }
+
+    @Test
+    void aMapKeepsTheIslandsTheParametersAskForByShrinkingTheOnesThatDoNotFit() {
+        final var large = new IslandSize(ISLET_RADIUS, HUGE_RADIUS, NO_CAP, SPACING);
+        final var params = new IslandParams(NO_DENSITY, SIX_ISLANDS, large, GAIN, LIFT, SEA, FALLOFF);
+        for (var seed = 1L; seed <= SHRINK_SEEDS; seed++) {
+            final var context = flatHeightContext(seed, SIDE, FLAT_SEA);
+
+            new IslandShapePass(params).apply(context);
+
+            assertEquals(SIX_ISLANDS, centres(context).length, "seed " + seed);
+        }
+    }
+
+    @Test
     void theSizeRefusesRadiiAndSpacingsThatCannotWork() {
-        assertThrows(IllegalArgumentException.class, () -> new IslandSize(0, 1, SPACING));
-        assertThrows(IllegalArgumentException.class, () -> new IslandSize(2, 1, SPACING));
-        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 0F));
-        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, -SPACING));
-        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.NaN));
-        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(0, 1, NO_CAP, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(2, 1, NO_CAP, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 0F, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 1.5F, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.NaN, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, 0F));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, -SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, Float.POSITIVE_INFINITY));
     }
 
     @Test
