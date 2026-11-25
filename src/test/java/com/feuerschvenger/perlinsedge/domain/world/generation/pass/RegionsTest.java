@@ -52,6 +52,22 @@ class RegionsTest {
         assertEquals(1, second.labelAt(2));
     }
 
+    /** The regions a relabelling reused the arrays of refuse every question and a second relabelling. */
+    @Test
+    void relabelledRegionsAreSpentAndRefuseToAnswer() {
+        final var first = regionsOf("##.#", "#..#", "..#.");
+        final var second = first.relabel(index -> true);
+
+        assertThrows(IllegalStateException.class, first::count);
+        assertThrows(IllegalStateException.class, () -> first.labelAt(0));
+        assertThrows(IllegalStateException.class, () -> first.sizeOf(1));
+        assertThrows(IllegalStateException.class, first::largest);
+        assertThrows(IllegalStateException.class, first::sizes);
+        assertThrows(IllegalStateException.class, () -> first.relabel(index -> true));
+        assertEquals(1, second.count());
+        assertEquals(1, second.labelAt(0));
+    }
+
     @Test
     void theLastTileOfARowIsNotJoinedToTheFirstTileOfTheNext() {
         final var regions = regionsOf(

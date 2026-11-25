@@ -8,6 +8,10 @@ import java.util.function.IntPredicate;
  * The 4-connected regions of the tiles a mask selects, found with one flood fill over an array of labels and an array
  * used as the queue, so it creates no object per tile. Regions are numbered from 1 in the order their first tile
  * appears when the map is read row by row, and the label 0 stands for a tile that belongs to no region.
+ * <p>
+ * {@link #relabel(IntPredicate)} reuses the arrays of the regions it is called on, so those regions are spent: every
+ * method of a spent instance, which no longer describes anything, throws {@link IllegalStateException} instead of
+ * answering from labels that now belong to the new regions.
  */
 final class Regions {
 
@@ -23,7 +27,19 @@ final class Regions {
     private final int[] queue;
     private final int[] sizes;
     private final int largest;
+    /** False once {@link #relabel(IntPredicate)} has handed the arrays to newer regions. */
+    private boolean current = true;
 
+    /**
+     * Wraps the result of a labelling run.
+     *
+     * @param width   the number of columns
+     * @param height  the number of rows
+     * @param labels  the region of every tile, which these regions own until they are spent
+     * @param queue   the scratch array of the fill, kept so a later labelling can reuse it
+     * @param sizes   the number of tiles of every region, indexed by label
+     * @param largest the label of the largest region, or {@link #NO_LABEL}
+     */
     private Regions(int width, int height, int[] labels, int[] queue, int[] sizes, int largest) {
         this.width = width;
         this.height = height;
@@ -54,15 +70,26 @@ final class Regions {
     /**
      * Labels the regions of the same grid again for another mask, reusing the arrays of these regions instead of
      * allocating new ones, so a pass that labels the grid many times creates no array for each one. These regions are
-     * overwritten: their labels now describe the new regions, so a caller keeps only the result.
+     * spent: their arrays now describe the new regions, so every method of these regions throws from here on and a
+     * caller keeps only the result.
      *
      * @param mask the tiles that belong to a region, which must answer the same every time it is asked
      * @return the new regions, which share the label array with these
+     * @throws IllegalStateException when these regions are spent already
      */
     Regions relabel(IntPredicate mask) {
         Objects.requireNonNull(mask, "mask");
+        requireCurrent();
+        current = false;
         Arrays.fill(labels, NO_LABEL);
         return new Fill(width, height, mask, labels, queue).run();
+    }
+
+    /** Refuses to answer from regions whose arrays were handed to newer regions. */
+    private void requireCurrent() {
+        if (!current) {
+            throw new IllegalStateException("these regions were relabelled and no longer describe the grid");
+        }
     }
 
     /**
@@ -71,6 +98,7 @@ final class Regions {
      * @return the count, so the labels run from 1 to this value
      */
     int count() {
+        requireCurrent();
         return sizes.length - 1;
     }
 
@@ -81,6 +109,7 @@ final class Regions {
      * @return the label, or {@link #NO_LABEL} when the tile is not selected
      */
     int labelAt(int index) {
+        requireCurrent();
         return labels[index];
     }
 
@@ -91,6 +120,7 @@ final class Regions {
      * @return the number of tiles
      */
     int sizeOf(int label) {
+        requireCurrent();
         Objects.checkIndex(label, sizes.length);
         return sizes[label];
     }
@@ -101,15 +131,17 @@ final class Regions {
      * @return the label, or {@link #NO_LABEL} when no tile is selected
      */
     int largest() {
+        requireCurrent();
         return largest;
     }
 
     /** Returns a copy of the sizes, indexed by label, where the entry of {@link #NO_LABEL} is 0. */
     int[] sizes() {
+        requireCurrent();
         return sizes.clone();
     }
 
-    /** The state of one labelling run. */
+    /** The state of one labelling run: the arrays it writes into, the regions found so far and the largest. */
     private static final class Fill {
         private final int width;
         private final int height;
@@ -120,6 +152,15 @@ final class Regions {
         private int count;
         private int largest = NO_LABEL;
 
+        /**
+         * Prepares a run over a grid.
+         *
+         * @param width  the number of columns
+         * @param height the number of rows
+         * @param mask   the tiles that belong to a region
+         * @param labels the array the labels are written into, which holds no label yet
+         * @param queue  the scratch array a fill uses as its queue, as long as the grid
+         */
         private Fill(int width, int height, IntPredicate mask, int[] labels, int[] queue) {
             this.width = width;
             this.height = height;
@@ -128,6 +169,11 @@ final class Regions {
             this.queue = queue;
         }
 
+        /**
+         * Labels the whole grid, scanning it row by row and filling a region from each selected tile without a label.
+         *
+         * @return the regions found
+         */
         private Regions run() {
             for (var index = 0; index < labels.length; index++) {
                 if (labels[index] == NO_LABEL && mask.test(index)) {
