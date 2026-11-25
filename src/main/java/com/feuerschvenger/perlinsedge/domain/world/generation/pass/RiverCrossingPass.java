@@ -109,6 +109,7 @@ public final class RiverCrossingPass implements GenerationPass {
         private LeastCostPath search;
         private int riverTileCount;
 
+        /** Prepares the arrays of a run and draws the direction the rivers run in. */
         Crossing(GenerationContext context) {
             this.context = context;
             this.width = context.width();
@@ -123,6 +124,7 @@ public final class RiverCrossingPass implements GenerationPass {
             this.vertical = random.nextBoolean();
         }
 
+        /** Fills the costs, cuts the rivers one by one and then adds the tributaries. */
         void run() {
             if (!buildCosts()) {
                 return;
@@ -151,18 +153,18 @@ public final class RiverCrossingPass implements GenerationPass {
             if (lowest > highest) {
                 return false;
             }
-            final var range = Math.max(Float.MIN_NORMAL, highest - lowest);
+            final var range = Math.max(Float.MIN_NORMAL, (double) highest - lowest);
             for (var index = 0; index < cost.length; index++) {
                 cost[index] = context.groundAt(index).isLand()
-                        ? landCost(index, (heights[index] - lowest) / range, moisture[index])
+                        ? landCost(index, ((double) heights[index] - lowest) / range, moisture[index])
                         : Float.POSITIVE_INFINITY;
             }
             return true;
         }
 
         /** The cost of a land tile from its height as a share of the land's range, its moisture and its place. */
-        private float landCost(int index, float relativeHeight, float moisture) {
-            final var wet = Math.clamp(moisture, 0F, 1F);
+        private float landCost(int index, double relativeHeight, float moisture) {
+            final var wet = Math.clamp((double) moisture, 0.0, 1.0);
             return (float) (BASE_COST + (double) params.heightWeight() * relativeHeight
                     + (double) params.meanderWeight() * (1.0 - wet) + corridorPenalty(index));
         }
@@ -243,6 +245,7 @@ public final class RiverCrossingPass implements GenerationPass {
             return NO_TILE;
         }
 
+        /** Returns the tile at a position along an edge and a depth when it is land inside the map, else no tile. */
         private int landAt(int along, int depth, boolean far) {
             final var span = vertical ? width : height;
             if (along < 0 || along >= span) {
@@ -260,6 +263,7 @@ public final class RiverCrossingPass implements GenerationPass {
             return along * width + (far ? width - 1 - depth : depth);
         }
 
+        /** Returns the squared distance in tiles between two tiles. */
         private long squaredDistance(int first, int second) {
             final long dx = (long) first % width - second % width;
             final long dy = (long) first / width - second / width;
@@ -289,10 +293,11 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
+        /** Adds the penalty to the cost of one open tile, unless it already carries it. */
         private void penalise(int index) {
             if (!banded[index] && Float.isFinite(cost[index])) {
                 banded[index] = true;
-                cost[index] += BAND_PENALTY;
+                cost[index] = (float) ((double) cost[index] + BAND_PENALTY);
                 search.setCost(index, cost[index]);
             }
         }
@@ -313,6 +318,7 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
+        /** Tells whether a tile is land that is not river and lies far enough from every river. */
         private boolean isFarLand(int[] reach, int index) {
             return !inRiver[index] && context.groundAt(index).isLand() && reach[index] >= TRIBUTARY_MIN_REACH;
         }
@@ -338,6 +344,7 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
+        /** Returns the river tile nearest to a tile, as the crow flies. */
         private int nearestRiverTile(int source) {
             var nearest = riverTiles[0];
             var nearestDistance = Long.MAX_VALUE;

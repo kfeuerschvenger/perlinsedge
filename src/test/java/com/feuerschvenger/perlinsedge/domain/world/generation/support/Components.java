@@ -29,6 +29,7 @@ public final class Components {
     private int[] minY = new int[INITIAL_CAPACITY];
     private int[] maxY = new int[INITIAL_CAPACITY];
 
+    /** Labels the components of a map with one flood fill per component. */
     private Components(TileMap map, Predicate<TileType> selected) {
         this.width = map.getWidth();
         this.height = map.getHeight();
@@ -177,6 +178,7 @@ public final class Components {
         return Arrays.stream(sizes()).max().orElse(0);
     }
 
+    /** Makes room for the component that was just counted and resets its bounding box. */
     private void grow() {
         if (count == sizes.length) {
             final var capacity = sizes.length * GROWTH_FACTOR;
@@ -212,6 +214,7 @@ public final class Components {
         }
     }
 
+    /** Counts a tile into the size and the bounding box of the current component. */
     private void record(int x, int y) {
         sizes[count]++;
         minX[count] = Math.min(minX[count], x);
@@ -220,6 +223,7 @@ public final class Components {
         maxY[count] = Math.max(maxY[count], y);
     }
 
+    /** Queues a neighbour when it is on the map, selected and unlabelled, and returns the new queue end. */
     private int visit(TileMap map, Predicate<TileType> selected, int[] queue, int tail, int x, int y) {
         if (!map.isValidCoordinate(x, y)) {
             return tail;

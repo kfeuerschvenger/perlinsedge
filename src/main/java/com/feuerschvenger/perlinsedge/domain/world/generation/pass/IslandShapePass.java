@@ -99,14 +99,6 @@ public final class IslandShapePass implements GenerationPass {
         return radii;
     }
 
-    /** Returns how much of the lift remains at a share of the radius from 0 at the centre to 1 at the edge. */
-    private double falloff(double shareOfRadius) {
-        final var fade = 1.0 - shareOfRadius;
-        // StrictMath, not Math: Math.pow may differ between JVMs and CPUs in the last bit, and a map has to come out
-        // the same for the same seed everywhere
-        return squaredFalloff ? fade * fade : StrictMath.pow(fade, params.falloffPower());
-    }
-
     /** The islands placed so far, with the centres and radii that later islands have to keep their distance from. */
     private final class Layout {
 
@@ -117,6 +109,7 @@ public final class IslandShapePass implements GenerationPass {
         private final int[] placedRadii;
         private int placed;
 
+        /** Prepares room for the centres and radii of up to {@code count} islands. */
         Layout(GenerationContext context, RandomGenerator random, int count) {
             this.context = context;
             this.random = random;
@@ -138,8 +131,8 @@ public final class IslandShapePass implements GenerationPass {
         private boolean place(int radius) {
             final var margin = (int) Math.round(radius * EDGE_MARGIN_OF_RADIUS);
             for (var attempt = 0; attempt < PLACEMENT_ATTEMPTS; attempt++) {
-                final var x = centreOnAxis(random, context.width(), margin);
-                final var y = centreOnAxis(random, context.height(), margin);
+                final var x = centreOnAxis(context.width(), margin);
+                final var y = centreOnAxis(context.height(), margin);
                 if (isClear(x, y, radius)) {
                     centresX[placed] = x;
                     centresY[placed] = y;
@@ -155,8 +148,8 @@ public final class IslandShapePass implements GenerationPass {
         private boolean isClear(int x, int y, int radius) {
             for (var i = 0; i < placed; i++) {
                 final var needed = (double) params.size().spacing() * (radius + placedRadii[i]);
-                final double dx = x - centresX[i];
-                final double dy = y - centresY[i];
+                final double dx = (double) x - centresX[i];
+                final double dy = (double) y - centresY[i];
                 if (dx * dx + dy * dy < needed * needed) {
                     return false;
                 }
@@ -172,8 +165,8 @@ public final class IslandShapePass implements GenerationPass {
             final var lastX = Math.min(context.width() - 1, centresX[island] + radius);
             for (var y = Math.max(0, centresY[island] - radius); y <= lastY; y++) {
                 for (var x = Math.max(0, centresX[island] - radius); x <= lastX; x++) {
-                    final long dx = x - centresX[island];
-                    final long dy = y - centresY[island];
+                    final long dx = (long) x - centresX[island];
+                    final long dy = (long) y - centresY[island];
                     final var squared = dx * dx + dy * dy;
                     if (squared < radiusSquared) {
                         final var index = context.index(x, y);
@@ -183,11 +176,19 @@ public final class IslandShapePass implements GenerationPass {
                 }
             }
         }
-    }
 
-    /** Draws one coordinate between the margins, or the middle of the axis when the margins leave no room. */
-    private static int centreOnAxis(RandomGenerator random, int length, int margin) {
-        final var usableMargin = Math.min(margin, (length - 1) / MARGIN_SIDES);
-        return usableMargin + random.nextInt(length - MARGIN_SIDES * usableMargin);
+        /** Returns how much of the lift remains at a share of the radius from 0 at the centre to 1 at the edge. */
+        private double falloff(double shareOfRadius) {
+            final var fade = 1.0 - shareOfRadius;
+            // StrictMath, not Math: Math.pow may differ between JVMs and CPUs in the last bit, and a map has to
+            // come out the same for the same seed everywhere
+            return squaredFalloff ? fade * fade : StrictMath.pow(fade, params.falloffPower());
+        }
+
+        /** Draws one coordinate between the margins, or the middle of the axis when the margins leave no room. */
+        private int centreOnAxis(int length, int margin) {
+            final var usableMargin = Math.min(margin, (length - 1) / MARGIN_SIDES);
+            return usableMargin + random.nextInt(length - MARGIN_SIDES * usableMargin);
+        }
     }
 }

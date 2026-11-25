@@ -242,8 +242,8 @@ class IslandShapePassTest {
         final var needed = WIDE_SPACING * HALF * RADIUS;
         for (var first = 0; first < centres.length; first++) {
             for (var second = first + 1; second < centres.length; second++) {
-                final double dx = context.xOf(centres[first]) - context.xOf(centres[second]);
-                final double dy = context.yOf(centres[first]) - context.yOf(centres[second]);
+                final double dx = (double) context.xOf(centres[first]) - context.xOf(centres[second]);
+                final double dy = (double) context.yOf(centres[first]) - context.yOf(centres[second]);
                 assertTrue(Math.hypot(dx, dy) >= needed, "centres " + centres[first] + " and " + centres[second]);
             }
         }

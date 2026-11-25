@@ -41,12 +41,17 @@ public final class VegetationPass implements GenerationPass {
         final var nearWaterThreshold = threshold - params.waterBonus();
         final var reach = params.waterReach() > 0 ? distanceToRivers(context) : null;
         for (var index = 0; index < context.size(); index++) {
-            if (context.resourceAt(index) == null && !context.isReserved(index)
-                    && context.groundAt(index).isFertile()
+            if (canGrow(context, index)
                     && treeNoise[index] > (isNearWater(reach, index) ? nearWaterThreshold : threshold)) {
                 context.setResource(index, ResourceType.TREE);
             }
         }
+    }
+
+    /** Tells whether a tile is fertile, free of resources and not reserved, so a tree may stand on it. */
+    private static boolean canGrow(GenerationContext context, int index) {
+        return context.resourceAt(index) == null && !context.isReserved(index)
+                && context.groundAt(index).isFertile();
     }
 
     /** The distance of every tile to the nearest river tile. */
@@ -55,6 +60,7 @@ public final class VegetationPass implements GenerationPass {
                 index -> context.groundAt(index) == TileType.RIVER);
     }
 
+    /** Tells whether a tile lies within the water reach of a river, when the distances were measured at all. */
     private boolean isNearWater(int[] reach, int index) {
         return reach != null && reach[index] <= params.waterReach();
     }
