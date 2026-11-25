@@ -28,6 +28,11 @@ class IslandShapePassTest {
     private static final float RECIPE_SHARE = 0.3F;
     private static final IslandSize RECIPE_SIZE =
             new IslandSize(RECIPE_MIN_RADIUS, RECIPE_MAX_RADIUS, RECIPE_SHARE, SPACING);
+    /** A spacing wide enough that two islands the layout keeps apart leave a gap that touching discs would not. */
+    private static final float GAP_SPACING = 1.3F;
+    private static final IslandSize SPACED_SIZE =
+            new IslandSize(RECIPE_MIN_RADIUS, RECIPE_MAX_RADIUS, RECIPE_SHARE, GAP_SPACING);
+    private static final int MIN_GAP = 3;
     private static final int SMALLEST_MAP = 64;
     private static final long FIT_SEEDS = 20L;
     private static final IslandSize SIZE = new IslandSize(RADIUS, RADIUS, NO_CAP, SPACING);
@@ -367,12 +372,15 @@ class IslandShapePassTest {
     }
 
     /**
-     * A crowded map shrinks every radius and lays the islands out again instead of letting their lifted discs touch,
-     * so the lifted land of the five islands is five separate pieces and no two coasts fuse into one.
+     * A crowded map shrinks every radius and lays the islands out again, so every pair of islands keeps the spacing of
+     * the parameters, instead of putting the last island down with its disc touching another. With a spacing of 1.3
+     * the lifted land of two islands lies at least a third of the smallest radii apart, so five separate pieces of
+     * land are left with a gap of at least three tiles between each two of them. The old last resort, which let the
+     * discs touch, left gaps of a tile or none.
      */
     @Test
-    void theLiftedDiscsOfTheFiveIslandsNeverTouchOnTheSmallMaps() {
-        final var params = new IslandParams(NO_DENSITY, FLOOR_COUNT, RECIPE_SIZE, GAIN, LIFT, SEA, FALLOFF);
+    void theIslandsOfTheSmallMapsKeepTheSpacingOfTheParametersWhenTheLayoutIsMadeAgain() {
+        final var params = new IslandParams(NO_DENSITY, FLOOR_COUNT, SPACED_SIZE, GAIN, LIFT, SEA, FALLOFF);
         for (var side : new int[] {SMALLEST_MAP, SMALL}) {
             for (var seed = 1L; seed <= FIT_SEEDS; seed++) {
                 final var context = flatHeightContext(seed, side, FLAT_SEA);
@@ -381,9 +389,26 @@ class IslandShapePassTest {
 
                 final var heights = context.field(NoiseField.HEIGHT);
                 final var lifted = Regions.label(side, side, index -> heights[index] > -SEA + TOLERANCE);
-                assertEquals(FLOOR_COUNT, lifted.count(), "side " + side + " seed " + seed);
+                final var label = "side " + side + " seed " + seed;
+                assertEquals(FLOOR_COUNT, lifted.count(), label);
+                assertTrue(closestGap(lifted, side) >= MIN_GAP, label + ": two islands lie " + closestGap(lifted, side)
+                        + " tiles apart");
             }
         }
+    }
+
+    /** Returns the smallest Chebyshev distance, in tiles, between the land of one island and that of another. */
+    private static int closestGap(Regions lifted, int side) {
+        var closest = Integer.MAX_VALUE;
+        for (var label = 1; label <= lifted.count(); label++) {
+            final var own = label;
+            final var reach = DistanceTransform.chebyshev(side, side, index -> lifted.labelAt(index) == own);
+            for (var index = 0; index < reach.length; index++) {
+                final var other = lifted.labelAt(index) != Regions.NO_LABEL && lifted.labelAt(index) != own;
+                closest = other ? Math.min(closest, reach[index]) : closest;
+            }
+        }
+        return closest;
     }
 
     @Test
