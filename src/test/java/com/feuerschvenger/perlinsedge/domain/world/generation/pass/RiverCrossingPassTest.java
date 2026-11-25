@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.IntPredicate;
 
@@ -79,6 +80,16 @@ class RiverCrossingPassTest {
     /** The numbers of the two rivers that carved the grid of the tests of the band. */
     private static final int FIRST_RIVER = 1;
     private static final int SECOND_RIVER = 2;
+    /** The map that squeezes two rivers within reach of one band: a rolling height field with a valley dug in it. */
+    private static final int ROLLING_SEED = 90;
+    private static final int ROLLING_RIVERS = 3;
+    private static final int ROLLING_STREAMS = 3;
+    private static final int ROLLING_SEED_MIX = 31;
+    private static final int WAVE_RANGE = 6;
+    private static final double WAVE_TURNS = 3.0;
+    private static final double WAVE_BASE = 0.5;
+    private static final double WAVE_AMPLITUDE = 0.3;
+    private static final int VALLEY_HALF_WIDTH = 1;
 
     private static GenerationContext grass(int side, long seed) {
         final var context = TestContexts.of(MapType.RIVERS, seed, side, side, TestContexts.FLAT);
@@ -390,6 +401,39 @@ class RiverCrossingPassTest {
             assertTrue(distanceBetweenRivers(context) >= KEEP_OUT,
                     "seed " + seed + ": rivers come within " + distanceBetweenRivers(context));
         }
+    }
+
+    /** Sets a rolling height field of waves, with a valley of height zero along one column and one row. */
+    private static void rollWithValley(GenerationContext context, long seed) {
+        final var random = new Random(seed * ROLLING_SEED_MIX + context.width());
+        final var waveX = random.nextDouble() * WAVE_RANGE;
+        final var waveY = random.nextDouble() * WAVE_RANGE;
+        final var valley = random.nextInt(context.width());
+        final var heights = context.field(NoiseField.HEIGHT);
+        for (var index = 0; index < heights.length; index++) {
+            final var x = context.xOf(index);
+            final var y = context.yOf(index);
+            final var inValley = Math.abs(x - valley) <= VALLEY_HALF_WIDTH || Math.abs(y - valley) <= VALLEY_HALF_WIDTH;
+            final var wave = Math.sin(x * waveX / context.width() * WAVE_TURNS)
+                    * Math.cos(y * waveY / context.height() * WAVE_TURNS);
+            heights[index] = inValley ? LOW : (float) (WAVE_BASE + WAVE_AMPLITUDE * wave);
+        }
+    }
+
+    /**
+     * The tiles of a river's band that also lie within the band radius of a river carved later stay closed to the
+     * first river's tributaries. The band belongs to the first river to reach it, so that claim does not imply any
+     * clearance from the later river: two rivers a little more than the band radius apart share tiles between them.
+     * Without the clearance check a tributary runs through those tiles and joins the two rivers into one.
+     */
+    @Test
+    void aTributaryNeverRunsThroughTheBandSharedWithALaterRiver() {
+        final var context = grass(WIDE_SIDE, ROLLING_SEED);
+        rollWithValley(context, ROLLING_SEED);
+
+        apply(context, rivers(ROLLING_RIVERS, STRONG, NONE, ROLLING_STREAMS));
+
+        assertEquals(ROLLING_RIVERS, riverComponents(context), "no tributary joins two rivers");
     }
 
     /**

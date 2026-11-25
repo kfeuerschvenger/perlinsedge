@@ -481,7 +481,10 @@ public final class RiverCrossingPass implements GenerationPass {
         /**
          * Tells whether a tile is land of the band of the owner, outside the middle strip and clear of other rivers.
          * The band lies within the band radius of the river of the owner, so a scan of the square of that radius
-         * around the tile is all the clearance needs, and no distance is measured over the whole map for it.
+         * around the tile is all the clearance needs, and no distance is measured over the whole map for it. The scan
+         * is not redundant: a band is claimed by the first river to reach it, and a later river only has to keep
+         * outside the band radius of the earlier ones, so it can lie just beyond that radius and leave tiles that
+         * both rivers cover but that the earlier river claimed.
          */
         private boolean isOwnFreeBand(int index) {
             return bandOf[index] == owner && context.groundAt(index).isLand() && !inCorridor(index)
