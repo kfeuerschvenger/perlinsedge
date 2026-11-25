@@ -19,6 +19,11 @@ final class MediterraneanRecipe {
     /** The rivers make no lake at a dead end: the limit runs before the rivers, so a lake would be an extra body. */
     private static final float RIVER_LAKE_SHARE = 0F;
     /**
+     * A river that dead ends in a few tiles is a stub and is taken back for another source, so every river of the map
+     * runs at least this far.
+     */
+    private static final int RIVER_MIN_TILES = 15;
+    /**
      * The coast reaches a fifth of the map in from one edge, 60 tiles on a map of 300, and lowers the height there by
      * 0.8, enough to flood the lowland.
      */
@@ -52,7 +57,8 @@ final class MediterraneanRecipe {
                 RecipeParts.edgeCoast(COAST_DEPTH_SHARE, COAST_DROP),
                 RecipeParts.ground(GroundRules.MEDITERRANEAN),
                 RecipeParts.waterBodyLimit(WATER_KEEP_PER_100K, WATER_MIN_KEPT_TILES, TileType.GRASS),
-                RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER, RIVER_LAKE_SHARE),
+                RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER, RIVER_LAKE_SHARE,
+                        RIVER_MIN_TILES),
                 RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.greenHosts()),
                 RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),

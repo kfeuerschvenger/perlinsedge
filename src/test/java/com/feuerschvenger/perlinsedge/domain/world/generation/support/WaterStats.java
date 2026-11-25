@@ -66,6 +66,16 @@ public final class WaterStats {
     }
 
     /**
+     * Finds the 8-connected components of river tiles, so a river carved along a diagonal is one piece.
+     *
+     * @param map the map
+     * @return the components of the river tiles, joined at the corners too
+     */
+    public static Components riversThroughCorners(TileMap map) {
+        return Components.ofEightConnected(map, type -> type == TileType.RIVER);
+    }
+
+    /**
      * Finds the 4-connected masses of land, ice included.
      *
      * @param map the map

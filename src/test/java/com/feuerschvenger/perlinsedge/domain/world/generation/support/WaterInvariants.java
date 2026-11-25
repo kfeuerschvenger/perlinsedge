@@ -43,6 +43,8 @@ final class WaterInvariants {
     private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 6;
     /** The fewest river tiles a Mediterranean map holds, at least one on a small map and 12 on one of 300 by 300. */
     private static final int MIN_MEDITERRANEAN_RIVER_TILES = 12;
+    /** The fewest tiles the longest river of a Mediterranean map covers at any size: a real river, not a stub. */
+    private static final int MIN_MEDITERRANEAN_LONGEST_RIVER = 7;
 
     /** The fewest and the most land masses of at least {@link WaterStats#MIN_LAND_TILES} tiles on an islands map. */
     private static final int MIN_ISLANDS = 6;
@@ -116,14 +118,17 @@ final class WaterInvariants {
     }
 
     /**
-     * A Mediterranean map keeps its rivers: a count of river tiles that scales with the area, and at least one on a
-     * map of any size. A pass that fills the pieces of a river as if they were bodies of water leaves a few tiles at
-     * most, which this catches.
+     * A Mediterranean map keeps its rivers: a count of river tiles that scales with the area, and at any size a river
+     * of at least {@link #MIN_MEDITERRANEAN_LONGEST_RIVER} tiles, so a handful of stubs does not pass. A pass that
+     * fills the pieces of a river as if they were bodies of water leaves a few tiles at most, which this catches.
      */
     static void mediterraneanKeepsItsRivers(TileMap map) {
         final var area = (long) map.getWidth() * map.getHeight();
         MapInvariants.requireScaledToArea("river tile", MapStats.count(map, TileType.RIVER), area,
                 MIN_MEDITERRANEAN_RIVER_TILES, Integer.MAX_VALUE);
+        final var longest = WaterStats.riversThroughCorners(map).largest();
+        MapInvariants.require(longest >= MIN_MEDITERRANEAN_LONGEST_RIVER,
+                "the longest river has " + longest + " tiles, expected at least " + MIN_MEDITERRANEAN_LONGEST_RIVER);
     }
 
     /**

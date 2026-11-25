@@ -13,11 +13,33 @@ import java.util.Objects;
  * @param maxLength    one more than the most steps a river runs, above the fewest
  * @param tributaries  how a river branches
  * @param lakes        how a river that dead ends makes a lake
+ * @param minKeptTiles the fewest tiles a river has to cover to stay, from 0 to the steps a river runs before it may
+ *                     branch; a river that dead ends sooner is taken back and the pass starts another river from the
+ *                     next source, so the rivers of the map are real ones and not stubs of a few tiles; 0 keeps every
+ *                     river
  */
 public record RiverParams(float density, float sourceShare, int minLength, int maxLength,
-                          TributaryParams tributaries, LakeParams lakes) {
+                          TributaryParams tributaries, LakeParams lakes, int minKeptTiles) {
 
-    /** Checks the density is positive, the share is a share, the lengths are ordered and the parts are set. */
+    /**
+     * Creates the parameters of rivers that are all kept, however short.
+     *
+     * @param density     scales how many of the high land tiles become the source of a river
+     * @param sourceShare the share of the land where a river may start
+     * @param minLength   the fewest steps a river runs
+     * @param maxLength   one more than the most steps a river runs
+     * @param tributaries how a river branches
+     * @param lakes       how a river that dead ends makes a lake
+     */
+    public RiverParams(float density, float sourceShare, int minLength, int maxLength,
+                       TributaryParams tributaries, LakeParams lakes) {
+        this(density, sourceShare, minLength, maxLength, tributaries, lakes, 0);
+    }
+
+    /**
+     * Checks the density is positive, the share is a share, the lengths are ordered, the parts are set and the fewest
+     * tiles kept is a length a river reaches before it may branch.
+     */
     public RiverParams {
         if (!Float.isFinite(density) || density <= 0F) {
             throw new IllegalArgumentException("the river density must be finite and above 0: " + density);
@@ -31,5 +53,9 @@ public record RiverParams(float density, float sourceShare, int minLength, int m
         }
         Objects.requireNonNull(tributaries, "tributaries");
         Objects.requireNonNull(lakes, "lakes");
+        if (minKeptTiles < 0 || minKeptTiles > tributaries.minRiverLength()) {
+            throw new IllegalArgumentException("the fewest tiles kept must be from 0 to the river length before a "
+                    + "branch, so a river taken back never has a branch: " + minKeptTiles);
+        }
     }
 }

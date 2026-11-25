@@ -68,6 +68,14 @@ class RiverPassTest {
     private static final float BRANCH_HEIGHT = 0.85F;
     private static final float JOIN_HEIGHT = 0.5F;
     private static final float BEYOND_HEIGHT = 0.3F;
+    /** The column of the pit, which a river that starts left of it reaches after three tiles and cannot leave. */
+    private static final int PIT_COLUMN = 2;
+    /** The fewest tiles to keep in the tests of the stubs, more than the three tiles left of the pit. */
+    private static final int MIN_KEPT = 10;
+    /** The river length before a branch in those tests, which is also the most the fewest to keep may be. */
+    private static final int MIN_KEPT_LIMIT = 12;
+    /** The share of the land that the two highest columns of the ramp make, 24 of the 288 tiles of land. */
+    private static final float HIGHEST_TWO_COLUMNS = 0.08F;
 
     private static GenerationContext ramp(long seed) {
         final var context = TestContexts.of(MapType.RIVERS, seed, WIDTH, HEIGHT, TestContexts.FLAT);
@@ -102,6 +110,81 @@ class RiverPassTest {
 
     private static void apply(GenerationContext context, RiverParams params) {
         new RiverPass(params).apply(context);
+    }
+
+    /** The ramp with a pit across every row, so a river that starts left of it dead ends in three tiles. */
+    private static GenerationContext pitRamp(long seed) {
+        final var context = ramp(seed);
+        final var heights = context.field(NoiseField.HEIGHT);
+        for (var y = 0; y < HEIGHT; y++) {
+            heights[context.index(PIT_COLUMN, y)] = 0F;
+        }
+        return context;
+    }
+
+    /** Plain rivers of the density and source share, which keep only those of at least a number of tiles. */
+    private static RiverParams keeping(float sourceShare, float density, int minKeptTiles) {
+        return new RiverParams(density, sourceShare, LONG_MIN, LONG_MAX,
+                new TributaryParams(MIN_KEPT_LIMIT, NEVER, BRANCH_MIN, BRANCH_SPREAD),
+                new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                        TileType.SHALLOW_WATER), minKeptTiles);
+    }
+
+    /** Counts the tiles of the columns up to and including the pit that are not grass any more. */
+    private static int tilesChangedLeftOfThePit(GenerationContext context) {
+        var changed = 0;
+        for (var index = 0; index < context.size(); index++) {
+            changed += context.xOf(index) <= PIT_COLUMN && context.groundAt(index) != TileType.GRASS ? 1 : 0;
+        }
+        return changed;
+    }
+
+    /**
+     * A river that dead ends before the fewest tiles to keep is taken back whole: it leaves no river tile and no lake,
+     * and its slot goes to another source. Without the rule the rivers that start left of the pit stay, as three
+     * tiles of river with a lake around the pit.
+     */
+    @Test
+    void aRiverThatDeadEndsBeforeTheFewestTilesToKeepIsTakenBackWithItsLake() {
+        var strandedWithoutTheRule = 0;
+        for (var seed = 1L; seed <= BRANCH_SEEDS; seed++) {
+            final var kept = pitRamp(seed);
+            final var all = pitRamp(seed);
+
+            apply(kept, keeping(SOURCE_SHARE, MANY_RIVERS, MIN_KEPT));
+            apply(all, keeping(SOURCE_SHARE, MANY_RIVERS, 0));
+
+            assertEquals(0, tilesChangedLeftOfThePit(kept), "seed " + seed + " left a stub");
+            assertTrue(TestContexts.countGround(kept, TileType.RIVER) > 0, "seed " + seed + " kept a river");
+            strandedWithoutTheRule += tilesChangedLeftOfThePit(all) > 0 ? 1 : 0;
+        }
+        assertTrue(strandedWithoutTheRule > 0, "some seed starts a river left of the pit when every river stays");
+    }
+
+    /** The fewest tiles to keep halves when no river reaches it, so a map is never left without a river. */
+    @Test
+    void whenNoRiverReachesTheFewestTilesToKeepTheFewestHalvesUntilOneStays() {
+        final var context = pitRamp(SEED);
+
+        apply(context, keeping(HIGHEST_TWO_COLUMNS, ONE_RIVER, MIN_KEPT));
+
+        assertTrue(TestContexts.countGround(context, TileType.RIVER) > 0, "a river stayed");
+        assertTrue(tilesChangedLeftOfThePit(context) > 0, "the river is the one that dead ends at the pit");
+    }
+
+    @Test
+    void theFewestTilesToKeepIsFromZeroToTheRiverLengthBeforeABranch() {
+        final var tributaries = new TributaryParams(MIN_KEPT_LIMIT, NEVER, BRANCH_MIN, BRANCH_SPREAD);
+        final var lakes = new LakeParams(LAKE_SHARE, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS, LAKE_TOLERANCE,
+                TileType.SHALLOW_WATER);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new RiverParams(MANY_RIVERS, SOURCE_SHARE, SHORT_MIN, SHORT_MAX, tributaries, lakes,
+                        MIN_KEPT_LIMIT + 1));
+        assertThrows(IllegalArgumentException.class,
+                () -> new RiverParams(MANY_RIVERS, SOURCE_SHARE, SHORT_MIN, SHORT_MAX, tributaries, lakes, -1));
+        assertEquals(MIN_KEPT_LIMIT, new RiverParams(MANY_RIVERS, SOURCE_SHARE, SHORT_MIN, SHORT_MAX, tributaries,
+                lakes, MIN_KEPT_LIMIT).minKeptTiles());
     }
 
     @Test

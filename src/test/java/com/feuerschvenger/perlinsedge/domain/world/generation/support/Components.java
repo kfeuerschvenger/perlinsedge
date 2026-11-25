@@ -7,8 +7,8 @@ import java.util.Arrays;
 import java.util.function.Predicate;
 
 /**
- * The 4-connected components of the tiles of a map whose terrain a predicate selects, with the size and the bounding
- * box of each. Components are numbered from 1 in the order their first tile appears when the map is read row by row,
+ * The 4-connected components, or the 8-connected ones on request, of the tiles of a map whose terrain a predicate
+ * selects, with the size and the bounding box of each. Components are numbered from 1 in the order their first tile appears when the map is read row by row,
  * and the label 0 stands for a tile that is not selected.
  */
 public final class Components {
@@ -19,6 +19,7 @@ public final class Components {
     private static final int INITIAL_CAPACITY = 16;
     private static final int GROWTH_FACTOR = 2;
 
+    private final boolean diagonals;
     private final int width;
     private final int height;
     private final int[] labels;
@@ -29,8 +30,9 @@ public final class Components {
     private int[] minY = new int[INITIAL_CAPACITY];
     private int[] maxY = new int[INITIAL_CAPACITY];
 
-    /** Labels the components of a map with one flood fill per component. */
-    private Components(TileMap map, Predicate<TileType> selected) {
+    /** Labels the components of a map with one flood fill per component, joining the diagonal neighbours if asked. */
+    private Components(TileMap map, Predicate<TileType> selected, boolean diagonals) {
+        this.diagonals = diagonals;
         this.width = map.getWidth();
         this.height = map.getHeight();
         this.labels = new int[map.getWidth() * map.getHeight()];
@@ -52,7 +54,19 @@ public final class Components {
      * @return the components
      */
     public static Components of(TileMap map, Predicate<TileType> selected) {
-        return new Components(map, selected);
+        return new Components(map, selected, false);
+    }
+
+    /**
+     * Finds the 8-connected components of a map, which also join tiles that touch at a corner, as the tiles of a river
+     * carved along a diagonal do.
+     *
+     * @param map      the map
+     * @param selected tells which terrain belongs to a component
+     * @return the components
+     */
+    public static Components ofEightConnected(TileMap map, Predicate<TileType> selected) {
+        return new Components(map, selected, true);
     }
 
     /**
@@ -211,6 +225,12 @@ public final class Components {
             tail = visit(map, selected, queue, tail, x + 1, y);
             tail = visit(map, selected, queue, tail, x, y - 1);
             tail = visit(map, selected, queue, tail, x, y + 1);
+            if (diagonals) {
+                tail = visit(map, selected, queue, tail, x - 1, y - 1);
+                tail = visit(map, selected, queue, tail, x + 1, y - 1);
+                tail = visit(map, selected, queue, tail, x - 1, y + 1);
+                tail = visit(map, selected, queue, tail, x + 1, y + 1);
+            }
         }
     }
 

@@ -165,12 +165,26 @@ final class RecipeParts {
      * @return the pass
      */
     static RiverPass rivers(float density, TileType surface, float lakeEndpointShare) {
+        return rivers(density, surface, lakeEndpointShare, 0);
+    }
+
+    /**
+     * Builds the river pass of a map whose rivers are all real ones: a river that dead ends before a number of tiles
+     * is taken back and another source is tried.
+     *
+     * @param density           how many of the high tiles start a river
+     * @param surface           what the water of a lake is made of, shallow water or ice
+     * @param lakeEndpointShare the share of the land whose river ends may make a lake, 0 for rivers that never do
+     * @param minKeptTiles      the fewest tiles a river covers to stay, at most the river length before a branch
+     * @return the pass
+     */
+    static RiverPass rivers(float density, TileType surface, float lakeEndpointShare, int minKeptTiles) {
         final var tributaries = new TributaryParams(TRIBUTARY_MIN_RIVER_LENGTH, TRIBUTARY_CHANCE,
                 TRIBUTARY_MIN_LENGTH, TRIBUTARY_LENGTH_SPREAD);
         final var lakes = new LakeParams(lakeEndpointShare, LAKE_MIN_RADIUS, LAKE_MAX_RADIUS,
                 LAKE_DEPTH_TOLERANCE, surface);
         return new RiverPass(new RiverParams(density, RIVER_SOURCE_SHARE, RIVER_MIN_LENGTH, RIVER_MAX_LENGTH,
-                tributaries, lakes));
+                tributaries, lakes, minKeptTiles));
     }
 
     /**
