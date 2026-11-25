@@ -6,7 +6,6 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.NoiseField;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 import java.util.Objects;
-import java.util.function.IntPredicate;
 import java.util.random.RandomGenerator;
 
 /**
@@ -27,7 +26,8 @@ import java.util.random.RandomGenerator;
  * A river runs between the same position along both edges, which is how far it lies from the start of the edge as a
  * share of the edge, so on flat ground it is straight and the cost of the ground bends it. Afterwards each river
  * receives its own few short tributaries: each one runs from high land a bounded distance from that river, and far
- * from every river, to the nearest tile of that river, and never across the middle strip or another river.
+ * from every river and every tributary carved before it, to the nearest bank of that river that it can reach, and
+ * never across the middle strip or into the keep-out band of another river.
  * <p>
  * The pass runs on plain arrays and one {@link LeastCostPath} that it reuses for every search and that holds the
  * costs. It draws from one seeded stream and does nothing on a map with no land, so it repeats for a seed.
@@ -48,11 +48,16 @@ public final class RiverCrossingPass implements GenerationPass {
      */
     private static final float SEARCH_SLACK = 3F;
     /** The land within this many tiles of a carved river is closed to the rivers that follow, so rivers stay apart. */
-    private static final int BAND_RADIUS = 3;
+    public static final int BAND_RADIUS = 3;
     /** The middle of the map across the rivers costs more, so the strip of land the player starts on stays wide. */
-    private static final double CORRIDOR_START = 0.30;
-    private static final double CORRIDOR_END = 0.70;
+    public static final double CORRIDOR_START = 0.30;
+    public static final double CORRIDOR_END = 0.70;
     private static final float CORRIDOR_PENALTY = 3F;
+    /** The extra cost of a tile outside the middle strip. */
+    private static final double NO_PENALTY = 0.0;
+    /** The driest and the wettest moisture, between which the field is clamped. */
+    private static final double DRIEST = 0.0;
+    private static final double WETTEST = 1.0;
     /** The lanes along the two sides of the map, as shares of the span across the rivers. */
     private static final double FIRST_LANE_START = 0.05;
     private static final double FIRST_LANE_END = 0.30;
@@ -71,9 +76,9 @@ public final class RiverCrossingPass implements GenerationPass {
     /** Tributaries start in the highest share of the land that qualifies for the river they join. */
     private static final double TRIBUTARY_SOURCE_SHARE = 0.05;
     /** A tributary starts at least this many tiles from every river, so it is a stream of its own. */
-    private static final int TRIBUTARY_MIN_REACH = 12;
+    public static final int TRIBUTARY_MIN_REACH = 12;
     /** A tributary starts at most this many tiles from the river it joins, so it stays short. */
-    private static final int TRIBUTARY_MAX_REACH = 30;
+    public static final int TRIBUTARY_MAX_REACH = 30;
     private static final int NO_TILE = -1;
     /** The number of a tile that belongs to no river. */
     private static final int NO_RIVER = 0;
@@ -133,8 +138,16 @@ public final class RiverCrossingPass implements GenerationPass {
         private double lowest;
         private double range;
         private LeastCostPath search;
-        /** The pieces of land that are open to a river, read again after a river is carved. */
+        /** The pieces of land that are open to a river, read again after a river is carved, null before the first. */
         private Regions landmasses;
+        /** The tiles that may start a tributary, the first {@code candidates} of them filled, kept between rivers. */
+        private final int[] sources;
+        /** For each tile, its distance to the river of the owner, to the other rivers and to every river. */
+        private final int[] ownerReach;
+        private final int[] otherReach;
+        private final int[] anyReach;
+        /** The label, among the pieces of open land, of the river of the owner. */
+        private int ownerLand;
         private boolean landmassesStale = true;
         private int riverTileCount;
         /** How many rivers are carved. */
@@ -155,6 +168,10 @@ public final class RiverCrossingPass implements GenerationPass {
             this.riverTiles = new int[context.size()];
             this.riverOf = new int[context.size()];
             this.bandOf = new int[context.size()];
+            this.sources = new int[context.size()];
+            this.ownerReach = new int[context.size()];
+            this.otherReach = new int[context.size()];
+            this.anyReach = new int[context.size()];
             this.vertical = random.nextBoolean();
         }
 
@@ -201,14 +218,14 @@ public final class RiverCrossingPass implements GenerationPass {
         /** The cost of a land tile from its height as a share of the land's range, its moisture and its place. */
         private float landCost(int index) {
             final var relativeHeight = (heights[index] - lowest) / range;
-            final var wet = Math.clamp(moisture[index], 0.0, 1.0);
+            final var wet = Math.clamp(moisture[index], DRIEST, WETTEST);
             return (float) (BASE_COST + params.heightWeight() * relativeHeight
-                    + params.meanderWeight() * (1.0 - wet) + corridorPenalty(index));
+                    + params.meanderWeight() * (WETTEST - wet) + corridorPenalty(index));
         }
 
-        /** The extra cost of a tile in the middle strip across the rivers, 0 outside it. */
+        /** The extra cost of a tile in the middle strip across the rivers, nothing outside it. */
         private double corridorPenalty(int index) {
-            return inCorridor(index) ? CORRIDOR_PENALTY : 0.0;
+            return inCorridor(index) ? CORRIDOR_PENALTY : NO_PENALTY;
         }
 
         /** Tells whether a tile lies in the middle strip across the rivers. */
@@ -241,10 +258,16 @@ public final class RiverCrossingPass implements GenerationPass {
         /** Tells whether two open tiles lie on the same piece of open land, reading the pieces again when needed. */
         private boolean onTheSameLand(int first, int second) {
             if (landmassesStale) {
-                landmasses = Regions.label(width, height, this::isOpen);
-                landmassesStale = false;
+                readLandmasses();
             }
             return landmasses.labelAt(first) == landmasses.labelAt(second);
+        }
+
+        /** Reads the pieces of open land again, into the arrays of the last reading when there is one. */
+        private void readLandmasses() {
+            landmasses = landmasses == null
+                    ? Regions.label(width, height, this::isOpen) : landmasses.relabel(this::isOpen);
+            landmassesStale = false;
         }
 
         /** Cuts a river along the cheapest way between two tiles, closes the land around it and tells if it ran. */
@@ -377,14 +400,27 @@ public final class RiverCrossingPass implements GenerationPass {
                 return;
             }
             closeCorridor();
-            final var far = DistanceTransform.chebyshev(width, height, index -> riverOf[index] != NO_RIVER);
-            final var sources = new int[context.size()];
+            measureReachFromAny();
             for (var river = 1; river <= rivers; river++) {
                 owner = river;
+                measureReach();
                 reopen();
-                joinStreams(far, sources);
+                readLandmasses();
+                joinStreams();
                 closeOwnRiver();
             }
+        }
+
+        /** Measures how far every tile is from the river of the owner and from the other rivers. */
+        private void measureReach() {
+            DistanceTransform.chebyshev(width, height, index -> riverOf[index] == owner, ownerReach);
+            DistanceTransform.chebyshev(width, height,
+                    index -> riverOf[index] != NO_RIVER && riverOf[index] != owner, otherReach);
+        }
+
+        /** Measures how far every tile is from any river, once, before the first tributary is carved. */
+        private void measureReachFromAny() {
+            DistanceTransform.chebyshev(width, height, index -> riverOf[index] != NO_RIVER, anyReach);
         }
 
         /** Closes again the river of the owner, with the tributaries it just received, and the land around it. */
@@ -394,6 +430,7 @@ public final class RiverCrossingPass implements GenerationPass {
                     closeAround(riverTiles[i]);
                 }
             }
+            landmassesStale = true;
         }
 
         /** Blocks the middle strip across the rivers, so that no tributary is carved over the land of the player. */
@@ -405,64 +442,136 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
-        /** Opens the river of the owner and the land of its keep-out band, so that its tributaries can reach it. */
+        /**
+         * Opens the river of the owner and the land of its keep-out band, so that its tributaries can reach it. A tile
+         * of the band that also lies within the band of another river stays closed, because the band was claimed by
+         * the first river to reach it and a tributary there would come too close to the other one.
+         */
         private void reopen() {
             for (var index = 0; index < context.size(); index++) {
-                final var isOwnRiver = riverOf[index] == owner;
-                final var isOwnBand = bandOf[index] == owner && context.groundAt(index).isLand()
-                        && !inCorridor(index);
-                if (isOwnRiver || isOwnBand) {
+                if (riverOf[index] == owner || isOwnFreeBand(index)) {
                     search.setCost(index, landCost(index));
                 }
             }
         }
 
+        /** Tells whether a tile is land of the band of the owner, outside the middle strip and clear of other rivers. */
+        private boolean isOwnFreeBand(int index) {
+            return bandOf[index] == owner && context.groundAt(index).isLand() && !inCorridor(index)
+                    && otherReach[index] > BAND_RADIUS;
+        }
+
         /** Runs the tributaries of the owner from the highest of the tiles that may be a source for its river. */
-        private void joinStreams(int[] far, int[] sources) {
-            final var near = DistanceTransform.chebyshev(width, height, index -> riverOf[index] == owner);
-            final IntPredicate eligible = index -> isSource(far[index], near[index], index);
-            final var threshold = FieldQuantile.above(heights, eligible, TRIBUTARY_SOURCE_SHARE);
+        private void joinStreams() {
+            ownerLand = landmasses.labelAt(firstTileOfOwner());
+            final var threshold = FieldQuantile.above(heights, this::isSource, TRIBUTARY_SOURCE_SHARE);
             var candidates = 0;
             for (var index = 0; index < heights.length; index++) {
-                if (heights[index] >= threshold && eligible.test(index)) {
+                if (heights[index] >= threshold && isSource(index)) {
                     sources[candidates] = index;
                     candidates++;
                 }
             }
-            for (var stream = 0; stream < params.tributariesPerRiver() && candidates > 0; stream++) {
-                join(sources[random.nextInt(candidates)]);
+            var joined = 0;
+            while (joined < params.tributariesPerRiver() && candidates > 0) {
+                final var pick = random.nextInt(candidates);
+                final var source = sources[pick];
+                candidates--;
+                sources[pick] = sources[candidates];
+                joined += joinFrom(source) ? 1 : 0;
+            }
+        }
+
+        /** Returns the first tile carved for the owner, which is a tile of its river whatever happens after it. */
+        private int firstTileOfOwner() {
+            var position = 0;
+            while (riverOf[riverTiles[position]] != owner) {
+                position++;
+            }
+            return riverTiles[position];
+        }
+
+        /**
+         * Tells whether a tile may start a tributary of the owner: open to it and on the same piece of open land as
+         * its river, so a way exists, at least the minimum reach from every river and at most the maximum reach from
+         * the owner's river.
+         */
+        private boolean isSource(int index) {
+            return anyReach[index] >= TRIBUTARY_MIN_REACH && ownerReach[index] <= TRIBUTARY_MAX_REACH
+                    && isOpen(index) && landmasses.labelAt(index) == ownerLand;
+        }
+
+        /**
+         * Runs a stream from a source tile to the nearest bank of the owner's river along the cheapest way, when the
+         * tile is still a source after the streams carved before it, and tells whether it ran.
+         */
+        private boolean joinFrom(int source) {
+            if (!isSource(source)) {
+                return false;
+            }
+            final var goal = nearestBank(source);
+            final var length = goal == NO_TILE ? LeastCostPath.NOT_FOUND : search.find(source, goal, path);
+            if (length == LeastCostPath.NOT_FOUND) {
+                return false;
+            }
+            final var before = riverTileCount;
+            Carve.path(width, height, path, length, Carve.MIN_STROKE, this::carve);
+            for (var position = before; position < riverTileCount; position++) {
+                lowerReachAround(riverTiles[position]);
+            }
+            return true;
+        }
+
+        /**
+         * Brings the distance to any river up to date for a tile just carved, in the square within the minimum reach
+         * around it, which is as far as the distance matters to the sources.
+         */
+        private void lowerReachAround(int tile) {
+            final var x = tile % width;
+            final var y = tile / width;
+            final var lastY = Math.min(height - 1, y + TRIBUTARY_MIN_REACH);
+            final var lastX = Math.min(width - 1, x + TRIBUTARY_MIN_REACH);
+            for (var ny = Math.max(0, y - TRIBUTARY_MIN_REACH); ny <= lastY; ny++) {
+                for (var nx = Math.max(0, x - TRIBUTARY_MIN_REACH); nx <= lastX; nx++) {
+                    final var index = ny * width + nx;
+                    anyReach[index] = Math.min(anyReach[index], Math.max(Math.abs(nx - x), Math.abs(ny - y)));
+                }
             }
         }
 
         /**
-         * Tells whether a tile may start a tributary of the owner: open to it, at least the minimum reach from every
-         * river and at most the maximum reach from the owner's river.
+         * Returns the tile of the owner's river nearest to a tile, as the crow flies, among the banks: the tiles of
+         * that river with open ground of another kind beside them, which a stream can reach. A tile of the river in the
+         * closed middle strip, or one surrounded by the rest of the river, is no bank.
          */
-        private boolean isSource(int reachFromAny, int reachFromOwner, int index) {
-            return reachFromAny >= TRIBUTARY_MIN_REACH && reachFromOwner <= TRIBUTARY_MAX_REACH && isOpen(index);
-        }
-
-        /** Runs a stream from a source tile to the nearest tile of the owner's river along the cheapest way. */
-        private void join(int source) {
-            final var goal = nearestRiverTile(source);
-            final var length = search.find(source, goal, path);
-            if (length != LeastCostPath.NOT_FOUND) {
-                Carve.path(width, height, path, length, Carve.MIN_STROKE, this::carve);
-            }
-        }
-
-        /** Returns the tile of the owner's river nearest to a tile, as the crow flies. */
-        private int nearestRiverTile(int source) {
+        private int nearestBank(int source) {
             var nearest = NO_TILE;
             var nearestDistance = Long.MAX_VALUE;
             for (var i = 0; i < riverTileCount; i++) {
-                final var distance = squaredDistance(source, riverTiles[i]);
-                if (riverOf[riverTiles[i]] == owner && distance < nearestDistance) {
-                    nearest = riverTiles[i];
-                    nearestDistance = distance;
+                final var tile = riverTiles[i];
+                if (riverOf[tile] == owner && squaredDistance(source, tile) < nearestDistance && isBank(tile)) {
+                    nearest = tile;
+                    nearestDistance = squaredDistance(source, tile);
                 }
             }
             return nearest;
+        }
+
+        /** Tells whether a tile has beside it, in any of the eight directions, an open tile of no river of the owner. */
+        private boolean isBank(int tile) {
+            final var x = tile % width;
+            final var y = tile / width;
+            final var lastY = Math.min(height - 1, y + 1);
+            final var lastX = Math.min(width - 1, x + 1);
+            for (var ny = Math.max(0, y - 1); ny <= lastY; ny++) {
+                for (var nx = Math.max(0, x - 1); nx <= lastX; nx++) {
+                    final var neighbour = ny * width + nx;
+                    if (isOpen(neighbour) && riverOf[neighbour] != owner) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
     }
 }

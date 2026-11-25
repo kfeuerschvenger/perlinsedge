@@ -17,12 +17,18 @@ final class Regions {
     private static final int INITIAL_SIZES = 16;
     private static final int GROWTH_FACTOR = 2;
 
+    private final int width;
+    private final int height;
     private final int[] labels;
+    private final int[] queue;
     private final int[] sizes;
     private final int largest;
 
-    private Regions(int[] labels, int[] sizes, int largest) {
+    private Regions(int width, int height, int[] labels, int[] queue, int[] sizes, int largest) {
+        this.width = width;
+        this.height = height;
         this.labels = labels;
+        this.queue = queue;
         this.sizes = sizes;
         this.largest = largest;
     }
@@ -42,7 +48,21 @@ final class Regions {
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("the grid needs at least one tile: " + width + "x" + height);
         }
-        return new Fill(width, height, mask).run();
+        return new Fill(width, height, mask, new int[width * height], new int[width * height]).run();
+    }
+
+    /**
+     * Labels the regions of the same grid again for another mask, reusing the arrays of these regions instead of
+     * allocating new ones, so a pass that labels the grid many times creates no array for each one. These regions are
+     * overwritten: their labels now describe the new regions, so a caller keeps only the result.
+     *
+     * @param mask the tiles that belong to a region, which must answer the same every time it is asked
+     * @return the new regions, which share the label array with these
+     */
+    Regions relabel(IntPredicate mask) {
+        Objects.requireNonNull(mask, "mask");
+        Arrays.fill(labels, NO_LABEL);
+        return new Fill(width, height, mask, labels, queue).run();
     }
 
     /**
@@ -100,12 +120,12 @@ final class Regions {
         private int count;
         private int largest = NO_LABEL;
 
-        private Fill(int width, int height, IntPredicate mask) {
+        private Fill(int width, int height, IntPredicate mask, int[] labels, int[] queue) {
             this.width = width;
             this.height = height;
             this.mask = mask;
-            this.labels = new int[width * height];
-            this.queue = new int[width * height];
+            this.labels = labels;
+            this.queue = queue;
         }
 
         private Regions run() {
@@ -114,7 +134,7 @@ final class Regions {
                     open(index);
                 }
             }
-            return new Regions(labels, Arrays.copyOf(sizes, count + 1), largest);
+            return new Regions(width, height, labels, queue, Arrays.copyOf(sizes, count + 1), largest);
         }
 
         /** Starts the next region at a tile, fills it and keeps the largest so far. */

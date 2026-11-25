@@ -8,6 +8,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,8 +26,8 @@ class RiverCrossingPassTest {
     private static final int WIDE_SIDE = 120;
     private static final int TOO_SMALL = 24;
     private static final int MIN_SPAN = 32;
-    /** The closest two rivers may come: the keep-out band is three tiles and a stroke adds one. */
-    private static final int KEEP_OUT = 3;
+    /** The closest two rivers may come: the keep-out band of the pass, of which a stroke may take one tile. */
+    private static final int KEEP_OUT = RiverCrossingPass.BAND_RADIUS;
     private static final int MIN_VALLEY_TILES = 40;
     /** A line between the two slots of the first lane, which both rivers of that lane would like to follow. */
     private static final int SHARED_VALLEY = 10;
@@ -50,9 +52,12 @@ class RiverCrossingPassTest {
     private static final int POND_HALF = 5;
     /** The rows of water along every edge in the test of a map whose edges hold no land: deeper than a river looks. */
     private static final int WATER_RIM = 12;
-    /** The middle strip across the rivers, in which no river runs. */
+    /** The middle of the strip across the rivers, which no river crosses even when it may enter the strip's edges. */
     private static final double STRIP_START = 0.35;
     private static final double STRIP_END = 0.65;
+    /** The tributaries to a river in the tests of the tributaries, and the seeds those tests run over. */
+    private static final int TRIBUTARIES = 3;
+    private static final long SEEDS = 5L;
     private static final int TILES_150 = 150 * 150;
     private static final int TILES_300 = 300 * 300;
     private static final int TILES_HUGE = 1_000 * 1_000;
@@ -135,20 +140,48 @@ class RiverCrossingPassTest {
         return riverTouchesColumn(probe, 0);
     }
 
-    /** Returns the smallest Chebyshev distance between a tile of the first river and one of the second. */
+    /** Returns the smallest Chebyshev distance between a tile of one river and a tile of another river. */
     private static int distanceBetweenRivers(GenerationContext context) {
         final var labels = Regions.label(context.width(), context.height(), index -> isRiver(context, index));
         var closest = Integer.MAX_VALUE;
-        for (var first = 0; first < context.size(); first++) {
-            for (var second = first + 1; second < context.size(); second++) {
-                if (labels.labelAt(first) != labels.labelAt(second) && labels.labelAt(first) != Regions.NO_LABEL
-                        && labels.labelAt(second) != Regions.NO_LABEL) {
-                    closest = Math.min(closest, Math.max(Math.abs(context.xOf(first) - context.xOf(second)),
-                            Math.abs(context.yOf(first) - context.yOf(second))));
-                }
+        for (var label = 1; label <= labels.count(); label++) {
+            final var own = label;
+            final var reach = DistanceTransform.chebyshev(context.width(), context.height(),
+                    index -> labels.labelAt(index) == own);
+            for (var index = 0; index < context.size(); index++) {
+                final var other = labels.labelAt(index) != Regions.NO_LABEL && labels.labelAt(index) != own;
+                closest = other ? Math.min(closest, reach[index]) : closest;
             }
         }
         return closest;
+    }
+
+    /** Returns the labels of the rivers that have a tile at most one tile from a tile, the tile's own label included. */
+    private static Set<Integer> riversBeside(GenerationContext context, Regions rivers, int tile) {
+        final var beside = new HashSet<Integer>();
+        for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+                final var x = context.xOf(tile) + dx;
+                final var y = context.yOf(tile) + dy;
+                if (isOnGrid(context, x, y) && rivers.labelAt(context.index(x, y)) != Regions.NO_LABEL) {
+                    beside.add(rivers.labelAt(context.index(x, y)));
+                }
+            }
+        }
+        return beside;
+    }
+
+    /** Tells whether a column and a row lie on the grid of the context. */
+    private static boolean isOnGrid(GenerationContext context, int x, int y) {
+        return x >= 0 && y >= 0 && x < context.width() && y < context.height();
+    }
+
+    /** Tells whether a tile of a river lies in the closed middle strip, with the bounds of the pass. */
+    private static boolean inTheStrip(GenerationContext context, boolean leftToRight, int index) {
+        final var along = leftToRight ? context.yOf(index) : context.xOf(index);
+        final var span = leftToRight ? context.height() : context.width();
+        final var share = along / (double) (span - 1);
+        return share >= RiverCrossingPass.CORRIDOR_START && share <= RiverCrossingPass.CORRIDOR_END;
     }
 
     /** Returns the number of river tiles of each component, from the first component on. */
@@ -158,7 +191,12 @@ class RiverCrossingPassTest {
 
     /** Grass wide enough for a tributary, whose height grows towards the far corner so the land has high places. */
     private static GenerationContext highEastGrass() {
-        final var context = grass(WIDE_SIDE, SEED);
+        return highEastGrass(SEED);
+    }
+
+    /** The same grass for a seed, which decides the direction of the rivers and where they run. */
+    private static GenerationContext highEastGrass(long seed) {
+        final var context = grass(WIDE_SIDE, seed);
         final var heights = context.field(NoiseField.HEIGHT);
         for (var index = 0; index < heights.length; index++) {
             heights[index] = (context.xOf(index) + context.yOf(index)) / (float) (TWO * WIDE_SIDE);
@@ -279,9 +317,55 @@ class RiverCrossingPassTest {
         final var leftToRight = riverTouchesColumn(with, 0);
         for (var index = 0; index < with.size(); index++) {
             if (isRiver(with, index) && !isRiver(without, index)) {
-                final var along = leftToRight ? with.yOf(index) : with.xOf(index);
-                final var share = along / (double) (WIDE_SIDE - 1);
-                assertFalse(share > STRIP_START && share < STRIP_END, "a tributary tile at " + index);
+                assertFalse(inTheStrip(with, leftToRight, index), "a tributary tile at " + index);
+            }
+        }
+    }
+
+    /** Tributaries are carved clear of every other river, so the rivers of a map keep their distance with them. */
+    @Test
+    void tributariesNeverComeWithinTheKeepOutBandOfAnotherRiver() {
+        for (var seed = 1L; seed <= SEEDS; seed++) {
+            final var context = highEastGrass(seed);
+
+            apply(context, rivers(TWO, NONE, NONE, TRIBUTARIES));
+
+            assertEquals(TWO, riverComponents(context), "seed " + seed);
+            assertTrue(distanceBetweenRivers(context) >= KEEP_OUT,
+                    "seed " + seed + ": rivers come within " + distanceBetweenRivers(context));
+        }
+    }
+
+    /**
+     * Every tributary touches one river and only one, the one it belongs to, and its far end is at least the minimum
+     * reach from the rivers and at most the maximum reach from that river.
+     */
+    @Test
+    void everyTributaryJoinsOneRiverAndStartsBetweenTheMinimumAndTheMaximumReach() {
+        for (var seed = 1L; seed <= SEEDS; seed++) {
+            final var without = highEastGrass(seed);
+            final var with = highEastGrass(seed);
+            apply(without, rivers(TWO, NONE, NONE, NO_TRIBUTARIES));
+            apply(with, rivers(TWO, NONE, NONE, TRIBUTARIES));
+            final var rivers = Regions.label(WIDE_SIDE, WIDE_SIDE, index -> isRiver(without, index));
+            final var reach = DistanceTransform.chebyshev(WIDE_SIDE, WIDE_SIDE, index -> isRiver(without, index));
+            final var streams = Regions.label(WIDE_SIDE, WIDE_SIDE,
+                    index -> isRiver(with, index) && !isRiver(without, index));
+
+            assertTrue(streams.count() >= TWO, "seed " + seed + ": " + streams.count() + " streams");
+            for (var stream = 1; stream <= streams.count(); stream++) {
+                var farthest = 0;
+                final var joined = new HashSet<Integer>();
+                for (var index = 0; index < with.size(); index++) {
+                    if (streams.labelAt(index) == stream) {
+                        farthest = Math.max(farthest, reach[index]);
+                        joined.addAll(riversBeside(with, rivers, index));
+                    }
+                }
+                final var label = "seed " + seed + " stream " + stream;
+                assertEquals(1, joined.size(), label + " joins " + joined);
+                assertTrue(farthest >= RiverCrossingPass.TRIBUTARY_MIN_REACH, label + " ends at " + farthest);
+                assertTrue(farthest <= RiverCrossingPass.TRIBUTARY_MAX_REACH, label + " ends at " + farthest);
             }
         }
     }

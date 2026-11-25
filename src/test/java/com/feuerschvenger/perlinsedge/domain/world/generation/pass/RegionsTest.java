@@ -37,6 +37,21 @@ class RegionsTest {
         assertEquals(Regions.NO_LABEL, regions.labelAt(2));
     }
 
+    /** Labelling again for another mask gives what a fresh labelling gives, with no label left from the first mask. */
+    @Test
+    void relabellingReusesTheArraysAndLeavesNothingOfTheFirstMask() {
+        final var cells = String.join("", "##.#", "#..#", "..#.");
+        final var first = regionsOf("##.#", "#..#", "..#.");
+        final var fresh = regionsOf("..#.", ".##.", "##.#");
+
+        final var second = first.relabel(index -> cells.charAt(index) != SELECTED);
+
+        assertEquals(fresh.count(), second.count());
+        assertArrayEquals(fresh.sizes(), second.sizes());
+        assertEquals(Regions.NO_LABEL, second.labelAt(0));
+        assertEquals(1, second.labelAt(2));
+    }
+
     @Test
     void theLastTileOfARowIsNotJoinedToTheFirstTileOfTheNext() {
         final var regions = regionsOf(

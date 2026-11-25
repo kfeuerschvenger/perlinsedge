@@ -26,6 +26,8 @@ final class LeastCostPath {
     /** What {@link #find(int, int, int[])} returns when it writes no path. */
     public static final int NOT_FOUND = -1;
 
+    /** The heuristic weight of an exact search, below which the heuristic is no longer allowed. */
+    private static final float EXACT_WEIGHT = 1F;
     private static final int NO_PARENT = -1;
     private static final double DIAGONAL = Math.sqrt(2.0);
     private static final int[] STEP_X = {-1, 0, 1, -1, 1, -1, 0, 1};
@@ -57,7 +59,7 @@ final class LeastCostPath {
      *                                  finite, or a cost is NaN or below the lowest cost
      */
     LeastCostPath(int width, int height, float[] cost, float minCost) {
-        this(width, height, cost, minCost, 1F);
+        this(width, height, cost, minCost, EXACT_WEIGHT);
     }
 
     /**
@@ -77,7 +79,7 @@ final class LeastCostPath {
      */
     LeastCostPath(int width, int height, float[] cost, float minCost, float heuristicWeight) {
         Objects.requireNonNull(cost, "cost");
-        if (!Float.isFinite(heuristicWeight) || heuristicWeight < 1F) {
+        if (!Float.isFinite(heuristicWeight) || heuristicWeight < EXACT_WEIGHT) {
             throw new IllegalArgumentException("the heuristic weight must be finite and at least 1: "
                     + heuristicWeight);
         }
