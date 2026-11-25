@@ -305,6 +305,30 @@ class LeastCostPathTest {
     }
 
     @Test
+    void aCostSetOnTheSearcherChangesTheLaterSearches() {
+        final var cost = costs("...", "...", "...");
+        final var path = new int[cost.length];
+        final var search = new LeastCostPath(3, 3, cost, 1F);
+        search.find(0, 2, path);
+        assertEquals(1, path[1]);
+
+        search.setCost(1, Float.POSITIVE_INFINITY);
+        final var length = search.find(0, 2, path);
+
+        assertTrue(length > 0);
+        assertNotEquals(1, path[1]);
+    }
+
+    @Test
+    void aCostThatCouldBreakTheHeuristicIsRefused() {
+        final var search = new LeastCostPath(3, 3, costs("...", "...", "..."), 1F);
+
+        assertThrows(IllegalArgumentException.class, () -> search.setCost(0, CHEAPER_THAN_LOWEST));
+        assertThrows(IllegalArgumentException.class, () -> search.setCost(0, Float.NaN));
+        assertThrows(IndexOutOfBoundsException.class, () -> search.setCost(9, 1F));
+    }
+
+    @Test
     void aNewSearcherSeesTheChangedCosts() {
         final var cost = costs("...", "...", "...");
         final var path = new int[cost.length];

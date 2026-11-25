@@ -15,6 +15,8 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.pass.NoiseFieldsPa
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceBalancePass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.ResourceQuota;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverCrossingParams;
+import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverCrossingPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RiverPass;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourceParams;
 import com.feuerschvenger.perlinsedge.domain.world.generation.pass.RockResourcePass;
@@ -158,6 +160,23 @@ final class RecipeParts {
     }
 
     /**
+     * Builds the pass that cuts rivers across the whole map from one edge to the opposite one.
+     *
+     * @param riversPer100k      how many rivers there are for every 100,000 tiles of map
+     * @param minRivers          the fewest rivers a map has
+     * @param maxRivers          the most rivers a map has
+     * @param heightWeight       how much a river avoids high ground
+     * @param meanderWeight      how much a river avoids dry ground
+     * @param tributariesPerRiver how many short streams join each river
+     * @return the pass
+     */
+    static RiverCrossingPass riverCrossing(int riversPer100k, int minRivers, int maxRivers, float heightWeight,
+                                           float meanderWeight, int tributariesPerRiver) {
+        return new RiverCrossingPass(new RiverCrossingParams(riversPer100k, minRivers, maxRivers, heightWeight,
+                meanderWeight, tributariesPerRiver));
+    }
+
+    /**
      * Builds the pass that keeps a map to a few bodies of water.
      *
      * @param keepPer100k  how many of the largest bodies stay for every 100,000 tiles of map
@@ -282,7 +301,19 @@ final class RecipeParts {
      * @return the pass
      */
     static VegetationPass vegetation(float density) {
-        return new VegetationPass(new VegetationParams(density));
+        return new VegetationPass(new VegetationParams(density, 0, 0F));
+    }
+
+    /**
+     * Builds the pass that grows trees thicker along the rivers.
+     *
+     * @param density    how thickly the trees grow away from the water
+     * @param waterReach how many tiles from a river the trees grow thicker
+     * @param waterBonus how much thicker, as a share of the tree noise range
+     * @return the pass
+     */
+    static VegetationPass vegetationNearWater(float density, int waterReach, float waterBonus) {
+        return new VegetationPass(new VegetationParams(density, waterReach, waterBonus));
     }
 
     /**

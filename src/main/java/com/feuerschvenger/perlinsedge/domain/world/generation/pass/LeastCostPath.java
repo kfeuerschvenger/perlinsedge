@@ -14,8 +14,9 @@ import java.util.Objects;
  * has settled.
  * <p>
  * One instance serves many searches over the cost array it was built with. The instance keeps its own copy of that
- * array, so a caller that goes on writing to the array it passed does not change the searches, and a new cost layout
- * needs a new instance. The arrays that a search fills are never cleared: each carries a run number, and a tile whose
+ * array, so a caller that goes on writing to the array it passed does not change the searches; a caller that wants
+ * later searches to see a new cost, such as a penalty around a path it just carved, says so with
+ * {@link #setCost(int, float)}. The arrays that a search fills are never cleared: each carries a run number, and a tile whose
  * number differs from the current run counts as untouched.
  */
 final class LeastCostPath {
@@ -117,6 +118,25 @@ final class LeastCostPath {
             expand(node);
         }
         return NOT_FOUND;
+    }
+
+    /**
+     * Changes the cost of entering a tile for the searches that follow. The new cost obeys the rules of the
+     * constructor, so the heuristic stays valid: it is not NaN and not below the lowest cost, and it may be
+     * {@link Float#POSITIVE_INFINITY} to block the tile.
+     *
+     * @param index the tile
+     * @param value the new cost
+     * @throws IndexOutOfBoundsException when the tile is outside the grid
+     * @throws IllegalArgumentException  when the cost is NaN or below the lowest cost
+     */
+    void setCost(int index, float value) {
+        Objects.checkIndex(index, cost.length);
+        if (Float.isNaN(value) || value < minCost) {
+            throw new IllegalArgumentException(
+                    "the cost " + value + " of tile " + index + " is NaN or below the lowest cost " + minCost);
+        }
+        cost[index] = value;
     }
 
     private boolean isBlocked(int index) {

@@ -20,6 +20,9 @@ class VegetationPassTest {
     private static final float FULL = 1F;
     private static final float NONE = 0F;
     private static final float OVER = 1.1F;
+    private static final int REACH = 2;
+    /** Drops the threshold from 0.7 to 0.5, below the sparse noise of 0.6. */
+    private static final float BONUS = 0.2F;
 
     private static GenerationContext map(TileType ground, float treeNoise) {
         final var context = TestContexts.of(SIDE, SIDE);
@@ -29,7 +32,7 @@ class VegetationPassTest {
     }
 
     private static void apply(GenerationContext context, float density) {
-        new VegetationPass(new VegetationParams(density)).apply(context);
+        new VegetationPass(new VegetationParams(density, 0, NONE)).apply(context);
     }
 
     @Test
@@ -91,10 +94,41 @@ class VegetationPassTest {
     }
 
     @Test
+    void treesGrowThickerWithinReachOfARiverAndAreUnchangedBeyondIt() {
+        final var context = map(TileType.GRASS, SPARSE_NOISE);
+        for (var y = 0; y < SIDE; y++) {
+            context.setGround(context.index(0, y), TileType.RIVER);
+        }
+
+        new VegetationPass(new VegetationParams(DENSITY, REACH, BONUS)).apply(context);
+
+        for (var y = 0; y < SIDE; y++) {
+            for (var x = 1; x < SIDE; x++) {
+                final var expected = x <= REACH ? ResourceType.TREE : null;
+                assertEquals(expected, context.resourceAt(context.index(x, y)), "tile " + x + "," + y);
+            }
+        }
+    }
+
+    @Test
+    void aWaterReachOfZeroTurnsTheBonusOff() {
+        final var context = map(TileType.GRASS, SPARSE_NOISE);
+        context.setGround(context.index(0, 0), TileType.RIVER);
+
+        new VegetationPass(new VegetationParams(DENSITY, 0, BONUS)).apply(context);
+
+        assertEquals(0, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    @Test
     void theParametersRefuseADensityThatIsNotAShare() {
-        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(-DENSITY));
-        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(OVER));
-        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(-DENSITY, 0, NONE));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(OVER, 0, NONE));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(Float.NaN, 0, NONE));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(DENSITY, -1, NONE));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(DENSITY, 1, OVER));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(DENSITY, 1, -DENSITY));
+        assertThrows(IllegalArgumentException.class, () -> new VegetationParams(DENSITY, 1, Float.NaN));
         assertThrows(NullPointerException.class, () -> new VegetationPass(null));
     }
 }

@@ -65,7 +65,8 @@ public final class MapInvariants {
                 MapInvariants::theSpawnIsInTheLargestRegion, MapInvariants::noResourceOnWaterOrIce,
                 MapInvariants::oreLiesOnRockyGroundOnly, MapInvariants::resourcesMeetTheirQuotas,
                 MapInvariants::rockyGroundExists, MapInvariants::forestFloorFollowsTheTrees,
-                MapInvariants::mostLandIsOpen, deterministic(source));
+                MapInvariants::mostLandIsOpen, WaterInvariants::theSpawnRegionHoldsMostOfTheLand,
+                deterministic(source));
     }
 
     /**
@@ -83,6 +84,8 @@ public final class MapInvariants {
         byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand, MapInvariants::rockIsExposed,
                 WaterInvariants::desertHasFewWaterBodies, WaterInvariants::desertHasRareOases));
         byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
+        byType.put(MapType.RIVERS, List.of(WaterInvariants::riversAreFewLongAndConnected,
+                WaterInvariants::riversMapKeepsItsWaterInTheRivers, WaterInvariants::theForestGrowsAlongTheRivers));
         byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
         byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist));
         return Collections.unmodifiableMap(byType);

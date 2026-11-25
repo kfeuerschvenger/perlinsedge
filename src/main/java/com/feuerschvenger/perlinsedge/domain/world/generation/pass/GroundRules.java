@@ -52,9 +52,10 @@ public final class GroundRules {
     /** The ground between the frozen coast and the inland is snow below this temperature. */
     private static final float TUNDRA_TRANSITION_SNOW_TEMPERATURE = 0.45F;
 
-    // Rivers: deep sea only at the bottom, swamp in the wet lowland
+    // Rivers: deep sea only at the bottom, a thin sand beach, swamp in the wet lowland
     private static final float RIVERS_DEEP = -0.6F;
     private static final float RIVERS_SHALLOW = -0.5F;
+    private static final float RIVERS_BEACH = -0.03F;
     private static final float RIVERS_SWAMP_MAX_HEIGHT = 0.3F;
 
     // Mediterranean: a sandy shore and grass up to the rocky ground
@@ -91,7 +92,7 @@ public final class GroundRules {
     public static final GroundRule TUNDRA = new GroundRule(TEMPERATURE_ONLY,
             (float height, float temperature, float moisture) -> tundra(height, temperature));
 
-    /** Deep sea only at the very bottom, sand, wet swamp lowland and grass. Reads the moisture. */
+    /** Deep sea only at the very bottom, a thin sand beach, wet swamp lowland and grass. Reads the moisture. */
     public static final GroundRule RIVERS = new GroundRule(MOISTURE_ONLY,
             (float height, float temperature, float moisture) -> rivers(height, moisture));
 
@@ -174,7 +175,8 @@ public final class GroundRules {
     }
 
     /**
-     * The rivers map: deep sea only at the bottom, sand to the coast, swamp in the wet lowland and grass.
+     * The rivers map: deep sea only at the bottom, grass up to a thin beach of sand at the coast, swamp in the wet
+     * lowland and grass.
      */
     private static TileType rivers(float height, float moisture) {
         if (height < RIVERS_DEEP) {
@@ -182,6 +184,9 @@ public final class GroundRules {
         }
         if (height < RIVERS_SHALLOW) {
             return TileType.SHALLOW_WATER;
+        }
+        if (height < RIVERS_BEACH) {
+            return TileType.GRASS;
         }
         if (height < COAST_LEVEL) {
             return TileType.SAND;
