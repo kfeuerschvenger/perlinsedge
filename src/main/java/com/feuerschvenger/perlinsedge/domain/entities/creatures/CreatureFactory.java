@@ -7,9 +7,13 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 /**
  * Factory of creatures: it builds the class that goes with a species and wires its strategies, so no caller calls a
  * species constructor directly and a new species is one more case here. The switch has no default, so the compiler
- * refuses a species that nobody builds.
+ * refuses a species that nobody builds. The factory holds no state, so it is used through its static method.
  */
 public final class CreatureFactory {
+
+    private CreatureFactory() {
+        // Static factory
+    }
 
     /**
      * Builds a creature of a species on a tile.
@@ -19,7 +23,7 @@ public final class CreatureFactory {
      * @param tileY   tile row it starts on
      * @return a new creature, with the strategies of its species
      */
-    public Creature create(Species species, int tileX, int tileY) {
+    public static Creature create(Species species, int tileX, int tileY) {
         return switch (species) {
             case SLIME -> new Slime(tileX, tileY);
             case SKELETON -> new Skeleton(tileX, tileY);

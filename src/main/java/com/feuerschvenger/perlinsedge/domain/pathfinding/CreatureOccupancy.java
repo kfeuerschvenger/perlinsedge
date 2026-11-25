@@ -323,6 +323,7 @@ public final class CreatureOccupancy {
         return owners.size();
     }
 
+    /** Gives the claim of a creature, creating an empty one the first time the creature is seen. */
     private Claim claimOf(Creature creature) {
         var claim = claims.get(creature);
         if (claim == null) {
@@ -343,6 +344,7 @@ public final class CreatureOccupancy {
         return owner == creature;
     }
 
+    /** Lets go of a tile, only when the given creature is the one that holds it. */
     private void unhold(int x, int y, Creature creature) {
         owners.remove(key(x, y), creature);
     }

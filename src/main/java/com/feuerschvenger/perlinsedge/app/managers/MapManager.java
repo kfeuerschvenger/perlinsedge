@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 /**
- * Manages map generation, configuration, and enemy spawning.
+ * Manages map generation, configuration, and creature spawning.
  * Handles map creation based on configuration parameters and player position.
  */
 @Slf4j
@@ -42,9 +42,6 @@ public class MapManager {
     private final MapGenerator mapGenerator;
     /** Draws the candidate tiles of the creature spawn search. */
     private final Random random = new Random();
-    /** Builds the creatures that are spawned. */
-    private final CreatureFactory creatureFactory = new CreatureFactory();
-
     // State
     @Getter
     private MapRequest currentRequest;
@@ -94,7 +91,7 @@ public class MapManager {
 
     /**
      * Stores a generated map and clears the entities and the hit times of the resources that belonged to the previous
-     * one. Enemies are not spawned here: the caller spawns them once the player has a position on the new map, which
+     * one. Creatures are not spawned here: the caller spawns them once the player has a position on the new map, which
      * keeps them from being placed twice and from landing next to the player.
      */
     private void install(TileMap newMap, long seed) {
@@ -138,7 +135,7 @@ public class MapManager {
         for (var i = 0; i < count; i++) {
             int[] position = findSafePosition(playerPosition, map, taken);
             if (position.length > 0) {
-                final var creature = creatureFactory.create(species, position[0], position[1]);
+                final var creature = CreatureFactory.create(species, position[0], position[1]);
                 taken.sync(creature);
                 creatures.add(creature);
             } else {
@@ -152,7 +149,7 @@ public class MapManager {
      * - Walkable terrain
      * - Distance from player
      * - Sufficient adjacent walkable tiles
-     * - A tile no other enemy holds
+     * - A tile no other creature holds
      *
      * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
@@ -224,16 +221,16 @@ public class MapManager {
         log.debug("Generation pass {} took {} us", pass, TimeUnit.NANOSECONDS.toMicros(nanos));
     }
 
-    private void logSpawnAttempt(String enemyType, int count) {
-        log.debug("Attempting to spawn {} {} enemies", count, enemyType);
+    private void logSpawnAttempt(String speciesName, int count) {
+        log.debug("Attempting to spawn {} {} creatures", count, speciesName);
     }
 
-    private void logSpawnFailure(String enemyType, int index) {
-        log.debug("Failed to find position for {} #{}", enemyType, index + 1);
+    private void logSpawnFailure(String speciesName, int index) {
+        log.debug("Failed to find position for {} #{}", speciesName, index + 1);
     }
 
     private void logSpawnSummary(int total) {
-        log.debug("Spawned {} total enemies", total);
+        log.debug("Spawned {} total creatures", total);
     }
 
 }
