@@ -164,7 +164,7 @@ public final class RiverPass implements GenerationPass {
             carve(river, covered);
         }
 
-        /** Tells whether the river being traced may enter a tile: a tile that is not water, or one of its own branch. */
+        /** Tells whether the river being traced may enter a tile: one that is not water, or one of its own branch. */
         private boolean isOpenTo(int index) {
             return isOwnBranch(index) || !isWater(index);
         }

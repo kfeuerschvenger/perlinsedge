@@ -101,7 +101,8 @@ class GroundRulesTest {
             "-0.65, 0.5, DEEP_WATER", "-0.55, 0.5, SHALLOW_WATER", "-0.3, 0.5, GRASS", "-0.1, 0.5, GRASS",
             "-0.05, 0.5, GRASS", "-0.02, 0.5, SAND", "-0.01, 0.9, SAND", "0.1, 0.9, SWAMP",
             "0.1, 0.1, GRASS", "0.35, 0.9, GRASS", "0.25, 0.1, GRASS", "0.9, 0.1, GRASS"})
-    void riversKeepDeepWaterForTheBottomAThinBeachAndSwampForTheWetLowland(float height, float moisture, TileType expected) {
+    void riversKeepDeepWaterForTheBottomAThinBeachAndSwampForTheWetLowland(float height, float moisture,
+                                                                           TileType expected) {
         assertEquals(expected, GroundRules.RIVERS.classify(height, ANY, moisture));
     }
 

@@ -16,8 +16,8 @@ import java.util.Objects;
  * One instance serves many searches over the cost array it was built with. The instance keeps its own copy of that
  * array, so a caller that goes on writing to the array it passed does not change the searches; a caller that wants
  * later searches to see a new cost, such as a penalty around a path it just carved, says so with
- * {@link #setCost(int, float)}. The arrays that a search fills are never cleared: each carries a run number, and a tile whose
- * number differs from the current run counts as untouched.
+ * {@link #setCost(int, float)}. The arrays that a search fills are never cleared: each carries a run number, and a
+ * tile whose number differs from the current run counts as untouched.
  */
 final class LeastCostPath {
 

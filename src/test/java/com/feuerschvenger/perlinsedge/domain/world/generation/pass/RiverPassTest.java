@@ -249,7 +249,8 @@ class RiverPassTest {
 
     @Test
     void aRiverNeverStepsOntoTheTilesOfItsOwnBranch() {
-        final var context = TestContexts.of(MapType.RIVERS, FUNNEL_SEED, FUNNEL_WIDTH, FUNNEL_HEIGHT, TestContexts.FLAT);
+        final var context = TestContexts.of(MapType.RIVERS, FUNNEL_SEED, FUNNEL_WIDTH, FUNNEL_HEIGHT,
+                TestContexts.FLAT);
         final var heights = TestContexts.fillField(context, NoiseField.HEIGHT, WALL);
         TestContexts.fillGround(context, TileType.DEEP_WATER);
         land(context, heights, SOURCE_COLUMN, MIDDLE_ROW, TOP);
@@ -306,7 +307,8 @@ class RiverPassTest {
         apply(other, plain(MANY_RIVERS, SHORT_MIN, SHORT_MAX));
 
         assertArrayEquals(first.ground(), second.ground());
-        assertNotEquals(Arrays.asList(first.ground()), Arrays.asList(other.ground()), "another seed gives other rivers");
+        assertNotEquals(Arrays.asList(first.ground()), Arrays.asList(other.ground()),
+                "another seed gives other rivers");
     }
 
     @Test
