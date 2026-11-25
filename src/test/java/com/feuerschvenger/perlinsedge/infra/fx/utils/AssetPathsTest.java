@@ -184,8 +184,11 @@ class AssetPathsTest {
 
     @Test
     void everyMapTypeHasABiomeFolder() {
-        assertEquals("default", AssetPaths.biomeFolder(MapType.MEDITERRANEAN));
+        assertEquals("mediterranean", AssetPaths.biomeFolder(MapType.MEDITERRANEAN));
+        assertEquals("swamp", AssetPaths.biomeFolder(MapType.SWAMP));
         assertEquals("default", AssetPaths.biomeFolder(MapType.ISLANDS));
+        assertEquals("default", AssetPaths.biomeFolder(MapType.RIVERS));
+        assertEquals("default", AssetPaths.biomeFolder(MapType.MOUNTAINOUS));
         assertEquals("dense_forest", AssetPaths.biomeFolder(MapType.DENSE_FOREST));
         assertEquals("tundra", AssetPaths.biomeFolder(MapType.TUNDRA));
     }
@@ -200,6 +203,94 @@ class AssetPathsTest {
             }
             assertNull(getClass().getResource(AssetPaths.resource("default", kinds[i], expected[i] + 1)), kinds[i] + " has a gap or an extra");
         }
+    }
+
+    @Test
+    void theSwampIsDrawnFromDeadTreesAndWillowsOnly() {
+        assertEquals(3, countVariants("swamp", "deadtree"));
+        assertEquals(3, countVariants("swamp", "willow"));
+        assertEquals(0, countVariants("swamp", "tree"), "the round trees of the old swamp are gone");
+    }
+
+    @Test
+    void theMediterraneanHasTwoOlivesACypressAndTwoBushes() {
+        assertEquals(2, countVariants("mediterranean", "olive"));
+        assertEquals(1, countVariants("mediterranean", "cypress"));
+        assertEquals(2, countVariants("mediterranean", "bush"));
+        assertEquals(0, countVariants("mediterranean", "tree"));
+    }
+
+    @Test
+    void theNewTreeKindsAreDrawnAsTrees() {
+        assertTrue(AssetPaths.resourceKinds(ResourceType.TREE).containsAll(List.of("deadtree", "olive", "cypress")));
+    }
+
+    @Test
+    void theCypressIsTallerAndNarrowerThanAnOliveAndTheOliveIsWide() throws IOException {
+        BufferedImage cypress = read(AssetPaths.resource("mediterranean", "cypress", 1));
+        BufferedImage olive = read(AssetPaths.resource("mediterranean", "olive", 1));
+        BufferedImage deadTree = read(AssetPaths.resource("swamp", "deadtree", 1));
+
+        assertTrue(paintedWidth(cypress) < paintedWidth(olive) / 2, "the cypress is a narrow column");
+        assertTrue(paintedHeight(cypress) > paintedHeight(olive), "the cypress is tall");
+        assertTrue(paintedWidth(olive) > paintedHeight(olive), "the olive crown is wide and low");
+        assertTrue(paintedWidth(deadTree) < paintedHeight(deadTree), "a dead tree is a tall bare trunk");
+    }
+
+    @Test
+    void grassShipsThreeVariantsThatGoFromDarkerToLighter() throws IOException {
+        for (int variant = 1; variant <= 3; variant++) {
+            assertNotNull(getClass().getResource(AssetPaths.tile("grass", variant)), "grass-" + variant);
+        }
+        assertNull(getClass().getResource(AssetPaths.tile("grass", 4)));
+        int dark = brightness(read(AssetPaths.tile("grass", 1)).getRGB(16, 8) & 0xFFFFFF);
+        int middle = brightness(read(AssetPaths.tile("grass", 2)).getRGB(16, 8) & 0xFFFFFF);
+        int light = brightness(read(AssetPaths.tile("grass", 3)).getRGB(16, 8) & 0xFFFFFF);
+        assertTrue(dark < middle && middle < light, dark + " " + middle + " " + light);
+    }
+
+    @Test
+    void theForestFloorIsDarkerThanGrassSoTreesShowOnTheMinimap() throws IOException {
+        int forest = brightness(read(AssetPaths.tile("forest", 1)).getRGB(16, 8) & 0xFFFFFF);
+        int grass = brightness(read(AssetPaths.tile("grass", 1)).getRGB(16, 8) & 0xFFFFFF);
+
+        assertTrue(forest < grass);
+    }
+
+    private int countVariants(String folder, String kind) {
+        int count = 0;
+        while (getClass().getResource(AssetPaths.resource(folder, kind, count + 1)) != null) {
+            count++;
+        }
+        return count;
+    }
+
+    private static int paintedWidth(BufferedImage image) {
+        int min = image.getWidth();
+        int max = -1;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) > 0) {
+                    min = Math.min(min, x);
+                    max = Math.max(max, x);
+                }
+            }
+        }
+        return max - min + 1;
+    }
+
+    private static int paintedHeight(BufferedImage image) {
+        int min = image.getHeight();
+        int max = -1;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) > 0) {
+                    min = Math.min(min, y);
+                    max = Math.max(max, y);
+                }
+            }
+        }
+        return max - min + 1;
     }
 
     @Test

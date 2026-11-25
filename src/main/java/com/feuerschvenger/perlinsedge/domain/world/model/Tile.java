@@ -11,6 +11,9 @@ import java.util.Objects;
  * Represents a game world tile with position, terrain properties, and optional resource.
  */
 public class Tile {
+    /** The largest value of {@link #getPatch()}. */
+    public static final int MAX_PATCH = 255;
+
     // Coordinate Properties (Immutable)
     @Getter
     private final int x;
@@ -23,6 +26,14 @@ public class Tile {
     private float height;
     @Getter
     private TileType type;
+
+    /**
+     * Which patch of ground the tile belongs to, from 0 to {@link #MAX_PATCH}. The value varies slowly across the map
+     * and carries no art meaning of its own: the renderer maps it onto however many looks the ground has, so the
+     * looks form large soft areas instead of scattering tile by tile.
+     */
+    @Getter
+    private int patch;
 
     // Resource Association
     private Resource resource;
@@ -55,6 +66,15 @@ public class Tile {
         this.building = null;
     }
 
+    /**
+     * Sets the patch of ground the tile belongs to, which is cosmetic and does not count as a change of the map.
+     *
+     * @param patch the patch value, from 0 to {@link #MAX_PATCH}; a value outside the range is clamped into it
+     */
+    public void setPatch(int patch) {
+        this.patch = Math.clamp(patch, 0, MAX_PATCH);
+    }
+
     /** @return the colour of this tile's terrain type */
     public Rgba getColor() {
         return type.getColor();
@@ -64,6 +84,7 @@ public class Tile {
     //  Resource Management
     // ==================================================================
 
+    /** Returns the resource on this tile, which may be depleted, or null when there is none. */
     public Resource getWorldResource() {
         return resource;
     }
@@ -153,6 +174,7 @@ public class Tile {
         }
     }
 
+    /** Tells whether the tile holds a resource that is not depleted. */
     public boolean hasResource() {
         return resource != null && !resource.isDepleted();
     }
@@ -161,6 +183,7 @@ public class Tile {
     //  Building Management
     // ==================================================================
 
+    /** Tells whether a building stands on the tile. */
     public boolean hasBuilding() {
         return building != null;
     }
@@ -209,6 +232,7 @@ public class Tile {
     //  Identity Operations
     // ==================================================================
 
+    /** Two tiles are equal when they lie at the same coordinates. */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -221,6 +245,7 @@ public class Tile {
         return x == tile.x && y == tile.y;
     }
 
+    /** Hashes the coordinates of the tile. */
     @Override
     public int hashCode() {
         return Objects.hash(x, y);

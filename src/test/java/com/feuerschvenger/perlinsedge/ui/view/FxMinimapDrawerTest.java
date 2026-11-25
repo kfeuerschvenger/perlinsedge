@@ -1,33 +1,42 @@
 package com.feuerschvenger.perlinsedge.ui.view;
 
-import com.feuerschvenger.perlinsedge.domain.utils.Rgba;
+import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
+import com.feuerschvenger.perlinsedge.infra.fx.utils.TilePalette;
+import com.feuerschvenger.perlinsedge.ui.view.FxMinimapDrawer.Layout;
+import com.feuerschvenger.perlinsedge.infra.fx.graphics.FxCamera;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class FxMinimapDrawerTest {
 
-    @Test
-    void opaqueColoursPackIntoArgb() {
-        assertEquals(0xFFFF0000, FxMinimapDrawer.toArgb(new Rgba(1, 0, 0, 1)));
-        assertEquals(0xFF00FF00, FxMinimapDrawer.toArgb(new Rgba(0, 1, 0, 1)));
-        assertEquals(0xFF0000FF, FxMinimapDrawer.toArgb(new Rgba(0, 0, 1, 1)));
-    }
-
-    @Test
-    void channelsAreRoundedAndClamped() {
-        assertEquals(0x80102030, FxMinimapDrawer.toArgb(Rgba.rgb(16, 32, 48).withOpacityFactor(128 / 255.0)));
-        assertEquals(0xFF000000, FxMinimapDrawer.toArgb(new Rgba(0, 0, 0, 1)));
-        assertEquals(0xFFFFFFFF, FxMinimapDrawer.toArgb(new Rgba(1, 1, 1, 1)));
-    }
-
-    @Test
-    void namedTerrainColourPacksWithFullOpacity() {
-        assertEquals(0xFF5A5A5A, FxMinimapDrawer.toArgb(Rgba.rgb(90, 90, 90)));
-    }
+    private static final int OPAQUE_RED = 0xFFFF0000;
+    private static final int FAINT_BLUE = 0x400000FF;
+    private static final int MARKER_MAP_SIZE = 20;
+    private static final int MARKER_IMAGE_W = 100;
+    private static final int MARKER_IMAGE_H = 60;
+    private static final double MARKER_TILE_W = 2;
+    private static final double MARKER_TILE_H = 1;
+    private static final double MARKER_OFFSET_X = 50;
+    private static final double MARKER_OFFSET_Y = 5;
+    private static final int STONE_X = 6;
+    private static final int STONE_Y = 5;
+    private static final int STONE_MARKER = 0xFFCFCFCF;
+    private static final MapType MAP_TYPE = MapType.DENSE_FOREST;
+    /** A palette without art, so every tile type has its flat colour. */
+    private static final TilePalette FLAT_PALETTE = TilePalette.of(Map.of(), null);
 
     private static TileMap uniformMap(int size, TileType type) {
         TileMap map = new TileMap(size, size);
@@ -44,7 +53,8 @@ class FxMinimapDrawerTest {
         TileMap map = uniformMap(size, TileType.ROCKY_GROUND);
         int width = 400;
         int height = 240;
-        int[] pixels = FxMinimapDrawer.samplePixels(map, width, height, tileW, tileH, offsetX, offsetY);
+        int[] pixels = FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MAP_TYPE,
+                new Layout(width, height, tileW, tileH, offsetX, offsetY));
         int holes = 0;
         for (int py = 0; py < height; py++) {
             for (int px = 0; px < width; px++) {
@@ -76,7 +86,7 @@ class FxMinimapDrawerTest {
     void pixelsOutsideTheMapStayTransparent() {
         TileMap map = uniformMap(10, TileType.ROCKY_GROUND);
 
-        int[] pixels = FxMinimapDrawer.samplePixels(map, 100, 60, 2, 1, 50, 5);
+        int[] pixels = FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MAP_TYPE, new Layout(100, 60, 2, 1, 50, 5));
 
         assertEquals(0, pixels[0], "the corner of the image is far from the map");
         assertEquals(0, pixels[59 * 100 + 99]);
@@ -84,34 +94,86 @@ class FxMinimapDrawerTest {
 
     @Test
     void aTranslucentSampleWeighsLessInTheColourOfAPixel() {
-        Rgba red = new Rgba(1, 0, 0, 1);
-        Rgba faintBlue = new Rgba(0, 0, 1, 0.25);
+        int mixed = FxMinimapDrawer.blend(new int[]{OPAQUE_RED, FAINT_BLUE, 0, 0});
 
-        int mixed = FxMinimapDrawer.blend(new Rgba[]{red, faintBlue, null, null});
-
-        // Alpha: (1 + 0.25) / 4 of a full pixel. Colour: red 1 / 1.25 = 0.8 and blue 0.25 / 1.25 = 0.2
+        // Alpha: (255 + 64) / 4 of a full pixel. Colour: red 255 / 319 = 0.8 and blue 64 / 319 = 0.2
         assertEquals(0x50CC0033, mixed);
     }
 
     @Test
     void aPixelHalfOffTheMapKeepsTheExactColourOfTheTilesUnderIt() {
-        Rgba rocky = new Rgba(0.2, 0.4, 0.6, 1);
+        int rocky = 0xFF336699;
 
-        int edge = FxMinimapDrawer.blend(new Rgba[]{rocky, rocky, null, null});
+        int edge = FxMinimapDrawer.blend(new int[]{rocky, rocky, 0, 0});
 
         assertEquals(0x80, edge >>> 24, "half the samples are off the map");
-        assertEquals(FxMinimapDrawer.toArgb(rocky) & 0xFFFFFF, edge & 0xFFFFFF);
-        assertEquals(0, FxMinimapDrawer.blend(new Rgba[]{null, null, null, null}));
+        assertEquals(rocky & 0xFFFFFF, edge & 0xFFFFFF);
+        assertEquals(0, FxMinimapDrawer.blend(new int[]{0, 0, 0, 0}));
     }
 
     @Test
     void thePaintedPixelsTakeTheColourOfTheTile() {
         TileMap map = uniformMap(20, TileType.ROCKY_GROUND);
-        Rgba rocky = map.getTile(5, 5).getColor();
+        int rocky = FLAT_PALETTE.argb(MAP_TYPE, TileType.ROCKY_GROUND);
 
-        int[] pixels = FxMinimapDrawer.samplePixels(map, 100, 60, 2, 1, 50, 5);
+        int[] pixels = FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MAP_TYPE, new Layout(100, 60, 2, 1, 50, 5));
 
         // Tile (10, 10) is at the middle of the map, so the pixel under its top corner and a little lower is inside
-        assertEquals(FxMinimapDrawer.toArgb(rocky), pixels[(5 + 20 + 3) * 100 + 50]);
+        assertEquals(rocky, pixels[(5 + 20 + 3) * 100 + 50]);
+    }
+
+    @Test
+    void thePaintedPixelsTakeTheColourOfThePaletteForTheMapType() {
+        TileMap map = uniformMap(20, TileType.GRASS);
+
+        int[] pixels = FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MapType.DESERT,
+                new Layout(100, 60, 2, 1, 50, 5));
+
+        assertEquals(FLAT_PALETTE.argb(MapType.DESERT, TileType.GRASS), pixels[(5 + 20 + 3) * 100 + 50]);
+    }
+
+    @Test
+    void aRefreshWithoutAChangeWritesNothingAndAChangeWritesOnlyTheTouchedPixel() {
+        TileMap map = uniformMap(MARKER_MAP_SIZE, TileType.ROCKY_GROUND);
+        map.getTile(STONE_X, STONE_Y).setWorldResource(new Resource(ResourceType.STONE, 1L));
+        Layout layout = new Layout(MARKER_IMAGE_W, MARKER_IMAGE_H, MARKER_TILE_W, MARKER_TILE_H, MARKER_OFFSET_X,
+                MARKER_OFFSET_Y);
+        MinimapPixels pixels = new MinimapPixels(map, FxMinimapDrawer.samplePixels(map, FLAT_PALETTE, MAP_TYPE, layout),
+                layout);
+        WritableImage image = new WritableImage(MARKER_IMAGE_W, MARKER_IMAGE_H);
+        PixelWriter writer = image.getPixelWriter();
+        writer.setPixels(0, 0, MARKER_IMAGE_W, MARKER_IMAGE_H, PixelFormat.getIntArgbInstance(), pixels.snapshot(), 0,
+                MARKER_IMAGE_W);
+
+        int stoneColumn = (int) Math.floor((STONE_X - STONE_Y) * MARKER_TILE_W + MARKER_OFFSET_X);
+        int stoneRow = (int) Math.floor((STONE_X + STONE_Y + 1) * MARKER_TILE_H + MARKER_OFFSET_Y);
+        assertEquals(STONE_MARKER, image.getPixelReader().getArgb(stoneColumn, stoneRow), "the stone is marked");
+
+        assertEquals(0, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "nothing changed yet");
+
+        map.getTile(STONE_X, STONE_Y).setWorldResource(null);
+        assertEquals(1, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "one marker went away");
+        assertEquals(0, FxMinimapDrawer.writeChanged(pixels, writer, MARKER_IMAGE_W), "the change was written once");
+        int ground = FLAT_PALETTE.argb(MAP_TYPE, TileType.ROCKY_GROUND);
+        assertEquals(ground, image.getPixelReader().getArgb(stoneColumn, stoneRow));
+    }
+
+    @Test
+    void theSameMapWithAnotherTypeIsPaintedAgainInTheColoursOfTheNewType() {
+        FxToolkitSupport.onFx(() -> {
+            TileMap map = uniformMap(MARKER_MAP_SIZE, TileType.GRASS);
+            Canvas canvas = new Canvas(MARKER_IMAGE_W, MARKER_IMAGE_H);
+            FxMinimapDrawer drawer = new FxMinimapDrawer(canvas, new FxCamera(0, 0, 1.0), new Canvas(1, 1));
+            drawer.updateMap(map, MapType.DENSE_FOREST);
+            drawer.draw();
+            int forest = canvas.snapshot(null, null).getPixelReader().getArgb(MARKER_IMAGE_W / 2, MARKER_IMAGE_H / 2);
+
+            drawer.updateMap(map, MapType.DESERT);
+            drawer.draw();
+            int desert = canvas.snapshot(null, null).getPixelReader().getArgb(MARKER_IMAGE_W / 2, MARKER_IMAGE_H / 2);
+
+            assertNotEquals(forest, desert, "the layer was rebuilt with the colours of the desert");
+            return null;
+        });
     }
 }

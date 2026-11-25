@@ -1,7 +1,7 @@
 """Draw the trees, bushes, rocks and iron ore resource sprites in several numbered variants.
 
 Each sprite is built from rounded lumps lit from the upper left and wrapped in the palette outline. Pines stack foliage tiers on a short trunk, round trees hold a single crown, rocks are low boulders and iron ore is a rock with rust coloured specks.
-Every variant gets a small hue and lightness tint so trees and rocks of one kind do not all share a colour. The default folder gets pines and round trees, bushes, rocks and iron ore; dense_forest gets pines, swamp olive round trees, desert sandstone rocks, palms and cacti, and tundra snow capped rocks and pines. The game picks up any number of variants, so adding one to SET needs no code change.
+Every variant gets a small hue and lightness tint so trees and rocks of one kind do not all share a colour. The default folder gets pines and round trees, bushes, rocks and iron ore; dense_forest gets pines, swamp dead trees and willows, mediterranean olives, a cypress and dry bushes, desert sandstone rocks, palms and cacti, and tundra snow capped rocks and pines. The game picks up any number of variants, so adding one to SET needs no code change.
 
 usage: python -I tools/pixelart/trees.py [--out <assets/resources folder>] [--preview preview.png]
 """
@@ -30,6 +30,15 @@ SANDSTONE = ["#7b6040", "#a2825a", "#dba867", "#f4d890"]
 SNOW = ["#bcd0e6", "#fcf4e4"]
 TRUNK_PALM = ["#7b6040", "#a2825a", "#c4925a"]
 CACTUS = ["#1d4b4c", "#337a47", "#459b4c", "#76b04c"]
+# the dead tree wood, a bleached grey brown
+DEAD = ["#3a3238", "#5e5058", "#8a7a70"]
+# muted willow greens, greyer than the other foliage
+WILLOW = ["#3e5a3a", "#5f7a4a", "#8a9a5a", "#b0b878"]
+# grey green olive leaves, and the dark green of the cypress
+OLIVE_LEAF = ["#4a5a48", "#6e8470", "#94a88a", "#b8c8a8"]
+CYPRESS = ["#1f4a3a", "#2e6845", "#3f8550", "#5f9e58"]
+# dry leaves of the bushes of a hot coast
+DRY = ["#6b6a3a", "#8f8b4c", "#b3ac62", "#d4cc80"]
 
 # small hue and lightness shifts so variants of one kind do not all share a colour
 TINTS = [(0.0, 0.0), (0.025, 0.03), (-0.02, -0.035), (0.04, -0.01), (-0.035, 0.02), (0.015, -0.05)]
@@ -110,15 +119,24 @@ def blob(cv, cx, cy, rx, ry, ramp, flat_bottom=0.0):
             cv.set(x, y, hexc(ramp[tone]))
 
 
-def trunk(cv, cx, top, bottom, width):
+def trunk(cv, cx, top, bottom, width, ramp=TRUNK):
     """Paints a shaded trunk with a root flare on each side of its foot."""
     for y in range(top, bottom + 1):
         for x in range(cx - width // 2, cx - width // 2 + width):
             tone = 2 if x == cx - width // 2 else 0 if x == cx - width // 2 + width - 1 else 1
-            cv.set(x, y, hexc(TRUNK[tone]))
+            cv.set(x, y, hexc(ramp[tone]))
     # roots
-    cv.set(cx - width // 2 - 1, bottom, hexc(TRUNK[1]))
-    cv.set(cx - width // 2 + width, bottom, hexc(TRUNK[0]))
+    cv.set(cx - width // 2 - 1, bottom, hexc(ramp[1]))
+    cv.set(cx - width // 2 + width, bottom, hexc(ramp[0]))
+
+
+def branch(cv, x0, y0, x1, y1, ramp):
+    """Paints a one pixel branch from one point to another, lit on the side that faces left."""
+    steps = max(abs(x1 - x0), abs(y1 - y0), 1)
+    for i in range(steps + 1):
+        x = round(x0 + (x1 - x0) * i / steps)
+        y = round(y0 + (y1 - y0) * i / steps)
+        cv.set(x, y, hexc(ramp[2 if x1 < x0 else 1]))
 
 
 def pine(seed, ramp, w=32, h=48):
@@ -154,6 +172,96 @@ def round_tree(seed, ramp, w=32, h=48):
     blob(cv, cx, cy, r, r * 0.92, ramp)
     for _ in range(rng.randint(2, 3)):
         blob(cv, cx + rng.uniform(-r * 0.5, r * 0.5), cy + rng.uniform(-r * 0.3, r * 0.4), r * 0.55, r * 0.5, ramp)
+    cv.outline()
+    return cv.image()
+
+
+def dead_tree(seed, ramp, w=32, h=48):
+    """Draws a dead tree: a bare grey trunk that narrows upward, with two to four forked branches and no leaves."""
+    rng = random.Random(seed)
+    cv = Canvas(w, h)
+    cx = w // 2
+    base = h - 2
+    height = rng.randint(28, 34)
+    trunk(cv, cx, base - height // 2, base, 4, ramp)
+    trunk(cv, cx, base - height, base - height // 2, 2, ramp)
+    top = base - height
+    side = rng.choice([-1, 1])
+    for i in range(rng.randint(2, 4)):
+        y = base - rng.randint(height // 3, height - 3)
+        reach = rng.randint(5, 9)
+        rise = rng.randint(3, 7)
+        x_end, y_end = cx + side * reach, max(2, y - rise)
+        branch(cv, cx, y, x_end, y_end, ramp)
+        # every branch forks once near its tip, one prong rising and one level
+        branch(cv, x_end - side * 2, y_end + 1, x_end + side * 2, max(1, y_end - rng.randint(2, 4)), ramp)
+        branch(cv, x_end - side, y_end + 1, x_end + side * rng.randint(1, 3), y_end + rng.randint(0, 2), ramp)
+        side = -side
+    branch(cv, cx, top, cx + rng.choice([-2, 2]), max(1, top - rng.randint(3, 5)), ramp)
+    cv.outline()
+    return cv.image()
+
+
+def willow(seed, ramp, w=32, h=48):
+    """Draws a willow: a short trunk under a wide round crown whose strands droop down past the crown."""
+    rng = random.Random(seed)
+    cv = Canvas(w, h)
+    cx = w / 2
+    base = h - 2
+    trunk(cv, int(cx), base - 11, base, 4)
+    r = rng.uniform(12.5, 14.0)
+    cy = base - 11 - r * 0.62
+    blob(cv, cx, cy, r, r * 0.8, ramp)
+    for _ in range(rng.randint(2, 3)):
+        blob(cv, cx + rng.uniform(-r * 0.5, r * 0.5), cy + rng.uniform(-r * 0.3, r * 0.3), r * 0.55, r * 0.45, ramp)
+    # strands hang from the lower rim of the crown, in every second or third column
+    for x in range(int(cx - r), int(cx + r) + 1):
+        if rng.random() < 0.45:
+            continue
+        lowest = max((y for y in range(h) if cv.px[y][x] is not None), default=None) if 0 <= x < w else None
+        if lowest is None:
+            continue
+        for y in range(lowest + 1, min(base - 2, lowest + rng.randint(3, 9))):
+            cv.set(x, y, hexc(ramp[1] if (x + y) % 3 else ramp[0]))
+    cv.outline()
+    return cv.image()
+
+
+def olive(seed, ramp, w=32, h=48):
+    """Draws an olive: a short twisted trunk under a wide, low crown of several grey green lobes."""
+    rng = random.Random(seed)
+    cv = Canvas(w, h)
+    cx = w // 2
+    base = h - 2
+    lean = rng.choice([-1, 1])
+    for i in range(10):
+        # the trunk kinks sideways half way up
+        x = cx + (lean if i > 4 else 0)
+        for dx in range(-2, 2):
+            cv.set(x + dx, base - i, hexc(TRUNK[2 if dx == -2 else 0 if dx == 1 else 1]))
+    cv.set(cx - 3, base, hexc(TRUNK[1]))
+    cv.set(cx + 2, base, hexc(TRUNK[0]))
+    top = base - 10
+    blob(cv, cx + lean, top - 3, rng.uniform(13.0, 14.5), rng.uniform(6.5, 7.5), ramp)
+    for _ in range(rng.randint(3, 4)):
+        blob(cv, cx + lean + rng.uniform(-9, 9), top - 3 + rng.uniform(-3, 2), rng.uniform(5.0, 6.5), rng.uniform(4.0, 5.0), ramp)
+    cv.outline()
+    return cv.image()
+
+
+def cypress(seed, ramp, w=24, h=48):
+    """Draws a cypress: a tall, narrow dark column that tapers to a point over a very short trunk."""
+    rng = random.Random(seed)
+    cv = Canvas(w, h)
+    cx = w / 2
+    base = h - 2
+    trunk(cv, int(cx), base - 3, base, 2)
+    height = rng.uniform(35.0, 38.0)
+    bottom = base - 3
+    blob(cv, cx, bottom - height * 0.46, 5.0, height * 0.48, ramp)
+    blob(cv, cx, bottom - height * 0.78, 3.6, height * 0.26, ramp)
+    for _ in range(rng.randint(2, 3)):
+        blob(cv, cx + rng.uniform(-1.4, 1.4), bottom - rng.uniform(0.2, 0.7) * height, 3.0, 4.0, ramp)
     cv.outline()
     return cv.image()
 
@@ -299,7 +407,7 @@ SET = variants("default", "tree", pine, 11, GREEN, 5) \
     + variants("default", "rock", rock, 501, STONE, 4) \
     + variants("default", "iron", iron, 601, STONE, 3) \
     + variants("dense_forest", "tree", pine, 301, GREEN, 6) \
-    + variants("swamp", "tree", round_tree, 401, OLIVE, 4) \
+    + variants("swamp", "deadtree", dead_tree, 1201, DEAD, 3)     + variants("swamp", "willow", willow, 1301, WILLOW, 3)     + variants("mediterranean", "olive", olive, 1401, OLIVE_LEAF, 2)     + variants("mediterranean", "cypress", cypress, 1501, CYPRESS, 1)     + variants("mediterranean", "bush", bush, 1601, DRY, 2) \
     + variants("desert", "rock", rock, 701, SANDSTONE, 4) \
     + variants("desert", "palm", palm, 1001, GREEN, 4) \
     + variants("desert", "cactus", cactus, 1101, CACTUS, 4) \

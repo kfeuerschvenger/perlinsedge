@@ -58,12 +58,12 @@ class GameOrchestratorTest {
         }
 
         @Override
-        public void updateMap(TileMap newMap) {
+        public void updateMap(TileMap newMap, MapType newType) {
             if (failNext) {
                 failNext = false;
                 throw new IllegalStateException("minimap failed");
             }
-            super.updateMap(newMap);
+            super.updateMap(newMap, newType);
             shown = newMap;
         }
     }
