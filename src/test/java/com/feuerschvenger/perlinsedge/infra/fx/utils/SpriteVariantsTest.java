@@ -4,6 +4,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpriteVariantsTest {
@@ -40,6 +41,12 @@ class SpriteVariantsTest {
         for (int patch = 1; patch <= Tile.MAX_PATCH; patch++) {
             assertTrue(SpriteVariants.forPatch(patch, 3) >= SpriteVariants.forPatch(patch - 1, 3));
         }
+    }
+
+    @Test
+    void aPatchOutsideTheRangeIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> SpriteVariants.forPatch(-1, 3));
+        assertThrows(IllegalArgumentException.class, () -> SpriteVariants.forPatch(Tile.MAX_PATCH + 1, 3));
     }
 
     @Test

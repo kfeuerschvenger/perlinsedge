@@ -30,8 +30,12 @@ public final class SpriteVariants {
      * @param patch the patch value of the tile, from 0 to {@link Tile#MAX_PATCH}
      * @param count how many variants exist
      * @return an index in [0, count), or 0 when count is not above one
+     * @throws IllegalArgumentException when the patch is outside 0 to {@link Tile#MAX_PATCH}
      */
     public static int forPatch(int patch, int count) {
+        if (patch < 0 || patch > Tile.MAX_PATCH) {
+            throw new IllegalArgumentException("the patch must be from 0 to " + Tile.MAX_PATCH + ": " + patch);
+        }
         if (count <= 1) {
             return 0;
         }

@@ -20,8 +20,11 @@ import java.util.Map;
  */
 public final class TilePalette {
 
-    /** Rows of a tile sprite that hold the top diamond. */
-    static final int TOP_ROWS = 16;
+    /**
+     * How many times a tile diamond is wider than it is high: the art is isometric 2:1, so the top diamond of a sprite
+     * as wide as the tile covers its first width over this many rows.
+     */
+    private static final int DIAMOND_ASPECT = 2;
 
     /** The alpha of a fully opaque pixel. */
     private static final int OPAQUE = 0xFF;
@@ -44,6 +47,7 @@ public final class TilePalette {
     /** The colour of every tile type on every map type, indexed by the ordinals. */
     private final int[][] colours;
 
+    /** Creates a palette over the colours of every tile type on every map type. */
     private TilePalette(int[][] colours) {
         this.colours = colours;
     }
@@ -135,12 +139,21 @@ public final class TilePalette {
         final var sum = new long[SUM_SLOTS];
         for (Image image : images) {
             final var reader = image.getPixelReader();
-            final var rows = topOnly ? Math.min(TOP_ROWS, (int) image.getHeight()) : (int) image.getHeight();
+            if (reader == null) {
+                continue;
+            }
+            final var height = (int) image.getHeight();
+            final var rows = topOnly ? Math.min(topRowsOf(image), height) : height;
             for (var y = 0; y < rows; y++) {
                 addRow(sum, reader, y, (int) image.getWidth(), minAlpha);
             }
         }
         return sum;
+    }
+
+    /** Returns how many rows of a tile sprite hold the top diamond, which is half the width of the sprite. */
+    private static int topRowsOf(Image image) {
+        return (int) image.getWidth() / DIAMOND_ASPECT;
     }
 
     /** Adds the painted pixels of one row to a running sum. */
@@ -171,6 +184,7 @@ public final class TilePalette {
         return (int) Math.round(below * (1 - weight) + above * weight);
     }
 
+    /** Turns a component from 0.0 to 1.0 into a channel value from 0 to 255, clamping a value outside the range. */
     private static int channel(double component) {
         return (int) Math.round(Math.clamp(component, 0.0, 1.0) * MAX_CHANNEL);
     }
