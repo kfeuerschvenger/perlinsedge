@@ -78,6 +78,21 @@ public final class Components {
     }
 
     /**
+     * Counts the components whose size lies within a range.
+     *
+     * @param minTiles the fewest tiles
+     * @param maxTiles the most tiles
+     * @return the number of components with from {@code minTiles} to {@code maxTiles} tiles
+     */
+    public int countWithin(int minTiles, int maxTiles) {
+        var found = 0;
+        for (var label = 1; label <= count; label++) {
+            found += sizes[label] >= minTiles && sizes[label] <= maxTiles ? 1 : 0;
+        }
+        return found;
+    }
+
+    /**
      * Returns the component of a tile.
      *
      * @param x the column

@@ -7,6 +7,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,6 +19,8 @@ class IslandShapePassTest {
 
     private static final int SIDE = 60;
     private static final int RADIUS = 6;
+    private static final float SPACING = 1.05F;
+    private static final IslandSize SIZE = new IslandSize(RADIUS, RADIUS, SPACING);
     private static final float GAIN = 1.5F;
     private static final float LIFT = 0.7F;
     private static final float SEA = 0.5F;
@@ -55,9 +58,21 @@ class IslandShapePassTest {
     private static final long SEED_OTHER = 5L;
     private static final long SEED_TINY = 6L;
     private static final long SEED_MISSING = 1L;
+    private static final long SEED_SPACING = 8L;
+
+    private static final int ROOMY_SIDE = 90;
+    private static final int CROWDED_SIDE = 30;
+    private static final int HUGE_ROOMY_SIDE = 150;
+    private static final int SEVEN_ISLANDS = 7;
+    private static final int NINE_ISLANDS = 9;
+    private static final int MANY_ISLANDS = 20;
+    private static final float WIDE_SPACING = 2F;
+    private static final int ISLET_RADIUS = 3;
+    private static final int BIG_RADIUS = 20;
+    private static final int ISLAND_SIZE_RATIO = 4;
 
     private static IslandParams params(int per100k, int minimum) {
-        return new IslandParams(per100k, minimum, RADIUS, GAIN, LIFT, SEA, FALLOFF);
+        return new IslandParams(per100k, minimum, SIZE, GAIN, LIFT, SEA, FALLOFF);
     }
 
     /** One island and no more, wherever the seed puts it, so what lies around it is the sea. */
@@ -156,7 +171,7 @@ class IslandShapePassTest {
     @Test
     void aFalloffThatIsNotASquareUsesThePowerOfTheParams() {
         final var context = flatHeightContext(SEED_CENTRE, SIDE, FLAT_SEA);
-        final var cubic = new IslandParams(NO_DENSITY, MINIMUM, RADIUS, GAIN, LIFT, SEA, CUBIC_FALLOFF);
+        final var cubic = new IslandParams(NO_DENSITY, MINIMUM, SIZE, GAIN, LIFT, SEA, CUBIC_FALLOFF);
 
         new IslandShapePass(cubic).apply(context);
 
@@ -207,6 +222,70 @@ class IslandShapePassTest {
         assertEquals(context.index(TINY_MIDDLE, TINY_MIDDLE), highestIndex(context));
     }
 
+    /** Returns the indices of the island centres, which are the tiles lifted by the whole lift. */
+    private static int[] centres(GenerationContext context) {
+        final var heights = context.field(NoiseField.HEIGHT);
+        return IntStream.range(0, heights.length)
+                .filter(index -> Math.abs(heights[index] - (LIFT - SEA)) < TOLERANCE).toArray();
+    }
+
+    @Test
+    void islandsKeepTheirSpacingFromEachOther() {
+        final var context = flatHeightContext(SEED_SPACING, ROOMY_SIDE, FLAT_SEA);
+        final var wide = new IslandSize(RADIUS, RADIUS, WIDE_SPACING);
+
+        new IslandShapePass(new IslandParams(NO_DENSITY, SEVEN_ISLANDS, wide, GAIN, LIFT, SEA, FALLOFF))
+                .apply(context);
+
+        final var centres = centres(context);
+        assertTrue(centres.length > 1, "several islands were placed");
+        final var needed = WIDE_SPACING * HALF * RADIUS;
+        for (var first = 0; first < centres.length; first++) {
+            for (var second = first + 1; second < centres.length; second++) {
+                final double dx = context.xOf(centres[first]) - context.xOf(centres[second]);
+                final double dy = context.yOf(centres[first]) - context.yOf(centres[second]);
+                assertTrue(Math.hypot(dx, dy) >= needed, "centres " + centres[first] + " and " + centres[second]);
+            }
+        }
+    }
+
+    @Test
+    void aCrowdedMapDropsTheIslandsThatDoNotFit() {
+        final var context = flatHeightContext(SEED_SPACING, CROWDED_SIDE, FLAT_SEA);
+
+        new IslandShapePass(params(NO_DENSITY, MANY_ISLANDS)).apply(context);
+
+        final var placed = centres(context).length;
+        assertTrue(placed >= 1 && placed < MANY_ISLANDS, "placed " + placed + " of " + MANY_ISLANDS);
+    }
+
+    @Test
+    void theRadiiRunFromSmallIsletsToLargeIslandsOnTheSameMap() {
+        final var context = flatHeightContext(SEED_SPACING, HUGE_ROOMY_SIDE, FLAT_SEA);
+        final var varied = new IslandSize(ISLET_RADIUS, BIG_RADIUS, SPACING);
+
+        new IslandShapePass(new IslandParams(NO_DENSITY, NINE_ISLANDS, varied, GAIN, LIFT, SEA, FALLOFF))
+                .apply(context);
+
+        final var heights = context.field(NoiseField.HEIGHT);
+        final var lifted = Regions.label(context.width(), context.height(), index -> heights[index] > -SEA + TOLERANCE);
+        final var sizes = lifted.sizes();
+        final var smallest = Arrays.stream(sizes).skip(1).min().orElseThrow();
+        final var largest = Arrays.stream(sizes).max().orElseThrow();
+        assertTrue(lifted.count() >= THREE_ISLANDS, lifted.count() + " islands");
+        assertTrue(largest >= ISLAND_SIZE_RATIO * smallest, "largest " + largest + " smallest " + smallest);
+    }
+
+    @Test
+    void theSizeRefusesRadiiAndSpacingsThatCannotWork() {
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(0, 1, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(2, 1, SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 0F));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, -SPACING));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.POSITIVE_INFINITY));
+    }
+
     @Test
     void needsTheHeightField() {
         final var context = TestContexts.of(MapType.ISLANDS, SEED_MISSING, SIDE, SIDE, TestContexts.FLAT);
@@ -217,17 +296,17 @@ class IslandShapePassTest {
 
     @Test
     void paramsRefuseUnusableValues() {
-        assertThrows(IllegalArgumentException.class, () -> new IslandParams(-1, 1, RADIUS, GAIN, LIFT, SEA, FALLOFF));
+        assertThrows(IllegalArgumentException.class, () -> new IslandParams(-1, 1, SIZE, GAIN, LIFT, SEA, FALLOFF));
         assertThrows(IllegalArgumentException.class,
-                () -> new IslandParams(OVER_100K, 1, RADIUS, GAIN, LIFT, SEA, FALLOFF));
-        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 0, RADIUS, GAIN, LIFT, SEA, FALLOFF));
-        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, 0, GAIN, LIFT, SEA, FALLOFF));
-        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, RADIUS, GAIN, LIFT, SEA, 0F));
-        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, RADIUS, GAIN, LIFT, SEA, Float.NaN));
+                () -> new IslandParams(OVER_100K, 1, SIZE, GAIN, LIFT, SEA, FALLOFF));
+        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 0, SIZE, GAIN, LIFT, SEA, FALLOFF));
+        assertThrows(NullPointerException.class, () -> new IslandParams(1, 1, null, GAIN, LIFT, SEA, FALLOFF));
+        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, SIZE, GAIN, LIFT, SEA, 0F));
+        assertThrows(IllegalArgumentException.class, () -> new IslandParams(1, 1, SIZE, GAIN, LIFT, SEA, Float.NaN));
         assertThrows(IllegalArgumentException.class,
-                () -> new IslandParams(1, OVER_MAX_ISLANDS, RADIUS, GAIN, LIFT, SEA, FALLOFF));
+                () -> new IslandParams(1, OVER_MAX_ISLANDS, SIZE, GAIN, LIFT, SEA, FALLOFF));
         assertThrows(IllegalArgumentException.class,
-                () -> new IslandParams(1, 1, RADIUS, GAIN, LIFT, SEA, Float.POSITIVE_INFINITY));
+                () -> new IslandParams(1, 1, SIZE, GAIN, LIFT, SEA, Float.POSITIVE_INFINITY));
         assertThrows(NullPointerException.class, () -> new IslandShapePass(null));
     }
 
@@ -235,11 +314,11 @@ class IslandShapePassTest {
     void paramsRefuseNonFiniteHeightGainLiftAndSeaOffset() {
         for (var bad : new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
             assertThrows(IllegalArgumentException.class,
-                    () -> new IslandParams(1, MINIMUM, RADIUS, bad, LIFT, SEA, FALLOFF));
+                    () -> new IslandParams(1, MINIMUM, SIZE, bad, LIFT, SEA, FALLOFF));
             assertThrows(IllegalArgumentException.class,
-                    () -> new IslandParams(1, MINIMUM, RADIUS, GAIN, bad, SEA, FALLOFF));
+                    () -> new IslandParams(1, MINIMUM, SIZE, GAIN, bad, SEA, FALLOFF));
             assertThrows(IllegalArgumentException.class,
-                    () -> new IslandParams(1, MINIMUM, RADIUS, GAIN, LIFT, bad, FALLOFF));
+                    () -> new IslandParams(1, MINIMUM, SIZE, GAIN, LIFT, bad, FALLOFF));
         }
     }
 

@@ -42,7 +42,49 @@ final class WaterInvariants {
     /** The most inland water bodies, which touch no edge, a Mediterranean map holds. */
     private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 6;
 
+    /** The fewest and the most land masses of at least {@link WaterStats#MIN_LAND_TILES} tiles on an islands map. */
+    private static final int MIN_ISLANDS = 6;
+    private static final int MAX_ISLANDS = 18;
+    /** The fewest islands that are small, from {@link WaterStats#MIN_LAND_TILES} to this many tiles. */
+    private static final int MIN_SMALL_ISLANDS = 3;
+    private static final int MAX_SMALL_ISLAND_TILES = 1_500;
+    /** The share of the map that is land, at the least and the most. */
+    private static final double MIN_ISLANDS_LAND_SHARE = 0.22;
+    private static final double MAX_ISLANDS_LAND_SHARE = 0.50;
+    /** The share of the land the largest island holds at the most, on a map of 300 by 300 tiles or more. */
+    private static final double MAX_LARGEST_ISLAND_SHARE = 0.40;
+    /** The area, in tiles, from which the largest island is held to its share; a smaller map holds too few islands. */
+    private static final long FULL_SIZE_AREA = 90_000L;
+
     private WaterInvariants() {
+    }
+
+    static void islandsAreSeveralAndSomeAreSmall(TileMap map, MapSpec spec) {
+        final var land = WaterStats.landMasses(map);
+        MapInvariants.requireScaled("island", land.countAtLeast(WaterStats.MIN_LAND_TILES), spec, MIN_ISLANDS,
+                MAX_ISLANDS);
+        MapInvariants.requireScaled("small island", land.countWithin(WaterStats.MIN_LAND_TILES,
+                MAX_SMALL_ISLAND_TILES), spec, MIN_SMALL_ISLANDS, Integer.MAX_VALUE);
+    }
+
+    static void islandsShareTheMapWithTheSea(TileMap map, MapSpec spec) {
+        final var landTiles = MapStats.landTiles(map);
+        final var landShare = landTiles / (double) (map.getWidth() * map.getHeight());
+        MapInvariants.require(landShare >= MIN_ISLANDS_LAND_SHARE && landShare <= MAX_ISLANDS_LAND_SHARE,
+                "land covers " + landShare + " of the map");
+        if ((long) spec.size() * spec.size() >= FULL_SIZE_AREA) {
+            final var largest = WaterStats.landMasses(map).largest() / (double) landTiles;
+            MapInvariants.require(largest <= MAX_LARGEST_ISLAND_SHARE,
+                    "the largest island holds " + largest + " of the land");
+        }
+    }
+
+    static void theSpawnIsOnTheLargestIsland(TileMap map, MapSpec spec) {
+        final var land = WaterStats.landMasses(map);
+        final var spawn = map.getSpawn().orElseThrow();
+        final var spawnIsland = land.sizeOf(land.labelAt(spawn.x(), spawn.y()));
+        MapInvariants.require(spawnIsland == land.largest(), "the spawn is on an island of " + spawnIsland
+                + " tiles but the largest holds " + land.largest());
     }
 
     static void mediterraneanHasALongCoastOnOneEdge(TileMap map, MapSpec spec) {

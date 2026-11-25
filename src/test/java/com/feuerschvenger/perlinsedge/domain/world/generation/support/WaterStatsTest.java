@@ -102,6 +102,25 @@ class WaterStatsTest {
     }
 
     @Test
+    void componentsCanBeCountedByAnExactSizeRange() {
+        final var map = map(new SpawnPoint(0, 0),
+                "~g~~g~",
+                "~g~~g~",
+                "~g~~gg",
+                "gggggg");
+
+        final var land = WaterStats.landMasses(map);
+
+        assertEquals(1, land.count());
+        assertEquals(1, land.countWithin(1, Integer.MAX_VALUE));
+        assertEquals(0, land.countWithin(1, MIN_FIVE));
+        final var water = WaterStats.waterBodies(map);
+        assertEquals(3, water.count());
+        assertEquals(2, water.countWithin(1, MIN_FIVE));
+        assertEquals(1, water.countWithin(MIN_FIVE + 1, Integer.MAX_VALUE));
+    }
+
+    @Test
     void inlandComponentsAreTheOnesThatTouchNoEdgeWithinASizeRange() {
         final var map = map(new SpawnPoint(0, 0),
                 "~gggggg",

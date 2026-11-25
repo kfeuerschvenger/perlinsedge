@@ -84,6 +84,8 @@ public final class MapInvariants {
         byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand, MapInvariants::rockIsExposed,
                 WaterInvariants::desertHasFewWaterBodies, WaterInvariants::desertHasRareOases));
         byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
+        byType.put(MapType.ISLANDS, List.of(WaterInvariants::islandsAreSeveralAndSomeAreSmall,
+                WaterInvariants::islandsShareTheMapWithTheSea, WaterInvariants::theSpawnIsOnTheLargestIsland));
         byType.put(MapType.RIVERS, List.of(WaterInvariants::riversAreFewLongAndConnected,
                 WaterInvariants::riversMapKeepsItsWaterInTheRivers, WaterInvariants::theForestGrowsAlongTheRivers));
         byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));

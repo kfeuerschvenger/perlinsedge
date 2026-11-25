@@ -52,6 +52,8 @@ public final class MapPreviewTool {
     private static final long PERCENT = 100L;
     /** A river component smaller than this is a puddle or a stub and is left out of the report. */
     private static final int MIN_REPORTED_RIVER = 20;
+    /** The report lists this many of the largest islands, so a shattered map does not flood the log. */
+    private static final int MAX_LISTED_ISLANDS = 16;
 
     private MapPreviewTool() {
     }
@@ -117,8 +119,13 @@ public final class MapPreviewTool {
             final var land = WaterStats.landMasses(map);
             final var sizes = Arrays.stream(land.sizes()).filter(size -> size >= WaterStats.MIN_LAND_TILES).sorted()
                     .toArray();
-            LOG.info("    {} islands of at least {} tiles: {} sizes {}", spec.label(), WaterStats.MIN_LAND_TILES,
-                    sizes.length, Arrays.toString(sizes));
+            final var landTiles = MapStats.landTiles(map);
+            LOG.info("    {} land {}% of the map, largest island {}% of the land, islands of at least {} tiles: {}, "
+                            + "the {} largest are {}", spec.label(),
+                    PERCENT * landTiles / ((long) map.getWidth() * map.getHeight()),
+                    PERCENT * land.largest() / landTiles, WaterStats.MIN_LAND_TILES, sizes.length, MAX_LISTED_ISLANDS,
+                    Arrays.toString(Arrays.copyOfRange(sizes, Math.max(0, sizes.length - MAX_LISTED_ISLANDS),
+                            sizes.length)));
         }
     }
 
