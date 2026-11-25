@@ -35,14 +35,10 @@ public final class GroundRules {
     private static final float ISLANDS_SHALLOW = -0.4F;
     private static final float ISLANDS_SAND = -0.2F;
 
-    // Sea shared by the maps whose own water lies high in the range: the sea below these heights comes first, and the
-    // type's own water lies above them
+    // Sea shared by the maps whose own water lies high in the range, and by the desert, whose only water besides the
+    // sea is dug later: the sea below these heights comes first, and the type's own water lies above them
     private static final float HIGH_WATER_SEA_DEEP = -0.4F;
     private static final float HIGH_WATER_SEA_SHALLOW = -0.2F;
-
-    // Desert: the floor is high, so its water lies at the top of the range
-    private static final float DESERT_DEEP = 0.15F;
-    private static final float DESERT_SHALLOW = 0.2F;
 
     // Tundra: the sea freezes where it is cold, the inland is snow where it is cold or high
     private static final float TUNDRA_DEEP = -0.4F;
@@ -56,9 +52,10 @@ public final class GroundRules {
     /** The ground between the frozen coast and the inland is snow below this temperature. */
     private static final float TUNDRA_TRANSITION_SNOW_TEMPERATURE = 0.45F;
 
-    // Rivers: deep sea only at the bottom, swamp in the wet lowland
+    // Rivers: deep sea only at the bottom, a thin sand beach, swamp in the wet lowland
     private static final float RIVERS_DEEP = -0.6F;
     private static final float RIVERS_SHALLOW = -0.5F;
+    private static final float RIVERS_BEACH = -0.03F;
     private static final float RIVERS_SWAMP_MAX_HEIGHT = 0.3F;
 
     // Mediterranean: a sandy shore and grass up to the rocky ground
@@ -87,7 +84,7 @@ public final class GroundRules {
     public static final GroundRule ISLANDS = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> islands(height));
 
-    /** Sea at the bottom, water at the top of the height range and sand everywhere else; no climate. */
+    /** Sea at the bottom of the height range and sand everywhere else, with no inland water; no climate. */
     public static final GroundRule DESERT = GroundRule.ofHeight(
             (float height, float temperature, float moisture) -> desert(height));
 
@@ -95,7 +92,7 @@ public final class GroundRules {
     public static final GroundRule TUNDRA = new GroundRule(TEMPERATURE_ONLY,
             (float height, float temperature, float moisture) -> tundra(height, temperature));
 
-    /** Deep sea only at the very bottom, sand, wet swamp lowland and grass. Reads the moisture. */
+    /** Deep sea only at the very bottom, a thin sand beach, wet swamp lowland and grass. Reads the moisture. */
     public static final GroundRule RIVERS = new GroundRule(MOISTURE_ONLY,
             (float height, float temperature, float moisture) -> rivers(height, moisture));
 
@@ -150,18 +147,9 @@ public final class GroundRules {
         return highGround(height);
     }
 
-    /** The desert: sea at the bottom, then water at the top of the range, sand everywhere else. */
+    /** The desert: sea at the bottom, sand everywhere else. The oases are dug into the sand by a later pass. */
     private static TileType desert(float height) {
-        if (isHighWaterSea(height)) {
-            return highWaterSea(height);
-        }
-        if (height < DESERT_DEEP) {
-            return TileType.DEEP_WATER;
-        }
-        if (height < DESERT_SHALLOW) {
-            return TileType.SHALLOW_WATER;
-        }
-        return TileType.SAND;
+        return isHighWaterSea(height) ? highWaterSea(height) : TileType.SAND;
     }
 
     /** The tundra: deep water, then ice or shallows by temperature, an icy coast, snow and grass. */
@@ -187,7 +175,8 @@ public final class GroundRules {
     }
 
     /**
-     * The rivers map: deep sea only at the bottom, sand to the coast, swamp in the wet lowland and grass.
+     * The rivers map: deep sea only at the bottom, grass up to a thin beach of sand at the coast, swamp in the wet
+     * lowland and grass.
      */
     private static TileType rivers(float height, float moisture) {
         if (height < RIVERS_DEEP) {
@@ -195,6 +184,9 @@ public final class GroundRules {
         }
         if (height < RIVERS_SHALLOW) {
             return TileType.SHALLOW_WATER;
+        }
+        if (height < RIVERS_BEACH) {
+            return TileType.GRASS;
         }
         if (height < COAST_LEVEL) {
             return TileType.SAND;

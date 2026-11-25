@@ -15,6 +15,7 @@ final class DistanceTransform {
     /** The distance of a tile when no tile is selected. */
     public static final int UNREACHABLE = Integer.MAX_VALUE / 2;
 
+    /** Not instantiable: the class only holds the transforms. */
     private DistanceTransform() {
     }
 
@@ -27,11 +28,33 @@ final class DistanceTransform {
      * @return a new array indexed like the grid, with {@link #UNREACHABLE} everywhere when no tile is selected
      */
     static int[] chebyshev(int width, int height, IntPredicate source) {
-        Objects.requireNonNull(source, "source");
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("the grid needs at least one tile: " + width + "x" + height);
         }
-        final var distance = new int[width * height];
+        return chebyshev(width, height, source, new int[width * height]);
+    }
+
+    /**
+     * Computes the distance of every tile to the nearest selected tile into an array the caller owns, so a pass that
+     * reads many transforms creates no array for each one.
+     *
+     * @param width    the number of columns
+     * @param height   the number of rows
+     * @param source   the tiles at distance 0
+     * @param distance the array that receives the distances, one for every tile of the grid; its old content is lost
+     * @return the same array, with {@link #UNREACHABLE} everywhere when no tile is selected
+     * @throws IllegalArgumentException when the grid is empty or the array does not have one entry for every tile
+     */
+    static int[] chebyshev(int width, int height, IntPredicate source, int[] distance) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(distance, "distance");
+        if (width <= 0 || height <= 0) {
+            throw new IllegalArgumentException("the grid needs at least one tile: " + width + "x" + height);
+        }
+        if (distance.length != width * height) {
+            throw new IllegalArgumentException(
+                    "the array has " + distance.length + " entries, not " + width + "x" + height);
+        }
         for (var index = 0; index < distance.length; index++) {
             distance[index] = source.test(index) ? 0 : UNREACHABLE;
         }

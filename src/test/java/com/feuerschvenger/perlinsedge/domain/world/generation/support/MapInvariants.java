@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * The invariants of generated maps: a common list that every type must satisfy and a per type list that holds what
@@ -43,6 +44,10 @@ public final class MapInvariants {
     private static final double MAX_FOREST_TREE_SHARE = 0.42;
     /** The share of the land under forest floor in a dense forest at the least. */
     private static final double MIN_FOREST_FLOOR_SHARE = 0.35;
+    /** The share of the map that is ice at the least, in the tundra. */
+    private static final double MIN_TUNDRA_ICE_SHARE = 0.15;
+    /** The share of the land that is snow at the least, in the tundra. */
+    private static final double MIN_TUNDRA_SNOW_SHARE = 0.10;
     /** The share of land a map may cover with resources: open ground stays the common case. */
     private static final double MAX_RESOURCE_SHARE = 0.45;
 
@@ -61,7 +66,8 @@ public final class MapInvariants {
                 MapInvariants::theSpawnIsInTheLargestRegion, MapInvariants::noResourceOnWaterOrIce,
                 MapInvariants::oreLiesOnRockyGroundOnly, MapInvariants::resourcesMeetTheirQuotas,
                 MapInvariants::rockyGroundExists, MapInvariants::forestFloorFollowsTheTrees,
-                MapInvariants::mostLandIsOpen, deterministic(source));
+                MapInvariants::mostLandIsOpen, onMap(WaterInvariants::theSpawnRegionHoldsMostOfTheLand),
+                deterministic(source));
     }
 
     /**
@@ -76,10 +82,26 @@ public final class MapInvariants {
         }
         byType.put(MapType.DENSE_FOREST,
                 List.of(MapInvariants::denseForestHasThickGroves, MapInvariants::denseForestHasForestFloor));
-        byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand,
-                MapInvariants::rockIsExposed));
+        byType.put(MapType.DESERT, List.of(MapInvariants::desertTreesStandOnSand, MapInvariants::rockIsExposed,
+                WaterInvariants::desertHasFewWaterBodies, WaterInvariants::desertHasRareOases));
         byType.put(MapType.MOUNTAINOUS, List.of(MapInvariants::rockIsExposed));
+        byType.put(MapType.ISLANDS, List.of(WaterInvariants::islandsAreSeveralAndSomeAreSmall,
+                WaterInvariants::islandsShareTheMapWithTheSea,
+                onMap(WaterInvariants::theSpawnIsOnTheLargestIsland)));
+        byType.put(MapType.RIVERS, List.of(onMap(WaterInvariants::riversAreFewLongAndConnected),
+                onMap(WaterInvariants::riversMapKeepsItsWaterInTheRivers),
+                onMap(WaterInvariants::theForestGrowsAlongTheRivers)));
+        byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
+        byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist,
+                onMap(WaterInvariants::mediterraneanKeepsItsRivers),
+                onMap(WaterInvariants::mediterraneanHasALongCoastOnOneEdge),
+                WaterInvariants::mediterraneanHasFewInlandWaterBodies));
         return Collections.unmodifiableMap(byType);
+    }
+
+    /** Adapts a check that needs only the map to an invariant, which also receives the spec it ignores. */
+    private static MapInvariant onMap(Consumer<TileMap> check) {
+        return (TileMap map, MapSpec spec) -> check.accept(map);
     }
 
     private static void hasTheRequestedSize(TileMap map, MapSpec spec) {
@@ -116,7 +138,16 @@ public final class MapInvariants {
         }
     }
 
+    /**
+     * The spawn is in the largest region of free tiles of the map. The islands are the exception: the player starts
+     * on the largest island, whose free region can be smaller than the one of another island once the trees have cut
+     * it, and {@link WaterInvariants#theSpawnIsOnTheLargestIsland(TileMap)} holds the spawn to the largest free region
+     * of that island instead.
+     */
     private static void theSpawnIsInTheLargestRegion(TileMap map, MapSpec spec) {
+        if (spec.type() == MapType.ISLANDS) {
+            return;
+        }
         final var spawn = map.getSpawn().orElseThrow();
         final var sizes = MapStats.regionSizes(map);
         final var spawnRegion = sizes[spawn.y() * map.getWidth() + spawn.x()];
@@ -157,12 +188,38 @@ public final class MapInvariants {
 
     /** Requires the count of a resource to lie in a range given for a map of {@link #QUOTA_AREA} tiles. */
     private static void requireWithin(TileMap map, MapSpec spec, ResourceType type, int min, int max) {
-        final var area = (long) spec.size() * spec.size();
+        requireScaled(type.toString(), MapStats.count(map, type), spec, min, max);
+    }
+
+    /**
+     * Requires a count to lie in a range given for a map of 300 by 300 tiles, scaled to the area of the map: the
+     * lowest is rounded down and is at least 1, and the highest is rounded up.
+     *
+     * @param what  what is counted, for the message
+     * @param count the number counted
+     * @param spec  the map, which gives the area
+     * @param min   the lowest count on a map of 300 by 300 tiles
+     * @param max   the highest count on a map of 300 by 300 tiles, or {@link Integer#MAX_VALUE} for no highest
+     */
+    static void requireScaled(String what, long count, MapSpec spec, int min, int max) {
+        requireScaledToArea(what, count, (long) spec.size() * spec.size(), min, max);
+    }
+
+    /**
+     * Requires a count to lie in a range given for a map of 300 by 300 tiles, scaled to an area that need not be
+     * square: the lowest is rounded down and is at least 1, and the highest is rounded up.
+     *
+     * @param what  what is counted, for the message
+     * @param count the number counted
+     * @param area  the number of tiles of the map
+     * @param min   the lowest count on a map of 300 by 300 tiles
+     * @param max   the highest count on a map of 300 by 300 tiles, or {@link Integer#MAX_VALUE} for no highest
+     */
+    static void requireScaledToArea(String what, long count, long area, int min, int max) {
         final var lowest = Math.max(1L, min * area / QUOTA_AREA);
         final var highest = max == Integer.MAX_VALUE ? Long.MAX_VALUE : (max * area + QUOTA_AREA - 1) / QUOTA_AREA;
-        final var count = MapStats.count(map, type);
-        require(count >= lowest && count <= highest,
-                type + " count " + count + " is outside " + lowest + " to " + highest);
+        require(count >= lowest && count <= highest, what + " count " + count + " is outside " + lowest + " to "
+                + highest);
     }
 
     private static void rockyGroundExists(TileMap map, MapSpec spec) {
@@ -214,6 +271,19 @@ public final class MapInvariants {
     private static void rockIsExposed(TileMap map, MapSpec spec) {
         final var share = MapStats.rockyTiles(map) / (double) MapStats.landTiles(map);
         require(share >= MIN_EXPOSED_ROCKY_SHARE, "rocky ground covers only " + share + " of the land");
+    }
+
+    private static void tundraIsFrozenAndSnowy(TileMap map, MapSpec spec) {
+        final var area = (double) map.getWidth() * map.getHeight();
+        final var ice = MapStats.count(map, TileType.ICE) / area;
+        final var snow = MapStats.count(map, TileType.SNOW) / (double) MapStats.landTiles(map);
+        require(ice >= MIN_TUNDRA_ICE_SHARE, "ice covers only " + ice + " of the map");
+        require(snow >= MIN_TUNDRA_SNOW_SHARE, "snow covers only " + snow + " of the land");
+    }
+
+    /** Relative river sources give every height profile rivers, which an absolute source height did not. */
+    private static void riversExist(TileMap map, MapSpec spec) {
+        require(MapStats.count(map, TileType.RIVER) > 0, "the map has no river tile");
     }
 
     private static void mostLandIsOpen(TileMap map, MapSpec spec) {
@@ -273,7 +343,23 @@ public final class MapInvariants {
                 && a.isDepleted() == b.isDepleted();
     }
 
-    private static void require(boolean condition, String message) {
+    /**
+     * Requires a count to be at most a value given for a map of 300 by 300 tiles, scaled to the area of the map and
+     * rounded up.
+     *
+     * @param what  what is counted, for the message
+     * @param count the number counted
+     * @param spec  the map, which gives the area
+     * @param max   the highest count on a map of 300 by 300 tiles
+     */
+    static void requireAtMostScaled(String what, long count, MapSpec spec, int max) {
+        final var area = (long) spec.size() * spec.size();
+        final var highest = (max * area + QUOTA_AREA - 1) / QUOTA_AREA;
+        require(count <= highest, what + " count " + count + " is above " + highest);
+    }
+
+    /** Fails with a message unless a condition holds. */
+    static void require(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError(message);
         }
