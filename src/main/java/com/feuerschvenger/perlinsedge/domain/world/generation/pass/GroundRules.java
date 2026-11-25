@@ -22,7 +22,8 @@ public final class GroundRules {
 
     // Dense forest: sea up to the shore, grass below the mountains
     private static final float DENSE_FOREST_DEEP = -0.4F;
-    private static final float DENSE_FOREST_SHALLOW = -0.2F;
+    /** The height where the shallows of the dense forest end and the land begins, which the sea level pass aims at. */
+    public static final float DENSE_FOREST_SHALLOW = -0.2F;
 
     // Swamp: the shallows reach further than in the other maps; between them and the lowland limit the ground is
     // swamp where it is wet and grass where it is dry
@@ -64,7 +65,8 @@ public final class GroundRules {
 
     // Mountainous: the water lies high, between the peaks, and the rest is valley floor
     private static final float MOUNTAINOUS_DEEP = 0.2F;
-    private static final float MOUNTAINOUS_SHALLOW = 0.3F;
+    /** The height where the lakes of the mountains end and the valley floor begins, which the sea level pass aims at. */
+    public static final float MOUNTAINOUS_SHALLOW = 0.3F;
 
     private static final Set<NoiseField> MOISTURE_ONLY = EnumSet.of(NoiseField.MOISTURE);
     private static final Set<NoiseField> TEMPERATURE_ONLY = EnumSet.of(NoiseField.TEMPERATURE);

@@ -13,10 +13,16 @@ import java.util.Objects;
  * the share of the noise range that grows a tree: a tree grows where the noise exceeds one minus the density. Within
  * the water reach of a river the threshold drops by the water bonus, so the trees stand thicker along the water.
  * Reserved tiles grow none.
+ * <p>
+ * A density can also be a share of the land instead of a share of the noise range, as {@link VegetationParams} says:
+ * the trees then cover that share of the land, on the tiles where the noise is highest, whatever the noise looks like
+ * and however much of the land the passes before this one reserved.
  */
 public final class VegetationPass implements GenerationPass {
 
     private static final String NAME = "vegetation";
+    /** The whole range of the noise, or the whole land, as a share. */
+    private static final double WHOLE_SHARE = 1.0;
 
     private final VegetationParams params;
 
@@ -39,7 +45,7 @@ public final class VegetationPass implements GenerationPass {
     @Override
     public void apply(GenerationContext context) {
         final var treeNoise = context.field(NoiseField.TREE);
-        final var threshold = 1.0 - params.density();
+        final var threshold = thresholdOf(context, treeNoise);
         final var nearWaterThreshold = threshold - params.waterBonus();
         final var reach = params.waterReach() > 0 ? distanceToRivers(context) : null;
         for (var index = 0; index < context.size(); index++) {
@@ -48,6 +54,29 @@ public final class VegetationPass implements GenerationPass {
                 context.setResource(index, ResourceType.TREE);
             }
         }
+    }
+
+    /**
+     * Returns the tree noise above which a tree grows away from the water: one minus the density for a density that is
+     * a share of the noise range, and for a density that is a share of the land the quantile that leaves that many
+     * trees, as a share of the tiles that may grow one, above it.
+     */
+    private double thresholdOf(GenerationContext context, float[] treeNoise) {
+        if (!params.relative()) {
+            return WHOLE_SHARE - params.density();
+        }
+        var land = 0;
+        var growing = 0;
+        for (var index = 0; index < context.size(); index++) {
+            land += context.groundAt(index).isLand() ? 1 : 0;
+            growing += canGrow(context, index) ? 1 : 0;
+        }
+        if (growing == 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        final var share = Math.min(WHOLE_SHARE, (double) params.density() * land / growing);
+        // The quantile is the lowest noise that grows a tree, and the comparison is strict, so step just below it
+        return Math.nextDown(FieldQuantile.above(treeNoise, index -> canGrow(context, index), share));
     }
 
     /** Tells whether a tile is fertile, free of resources and not reserved, so a tree may stand on it. */

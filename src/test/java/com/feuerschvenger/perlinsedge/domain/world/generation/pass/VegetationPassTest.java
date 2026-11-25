@@ -23,6 +23,12 @@ class VegetationPassTest {
     private static final int REACH = 2;
     /** Drops the threshold from 0.7 to 0.5, below the sparse noise of 0.6. */
     private static final float BONUS = 0.2F;
+    /** The tree noise of the relative tests rises by this much per tile and starts at 0 or at the high floor. */
+    private static final float STEP = 0.001F;
+    private static final float HIGH_FLOOR = 0.9F;
+    private static final float HALF_SHARE = 0.5F;
+    private static final float HIGH_SHARE = 0.9F;
+    private static final int QUARTER_DIVISOR = 4;
 
     private static GenerationContext map(TileType ground, float treeNoise) {
         final var context = TestContexts.of(SIDE, SIDE);
@@ -118,6 +124,107 @@ class VegetationPassTest {
         new VegetationPass(new VegetationParams(DENSITY, 0, BONUS)).apply(context);
 
         assertEquals(0, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    /** Builds a map whose tree noise rises with the index from the floor, so the highest noise is on the last tiles. */
+    private static GenerationContext rising(float floor) {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        final var noise = context.defineField(NoiseField.TREE);
+        for (var index = 0; index < noise.length; index++) {
+            noise[index] = floor + index * STEP;
+        }
+        return context;
+    }
+
+    private static void applyByShare(GenerationContext context, float share) {
+        new VegetationPass(new VegetationParams(share, 0, NONE, true)).apply(context);
+    }
+
+    @Test
+    void aRelativeDensityGrowsTreesOnThatShareOfTheTilesWhateverTheNoiseIs() {
+        final var low = rising(0F);
+        final var high = rising(HIGH_FLOOR);
+
+        applyByShare(low, DENSITY);
+        applyByShare(high, DENSITY);
+
+        final var expected = (int) (low.size() * DENSITY);
+        assertEquals((float) expected, (float) TestContexts.countResource(low, ResourceType.TREE), 1F);
+        assertEquals((float) expected, (float) TestContexts.countResource(high, ResourceType.TREE), 1F);
+        assertEquals(ResourceType.TREE, low.resourceAt(low.size() - 1));
+        assertNull(low.resourceAt(0));
+    }
+
+    @Test
+    void aRelativeDensityIsAShareOfTheLandAndTheTreesGrowOnlyOnTheTilesThatMayHoldThem() {
+        final var context = rising(0F);
+        final var reserved = context.size() / QUARTER_DIVISOR;
+        for (var index = 0; index < reserved; index++) {
+            context.reserve(index);
+        }
+
+        applyByShare(context, HALF_SHARE);
+
+        assertEquals(context.size() * HALF_SHARE, (float) TestContexts.countResource(context, ResourceType.TREE), 1F);
+        assertNull(context.resourceAt(0));
+    }
+
+    @Test
+    void aRelativeDensityStopsWhereThereIsNoRoomLeftForTheShareOfTheLand() {
+        final var context = rising(0F);
+        final var reserved = context.size() / QUARTER_DIVISOR;
+        for (var index = 0; index < reserved; index++) {
+            context.reserve(index);
+        }
+
+        applyByShare(context, HIGH_SHARE);
+
+        assertEquals(context.size() - reserved, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    @Test
+    void aRelativeDensityCountsTheLandAndNotTheWater() {
+        final var context = rising(0F);
+        for (var index = 0; index < context.size() / QUARTER_DIVISOR; index++) {
+            context.setGround(index, TileType.DEEP_WATER);
+        }
+
+        applyByShare(context, HALF_SHARE);
+
+        final var land = context.size() - context.size() / QUARTER_DIVISOR;
+        assertEquals(land * HALF_SHARE, (float) TestContexts.countResource(context, ResourceType.TREE), 1F);
+    }
+
+    @Test
+    void aRelativeDensityOnAMapWithNoRoomGrowsNothing() {
+        final var context = rising(0F);
+        TestContexts.fillGround(context, TileType.DEEP_WATER);
+
+        applyByShare(context, HALF_SHARE);
+
+        assertEquals(0, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    @Test
+    void theExtremeRelativeDensitiesGrowOnEveryTileOrOnNone() {
+        final var all = rising(0F);
+        final var none = rising(0F);
+
+        applyByShare(all, FULL);
+        applyByShare(none, NONE);
+
+        assertEquals(all.size(), TestContexts.countResource(all, ResourceType.TREE));
+        assertEquals(0, TestContexts.countResource(none, ResourceType.TREE));
+    }
+
+    @Test
+    void anAbsoluteDensityOnTheSameHighNoiseGrowsOnEveryTileWhichIsWhatARelativeOneAvoids() {
+        final var context = rising(HIGH_FLOOR);
+
+        apply(context, DENSITY);
+
+        assertEquals(context.size(), TestContexts.countResource(context, ResourceType.TREE));
     }
 
     @Test

@@ -2,16 +2,20 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.support;
 
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
+import com.feuerschvenger.perlinsedge.domain.world.generation.recipe.MapRecipes;
 import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
+import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -26,6 +30,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MapSmokeTest {
 
     private static final int SMALL = 64;
+    /** The shorter side the invariants of the content maps are promised from, and how many times longer a map may be. */
+    private static final int FLOOR = MapRecipes.MIN_CONTENT_SIDE;
+    private static final int NARROW_RATIO = 2;
+    /** Sizes below the floor: a square, a small oblong, and strips 300 tiles long and 20 across, in both directions. */
+    private static final int TINY = 32;
+    private static final int TINY_WIDE = 40;
+    private static final int TINY_LOW = 24;
+    private static final int STRIP_LONG = 300;
+    private static final int STRIP_SHORT = 20;
+    /** The share of the land that holds a tree in a dense forest, from the sparse side to the thick side. */
+    private static final double MIN_TREE_SHARE = 0.28;
+    private static final double MAX_TREE_SHARE = 0.42;
     private static final int MEDIUM = 150;
     private static final int ONE_HUNDRED = 100;
     private static final int MIN_ISLANDS = 5;
@@ -122,6 +138,59 @@ class MapSmokeTest {
     private static Stream<Arguments> sweepSizes() {
         return Stream.of(Arguments.of(ONE_HUNDRED, ONE_HUNDRED), Arguments.of(MEDIUM, MEDIUM),
                 Arguments.of(WIDE_WIDTH, WIDE_HEIGHT));
+    }
+
+    /**
+     * The forest and the mountains hold the invariants of their type on every seed of a sweep at the small sizes and on
+     * the wide map, and the common ones too on the squares, whose quotas the invariants scale by the side. A share of
+     * trees, a free glade at the spawn and a spawn region that holds most of the land have to survive a map that sees
+     * only a few periods of the noise.
+     */
+    @ParameterizedTest
+    @EnumSource(value = MapType.class, names = {"DENSE_FOREST", "MOUNTAINOUS"})
+    void theContentMapsHoldTheirInvariantsOnEverySeedOfTheSmallSizeSweep(MapType type) {
+        final var source = MapSource.current();
+        final var perType = MapInvariants.perType().get(type);
+        final var common = MapInvariants.common(source);
+        for (var seed : FixedSeeds.sweep(SWEEP_SOURCE, SWEEP_SEEDS)) {
+            requireInvariants(type, seed, FLOOR, FLOOR, perType, common);
+            requireInvariants(type, seed, MEDIUM, MEDIUM, perType, common);
+            requireInvariants(type, seed, WIDE_WIDTH, WIDE_HEIGHT, perType, List.of());
+            requireInvariants(type, seed, FLOOR * NARROW_RATIO, FLOOR, perType, List.of());
+        }
+    }
+
+    /**
+     * Below the size the invariants of the dense forest are promised from, and on a map much longer than it is wide,
+     * the clearings still shrink to leave the trees their share of the land.
+     */
+    @ParameterizedTest
+    @MethodSource("sizesBelowTheFloor")
+    void aDenseForestBelowTheFloorStillKeepsItsTreesInTheirShareOfTheLand(int width, int height) {
+        for (var seed : FixedSeeds.sweep(SWEEP_SOURCE, SWEEP_SEEDS)) {
+            final var map = generator.generate(new MapRequest(MapType.DENSE_FOREST, seed, width, height));
+            final var share = MapStats.count(map, ResourceType.TREE) / (double) MapStats.landTiles(map);
+
+            assertTrue(share >= MIN_TREE_SHARE && share <= MAX_TREE_SHARE,
+                    "seed " + seed + " " + width + "x" + height + " has trees on " + share + " of the land");
+        }
+    }
+
+    /** Returns the sizes below the floor of the content maps: small, and narrow on either side. */
+    private static Stream<Arguments> sizesBelowTheFloor() {
+        return Stream.of(Arguments.of(TINY, TINY), Arguments.of(TINY_WIDE, TINY_LOW),
+                Arguments.of(STRIP_LONG, STRIP_SHORT), Arguments.of(STRIP_SHORT, STRIP_LONG));
+    }
+
+    /** Generates a map and checks the per type invariants and then the common ones, naming the map in a failure. */
+    private void requireInvariants(MapType type, long seed, int width, int height, List<MapInvariant> perType,
+                                   List<MapInvariant> common) {
+        final var map = generator.generate(new MapRequest(type, seed, width, height));
+        final var spec = new MapSpec(type, seed, Math.min(width, height));
+        final var label = type + "-" + seed + "-" + width + "x" + height;
+        for (var invariant : Stream.concat(perType.stream(), common.stream()).toList()) {
+            assertDoesNotThrow(() -> invariant.check(map, spec), label);
+        }
     }
 
     /** The rivers of a Mediterranean map survive its water limit at every size, wide maps included. */
