@@ -112,6 +112,23 @@ class SpawnPassTest {
         assertTrue(spawnX(context) > WALL, "the spawn is in the wider part of the hinted land: " + spawnX(context));
     }
 
+    /** The hinted piece of land is wholly covered by resources, so the spawn falls back to the largest free region. */
+    @Test
+    void whenTheHintedLandHoldsNoFreeRegionTheSpawnFallsBackToTheLargestRegionOfTheMap() {
+        final var context = grass(WIDE, WIDE_HEIGHT);
+        for (var y = 0; y < WIDE_HEIGHT; y++) {
+            context.setGround(context.index(CHANNEL, y), TileType.DEEP_WATER);
+            for (var x = CHANNEL + 1; x < WIDE; x++) {
+                context.setResource(context.index(x, y), ResourceType.TREE);
+            }
+        }
+        context.setSpawnHint(context.index(SMALL_SIDE_X, SMALL_SIDE_Y));
+
+        pass(0).apply(context);
+
+        assertTrue(spawnX(context) < CHANNEL, "the spawn is on the free side: " + spawnX(context));
+    }
+
     @Test
     void theHintOfAPassIsTheAnchorOfTheSearch() {
         final var context = grass(HINT_SIDE, HINT_SIDE);

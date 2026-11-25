@@ -67,7 +67,9 @@ public final class SpawnPass implements GenerationPass {
 
     /**
      * Returns the free region the spawn is taken in: the largest one inside the piece of land of the spawn hint when
-     * a pass left one on walkable ground, else the largest one of the map.
+     * a pass left one on walkable ground, else the largest one of the map. The map's largest region is also the
+     * fallback when the hinted piece of land holds no free region at all, because resources cover every tile of it,
+     * so the player starts on another piece of land instead of the pass failing.
      */
     private static int regionOf(GenerationContext context, Regions regions) {
         if (context.spawnHint() == GenerationContext.NONE) {
