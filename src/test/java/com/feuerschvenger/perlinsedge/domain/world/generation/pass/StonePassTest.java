@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,6 +38,22 @@ class StonePassTest {
         new StonePass(new StoneParams(ALWAYS, 0)).apply(context);
 
         assertEquals(context.size(), TestContexts.countResource(context, ResourceType.STONE));
+    }
+
+    @Test
+    void reservedTilesGetNoStone() {
+        final var rocky = map(TileType.ROCKY_GROUND, SIDE);
+        final var grass = map(TileType.GRASS, SIDE);
+        final var reserved = rocky.index(0, 0);
+        rocky.reserve(reserved);
+        grass.reserve(reserved);
+
+        new StonePass(new StoneParams(ALWAYS, ALWAYS_LOOSE)).apply(rocky);
+        new StonePass(new StoneParams(ALWAYS, ALWAYS_LOOSE)).apply(grass);
+
+        assertNull(rocky.resourceAt(reserved));
+        assertNull(grass.resourceAt(reserved));
+        assertEquals(rocky.size() - 1, TestContexts.countResource(rocky, ResourceType.STONE));
     }
 
     @Test

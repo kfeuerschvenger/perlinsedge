@@ -27,7 +27,12 @@ class RockyZonePassTest {
     private static final int HALF_SIDE = SIDE / 2;
     private static final int HALF_TILES = TILES / 2;
     private static final int CENTRE = HALF_SIDE;
-    private static final int SQUARE_OF_REACH = (2 * REACH + 1) * (2 * REACH + 1);
+    private static final int BOTH_SIDES = 2;
+    private static final int REACH_SPAN = BOTH_SIDES * REACH + 1;
+    private static final int SQUARE_OF_REACH = REACH_SPAN * REACH_SPAN;
+    private static final int RESERVED_ROWS = 2;
+    private static final int RESERVED_TILES = RESERVED_ROWS * SIDE;
+    private static final float TIED_SCORE = 0.3F;
     private static final Set<TileType> GRASS_ONLY = EnumSet.of(TileType.GRASS);
 
     /** A map of grass whose rock noise rises with the index, so the highest scores are the last tiles. */
@@ -111,6 +116,69 @@ class RockyZonePassTest {
         apply(context, 0F, 0F, 0, GRASS_ONLY);
 
         assertEquals(TILES, TestContexts.countGround(context, TileType.GRASS));
+    }
+
+    @Test
+    void aReachWithoutAnyMountainLeavesTheMapAlone() {
+        final var context = rising();
+
+        apply(context, 0F, 0F, REACH, GRASS_ONLY);
+
+        assertEquals(TILES, TestContexts.countGround(context, TileType.GRASS));
+    }
+
+    @Test
+    void reservedTilesKeepTheirGroundWhateverTheirScore() {
+        final var context = rising();
+        for (var index = TILES - RESERVED_TILES; index < TILES; index++) {
+            context.reserve(index);
+        }
+        final var mountain = context.index(CENTRE, CENTRE);
+        context.setGround(mountain, TileType.MOUNTAIN);
+        context.reserve(context.index(CENTRE + 1, CENTRE));
+
+        apply(context, HALF, 0F, REACH, GRASS_ONLY);
+
+        for (var index = 0; index < TILES; index++) {
+            if (context.isReserved(index)) {
+                assertEquals(TileType.GRASS, context.groundAt(index), "reserved tile " + index);
+            }
+        }
+        assertEquals(TileType.ROCKY_GROUND, context.groundAt(context.index(CENTRE - 1, CENTRE)));
+    }
+
+    @Test
+    void aFlatRangeOfScoresDoesNotTurnEveryHostTileRockyForAShareBelowOne() {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        TestContexts.fillField(context, NoiseField.ROCK, TIED_SCORE);
+
+        apply(context, HALF, 0F, 0, GRASS_ONLY);
+
+        assertEquals(0, TestContexts.countGround(context, TileType.ROCKY_GROUND));
+    }
+
+    @Test
+    void aFlatRangeBecomesRockyOnlyForAShareOfOne() {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        TestContexts.fillField(context, NoiseField.ROCK, TIED_SCORE);
+
+        apply(context, 1F, 0F, 0, GRASS_ONLY);
+
+        assertEquals(TILES, TestContexts.countGround(context, TileType.ROCKY_GROUND));
+    }
+
+    @Test
+    void aSingleHostTileStaysTheSameForAShareBelowOne() {
+        final var context = rising();
+        TestContexts.fillGround(context, TileType.SAND);
+        context.setGround(TILES - 1, TileType.GRASS);
+
+        apply(context, HALF, 0F, 0, GRASS_ONLY);
+
+        assertEquals(TileType.GRASS, context.groundAt(TILES - 1));
+        assertEquals(0, TestContexts.countGround(context, TileType.ROCKY_GROUND));
     }
 
     @Test

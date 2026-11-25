@@ -10,6 +10,7 @@ import java.util.Objects;
 /**
  * Grows trees on fertile ground that holds no resource yet, in the groves where the tree noise is high. The density is
  * the share of the noise range that grows a tree: a tree grows where the noise exceeds one minus the density.
+ * Reserved tiles grow none.
  */
 public final class VegetationPass implements GenerationPass {
 
@@ -36,8 +37,8 @@ public final class VegetationPass implements GenerationPass {
         final var treeNoise = context.field(NoiseField.TREE);
         final var threshold = 1.0 - params.density();
         for (var index = 0; index < context.size(); index++) {
-            if (context.resourceAt(index) == null && context.groundAt(index).isFertile()
-                    && treeNoise[index] > threshold) {
+            if (context.resourceAt(index) == null && !context.isReserved(index)
+                    && context.groundAt(index).isFertile() && treeNoise[index] > threshold) {
                 context.setResource(index, ResourceType.TREE);
             }
         }

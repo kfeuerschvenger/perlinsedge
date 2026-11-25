@@ -53,6 +53,18 @@ class DesertFloraPassTest {
     }
 
     @Test
+    void reservedTilesGrowNoTree() {
+        final var context = sand(SIDE);
+        final var reserved = context.index(0, 0);
+        context.reserve(reserved);
+
+        new DesertFloraPass(new DesertFloraParams(CERTAIN, CERTAIN, CERTAIN, CERTAIN)).apply(context);
+
+        assertNull(context.resourceAt(reserved));
+        assertTrue(isTree(context, 1, 0));
+    }
+
+    @Test
     void treesGatherAroundWaterFarThickerThanInTheDrySand() {
         final var context = sand(BIG_SIDE);
         for (var x = 0; x < BIG_SIDE; x++) {

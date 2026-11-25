@@ -13,7 +13,8 @@ import java.util.function.IntPredicate;
  * scored by the rock noise plus the height bias times the height, and the top share of the host tiles becomes rocky
  * ground. Because the share is relative to the tiles that qualify, every map type gets rock whatever its height
  * profile. Host tiles within the foothill reach of a mountain become rocky ground too, so the feet of a mountain are
- * rock the player can walk on.
+ * rock the player can walk on. Reserved tiles keep their ground, and when the host tiles all have the same score, or
+ * there is only one, no tile is picked by the share unless the share is 1.
  * <p>
  * The pass reads fields and ground only and draws no random numbers, so it repeats for a seed.
  */
@@ -44,10 +45,10 @@ public final class RockyZonePass implements GenerationPass {
 
     @Override
     public void apply(GenerationContext context) {
-        final IntPredicate hostMask = index -> isHost[context.groundAt(index).ordinal()];
+        final IntPredicate hostMask = index -> isHost[context.groundAt(index).ordinal()] && !context.isReserved(index);
         final var score = scoreOf(context);
         final var threshold = FieldQuantile.above(score, hostMask, params.landShare());
-        final var distances = params.foothillReach() > 0 ? distanceToMountains(context) : null;
+        final var distances = params.foothillReach() > 0 && hasMountain(context) ? distanceToMountains(context) : null;
         for (var index = 0; index < context.size(); index++) {
             if (hostMask.test(index) && (score[index] >= threshold || isFoothill(distances, index))) {
                 context.setGround(index, TileType.ROCKY_GROUND);
@@ -64,9 +65,19 @@ public final class RockyZonePass implements GenerationPass {
         final var height = context.field(NoiseField.HEIGHT);
         final var score = new float[rock.length];
         for (var index = 0; index < score.length; index++) {
-            score[index] = rock[index] + params.heightBias() * height[index];
+            score[index] = (float) (rock[index] + (double) params.heightBias() * height[index]);
         }
         return score;
+    }
+
+    /** Tells whether the map has a mountain tile, because a map without one has no foothills to measure. */
+    private static boolean hasMountain(GenerationContext context) {
+        for (var index = 0; index < context.size(); index++) {
+            if (context.groundAt(index) == TileType.MOUNTAIN) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The distance of every tile to the nearest mountain. */

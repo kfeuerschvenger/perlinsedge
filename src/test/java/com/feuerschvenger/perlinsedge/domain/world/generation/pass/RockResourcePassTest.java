@@ -13,6 +13,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,6 +53,18 @@ class RockResourcePassTest {
             final var expected = ground == TileType.ROCKY_GROUND ? context.size() : 0;
             assertEquals(expected, TestContexts.countResource(context, ResourceType.IRON_ORE), ground.name());
         }
+    }
+
+    @Test
+    void reservedTilesHoldNoOreOrCrystals() {
+        final var context = rocky(SMALL_SIDE, TileType.ROCKY_GROUND, ABOVE, SEED);
+        final var reserved = context.index(0, 0);
+        context.reserve(reserved);
+
+        apply(context, ALWAYS, ALWAYS);
+
+        assertNull(context.resourceAt(reserved));
+        assertEquals(context.size() - 1, TestContexts.countResource(context, ResourceType.CRYSTALS));
     }
 
     @Test

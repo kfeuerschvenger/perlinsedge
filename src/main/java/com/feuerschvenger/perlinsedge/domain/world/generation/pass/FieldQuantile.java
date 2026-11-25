@@ -23,13 +23,16 @@ final class FieldQuantile {
      * greater than or equal to the result, so a caller keeps a tile with {@code value >= threshold}. The mask is called
      * once for each tile to find the range of the values, and a second time for each tile to count them, except when
      * the answer follows from the range alone: no selected tile, a share of 0 or 1, or a single value. Tiles with the
-     * same value fall in the same bin, so when many of them tie the share kept is only approximate.
+     * same value fall in the same bin, so when many of them tie the share kept is only approximate. When every
+     * selected tile has the same value, which includes a single selected tile, no value is above any other, so a
+     * share below 1 keeps nothing instead of keeping every tile.
      *
      * @param values the field, indexed like every array of the context; the selected values must be finite
      * @param mask   the tiles that count
      * @param share  the share of the selected tiles to keep above the threshold, from 0 to 1
-     * @return the threshold; {@link Float#POSITIVE_INFINITY} when no tile is selected or the share is 0, so no tile
-     * passes it, and the lowest selected value when the share is 1 or every selected tile has the same value
+     * @return the threshold; {@link Float#POSITIVE_INFINITY} when no tile is selected, the share is 0, or every
+     * selected tile has the same value and the share is below 1, so no tile passes it, and the lowest selected value
+     * when the share is 1
      * @throws IllegalArgumentException when the share is not from 0 to 1 or a selected value is NaN or infinite
      */
     static float above(float[] values, IntPredicate mask, double share) {
@@ -42,8 +45,11 @@ final class FieldQuantile {
         if (range.count == 0 || share <= 0.0) {
             return Float.POSITIVE_INFINITY;
         }
-        if (share >= 1.0 || range.max <= range.min) {
+        if (share >= 1.0) {
             return range.min;
+        }
+        if (range.max <= range.min) {
+            return Float.POSITIVE_INFINITY;
         }
         return interpolate(range, histogram(values, mask, range), share * range.count);
     }
@@ -87,7 +93,8 @@ final class FieldQuantile {
             for (var index = 0; index < values.length; index++) {
                 if (mask.test(index)) {
                     if (!Float.isFinite(values[index])) {
-                        throw new IllegalArgumentException("the value at " + index + " is not finite: " + values[index]);
+                        throw new IllegalArgumentException(
+                                "the value at " + index + " is not finite: " + values[index]);
                     }
                     range.min = Math.min(range.min, values[index]);
                     range.max = Math.max(range.max, values[index]);

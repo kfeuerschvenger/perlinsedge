@@ -10,7 +10,7 @@ import java.util.Objects;
  * Puts stone on the rocky ground, a share of its tiles, and rare loose stones on any other walkable land that can hold
  * a resource, which gives a map with no rock, such as the islets of a swamp, a few stones to pick up. Water, ice and
  * mountains carry none, and a tile that already holds a resource keeps it, so the ore the rock pass placed is never
- * replaced. Both chances are hashes of the tile, so the result repeats for a seed.
+ * replaced. Reserved tiles get none. Both chances are hashes of the tile, so the result repeats for a seed.
  */
 public final class StonePass implements GenerationPass {
 
@@ -39,7 +39,8 @@ public final class StonePass implements GenerationPass {
         for (var y = 0; y < context.height(); y++) {
             for (var x = 0; x < context.width(); x++) {
                 final var index = context.index(x, y);
-                if (context.resourceAt(index) == null && hasStone(context, index, x, y)) {
+                if (context.resourceAt(index) == null && !context.isReserved(index)
+                        && hasStone(context, index, x, y)) {
                     context.setResource(index, ResourceType.STONE);
                 }
             }
