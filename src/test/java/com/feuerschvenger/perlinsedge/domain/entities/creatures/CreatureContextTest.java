@@ -60,10 +60,10 @@ class CreatureContextTest {
     }
 
     @Test
-    void aCreatureAsksItsAttackWhetherItCanAttackTheContextItIsGiven() {
+    void anAttackStrategyTellsWhetherItsCreatureCanAttackTheContextItIsGiven() {
         final Skeleton skeleton = new Skeleton(SKELETON_TILE, SKELETON_TILE);
 
-        assertTrue(skeleton.canAttack(contextWithPlayerAt(ADJACENT_TILE)));
-        assertFalse(skeleton.canAttack(contextWithPlayerAt(FAR_TILE)));
+        assertTrue(skeleton.getAttackStrategy().canAttack(skeleton, contextWithPlayerAt(ADJACENT_TILE)));
+        assertFalse(skeleton.getAttackStrategy().canAttack(skeleton, contextWithPlayerAt(FAR_TILE)));
     }
 }

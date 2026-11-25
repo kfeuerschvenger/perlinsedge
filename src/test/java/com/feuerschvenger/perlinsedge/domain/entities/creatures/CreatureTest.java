@@ -246,7 +246,7 @@ class CreatureTest {
         assertSame(NoAttack.INSTANCE, animal.getAttackStrategy());
         assertEquals(0.0, animal.getAttackDamage(), 0.0);
         assertEquals(0.0, animal.getAttackCooldown(), 0.0);
-        assertFalse(animal.canAttack(context));
+        assertFalse(animal.getAttackStrategy().canAttack(animal, context));
         assertEquals(healthBefore, player.getHealth(), 0.0);
     }
 

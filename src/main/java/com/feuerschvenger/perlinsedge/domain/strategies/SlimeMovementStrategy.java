@@ -40,7 +40,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
     private static final double MAX_HOVER_RETRY_SECONDS = 1.0;
     /** How much longer each failed look for a landing tile makes the wait. */
     private static final double HOVER_RETRY_GROWTH_FACTOR = 2.0;
-    /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
+    /** Extra cost of a tile another creature holds in a search: a detour up to this long is taken instead. */
     private static final double HELD_TILE_PENALTY = 6.0;
     /** Rest on the ground between two hops of a chase, shortest and longest. Each slime has one fixed value. */
     private static final double MIN_REST_SECONDS = 0.02;
@@ -76,7 +76,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
      * taken.
      */
     private double secondsOfReplanWait;
-    /** The step of the path another enemy holds and the wait the slime last gave it. */
+    /** The step of the path another creature holds and the wait the slime last gave it. */
     private final HeldStepBackoff heldStep = new HeldStepBackoff();
     /** Time left before a hovering slime looks for a tile to land on again, and the wait it gives the next miss. */
     private double secondsOfHoverWait;
@@ -277,7 +277,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
 
     /**
      * Hops to a random free tile around the slime, with the given hop duration, unless it is in the air or resting.
-     * Nothing happens when no tile is free or another enemy took the chosen one first.
+     * Nothing happens when no tile is free or another creature took the chosen one first.
      */
     private void moveRandomly(Creature creature, TileMap map, Player player, double duration) {
         if (isJumping || secondsOfRest > 0) {
@@ -290,8 +290,8 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
             if (!occupancy.tryReserve(creature, chosenMove[0], chosenMove[1])) {
                 return;
             }
-            creature.setTargetTileX(chosenMove[0]); // Update enemy's target
-            creature.setTargetTileY(chosenMove[1]); // Update enemy's target
+            creature.setTargetTileX(chosenMove[0]); // Update the creature's target
+            creature.setTargetTileY(chosenMove[1]); // Update the creature's target
             startJump(creature, duration);
         }
     }
@@ -398,7 +398,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
      * proportion to the distance it covers, within bounds, and the jump phase carries on from where it was.
      * When no candidate is valid, the slime hangs where it is, with the phase held, and looks again after a wait that
      * doubles from a tenth of a second up to a second while it stays stuck. The tile it held as its target is let go
-     * at once, so only the take-off tile stays held and another enemy may use the rest; the target is the take-off
+     * at once, so only the take-off tile stays held and another creature may use the rest; the target is the take-off
      * tile meanwhile. A slime whose take-off tile has become the player's and whose neighbours are all held therefore
      * hangs there, checking at most once a second, and lands back on the take-off tile as soon as the player leaves it.
      * The path to the player is dropped, because the hop no longer goes where it was searched for.
@@ -453,7 +453,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
      * Hangs in the air with the target moved back to the take-off tile, so the tile that was the target is no longer
      * held, and schedules the next look for a tile to land on. The take-off tile is the slime's own: reserving it
      * only lets go of the old target, and the answer does not change what the slime does. It can be no only when
-     * another enemy took the tile, and then the slime has nowhere else to go and the occupancy gives the tile back to
+     * another creature took the tile, and then the slime has nowhere else to go and the occupancy gives the tile back to
      * it on a later sync, so the slime hangs on either way.
      */
     private void hover(Creature creature, int fromX, int fromY) {
@@ -476,8 +476,8 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
         isJumping = false;
         hovering = false;
         jumpPhase = 0;
-        creature.setCurrentTileX(creature.getTargetTileX()); // Update enemy's current tile position
-        creature.setCurrentTileY(creature.getTargetTileY()); // Update enemy's current tile position
+        creature.setCurrentTileX(creature.getTargetTileX()); // Update the creature's current tile position
+        creature.setCurrentTileY(creature.getTargetTileY()); // Update the creature's current tile position
         creature.setPosX(creature.getCurrentTileX()); // Ensure interpolated matches current tile at end of jump
         creature.setPosY(creature.getCurrentTileY());
     }
@@ -504,7 +504,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
     }
 
     /**
-     * Waits for a step that another enemy holds, with no search meanwhile. The first wait is random, between the replan
+     * Waits for a step that another creature holds, with no search meanwhile. The first wait is random, between the replan
      * wait and the replan wait plus its spread, so a crowd does not act in step; the wait doubles, up to
      * {@link HeldStepBackoff#MAX_WAIT_SECONDS}, each time the same step is still held when it is tried again.
      *
@@ -521,7 +521,7 @@ public class SlimeMovementStrategy implements CreatureMovementStrategy {
      * Takes the next step of the path as a hop. The step is checked first: something may have been built on the tile
      * since the path was searched, the player may have stepped on it, or the slime may be on a tile other than the one
      * the path was searched from, so the step is not a hop of one tile. A step that fails clears the path and makes the
-     * slime wait before searching again. A tile another enemy holds does not fail the path at once: the slime keeps it
+     * slime wait before searching again. A tile another creature holds does not fail the path at once: the slime keeps it
      * and waits for the tile to be let go without searching. When the same step is still held after the wait, the
      * path is dropped and searched again after a wait that doubles while the step stays held, see
      * {@link #waitForHeldStep(PathNode)}. The tile of a step that goes ahead is reserved before the slime takes off.

@@ -11,8 +11,9 @@ public final class NoAttack implements CreatureAttackStrategy {
     /** The one instance, since the strategy has no state. */
     public static final NoAttack INSTANCE = new NoAttack();
 
+    /** Private so the only instance is {@link #INSTANCE}. */
     private NoAttack() {
-        // Use INSTANCE
+        // Nothing to initialise: the strategy has no state
     }
 
     /**

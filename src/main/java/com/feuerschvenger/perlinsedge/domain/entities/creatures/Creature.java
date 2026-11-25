@@ -123,16 +123,6 @@ public abstract class Creature extends Entity {
     }
 
     /**
-     * Determines if this creature can currently attack the player.
-     *
-     * @param context what the creature can see of the world: the map, the player and the occupancy
-     * @return true if attack conditions are satisfied
-     */
-    public boolean canAttack(CreatureContext context) {
-        return attackStrategy.canAttack(this, context);
-    }
-
-    /**
      * Updates the attack cooldown timer.
      *
      * @param deltaTime time since last update (seconds)

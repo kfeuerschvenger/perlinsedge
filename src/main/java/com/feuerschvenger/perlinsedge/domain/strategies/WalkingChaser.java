@@ -11,7 +11,8 @@ import java.util.LinkedList;
 import java.util.Random;
 
 /**
- * The walking chase shared by the enemies that follow the player on foot: it walks the shortest path to the player
+ * The walking chase shared by the hostile creatures that follow the player on foot (it is hostile-only: animals never
+ * chase): it walks the shortest path to the player
  * and stops on a tile next to them, diagonals included, and it gives up under the rules of {@link ChaseLeash}.
  * The enemy only ever walks tile centre to tile centre along a path that the pathfinder built from walkable tiles
  * without cutting a corner, so it never enters water, a resource or a building.
@@ -26,15 +27,15 @@ final class WalkingChaser {
     private static final double REPATH_INTERVAL_SECONDS = 0.5;
     /**
      * Shortest time between two searches caused by the player changing tile, however often that happens. A player
-     * running across the map would otherwise start a search per enemy every few frames.
+     * running across the map would otherwise start a search per chaser every few frames.
      */
     private static final double MIN_REPATH_SPACING_SECONDS = 0.4;
     /** Wait before searching again after the next tile of the path turned out to be the player's. */
     private static final double PLAYER_BLOCK_WAIT_SECONDS = 0.15;
     private static final double AT_TILE_CENTRE_EPSILON = 1e-9;
-    /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
+    /** Extra cost of a tile another creature holds in a search: a detour up to this long is taken instead. */
     private static final double HELD_TILE_PENALTY = 6.0;
-    /** Shortest and longest first wait for a next tile that another enemy holds, so a crowd does not act in step. */
+    /** Shortest and longest first wait for a next tile that another creature holds, so a crowd does not act in step. */
     private static final double HELD_WAIT_MIN_SECONDS = 0.15;
     private static final double HELD_WAIT_MAX_SECONDS = 0.45;
 
@@ -44,14 +45,14 @@ final class WalkingChaser {
     private final PathPlanner pathPlanner = new PathPlanner();
     private double secondsUntilRepath;
     private double secondsOfPlayerBlockWait;
-    /** The step of the path another enemy holds and the wait the chaser last gave it. */
+    /** The step of the path another creature holds and the wait the chaser last gave it. */
     private final HeldStepBackoff heldStep = new HeldStepBackoff();
     /** Time left of the wait for the held step. */
     private double secondsOfStepWait;
     private int plannedPlayerX = Integer.MIN_VALUE;
     private int plannedPlayerY = Integer.MIN_VALUE;
     private final Random random;
-    /** Which enemy holds which tile, set on every update. */
+    /** Which creature holds which tile, set on every update. */
     private CreatureOccupancy occupancy;
 
     /**
@@ -75,7 +76,7 @@ final class WalkingChaser {
      * @param deltaTime seconds since the previous update
      * @param map       the map to search and walk
      * @param player    the player being chased
-     * @param occupancy which enemy holds which tile: the enemy never steps onto a tile another enemy holds
+     * @param occupancy which creature holds which tile: the enemy never steps onto a tile another creature holds
      */
     void update(Creature creature, double deltaTime, TileMap map, Player player, CreatureOccupancy occupancy) {
         this.occupancy = occupancy;
@@ -122,7 +123,7 @@ final class WalkingChaser {
 
     /**
      * Tells whether the player changed tile since the last search and a new one is allowed: the spacing between two
-     * searches has passed and, for an enemy that waits on a tile another enemy holds, so has the wait.
+     * searches has passed and, for an enemy that waits on a tile another creature holds, so has the wait.
      */
     private boolean playerMovedSincePlan(Player player) {
         return secondsOfStepWait <= 0
@@ -130,7 +131,7 @@ final class WalkingChaser {
                 && (player.getCurrentTileX() != plannedPlayerX || player.getCurrentTileY() != plannedPlayerY);
     }
 
-    /** @return true while the path is kept because its next step is held by another enemy */
+    /** @return true while the path is kept because its next step is held by another creature */
     private boolean isWaitingOnHeldStep() {
         return heldStep.isBlocked() && !path.isEmpty();
     }
@@ -141,7 +142,7 @@ final class WalkingChaser {
     }
 
     /**
-     * Waits for a tile another enemy holds. The first wait is random, so a crowd does not act in step, and it doubles,
+     * Waits for a tile another creature holds. The first wait is random, so a crowd does not act in step, and it doubles,
      * up to {@link HeldStepBackoff#MAX_WAIT_SECONDS}, each time the same tile is still held when it is tried again.
      *
      * @return true when the tile was already held after an earlier wait, which means its holder is not passing through
@@ -236,13 +237,13 @@ final class WalkingChaser {
     }
 
     /**
-     * Asks for a tile that is not held by this enemy yet.
+     * Asks for a tile that is not held by this chaser yet.
      *
      * @return true when the tile was reserved and can be walked, false when the enemy has to stand still
      */
     private boolean claimStep(Creature creature, PathNode next) {
         if (secondsOfStepWait > 0) {
-            // Another enemy held this tile a moment ago: stand still until the wait is over
+            // Another creature held this tile a moment ago: stand still until the wait is over
             return false;
         }
         if (occupancy.tryReserve(creature, next.x, next.y)) {
@@ -250,12 +251,12 @@ final class WalkingChaser {
             return true;
         }
         if (isMidStep(creature)) {
-            // The tile being walked to was taken by another enemy: go back to the tile centre instead of
+            // The tile being walked to was taken by another creature: go back to the tile centre instead of
             // standing between two tiles, and search from there
             turnBackToTileCentre(creature);
             return false;
         }
-        // Another enemy holds the tile: stand still with the path kept and try again after a wait that
+        // Another creature holds the tile: stand still with the path kept and try again after a wait that
         // grows while the tile stays held
         if (waitForHeldStep(next)) {
             // Still held after a wait: the holder stays, so the path is dropped and searched again once

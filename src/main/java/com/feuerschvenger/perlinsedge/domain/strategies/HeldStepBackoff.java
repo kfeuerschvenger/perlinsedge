@@ -5,7 +5,7 @@ import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import java.util.function.DoubleSupplier;
 
 /**
- * The wait of an enemy for a step of its path that another enemy holds. It remembers the step and the wait it last
+ * The wait of a creature for a step of its path that another creature holds. It remembers the step and the wait it last
  * gave it: the wait for the same step doubles, up to {@link #MAX_WAIT_SECONDS}, each time the step is still held when
  * it is tried again, and a different step starts over with the first wait the caller chooses.
  */

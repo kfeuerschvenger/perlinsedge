@@ -151,7 +151,7 @@ final class FxRenderableDrawer {
         } else if (object instanceof Player) {
             drawPlayer(r);
         } else if (object instanceof Creature) {
-            drawEnemy(r);
+            drawCreature(r);
         } else if (object instanceof DroppedItem) {
             drawDroppedItem(r);
         } else if (object instanceof TileHighlight h) {
@@ -267,14 +267,14 @@ final class FxRenderableDrawer {
      *
      * @param r The Renderable object containing creature information.
      */
-    private void drawEnemy(Renderable r) {
-        final var enemy = (Creature) r.object();
+    private void drawCreature(Renderable r) {
+        final var creature = (Creature) r.object();
         final double zoom = camera.getZoom();
 
-        if (enemy instanceof Slime slime) {
+        if (creature instanceof Slime slime) {
             FxEnemyDrawingHelper.drawSlime(gc, r.screenX(), r.screenY(), zoom, slime, gameTime);
         } else {
-            FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, enemy);
+            FxEnemyDrawingHelper.drawGenericEnemy(gc, r.screenX(), r.screenY(), zoom, creature);
         }
     }
 

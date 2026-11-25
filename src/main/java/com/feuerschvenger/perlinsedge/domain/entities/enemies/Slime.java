@@ -68,13 +68,21 @@ public class Slime extends Enemy {
         this(startX, startY, movement, new SlimeAttackStrategy(movement));
     }
 
-    /** Builds the slime from its two strategies, which it keeps typed. */
+    /** Builds the slime from its two strategies, which it keeps typed and which must be paired. */
     private Slime(int startX, int startY, SlimeMovementStrategy movement, SlimeAttackStrategy strike) {
-        super(startX, startY, MAX_HEALTH, ATTACK_DAMAGE, ATTACK_COOLDOWN, movement, strike);
+        super(startX, startY, MAX_HEALTH, ATTACK_DAMAGE, ATTACK_COOLDOWN, movement, paired(movement, strike));
         this.movement = movement;
         this.strike = strike;
         setColor(selectRandomColor());
         this.breathPhase = breathPhaseAt(startX, startY);
+    }
+
+    /** Returns the strike when it reads the jump of the given movement, and refuses it otherwise. */
+    private static SlimeAttackStrategy paired(SlimeMovementStrategy movement, SlimeAttackStrategy strike) {
+        if (!strike.isPairedWith(movement)) {
+            throw new IllegalArgumentException("The strike of a slime must read the jump of its own movement");
+        }
+        return strike;
     }
 
     /**

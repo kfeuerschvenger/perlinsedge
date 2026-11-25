@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * A monster reacts to a hit through its movement strategy, with the attacker as the source and the creature as it
- * was before the damage, and a creature that is already dead does not react.
+ * A monster that is hit from far away reacts through its movement strategy and still loses the health of the hit,
+ * and a creature that is already dead does not react.
  */
 class CreatureHurtReactionTest {
     private static final int TILE = 10;

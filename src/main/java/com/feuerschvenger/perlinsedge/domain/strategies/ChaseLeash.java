@@ -3,7 +3,8 @@ package com.feuerschvenger.perlinsedge.domain.strategies;
 import com.feuerschvenger.perlinsedge.config.AppConfig.EnemyConfig.ChaseRange;
 
 /**
- * Decides whether an enemy is chasing the player, with the same rules for every enemy type.
+ * Decides whether a hostile creature is chasing the player, with the same rules for every enemy type. It is
+ * hostile-only: animals never chase the player.
  * A chase starts when the player is within the aggro range. Once started it goes on until the player passes the
  * leash range, which is larger than the aggro range so the edge does not flicker, or until the player has stayed
  * outside the aggro range for the lose time. A dead player ends the chase.

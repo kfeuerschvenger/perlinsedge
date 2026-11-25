@@ -11,8 +11,9 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
  */
 public final class CreatureFactory {
 
+    /** Private so the factory is never instantiated: it is used through its static method. */
     private CreatureFactory() {
-        // Static factory
+        // Nothing to initialise: the factory has no state
     }
 
     /**

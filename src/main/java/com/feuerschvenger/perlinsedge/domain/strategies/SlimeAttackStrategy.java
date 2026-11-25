@@ -17,6 +17,10 @@ public class SlimeAttackStrategy implements CreatureAttackStrategy {
 
     /**
      * Creates the attack of a slime, which does not squash while the movement of that slime has it in the air.
+     * The two strategies of one slime must be paired: the strike reads the jump of the movement it is given, so a
+     * strike paired with another slime's movement would squash on the wrong jump. {@code Slime} builds both and
+     * checks the pairing with {@link #isPairedWith}. The class sits in another package than {@code Slime}, so the
+     * constructor cannot be package-private.
      *
      * @param movement the movement strategy of the same slime, which tells whether it is jumping
      */
@@ -24,6 +28,16 @@ public class SlimeAttackStrategy implements CreatureAttackStrategy {
         final var mechanics = AppConfig.getInstance().gameMechanics();
         this.cycle = new SlimeStrikeCycle(mechanics.getSlimeWindupSeconds(), mechanics.getSlimeStrikeWaitSeconds());
         this.movement = movement;
+    }
+
+    /**
+     * Tells whether this strike reads the jump of the given movement.
+     *
+     * @param other the movement strategy to compare with
+     * @return true when this strike was built for that movement
+     */
+    public boolean isPairedWith(SlimeMovementStrategy other) {
+        return movement == other;
     }
 
     /**
