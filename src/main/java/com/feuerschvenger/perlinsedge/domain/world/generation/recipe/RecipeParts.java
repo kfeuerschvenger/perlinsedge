@@ -164,12 +164,12 @@ final class RecipeParts {
     /**
      * Builds the pass that lowers the land along one edge of the map into a long coast.
      *
-     * @param depthTiles how many tiles in from the edge the coast reaches
+     * @param depthShare how far in from the edge the coast reaches, as a share of the size of the map across it
      * @param drop       how far the height drops at the edge
      * @return the pass
      */
-    static EdgeCoastPass edgeCoast(int depthTiles, float drop) {
-        return new EdgeCoastPass(new EdgeCoastParams(depthTiles, drop));
+    static EdgeCoastPass edgeCoast(float depthShare, float drop) {
+        return new EdgeCoastPass(new EdgeCoastParams(depthShare, drop));
     }
 
     /**

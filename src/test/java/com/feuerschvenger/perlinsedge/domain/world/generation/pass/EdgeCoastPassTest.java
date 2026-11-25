@@ -17,7 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EdgeCoastPassTest {
 
     private static final int SIDE = 40;
+    private static final float DEPTH_SHARE = 0.25F;
     private static final int DEPTH = 10;
+    private static final int WIDE = 60;
+    private static final int LOW = 20;
+    private static final int WIDE_DEPTH = 15;
+    private static final int LOW_DEPTH = 5;
     private static final float DROP = 0.8F;
     private static final float TOLERANCE = 1e-5F;
     private static final long SEED = 5L;
@@ -33,8 +38,8 @@ class EdgeCoastPassTest {
         return context;
     }
 
-    private static void apply(GenerationContext context, int depth) {
-        new EdgeCoastPass(new EdgeCoastParams(depth, DROP)).apply(context);
+    private static void apply(GenerationContext context, float depthShare) {
+        new EdgeCoastPass(new EdgeCoastParams(depthShare, DROP)).apply(context);
     }
 
     /** Returns the middle tiles of the top, bottom, left and right edges, in that order. */
@@ -61,7 +66,7 @@ class EdgeCoastPassTest {
     void exactlyOneEdgeIsLoweredByTheFullDropAndTheOthersAreUntouched() {
         final var context = flat(SEED);
 
-        apply(context, DEPTH);
+        apply(context, DEPTH_SHARE);
 
         final var lowered = loweredEdge(context);
         assertTrue(lowered >= 0, "one edge drops by the drop");
@@ -77,7 +82,7 @@ class EdgeCoastPassTest {
     void theLoweringFadesSmoothlyToNothingAtTheDepth() {
         final var context = flat(SEED);
 
-        apply(context, DEPTH);
+        apply(context, DEPTH_SHARE);
 
         // Walk in from the lowered edge along the line through the middle of the map
         final var heights = context.field(NoiseField.HEIGHT);
@@ -106,7 +111,7 @@ class EdgeCoastPassTest {
         final var edges = new HashSet<Integer>();
         for (var seed = 1L; seed <= SEEDS; seed++) {
             final var context = flat(seed);
-            apply(context, DEPTH);
+            apply(context, DEPTH_SHARE);
             edges.add(loweredEdge(context));
         }
 
@@ -118,17 +123,17 @@ class EdgeCoastPassTest {
         final var first = flat(SEED);
         final var second = flat(SEED);
 
-        apply(first, DEPTH);
-        apply(second, DEPTH);
+        apply(first, DEPTH_SHARE);
+        apply(second, DEPTH_SHARE);
 
         assertArrayEquals(first.field(NoiseField.HEIGHT), second.field(NoiseField.HEIGHT));
     }
 
     @Test
-    void aCoastDeeperThanTheMapStillLowersEveryTileOfItWithoutFailing() {
+    void aCoastAsDeepAsTheMapStillLowersEveryTileOfItWithoutFailing() {
         final var context = flat(SEED);
 
-        apply(context, SIDE * 2);
+        apply(context, 1F);
 
         final var heights = context.field(NoiseField.HEIGHT);
         for (var index = 0; index < heights.length; index++) {
@@ -139,17 +144,52 @@ class EdgeCoastPassTest {
     }
 
     @Test
+    void theDepthIsAShareOfTheMapAcrossTheEdgeSoBothSizesAreFloodedAlike() {
+        final var wide = new EdgeCoastPass(new EdgeCoastParams(DEPTH_SHARE, DROP));
+
+        assertEquals(DEPTH, wide.depthOf(SIDE));
+        assertEquals(WIDE_DEPTH, wide.depthOf(WIDE));
+        assertEquals(LOW_DEPTH, wide.depthOf(LOW));
+        assertEquals(1, wide.depthOf(1));
+    }
+
+    @Test
+    void onAMapThatIsNotSquareTheTopAndBottomUseTheHeightAndTheSidesUseTheWidth() {
+        for (var seed = 1L; seed <= SEEDS; seed++) {
+            final var context = TestContexts.of(MapType.MEDITERRANEAN, seed, WIDE, LOW, TestContexts.FLAT);
+            TestContexts.fillField(context, NoiseField.HEIGHT, 0F);
+
+            apply(context, DEPTH_SHARE);
+
+            // The middle column crosses a lowered top or bottom, the middle row a lowered left or right side
+            final var heights = context.field(NoiseField.HEIGHT);
+            var columnHits = 0;
+            for (var y = 0; y < LOW; y++) {
+                columnHits += heights[context.index(WIDE / 2, y)] < 0F ? 1 : 0;
+            }
+            var rowHits = 0;
+            for (var x = 0; x < WIDE; x++) {
+                rowHits += heights[context.index(x, LOW / 2)] < 0F ? 1 : 0;
+            }
+            assertEquals(columnHits > 0 ? LOW_DEPTH : WIDE_DEPTH, columnHits + rowHits, "seed " + seed);
+        }
+    }
+
+    @Test
     void theParametersRefuseNumbersThatCannotWork() {
-        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(0, DROP));
-        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH, 0F));
-        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH, -DROP));
-        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH, Float.NaN));
-        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH, Float.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(0F, DROP));
+        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(1.5F, DROP));
+        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(Float.NaN, DROP));
+        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH_SHARE, 0F));
+        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH_SHARE, -DROP));
+        assertThrows(IllegalArgumentException.class, () -> new EdgeCoastParams(DEPTH_SHARE, Float.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new EdgeCoastParams(DEPTH_SHARE, Float.POSITIVE_INFINITY));
         assertThrows(NullPointerException.class, () -> new EdgeCoastPass(null));
     }
 
     @Test
     void thePassIsNamed() {
-        assertEquals("edge-coast", new EdgeCoastPass(new EdgeCoastParams(DEPTH, DROP)).name());
+        assertEquals("edge-coast", new EdgeCoastPass(new EdgeCoastParams(DEPTH_SHARE, DROP)).name());
     }
 }
