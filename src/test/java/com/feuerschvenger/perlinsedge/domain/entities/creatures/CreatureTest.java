@@ -2,15 +2,18 @@ package com.feuerschvenger.perlinsedge.domain.entities.creatures;
 
 import com.feuerschvenger.perlinsedge.domain.entities.Entity;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
+import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.strategies.CreatureAttackStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.CreatureMovementStrategy;
+import com.feuerschvenger.perlinsedge.domain.strategies.NoAttack;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The lifecycle and the hurt hook that every creature shares, whatever its branch. */
+/** The lifecycle and the hurt reaction that every creature shares, whatever its branch. */
 class CreatureTest {
     private static final int MAP_SIDE = 10;
     private static final double STEP = 1.0 / 60.0;
@@ -28,15 +31,16 @@ class CreatureTest {
     private static final double COOLDOWN = 1.5;
     private static final double SMALL_HIT = 5.0;
     private static final double KILLING_HIT = 100.0;
+    private static final double EPSILON = 1e-9;
     private static final int START_TILE = 3;
     private static final int PLAYER_TILE = 8;
+    private static final int NEXT_TO_ANIMAL = 4;
 
-    /** A creature of the animal branch, which has no species of its own yet, with hooks that record what runs. */
-    private static final class TestAnimal extends Animal {
+    /** A monster with no species, with a hook that records that it ran. */
+    private static final class TestEnemy extends Enemy {
         private final List<String> log;
-        private final List<Entity> hurtBy = new ArrayList<>();
 
-        private TestAnimal(List<String> log, CreatureMovementStrategy movement, CreatureAttackStrategy attack) {
+        private TestEnemy(List<String> log, CreatureMovementStrategy movement, CreatureAttackStrategy attack) {
             super(START_TILE, START_TILE, MAX_HEALTH, SMALL_HIT, COOLDOWN, movement, attack);
             this.log = log;
         }
@@ -47,19 +51,55 @@ class CreatureTest {
         }
 
         @Override
-        protected void onHurt(Entity source) {
-            log.add("hurt");
-            hurtBy.add(source);
-        }
-
-        @Override
         public Species species() {
-            return Species.SLIME;
+            throw new UnsupportedOperationException("a test creature is not a species the game builds");
         }
 
         @Override
         public double getRenderOffsetY() {
             return 0;
+        }
+    }
+
+    /** An animal with no species, because the real animal species come with their own unit. */
+    private static final class TestAnimal extends Animal {
+        private TestAnimal(CreatureMovementStrategy movement) {
+            super(START_TILE, START_TILE, MAX_HEALTH, movement);
+        }
+
+        @Override
+        public Species species() {
+            throw new UnsupportedOperationException("a test creature is not a species the game builds");
+        }
+
+        @Override
+        public double getRenderOffsetY() {
+            return 0;
+        }
+    }
+
+    /** A movement that records that it ran and every hurt it was told about, with the health at that moment. */
+    private static final class RecordingMovement implements CreatureMovementStrategy {
+        private final List<String> log;
+        private final List<Entity> hurtBy = new ArrayList<>();
+        private Creature hurtCreature;
+        private double healthWhenHurt = Double.NaN;
+
+        private RecordingMovement(List<String> log) {
+            this.log = log;
+        }
+
+        @Override
+        public void updateMovement(Creature self, double deltaTime, CreatureContext context) {
+            log.add("move");
+        }
+
+        @Override
+        public void onHurt(Creature self, Entity source) {
+            log.add("hurt");
+            hurtBy.add(source);
+            hurtCreature = self;
+            healthWhenHurt = self.getHealth();
         }
     }
 
@@ -79,15 +119,15 @@ class CreatureTest {
         }
 
         @Override
-        public boolean canAttack(Creature creature, Player player) {
+        public boolean canAttack(Creature self, CreatureContext context) {
             return false;
         }
     }
 
     private final List<String> log = new ArrayList<>();
     private final RecordingAttack attack = new RecordingAttack(log);
-    private final TestAnimal animal = new TestAnimal(log, (creature, dt, map, player, occupancy) -> log.add("move"),
-            attack);
+    private final RecordingMovement movement = new RecordingMovement(log);
+    private final TestEnemy enemy = new TestEnemy(log, movement, attack);
 
     private static TileMap grass() {
         final TileMap map = new TileMap(MAP_SIDE, MAP_SIDE);
@@ -105,7 +145,7 @@ class CreatureTest {
 
     @Test
     void anUpdateRunsTheMovementThenTheAttackThenTheHook() {
-        animal.update(STEP, context());
+        enemy.update(STEP, context());
 
         assertEquals(List.of("move", "attack", "hook"), log);
     }
@@ -114,7 +154,7 @@ class CreatureTest {
     void theAttackStrategyIsHandedTheContextOfTheUpdate() {
         final CreatureContext context = context();
 
-        animal.update(STEP, context);
+        enemy.update(STEP, context);
 
         assertSame(context, attack.seen);
     }
@@ -123,55 +163,102 @@ class CreatureTest {
     void anUpdateKeepsTheOccupancyInStepWithTheCreature() {
         final CreatureContext context = context();
 
-        animal.update(STEP, context);
+        enemy.update(STEP, context);
 
-        assertSame(animal, context.occupancy().ownerOf(START_TILE, START_TILE));
+        assertSame(enemy, context.occupancy().ownerOf(START_TILE, START_TILE));
     }
 
     @Test
     void theAttackCooldownCountsDownWithEveryUpdateAndStopsAtZero() {
-        animal.resetAttackCooldown();
-        assertFalse(animal.isReadyToAttack());
+        enemy.resetAttackCooldown();
+        assertFalse(enemy.isReadyToAttack());
 
-        animal.update(COOLDOWN / 2, context());
-        assertEquals(COOLDOWN / 2, animal.getAttackTimer(), 1e-9);
+        enemy.update(COOLDOWN / 2, context());
+        assertEquals(COOLDOWN / 2, enemy.getAttackTimer(), EPSILON);
 
-        animal.update(COOLDOWN, context());
-        assertEquals(0.0, animal.getAttackTimer(), 0.0);
-        assertTrue(animal.isReadyToAttack());
+        enemy.update(COOLDOWN, context());
+        assertEquals(0.0, enemy.getAttackTimer(), 0.0);
+        assertTrue(enemy.isReadyToAttack());
     }
 
     @Test
-    void aLivingCreatureIsToldItWasHurtBeforeTheDamageLandsAndWho() {
+    void aLivingCreatureIsToldItsMovementWasHurtBeforeTheDamageLandsAndByWhom() {
         final Player player = new Player(PLAYER_TILE, PLAYER_TILE);
 
-        animal.takeDamage(SMALL_HIT, player);
+        enemy.takeDamage(SMALL_HIT, player);
 
         assertEquals(List.of("hurt"), log);
-        assertSame(player, animal.hurtBy.get(0));
-        assertEquals(MAX_HEALTH - SMALL_HIT, animal.getHealth(), 0.0);
+        assertSame(player, movement.hurtBy.get(0));
+        assertSame(enemy, movement.hurtCreature);
+        assertEquals(MAX_HEALTH, movement.healthWhenHurt, 0.0);
+        assertEquals(MAX_HEALTH - SMALL_HIT, enemy.getHealth(), 0.0);
     }
 
     @Test
     void aDamageFromNoKnownSourceHurtsWithANullSource() {
-        animal.takeDamage(SMALL_HIT);
+        enemy.takeDamage(SMALL_HIT);
 
-        assertEquals(1, animal.hurtBy.size());
-        assertNull(animal.hurtBy.get(0));
+        assertEquals(1, movement.hurtBy.size());
+        assertNull(movement.hurtBy.get(0));
+        assertEquals(MAX_HEALTH - SMALL_HIT, enemy.getHealth(), 0.0);
     }
 
     @Test
-    void aHitThatKillsStillCallsTheHookOnceAndADeadCreatureIsNotHurtAgain() {
-        animal.takeDamage(KILLING_HIT);
-        animal.takeDamage(SMALL_HIT);
+    void aHitThatKillsStillReactsOnceAndADeadCreatureIsNotHurtAgain() {
+        enemy.takeDamage(KILLING_HIT);
+        enemy.takeDamage(SMALL_HIT);
 
-        assertTrue(animal.isDead());
+        assertTrue(enemy.isDead());
         assertEquals(List.of("hurt"), log);
+    }
+
+    @Test
+    void aCreatureThatIsAlreadyDeadDoesNotReactToAHit() {
+        enemy.handleDeath();
+
+        enemy.takeDamage(SMALL_HIT, new Player(PLAYER_TILE, PLAYER_TILE));
+
+        assertTrue(log.isEmpty());
+    }
+
+    @Test
+    void noSubclassCanSkipTheReactionBecauseBothWaysOfTakingDamageAreFinal() throws NoSuchMethodException {
+        assertTrue(Modifier.isFinal(
+                Creature.class.getMethod("takeDamage", double.class, Entity.class).getModifiers()));
+        assertTrue(Modifier.isFinal(Creature.class.getMethod("takeDamage", double.class).getModifiers()));
     }
 
     @Test
     void aMonsterIsHostileAndAnAnimalIsNot() {
         assertTrue(new Slime(START_TILE, START_TILE).isHostile());
-        assertFalse(animal.isHostile());
+        assertFalse(new TestAnimal(movement).isHostile());
+    }
+
+    @Test
+    void anAnimalHasNoAttackNumbersAndNeverAttacksEvenNextToThePlayer() {
+        final TestAnimal animal = new TestAnimal(movement);
+        final Player player = new Player(NEXT_TO_ANIMAL, NEXT_TO_ANIMAL);
+        final CreatureContext context = new CreatureContext(grass(), player, new CreatureOccupancy());
+        final double healthBefore = player.getHealth();
+
+        animal.update(STEP, context);
+
+        assertSame(NoAttack.INSTANCE, animal.getAttackStrategy());
+        assertEquals(0.0, animal.getAttackDamage(), 0.0);
+        assertEquals(0.0, animal.getAttackCooldown(), 0.0);
+        assertFalse(animal.canAttack(context));
+        assertEquals(healthBefore, player.getHealth(), 0.0);
+    }
+
+    @Test
+    void anAnimalReactsToAHitThroughItsMovementToo() {
+        final TestAnimal animal = new TestAnimal(movement);
+        final Player player = new Player(PLAYER_TILE, PLAYER_TILE);
+
+        animal.takeDamage(SMALL_HIT, player);
+
+        assertEquals(List.of("hurt"), log);
+        assertSame(player, movement.hurtBy.get(0));
+        assertSame(animal, movement.hurtCreature);
     }
 }
