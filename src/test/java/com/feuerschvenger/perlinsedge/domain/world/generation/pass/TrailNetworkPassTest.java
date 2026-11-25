@@ -7,6 +7,8 @@ import com.feuerschvenger.perlinsedge.domain.world.model.MapType;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +25,9 @@ class TrailNetworkPassTest {
     private static final int LONG_REACH = 100;
     private static final int NO_EXTRA = 0;
     private static final int PLENTY_EXTRA = 30_000;
+    /** One extra trail per 100,000 tiles: on the 3,600 tiles of the map it rounds to none. */
+    private static final int ONE_PER_100K = 1;
+    private static final int HALF = 2;
     private static final float FLAT_WEIGHT = 0F;
     private static final float NO_TREE_COST = 0F;
     private static final float TREE_COST = 4F;
@@ -53,7 +58,11 @@ class TrailNetworkPassTest {
     private static final int MOST_CORNERS = 2;
 
     private static GenerationContext grass(long seed) {
-        final var context = TestContexts.of(MapType.DENSE_FOREST, seed, SIDE, SIDE, TestContexts.FLAT);
+        return grass(seed, SIDE, SIDE);
+    }
+
+    private static GenerationContext grass(long seed, int width, int height) {
+        final var context = TestContexts.of(MapType.DENSE_FOREST, seed, width, height, TestContexts.FLAT);
         TestContexts.fillGround(context, TileType.GRASS);
         return context;
     }
@@ -88,8 +97,10 @@ class TrailNetworkPassTest {
             head++;
             final var x = context.xOf(index);
             final var y = context.yOf(index);
-            final var neighbours = new int[]{x > 0 ? index - 1 : index, x < SIDE - 1 ? index + 1 : index,
-                y > 0 ? index - SIDE : index, y < SIDE - 1 ? index + SIDE : index};
+            final var neighbours = new int[]{x > 0 ? index - 1 : index,
+                x < context.width() - 1 ? index + 1 : index,
+                y > 0 ? index - context.width() : index,
+                y < context.height() - 1 ? index + context.width() : index};
             for (var neighbour : neighbours) {
                 if (!seen[neighbour] && context.isReserved(neighbour)) {
                     seen[neighbour] = true;
@@ -283,6 +294,52 @@ class TrailNetworkPassTest {
             assertEquals(first.isReserved(index), again.isReserved(index), "tile " + index);
         }
         assertTrue(reservedCount(first) > 3, "the trails cut something");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"90,30", "30,90"})
+    void aMapThatIsNotSquareJoinsItsSitesAlongItsLongSide(int width, int height) {
+        final var context = grass(SEED, width, height);
+        final var first = width > height ? context.index(LEFT, height / HALF) : context.index(width / HALF, LEFT);
+        final var last = width > height ? context.index(width - LEFT, height / HALF)
+                : context.index(width / HALF, height - LEFT);
+        context.sites().add(first);
+        context.reserve(first);
+        context.sites().add(last);
+        context.reserve(last);
+
+        apply(context, params(FLAT_WEIGHT, NO_TREE_COST, WALL, NO_EXTRA, 1));
+
+        assertTrue(areJoined(context, first, last));
+        assertTrue(reservedCount(context) > Math.max(width, height) - HALF * LEFT, "a trail along the long side");
+    }
+
+    @Test
+    void aTreeNoiseBelowZeroCostsNoLessThanOpenGroundAndStillCutsTheTrail() {
+        final var context = grass(SEED);
+        TestContexts.fillField(context, NoiseField.TREE, -1F);
+        siteAt(context, LEFT, ROW);
+        siteAt(context, RIGHT, ROW);
+
+        apply(context, params(STRONG_WEIGHT, NO_TREE_COST, WALL, NO_EXTRA, 1));
+
+        assertTrue(areJoined(context, context.index(LEFT, ROW), context.index(RIGHT, ROW)));
+    }
+
+    @Test
+    void anyDensityOfExtraTrailsCutsAtLeastOneLoopOnAMapWhereItRoundsToNone() {
+        final var tree = grass(SEED);
+        final var loops = grass(SEED);
+        for (var context : new GenerationContext[]{tree, loops}) {
+            siteAt(context, LEFT, NORTH_ROW);
+            siteAt(context, RIGHT, NORTH_ROW);
+            siteAt(context, TRIANGLE_APEX_X, TRIANGLE_APEX_Y);
+        }
+
+        apply(tree, params(FLAT_WEIGHT, NO_TREE_COST, WALL, NO_EXTRA, 1));
+        apply(loops, params(FLAT_WEIGHT, NO_TREE_COST, WALL, ONE_PER_100K, 1));
+
+        assertTrue(reservedCount(loops) > reservedCount(tree), "one loop is cut though the density rounds to none");
     }
 
     @Test

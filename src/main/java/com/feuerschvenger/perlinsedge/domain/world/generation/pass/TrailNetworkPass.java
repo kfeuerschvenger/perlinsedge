@@ -17,8 +17,13 @@ import java.util.random.RandomGenerator;
  * algorithm with a path search deciding what an edge is worth.
  * <p>
  * A trail is the cheapest path over the ground by {@link LeastCostPath}. A tile costs more the thicker the tree noise
- * is and when a resource has to be cleared, water is closed, and a mountain is closed or costs a fixed amount, so with
- * a finite mountain cost the trail cuts a narrow pass through the ridge where that is cheaper than going round it.
+ * is, a noise below zero counting as none, and when a resource has to be cleared, water is closed, and a mountain is
+ * closed or costs a fixed amount, so with a finite mountain cost the trail cuts a narrow pass through the ridge where
+ * that is cheaper than going round it. Water is always closed: no trail crosses it, and two pieces of land that water
+ * separates stay apart, which a bridge of the player joins.
+ * <p>
+ * Parameters that ask for extra trails cut at least one, however small the map, when a candidate trail closes a loop,
+ * so a small map is not left with a bare tree of trails that a single cut trail would split.
  * <p>
  * A carved tile loses its resource, is reserved so no later pass refills or floors it, and a mountain tile on the way
  * becomes rocky ground. A tile that is carved costs the least from then on, so later trails join the earlier ones and
@@ -40,6 +45,12 @@ public final class TrailNetworkPass implements GenerationPass {
     private static final double DENSITY_AREA_TILES = 100_000.0;
     /** A trail joins two sites, so fewer than this many sites need none. */
     private static final int MIN_SITES = 2;
+    /** The fewest loops of a map whose parameters ask for any, when it has candidate trails that close one. */
+    private static final int MIN_LOOPS = 1;
+    /** What the tree noise counts for at the least: a negative noise would make a tile cost less than open ground. */
+    private static final float NO_NOISE = 0F;
+    /** A random draw takes its bound one past the largest value it may return. */
+    private static final int INCLUSIVE_BOUND = 1;
 
     private final TrailParams params;
 
@@ -112,8 +123,7 @@ public final class TrailNetworkPass implements GenerationPass {
 
         /** Cuts a few of the edges that would close a loop, chosen at random, until the wanted number ran. */
         private void cutLoops(long[] edges, int[] loops, int loopCount) {
-            final var wanted = (int) Math.round(context.size() * (double) params.extraEdgesPer100k()
-                    / DENSITY_AREA_TILES);
+            final var wanted = wantedLoops();
             Shuffles.shuffle(loops, loopCount, random);
             var cut = 0;
             for (var position = 0; position < loopCount && cut < wanted; position++) {
@@ -122,6 +132,19 @@ public final class TrailNetworkPass implements GenerationPass {
                     cut++;
                 }
             }
+        }
+
+        /**
+         * Returns how many loops to cut: the density over the area of the map, and at least one when the density is not
+         * zero, so a small map, where the density rounds to none, is not left a bare tree that one cut trail splits.
+         */
+        private int wantedLoops() {
+            if (params.extraEdgesPer100k() == 0) {
+                return 0;
+            }
+            final var byDensity = (int) Math.round(context.size() * (double) params.extraEdgesPer100k()
+                    / DENSITY_AREA_TILES);
+            return Math.max(MIN_LOOPS, byDensity);
         }
 
         /** Cuts a trail between two tiles when a route joins them, and tells whether it did. */
@@ -133,7 +156,8 @@ public final class TrailNetworkPass implements GenerationPass {
             if (length == LeastCostPath.NOT_FOUND) {
                 return false;
             }
-            Carve.path(width, height, path, length, 1 + random.nextInt(params.maxWidth()), this::carve);
+            final var stroke = Carve.MIN_STROKE + random.nextInt(params.maxWidth() - Carve.MIN_STROKE + INCLUSIVE_BOUND);
+            Carve.path(width, height, path, length, stroke, this::carve);
             return true;
         }
 
@@ -173,8 +197,9 @@ public final class TrailNetworkPass implements GenerationPass {
             if (context.isReserved(index)) {
                 return BASE_COST;
             }
-            final var resource = context.resourceAt(index) == null ? 0F : params.treeCost();
-            return BASE_COST + params.noiseWeight() * treeNoise + resource;
+            final var resource = context.resourceAt(index) == null ? 0.0 : params.treeCost();
+            final var weighted = (double) params.noiseWeight() * Math.max(treeNoise, NO_NOISE);
+            return (float) (BASE_COST + weighted + resource);
         }
     }
 }
