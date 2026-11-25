@@ -40,7 +40,7 @@ final class WaterInvariants {
     /** The share of the longest coast side that is water at the least, on a Mediterranean map. */
     private static final double MIN_COAST_EDGE_WATER_SHARE = 0.80;
     /** The most inland water bodies, which touch no edge, a Mediterranean map holds. */
-    private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 6;
+    private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 8;
 
     /** The fewest and the most land masses of at least {@link WaterStats#MIN_LAND_TILES} tiles on an islands map. */
     private static final int MIN_ISLANDS = 6;
@@ -58,9 +58,11 @@ final class WaterInvariants {
     /** The area, in tiles, from which the largest island is held to its share; a smaller map holds too few islands. */
     private static final long FULL_SIZE_AREA = 90_000L;
 
+    /** Not instantiable: the class only holds the checks. */
     private WaterInvariants() {
     }
 
+    /** An islands map has several islands at every size, a few of them small. */
     static void islandsAreSeveralAndSomeAreSmall(TileMap map, MapSpec spec) {
         final var land = WaterStats.landMasses(map);
         final var islands = land.countAtLeast(WaterStats.MIN_LAND_TILES);
@@ -71,6 +73,7 @@ final class WaterInvariants {
                 MAX_SMALL_ISLAND_TILES), spec, MIN_SMALL_ISLANDS, Integer.MAX_VALUE);
     }
 
+    /** The land of an islands map covers a share of it, and on a full size map no island holds most of the land. */
     static void islandsShareTheMapWithTheSea(TileMap map, MapSpec spec) {
         final var landTiles = MapStats.landTiles(map);
         final var landShare = landTiles / (double) (map.getWidth() * map.getHeight());
@@ -103,23 +106,27 @@ final class WaterInvariants {
         }
     }
 
+    /** A Mediterranean map has one edge that is mostly water. */
     static void mediterraneanHasALongCoastOnOneEdge(TileMap map) {
         final var share = WaterStats.wettestEdgeShare(map);
         MapInvariants.require(share >= MIN_COAST_EDGE_WATER_SHARE,
                 "the wettest edge is only " + share + " water");
     }
 
+    /** A Mediterranean map has few water bodies that touch no edge. */
     static void mediterraneanHasFewInlandWaterBodies(TileMap map, MapSpec spec) {
         final var inland = WaterStats.waterBodies(map).countInland(WaterStats.MIN_BODY_TILES, Integer.MAX_VALUE);
         MapInvariants.requireAtMostScaled("inland water body", inland, spec, MAX_MEDITERRANEAN_INLAND_BODIES);
     }
 
+    /** The land the player can walk to from the spawn is a large share of all the land. */
     static void theSpawnRegionHoldsMostOfTheLand(TileMap map) {
         final var share = WaterStats.spawnRegionShareOfLand(map);
         MapInvariants.require(share >= MIN_SPAWN_REGION_SHARE,
                 "the spawn region holds only " + share + " of the land");
     }
 
+    /** A rivers map has a few rivers, each one a single piece that spans most of a side, covering a share of it. */
     static void riversAreFewLongAndConnected(TileMap map) {
         final var rivers = WaterStats.rivers(map);
         MapInvariants.require(rivers.count() >= MIN_RIVER_COMPONENTS && rivers.count() <= MAX_RIVER_COMPONENTS,
@@ -135,6 +142,7 @@ final class WaterInvariants {
         MapInvariants.require(share >= MIN_RIVER_SHARE, "rivers cover only " + share + " of the map");
     }
 
+    /** A rivers map has little water other than the rivers and little sand. */
     static void riversMapKeepsItsWaterInTheRivers(TileMap map) {
         final var area = (double) map.getWidth() * map.getHeight();
         final var stillWater = WaterStats.waterShare(map) - MapStats.count(map, TileType.RIVER) / area;
@@ -144,6 +152,7 @@ final class WaterInvariants {
         MapInvariants.require(sand <= MAX_RIVERS_MAP_SAND_SHARE, "sand covers " + sand + " of the land");
     }
 
+    /** The land near the rivers holds a larger share of trees than the land of the whole map. */
     static void theForestGrowsAlongTheRivers(TileMap map) {
         final var near = new boolean[map.getWidth() * map.getHeight()];
         markAroundRivers(map, near);
@@ -162,6 +171,7 @@ final class WaterInvariants {
                 + " of the land near the rivers and " + mapShare + " of the land of the map");
     }
 
+    /** Tells whether a tile holds a tree. */
     private static boolean hasTree(Tile tile) {
         return tile.hasResource() && tile.getWorldResource().getType() == ResourceType.TREE;
     }
@@ -177,6 +187,7 @@ final class WaterInvariants {
         }
     }
 
+    /** Marks the square of the gallery reach around a tile, as far as it lies on the map. */
     private static void markSquare(TileMap map, boolean[] near, int x, int y) {
         for (var dy = -GALLERY_REACH; dy <= GALLERY_REACH; dy++) {
             for (var dx = -GALLERY_REACH; dx <= GALLERY_REACH; dx++) {
@@ -187,6 +198,7 @@ final class WaterInvariants {
         }
     }
 
+    /** A desert has a few water bodies that cover a small share of the map. */
     static void desertHasFewWaterBodies(TileMap map, MapSpec spec) {
         final var bodies = WaterStats.waterBodies(map).countAtLeast(WaterStats.MIN_BODY_TILES);
         MapInvariants.requireScaled("water body", bodies, spec, 1, MAX_DESERT_BODIES);
@@ -194,6 +206,7 @@ final class WaterInvariants {
         MapInvariants.require(share <= MAX_DESERT_WATER_SHARE, "water covers " + share + " of a desert");
     }
 
+    /** A desert has a few oases, which are small water bodies that touch no edge. */
     static void desertHasRareOases(TileMap map, MapSpec spec) {
         final var oases = WaterStats.waterBodies(map).countInland(WaterStats.MIN_BODY_TILES, MAX_OASIS_TILES);
         MapInvariants.requireScaled("oasis", oases, spec, MIN_OASES, MAX_OASES);

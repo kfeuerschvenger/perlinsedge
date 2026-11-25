@@ -32,12 +32,14 @@ class EdgeCoastPassTest {
     private static final int LAST = SIDE - 1;
     private static final float SMOOTHSTEP_HALF = 0.5F;
 
+    /** Returns a square Mediterranean context whose height is zero everywhere, for a seed. */
     private static GenerationContext flat(long seed) {
         final var context = TestContexts.of(MapType.MEDITERRANEAN, seed, SIDE, SIDE, TestContexts.FLAT);
         TestContexts.fillField(context, NoiseField.HEIGHT, 0F);
         return context;
     }
 
+    /** Runs the coast pass with a depth share and the drop of the tests. */
     private static void apply(GenerationContext context, float depthShare) {
         new EdgeCoastPass(new EdgeCoastParams(depthShare, DROP)).apply(context);
     }
@@ -97,6 +99,7 @@ class EdgeCoastPassTest {
         assertEquals(-DROP * SMOOTHSTEP_HALF, heights[indexAt(context, edge, DEPTH / 2)], TOLERANCE);
     }
 
+    /** Returns the tile a distance in from the middle of an edge: 0 top, 1 bottom, 2 left, anything else right. */
     private static int indexAt(GenerationContext context, int edge, int distance) {
         return switch (edge) {
             case 0 -> context.index(MIDDLE, distance);

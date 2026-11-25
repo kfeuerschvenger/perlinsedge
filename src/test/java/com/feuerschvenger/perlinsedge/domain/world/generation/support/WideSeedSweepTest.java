@@ -5,16 +5,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * The five fixed seeds are few for the maps whose water decides the shape of the land, so the rivers and the islands
- * are also checked against a wide sweep of seeds that look random but are fixed, so a failure can be reproduced. It is
- * one slow test for each type: every seed generates a map of 300 by 300 tiles and runs the common and the per type
- * invariants on it.
+ * The five fixed seeds are few for the maps whose water decides the shape of the land, so the rivers, the islands and
+ * the Mediterranean are also checked against a wide sweep of seeds that look random but are fixed, so a failure can be
+ * reproduced. It is one slow test for each type: every seed generates a map of 300 by 300 tiles and runs the common
+ * and the per type invariants on it.
  */
 class WideSeedSweepTest {
 
@@ -33,19 +36,29 @@ class WideSeedSweepTest {
         return seeds;
     }
 
+    /**
+     * Runs the common invariants and the ones of the type on a map of every seed of the sweep, and checks that the
+     * sweep really generated a map for every one of its distinct seeds, so a sweep that shrinks cannot pass quietly.
+     */
     @ParameterizedTest
-    @EnumSource(value = MapType.class, names = {"RIVERS", "ISLANDS"})
+    @EnumSource(value = MapType.class, names = {"RIVERS", "ISLANDS", "MEDITERRANEAN"})
     void theInvariantsHoldOnEverySeedOfTheSweep(MapType type) {
-        final var source = MapSource.current();
+        final var generated = new HashSet<Long>();
+        final MapSource source = spec -> {
+            generated.add(spec.seed());
+            return MapSource.current().generate(spec);
+        };
         final var runner = new InvariantRunner(source);
         final var invariants = new ArrayList<>(MapInvariants.common(source));
         invariants.addAll(MapInvariants.perType().get(type));
+        assertFalse(invariants.isEmpty(), "the sweep checks at least one invariant");
 
-        var checked = 0;
         for (var seed : sweepSeeds()) {
-            checked += runner.run(new MapSpec(type, seed, SIZE), invariants);
+            runner.run(new MapSpec(type, seed, SIZE), invariants);
         }
 
-        assertEquals(SEEDS * invariants.size(), checked);
+        final Set<Long> distinct = new HashSet<>(sweepSeeds());
+        assertEquals(SEEDS, distinct.size(), "the seeds of the sweep are all different");
+        assertEquals(distinct, generated, "a map was generated for every seed of the sweep");
     }
 }
