@@ -41,6 +41,8 @@ final class WaterInvariants {
     private static final double MIN_COAST_EDGE_WATER_SHARE = 0.80;
     /** The most inland water bodies, which touch no edge, a Mediterranean map holds. */
     private static final int MAX_MEDITERRANEAN_INLAND_BODIES = 6;
+    /** The fewest river tiles a Mediterranean map holds, at least one on a small map and 12 on one of 300 by 300. */
+    private static final int MIN_MEDITERRANEAN_RIVER_TILES = 12;
 
     /** The fewest and the most land masses of at least {@link WaterStats#MIN_LAND_TILES} tiles on an islands map. */
     private static final int MIN_ISLANDS = 6;
@@ -113,7 +115,21 @@ final class WaterInvariants {
                 "the wettest edge is only " + share + " water");
     }
 
-    /** A Mediterranean map has few water bodies that touch no edge. */
+    /**
+     * A Mediterranean map keeps its rivers: a count of river tiles that scales with the area, and at least one on a
+     * map of any size. A pass that fills the pieces of a river as if they were bodies of water leaves a few tiles at
+     * most, which this catches.
+     */
+    static void mediterraneanKeepsItsRivers(TileMap map) {
+        final var area = (long) map.getWidth() * map.getHeight();
+        MapInvariants.requireScaledToArea("river tile", MapStats.count(map, TileType.RIVER), area,
+                MIN_MEDITERRANEAN_RIVER_TILES, Integer.MAX_VALUE);
+    }
+
+    /**
+     * A Mediterranean map has few water bodies that touch no edge, counted as the generator counts them: rivers are not
+     * bodies.
+     */
     static void mediterraneanHasFewInlandWaterBodies(TileMap map, MapSpec spec) {
         final var inland = WaterStats.waterBodies(map).countInland(WaterStats.MIN_BODY_TILES, Integer.MAX_VALUE);
         MapInvariants.requireAtMostScaled("inland water body", inland, spec, MAX_MEDITERRANEAN_INLAND_BODIES);

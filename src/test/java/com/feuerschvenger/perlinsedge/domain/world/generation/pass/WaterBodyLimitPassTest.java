@@ -91,17 +91,31 @@ class WaterBodyLimitPassTest {
     }
 
     @Test
-    void riversJoinTheBodyTheyFlowInto() {
+    void riversAreNotBodiesSoTheyNeitherJoinBodiesNorAreRemoved() {
         final var context = grassWithBodies();
-        // A river from the big body down to the third row joins it to the medium one
+        // A river from the big body down to the third row would join it to the medium one if it counted
         context.setGround(context.index(0, 1), TileType.RIVER);
 
         apply(context, KEEP_ONE, NO_MINIMUM, TileType.GRASS);
 
-        assertEquals(BIG + MEDIUM + 1, TestContexts.countGround(context, TileType.DEEP_WATER)
-                + TestContexts.countGround(context, TileType.SHALLOW_WATER)
-                + TestContexts.countGround(context, TileType.RIVER));
+        assertEquals(BIG, TestContexts.countGround(context, TileType.DEEP_WATER));
+        assertEquals(0, TestContexts.countGround(context, TileType.SHALLOW_WATER));
+        assertEquals(1, TestContexts.countGround(context, TileType.RIVER));
         assertEquals(TileType.GRASS, context.groundAt(context.index(0, 4)));
+    }
+
+    @Test
+    void aRiverCarvedAlongADiagonalSurvivesEvenWhenNoBodyIsKept() {
+        final var context = TestContexts.of(SIDE, SIDE);
+        TestContexts.fillGround(context, TileType.GRASS);
+        // Diagonal neighbours touch at a corner only, so as 4-connected pieces they are ten bodies of one tile
+        for (var i = 0; i < SIDE; i++) {
+            context.setGround(context.index(i, i), TileType.RIVER);
+        }
+
+        apply(context, 0, NO_MINIMUM, TileType.GRASS);
+
+        assertEquals(SIDE, TestContexts.countGround(context, TileType.RIVER));
     }
 
     @Test

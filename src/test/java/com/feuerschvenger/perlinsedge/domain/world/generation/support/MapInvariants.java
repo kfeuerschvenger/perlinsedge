@@ -93,6 +93,7 @@ public final class MapInvariants {
                 onMap(WaterInvariants::theForestGrowsAlongTheRivers)));
         byType.put(MapType.TUNDRA, List.of(MapInvariants::tundraIsFrozenAndSnowy, MapInvariants::riversExist));
         byType.put(MapType.MEDITERRANEAN, List.of(MapInvariants::riversExist,
+                onMap(WaterInvariants::mediterraneanKeepsItsRivers),
                 onMap(WaterInvariants::mediterraneanHasALongCoastOnOneEdge),
                 WaterInvariants::mediterraneanHasFewInlandWaterBodies));
         return Collections.unmodifiableMap(byType);
@@ -201,7 +202,20 @@ public final class MapInvariants {
      * @param max   the highest count on a map of 300 by 300 tiles, or {@link Integer#MAX_VALUE} for no highest
      */
     static void requireScaled(String what, long count, MapSpec spec, int min, int max) {
-        final var area = (long) spec.size() * spec.size();
+        requireScaledToArea(what, count, (long) spec.size() * spec.size(), min, max);
+    }
+
+    /**
+     * Requires a count to lie in a range given for a map of 300 by 300 tiles, scaled to an area that need not be
+     * square: the lowest is rounded down and is at least 1, and the highest is rounded up.
+     *
+     * @param what  what is counted, for the message
+     * @param count the number counted
+     * @param area  the number of tiles of the map
+     * @param min   the lowest count on a map of 300 by 300 tiles
+     * @param max   the highest count on a map of 300 by 300 tiles, or {@link Integer#MAX_VALUE} for no highest
+     */
+    static void requireScaledToArea(String what, long count, long area, int min, int max) {
         final var lowest = Math.max(1L, min * area / QUOTA_AREA);
         final var highest = max == Integer.MAX_VALUE ? Long.MAX_VALUE : (max * area + QUOTA_AREA - 1) / QUOTA_AREA;
         require(count >= lowest && count <= highest, what + " count " + count + " is outside " + lowest + " to "

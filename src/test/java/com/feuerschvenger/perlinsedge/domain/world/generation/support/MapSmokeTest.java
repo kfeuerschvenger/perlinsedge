@@ -25,6 +25,7 @@ class MapSmokeTest {
 
     private static final int SMALL = 64;
     private static final int MEDIUM = 150;
+    private static final int ONE_HUNDRED = 100;
     private static final int MIN_ISLANDS = 5;
     private static final int WIDE_WIDTH = 200;
     private static final int WIDE_HEIGHT = 120;
@@ -39,7 +40,7 @@ class MapSmokeTest {
 
     /** The minimum of five islands is honest on the small maps: every fixed seed has five islands of real size. */
     @ParameterizedTest
-    @ValueSource(ints = {SMALL, MEDIUM})
+    @ValueSource(ints = {SMALL, ONE_HUNDRED, MEDIUM})
     void anIslandsMapHasAtLeastFiveIslandsOnSmallSizes(int size) {
         for (var seed : FixedSeeds.ALL) {
             final var map = generator.generate(new MapRequest(MapType.ISLANDS, seed, size, size));
@@ -48,6 +49,42 @@ class MapSmokeTest {
 
             assertTrue(islands >= MIN_ISLANDS, "seed " + seed + " size " + size + " has " + islands + " islands");
         }
+    }
+
+    /**
+     * The minimum of five islands holds on a map of 100 as well, for the seeds that once left it with four because an
+     * island found no place at a radius between the ones tried.
+     */
+    @ParameterizedTest
+    @ValueSource(longs = {71_284L, 261_340L, 586_019L, 783_994L, 1_029_483L, 1_053_240L, 1_108_673L})
+    void anIslandsMapOfOneHundredKeepsFiveIslandsForTheSeedsThatLostOne(long seed) {
+        final var map = generator.generate(new MapRequest(MapType.ISLANDS, seed, ONE_HUNDRED, ONE_HUNDRED));
+
+        final var islands = WaterStats.landMasses(map).countAtLeast(WaterStats.MIN_LAND_TILES);
+
+        assertTrue(islands >= MIN_ISLANDS, "seed " + seed + " has " + islands + " islands");
+    }
+
+    /** The rivers of a Mediterranean map survive its water limit at every size, wide maps included. */
+    @ParameterizedTest
+    @MethodSource("mediterraneanSizes")
+    void aMediterraneanMapKeepsItsRiversAtEverySize(int width, int height) {
+        for (var seed : FixedSeeds.ALL) {
+            final var map = generator.generate(new MapRequest(MapType.MEDITERRANEAN, seed, width, height));
+
+            try {
+                WaterInvariants.mediterraneanKeepsItsRivers(map);
+            } catch (AssertionError failure) {
+                throw new AssertionError("seed " + seed + " " + width + "x" + height + ": " + failure.getMessage(),
+                        failure);
+            }
+        }
+    }
+
+    /** Returns the sizes of the river check of the Mediterranean: the small square, the medium one and the wide map. */
+    private static Stream<Arguments> mediterraneanSizes() {
+        return Stream.of(Arguments.of(SMALL, SMALL), Arguments.of(MEDIUM, MEDIUM),
+                Arguments.of(WIDE_WIDTH, WIDE_HEIGHT));
     }
 
     /** Generates the map of every fixed seed and checks its size, its land, its spawn and its spawn region. */

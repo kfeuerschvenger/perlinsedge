@@ -35,13 +35,24 @@ public final class WaterStats {
     }
 
     /**
-     * Finds the 4-connected bodies of water, rivers included.
+     * Tells whether a terrain belongs to a body of water, which is the definition the water body limit of the
+     * generator uses: any water but a river, because a river is carved along 8-connected paths and is not a body.
+     *
+     * @param type the terrain
+     * @return true for deep and shallow water, false for rivers, ice and land
+     */
+    public static boolean isStandingWater(TileType type) {
+        return isWater(type) && type != TileType.RIVER;
+    }
+
+    /**
+     * Finds the 4-connected bodies of standing water, which leaves the rivers out as the generator does.
      *
      * @param map the map
-     * @return the components of the water tiles
+     * @return the components of the standing water tiles
      */
     public static Components waterBodies(TileMap map) {
-        return Components.of(map, WaterStats::isWater);
+        return Components.of(map, WaterStats::isStandingWater);
     }
 
     /**

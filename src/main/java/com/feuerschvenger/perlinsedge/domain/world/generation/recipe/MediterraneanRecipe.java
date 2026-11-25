@@ -16,7 +16,7 @@ final class MediterraneanRecipe {
     private static final float HEIGHT_GAIN = 0.5F;
     private static final float TREE_FREQUENCY = 0.05F;
     private static final float RIVER_DENSITY = 0.006F;
-    /** The rivers make no lake at a dead end: a lake is a body of water the limit would have to count again. */
+    /** The rivers make no lake at a dead end: the limit runs before the rivers, so a lake would be an extra body. */
     private static final float RIVER_LAKE_SHARE = 0F;
     /**
      * The coast reaches a fifth of the map in from one edge, 60 tiles on a map of 300, and lowers the height there by
@@ -27,13 +27,6 @@ final class MediterraneanRecipe {
     /** The sea keeps its few largest bodies, and the ponds the coast left behind turn to grass. */
     private static final int WATER_KEEP_PER_100K = 4;
     private static final int WATER_MIN_KEPT_TILES = 30;
-    /**
-     * A river that dead ends is a body of water of its own, so the limit runs again once the rivers are cut: it keeps
-     * the sea and the largest bodies, six on a map of 300, and the other rivers turn to grass. A river of any size is
-     * kept, because the rivers are short.
-     */
-    private static final int WATER_WITH_RIVERS_KEEP_PER_100K = 7;
-    private static final int WATER_WITH_RIVERS_MIN_TILES = 1;
     private static final float TREE_DENSITY = 0.306F;
     private static final float ROCKY_SHARE = 0.03F;
     private static final float ROCKY_HEIGHT_BIAS = 0F;
@@ -60,8 +53,6 @@ final class MediterraneanRecipe {
                 RecipeParts.ground(GroundRules.MEDITERRANEAN),
                 RecipeParts.waterBodyLimit(WATER_KEEP_PER_100K, WATER_MIN_KEPT_TILES, TileType.GRASS),
                 RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER, RIVER_LAKE_SHARE),
-                RecipeParts.waterBodyLimit(WATER_WITH_RIVERS_KEEP_PER_100K, WATER_WITH_RIVERS_MIN_TILES,
-                        TileType.GRASS),
                 RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.greenHosts()),
                 RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),

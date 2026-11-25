@@ -2,15 +2,21 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationPass;
+import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 
 import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * Keeps a map to a few bodies of water. The 4-connected bodies of water, which are every water terrain except ice, are
- * labelled, and only the largest ones survive: a body that is smaller than the minimum, or that is not among the
- * largest {@link #keepCount(int)} bodies, is filled with land, so a map keeps at most that many bodies. The desert and
- * the Mediterranean lose their ponds this way, and the rivers map loses its puddles before its rivers are cut.
+ * Keeps a map to a few bodies of water. The 4-connected bodies of standing water, which are every water terrain except
+ * ice and rivers, are labelled, and only the largest ones survive: a body that is smaller than the minimum, or that is
+ * not among the largest {@link #keepCount(int)} bodies, is filled with land, so a map keeps at most that many bodies.
+ * The desert and the Mediterranean lose their ponds this way, and the rivers map loses its puddles before its rivers
+ * are cut.
+ * <p>
+ * A river is not a body: the rivers are carved along 8-connected paths, so a river is split into many 4-connected
+ * pieces, and a pass that counted them would cut a river into bodies and fill most of it. The pass neither counts nor
+ * removes a river tile, so it may run after the rivers without touching them.
  * <p>
  * The pass reads the ground only, draws no random numbers and creates no object per tile, so it repeats for a seed.
  */
@@ -43,7 +49,7 @@ public final class WaterBodyLimitPass implements GenerationPass {
     @Override
     public void apply(GenerationContext context) {
         final var bodies = Regions.label(context.width(), context.height(),
-                index -> context.groundAt(index).isWater());
+                index -> isStandingWater(context.groundAt(index)));
         if (bodies.count() == 0) {
             return;
         }
@@ -54,6 +60,11 @@ public final class WaterBodyLimitPass implements GenerationPass {
                 context.setGround(index, params.fill());
             }
         }
+    }
+
+    /** Tells whether a terrain is water that belongs to a body: any water but a river. */
+    private static boolean isStandingWater(TileType type) {
+        return type.isWater() && type != TileType.RIVER;
     }
 
     /**

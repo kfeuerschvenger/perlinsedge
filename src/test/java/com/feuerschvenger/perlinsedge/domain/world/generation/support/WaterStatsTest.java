@@ -53,9 +53,9 @@ class WaterStatsTest {
     }
 
     @Test
-    void waterBodiesJoinRiversAndSeaAndSkipTheSmallOnes() {
+    void waterBodiesLeaveTheRiversOutAndSkipTheSmallOnes() {
         final var map = map(new SpawnPoint(0, 0),
-                "gg~~g~",
+                "~~~~g~",
                 "grr~gg",
                 "gggggg",
                 "g~gggg");
@@ -65,7 +65,9 @@ class WaterStatsTest {
         assertEquals(3, bodies.count());
         assertEquals(1, bodies.countAtLeast(MIN_FIVE));
         assertEquals(1, bodies.sizeOf(bodies.labelAt(1, 3)));
-        assertEquals(Components.NONE, bodies.labelAt(0, 0));
+        assertEquals(Components.NONE, bodies.labelAt(0, 1));
+        assertEquals(Components.NONE, bodies.labelAt(1, 1));
+        assertTrue(WaterStats.isStandingWater(TileType.SHALLOW_WATER));
     }
 
     @Test
