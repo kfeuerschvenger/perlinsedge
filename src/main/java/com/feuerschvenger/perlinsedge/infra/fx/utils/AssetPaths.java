@@ -234,8 +234,8 @@ public final class AssetPaths {
      */
     public static List<String> resourceKinds(ResourceType type) {
         return switch (type) {
-            case TREE -> List.of("tree", "deadtree", "willow", "olive", "cypress", "palm", "pine", "cactus", "bush", "shrub",
-                    "fern", "reed");
+            case TREE -> List.of("tree", "deadtree", "willow", "olive", "cypress", "palm", "pine", "cactus", "bush",
+                    "shrub", "fern", "reed");
             case STONE -> List.of("rock");
             case CRYSTALS -> List.of("crystal");
             case IRON_ORE -> List.of("iron");

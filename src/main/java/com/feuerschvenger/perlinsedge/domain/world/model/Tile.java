@@ -84,6 +84,7 @@ public class Tile {
     //  Resource Management
     // ==================================================================
 
+    /** Returns the resource on this tile, which may be depleted, or null when there is none. */
     public Resource getWorldResource() {
         return resource;
     }
@@ -173,6 +174,7 @@ public class Tile {
         }
     }
 
+    /** Tells whether the tile holds a resource that is not depleted. */
     public boolean hasResource() {
         return resource != null && !resource.isDepleted();
     }
@@ -181,6 +183,7 @@ public class Tile {
     //  Building Management
     // ==================================================================
 
+    /** Tells whether a building stands on the tile. */
     public boolean hasBuilding() {
         return building != null;
     }
@@ -229,6 +232,7 @@ public class Tile {
     //  Identity Operations
     // ==================================================================
 
+    /** Two tiles are equal when they lie at the same coordinates. */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -241,6 +245,7 @@ public class Tile {
         return x == tile.x && y == tile.y;
     }
 
+    /** Hashes the coordinates of the tile. */
     @Override
     public int hashCode() {
         return Objects.hash(x, y);

@@ -46,6 +46,7 @@ public final class SpriteManager {
         private final int contactArtPixels;
         private final String kind;
 
+        /** Creates metadata for a sprite with no contact shadow, drop or kind. */
         public SpriteMetadata(Image image, double verticalOffset) {
             this(image, verticalOffset, 0, 0, null);
         }
@@ -72,10 +73,12 @@ public final class SpriteManager {
             return kind;
         }
 
+        /** Returns the image of the sprite. */
         public Image getImage() {
             return image;
         }
 
+        /** Returns how far the sprite is shifted down when drawn. */
         public double getVerticalOffset() {
             return verticalOffset;
         }
@@ -107,6 +110,7 @@ public final class SpriteManager {
     private List<Image> shimmerLines = List.of();
     private List<Image> slimeFrames = List.of();
 
+    /** Loads every sprite the game uses, once. */
     private SpriteManager() {
         loadTileSprites();
         loadDecalSprites();
@@ -506,6 +510,7 @@ public final class SpriteManager {
     //  SPRITE LOADING HELPERS
     // ==================================================================
 
+    /** Cuts a spritesheet into its frames, one list per row. */
     private static List<List<Image>> extractSpritesheetFrames(Image sheet) {
         List<List<Image>> frames = new ArrayList<>();
         final var reader = sheet.getPixelReader();
