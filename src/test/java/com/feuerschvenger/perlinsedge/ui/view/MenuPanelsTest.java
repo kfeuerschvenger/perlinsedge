@@ -149,14 +149,14 @@ class MenuPanelsTest {
     // ---- map selection ----
 
     @Test
-    void theMapSelectionOffersTheSixMapsAndABackButton() {
+    void theMapSelectionOffersEveryMapTypeAndABackButton() {
         final MapSelectionPanel panel = onFx(MapSelectionPanel::new);
 
         assertEquals("SELECT A MAP", all(panel, Label.class).getFirst().getText());
-        for (MapType type : List.of(MapType.DENSE_FOREST, MapType.SWAMP, MapType.DESERT, MapType.TUNDRA,
-                MapType.MEDITERRANEAN, MapType.ISLANDS)) {
+        for (MapType type : MapType.values()) {
             assertTrue(button(panel, UiTheme.caps(type.getDisplayName())).getStyleClass().contains(UiTheme.CARD));
         }
+        assertEquals(MapType.values().length + 1, all(panel, Button.class).size());
         assertNotNull(button(panel, "BACK"));
     }
 
@@ -168,8 +168,10 @@ class MenuPanelsTest {
 
         click(button(panel, UiTheme.caps(MapType.DESERT.getDisplayName())));
         click(button(panel, UiTheme.caps(MapType.ISLANDS.getDisplayName())));
+        click(button(panel, UiTheme.caps(MapType.RIVERS.getDisplayName())));
+        click(button(panel, UiTheme.caps(MapType.MOUNTAINOUS.getDisplayName())));
 
-        assertEquals(List.of(MapType.DESERT, MapType.ISLANDS), chosen);
+        assertEquals(List.of(MapType.DESERT, MapType.ISLANDS, MapType.RIVERS, MapType.MOUNTAINOUS), chosen);
     }
 
     @Test

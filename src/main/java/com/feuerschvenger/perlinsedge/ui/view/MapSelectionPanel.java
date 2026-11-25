@@ -22,8 +22,8 @@ public final class MapSelectionPanel extends VBox {
     private static final double PANEL_SPACING = 20;
     private static final double GRID_GAP = 20;
     private static final double GRID_PADDING = 20;
-    /** Columns of the map grid. */
-    private static final int GRID_COLUMNS = 3;
+    /** Columns of the map grid: the eight map types fill two rows. */
+    private static final int GRID_COLUMNS = 4;
     /** The whole of a grid, as the percentage its columns or rows share. */
     private static final double FULL_PERCENT = 100.0;
     private static final double BUTTON_WIDTH = 160;
@@ -52,7 +52,7 @@ public final class MapSelectionPanel extends VBox {
         mapGrid.setPadding(new Insets(GRID_PADDING)); // Padding around the grid
         mapGrid.setAlignment(Pos.CENTER); // Center the grid within its allocated space
 
-        // Define responsive column constraints (3 columns, each taking 1/3 of available width)
+        // Define responsive column constraints (each column takes an equal share of the width)
         for (var i = 0; i < GRID_COLUMNS; i++) {
             var cc = new ColumnConstraints();
             cc.setHgrow(Priority.ALWAYS); // Allow columns to grow horizontally
@@ -60,18 +60,11 @@ public final class MapSelectionPanel extends VBox {
             mapGrid.getColumnConstraints().add(cc);
         }
 
-        // Only selected maps for the grid
-        MapType[] selectableMaps = {
-                MapType.DENSE_FOREST,
-                MapType.SWAMP,
-                MapType.DESERT,
-                MapType.TUNDRA,
-                MapType.MEDITERRANEAN,
-                MapType.ISLANDS
-        };
+        // Every map type can be chosen, so a new type shows up here without touching the panel
+        final var selectableMaps = MapType.values();
 
         // Define responsive row constraints (based on number of rows needed)
-        var numRows = Math.ceilDiv(selectableMaps.length, GRID_COLUMNS); // Calculate rows needed (e.g., 6 maps / 3 cols = 2 rows)
+        var numRows = Math.ceilDiv(selectableMaps.length, GRID_COLUMNS);
         for (var i = 0; i < numRows; i++) {
             var rc = new RowConstraints();
             rc.setVgrow(Priority.ALWAYS); // Allow rows to grow vertically
