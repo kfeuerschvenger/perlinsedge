@@ -106,7 +106,7 @@ public final class SpriteManager {
     private final Map<String, Image> decalSprites = new HashMap<>();
     private final Map<String, Image> waterSprites = new HashMap<>();
     private final Map<String, Image> faceStrips = new HashMap<>();
-    private TilePalette tilePalette;
+    private final TilePalette tilePalette;
     private List<Image> shimmerLines = List.of();
     private List<Image> slimeFrames = List.of();
 

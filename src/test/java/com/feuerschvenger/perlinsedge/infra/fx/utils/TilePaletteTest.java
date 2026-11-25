@@ -12,6 +12,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TilePaletteTest {
 
@@ -109,7 +110,8 @@ class TilePaletteTest {
 
         final var expected = TilePalette.composite(SAND, WATER_BLUE);
         for (var shift = 0; shift <= 16; shift += 8) {
-            assertEquals((expected >>> shift) & 0xFF, (colour >>> shift) & 0xFF, CHANNEL_TOLERANCE, "shift " + shift);
+            assertEquals((float) ((expected >>> shift) & 0xFF),
+                    (float) ((colour >>> shift) & 0xFF), (float) CHANNEL_TOLERANCE, "shift " + shift);
         }
         assertNotEquals(SAND, colour);
         assertEquals(0xFF, colour >>> 24);
@@ -163,7 +165,7 @@ class TilePaletteTest {
         final var grass = palette.argb(MapType.DENSE_FOREST, TileType.GRASS);
 
         assertNotEquals(grass, dune);
-        assertEquals(true, ((dune >>> 16) & 0xFF) > (dune & 0xFF) + 40, "dunes are warm");
-        assertEquals(true, ((grass >>> 8) & 0xFF) > ((grass >>> 16) & 0xFF), "grass is green");
+        assertTrue(((dune >>> 16) & 0xFF) > (dune & 0xFF) + 40, "dunes are warm");
+        assertTrue(((grass >>> 8) & 0xFF) > ((grass >>> 16) & 0xFF), "grass is green");
     }
 }

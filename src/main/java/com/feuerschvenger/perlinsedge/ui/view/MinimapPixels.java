@@ -44,9 +44,6 @@ final class MinimapPixels {
     /** The colours of the tiles without any marker, a private copy that is never changed. */
     private final int[] base;
 
-    /** The size of the buffer and where the tiles lie in it. */
-    private final Layout layout;
-
     /** The pixels with the markers of the revision in {@link #seenRevision}, never handed out. */
     private final int[] current;
 
@@ -82,7 +79,6 @@ final class MinimapPixels {
     MinimapPixels(TileMap map, int[] colours, Layout layout) {
         this.map = map;
         this.base = colours.clone();
-        this.layout = layout;
         this.current = colours.clone();
         this.laid = new byte[colours.length];
         this.touched = new BitSet(colours.length);

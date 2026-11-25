@@ -52,26 +52,47 @@ public final class TileMapAssembler {
         final var patches = context.hasField(NoiseField.PATCH) ? context.field(NoiseField.PATCH) : null;
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                final var index = context.index(x, y);
-                final var type = context.groundAt(index);
-                if (type == null) {
-                    throw new IllegalStateException("no pass classified the tile " + x + "," + y);
-                }
-                final var tile = new Tile(x, y, type);
-                if (heights != null) {
-                    tile.setHeight(heights[index]);
-                }
-                if (patches != null) {
-                    tile.setPatch(patchOf(context, patches[index], x, y));
-                }
-                final var resource = context.resourceAt(index);
-                if (resource != null) {
-                    tile.setWorldResource(new Resource(resource, context.tileHash(x, y, VISUAL_SEED_SALT)));
-                }
-                map.setTile(x, y, tile);
+                map.setTile(x, y, buildTile(context, heights, patches, x, y));
             }
         }
         return map;
+    }
+
+    /**
+     * Creates the tile at one position with its terrain, the height and patch when those fields exist, and its resource.
+     *
+     * @param context the finished generation
+     * @param heights the height field, or null when no pass computed it
+     * @param patches the patch field, or null when the recipe did not declare it
+     * @param x       the column of the tile
+     * @param y       the row of the tile
+     * @return the new tile
+     * @throws IllegalStateException when no pass classified the tile
+     */
+    private static Tile buildTile(GenerationContext context, float[] heights, float[] patches, int x, int y) {
+        final var index = context.index(x, y);
+        final var type = context.groundAt(index);
+        if (type == null) {
+            throw new IllegalStateException("no pass classified the tile " + x + "," + y);
+        }
+        final var tile = new Tile(x, y, type);
+        if (heights != null) {
+            tile.setHeight(heights[index]);
+        }
+        if (patches != null) {
+            tile.setPatch(patchOf(context, patches[index], x, y));
+        }
+        attachResource(context, tile, index);
+        return tile;
+    }
+
+    /** Puts the resource the context holds at an index on the tile, with the visual seed of its position. */
+    private static void attachResource(GenerationContext context, Tile tile, int index) {
+        final var resource = context.resourceAt(index);
+        if (resource != null) {
+            final var seed = context.tileHash(tile.getX(), tile.getY(), VISUAL_SEED_SALT);
+            tile.setWorldResource(new Resource(resource, seed));
+        }
     }
 
     /** Quantizes a patch field value, nudged by the jitter of its tile, to the 0..255 a tile stores. */
