@@ -166,6 +166,20 @@ final class LeastCostPath {
         cost[index] = value;
     }
 
+    /**
+     * Returns the cost of entering a tile as the searcher holds it now, with every {@link #setCost(int, float)} made
+     * so far applied.
+     *
+     * @param index the tile
+     * @return the cost, {@link Float#POSITIVE_INFINITY} for a blocked tile
+     * @throws IndexOutOfBoundsException when the tile is outside the grid
+     */
+    float costAt(int index) {
+        Objects.checkIndex(index, cost.length);
+        return cost[index];
+    }
+
+    /** Tells whether a tile is blocked, which is when its cost is infinite. */
     private boolean isBlocked(int index) {
         return cost[index] >= Float.POSITIVE_INFINITY;
     }
@@ -216,6 +230,7 @@ final class LeastCostPath {
         }
     }
 
+    /** Tells whether a column and a row lie on the grid. */
     private boolean isOnGrid(int x, int y) {
         return x >= 0 && y >= 0 && x < width && y < height;
     }
@@ -238,7 +253,11 @@ final class LeastCostPath {
         }
     }
 
-    /** Writes the path from the start to the goal by following the parents back from the goal. */
+    /**
+     * Writes the path from the start to the goal by following the parents back from the goal, and returns the number
+     * of tiles written. Throws {@link IllegalArgumentException} when the path does not fit in the array, before it
+     * writes anything.
+     */
     private int unwind(int start, int goal, int[] out) {
         var length = 1;
         for (var node = goal; node != start; node = parent[node]) {

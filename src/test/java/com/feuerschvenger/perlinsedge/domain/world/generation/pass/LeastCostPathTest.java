@@ -355,6 +355,19 @@ class LeastCostPathTest {
     }
 
     @Test
+    void theSearcherReportsTheCostItHoldsNow() {
+        final var cost = costs("...", "...", "...");
+        final var search = new LeastCostPath(3, 3, cost, 1F);
+
+        assertEquals(1F, search.costAt(1));
+        search.setCost(1, Float.POSITIVE_INFINITY);
+
+        assertEquals(Float.POSITIVE_INFINITY, search.costAt(1));
+        assertEquals(1F, cost[1], "the array the caller passed is a copy, not the searcher's");
+        assertThrows(IndexOutOfBoundsException.class, () -> search.costAt(9));
+    }
+
+    @Test
     void aCostThatCouldBreakTheHeuristicIsRefused() {
         final var search = new LeastCostPath(3, 3, costs("...", "...", "..."), 1F);
 

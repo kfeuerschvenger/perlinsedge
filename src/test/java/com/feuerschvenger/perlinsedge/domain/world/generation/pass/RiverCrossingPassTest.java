@@ -21,6 +21,17 @@ class RiverCrossingPassTest {
 
     private static final int SIDE = 60;
     private static final int SMALL_SIDE = 40;
+    private static final int WIDE_SIDE = 120;
+    private static final int TOO_SMALL = 24;
+    private static final int MIN_SPAN = 32;
+    /** The closest two rivers may come: the keep-out band is three tiles and a stroke adds one. */
+    private static final int KEEP_OUT = 3;
+    private static final int MIN_VALLEY_TILES = 40;
+    /** A line between the two slots of the first lane, which both rivers of that lane would like to follow. */
+    private static final int SHARED_VALLEY = 10;
+    private static final int THREE = 3;
+    /** The tiles along the rivers from the start of the map that are water in the test of the dead lane. */
+    private static final int DEAD_LANE = 26;
     private static final long SEED = 7L;
     private static final long OTHER_SEED = 99L;
     private static final float FLAT = 0.5F;
@@ -105,18 +116,52 @@ class RiverCrossingPassTest {
 
     /** Sets a column and a row of a field to one value and the rest to another, so a river has a valley either way. */
     private static void digValley(float[] field, GenerationContext context, float inside, float outside) {
+        digValleyAt(field, context, VALLEY, inside, outside);
+    }
+
+    /** Sets the column and the row of a line to one value and the rest to another. */
+    private static void digValleyAt(float[] field, GenerationContext context, int line, float inside,
+                                    float outside) {
         for (var index = 0; index < field.length; index++) {
-            final var inValley = context.xOf(index) == VALLEY || context.yOf(index) == VALLEY;
+            final var inValley = context.xOf(index) == line || context.yOf(index) == line;
             field[index] = inValley ? inside : outside;
         }
     }
 
-    /** Grass whose height grows towards the far corner, so the highest land lies far from the rivers of the lanes. */
+    /** Tells whether the rivers run from left to right on a map of this seed, which the seed decides. */
+    private static boolean runsLeftToRight(long seed) {
+        final var probe = grass(SIDE, seed);
+        apply(probe, rivers(ONE, NONE, NONE, NO_TRIBUTARIES));
+        return riverTouchesColumn(probe, 0);
+    }
+
+    /** Returns the smallest Chebyshev distance between a tile of the first river and one of the second. */
+    private static int distanceBetweenRivers(GenerationContext context) {
+        final var labels = Regions.label(context.width(), context.height(), index -> isRiver(context, index));
+        var closest = Integer.MAX_VALUE;
+        for (var first = 0; first < context.size(); first++) {
+            for (var second = first + 1; second < context.size(); second++) {
+                if (labels.labelAt(first) != labels.labelAt(second) && labels.labelAt(first) != Regions.NO_LABEL
+                        && labels.labelAt(second) != Regions.NO_LABEL) {
+                    closest = Math.min(closest, Math.max(Math.abs(context.xOf(first) - context.xOf(second)),
+                            Math.abs(context.yOf(first) - context.yOf(second))));
+                }
+            }
+        }
+        return closest;
+    }
+
+    /** Returns the number of river tiles of each component, from the first component on. */
+    private static int[] riverSizes(GenerationContext context) {
+        return Regions.label(context.width(), context.height(), index -> isRiver(context, index)).sizes();
+    }
+
+    /** Grass wide enough for a tributary, whose height grows towards the far corner so the land has high places. */
     private static GenerationContext highEastGrass() {
-        final var context = grass(SIDE, SEED);
+        final var context = grass(WIDE_SIDE, SEED);
         final var heights = context.field(NoiseField.HEIGHT);
         for (var index = 0; index < heights.length; index++) {
-            heights[index] = (context.xOf(index) + context.yOf(index)) / (float) (TWO * SIDE);
+            heights[index] = (context.xOf(index) + context.yOf(index)) / (float) (TWO * WIDE_SIDE);
         }
         return context;
     }
@@ -167,6 +212,76 @@ class RiverCrossingPassTest {
                 final var along = leftToRight ? context.yOf(index) : context.xOf(index);
                 final var share = along / (double) (SIDE - 1);
                 assertFalse(share > STRIP_START && share < STRIP_END, "a river tile at " + index + " is in the strip");
+            }
+        }
+    }
+
+    @Test
+    void laterRiversNeverMergeWithEarlierOnesEvenWhenOneValleyCallsThemAll() {
+        final var context = grass(SIDE, SEED);
+        digValleyAt(context.field(NoiseField.HEIGHT), context, SHARED_VALLEY, LOW, HIGH);
+        final var leftToRight = runsLeftToRight(SEED);
+
+        apply(context, rivers(THREE, STRONG, NONE, NO_TRIBUTARIES));
+
+        assertEquals(THREE, riverComponents(context));
+        assertTrue(distanceBetweenRivers(context) >= KEEP_OUT, "the rivers keep their distance");
+        var inTheValley = 0;
+        for (var index = 0; index < context.size(); index++) {
+            final var line = leftToRight ? context.yOf(index) : context.xOf(index);
+            inTheValley += isRiver(context, index) && Math.abs(line - SHARED_VALLEY) <= 1 ? 1 : 0;
+        }
+        assertTrue(inTheValley >= MIN_VALLEY_TILES, "a river bends to the valley: " + inTheValley + " tiles");
+    }
+
+    @Test
+    void aRiverThatCannotConnectItsLaneIsTriedAgainSoTheMapStillReachesTheMinimum() {
+        final var leftToRight = runsLeftToRight(SEED);
+        final var context = grass(SIDE, SEED);
+        for (var index = 0; index < context.size(); index++) {
+            final var along = leftToRight ? context.yOf(index) : context.xOf(index);
+            if (along <= DEAD_LANE) {
+                context.setGround(index, TileType.DEEP_WATER);
+            }
+        }
+
+        apply(context, rivers(TWO, NONE, NONE, NO_TRIBUTARIES));
+
+        assertEquals(TWO, riverComponents(context));
+    }
+
+    @Test
+    void aMapTooSmallForARiverGetsNone() {
+        final var tiny = grass(TOO_SMALL, SEED);
+        final var smallest = grass(MIN_SPAN, SEED);
+
+        apply(tiny, rivers(ONE, NONE, NONE, ONE));
+        apply(smallest, rivers(ONE, NONE, NONE, ONE));
+
+        assertEquals(0, TestContexts.countGround(tiny, TileType.RIVER));
+        assertTrue(TestContexts.countGround(smallest, TileType.RIVER) > 0);
+    }
+
+    @Test
+    void everyRiverGetsItsOwnTributariesAndTheyNeverCrossTheMiddleStrip() {
+        final var without = highEastGrass();
+        final var with = highEastGrass();
+
+        apply(without, rivers(TWO, NONE, NONE, NO_TRIBUTARIES));
+        apply(with, rivers(TWO, NONE, NONE, TWO));
+
+        assertEquals(TWO, riverComponents(with));
+        final var before = riverSizes(without);
+        final var after = riverSizes(with);
+        for (var river = 1; river <= TWO; river++) {
+            assertTrue(after[river] > before[river], "river " + river + " grew from " + before[river]);
+        }
+        final var leftToRight = riverTouchesColumn(with, 0);
+        for (var index = 0; index < with.size(); index++) {
+            if (isRiver(with, index) && !isRiver(without, index)) {
+                final var along = leftToRight ? with.yOf(index) : with.xOf(index);
+                final var share = along / (double) (WIDE_SIDE - 1);
+                assertFalse(share > STRIP_START && share < STRIP_END, "a tributary tile at " + index);
             }
         }
     }

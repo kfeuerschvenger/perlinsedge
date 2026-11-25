@@ -16,15 +16,21 @@ import java.util.random.RandomGenerator;
  * bends towards the wet ground. The rivers are carved two tiles wide and have no ford: the player crosses them on
  * bridges.
  * <p>
- * Three things keep the rivers apart and the land in one large piece. They all run the same way, across the map from
- * top to bottom or from left to right as the seed decides, in lanes along the two sides of the map, so two rivers do
- * not cross; the land around a carved river costs more, so the next river does not run in its bed and rivers stay
- * separate; and the middle of the map across the rivers costs more too, so the largest strip of land, where the player
- * starts, stays wide. Afterwards each river receives a few short tributaries that run from high land far from every
- * river to the nearest river tile.
+ * Four things keep the rivers apart and the land in one large piece. They all run the same way, across the map from
+ * top to bottom or from left to right as the seed decides, in lanes along the two sides of the map. The tiles of a
+ * carved river and the land within a few tiles of it are closed to every later river, so rivers never merge or cross
+ * and a later river bends around an earlier one. The middle of the map across the rivers costs more, so the largest
+ * strip of land, where the player starts, stays wide. And both ends of a river lie on the same piece of land: a river
+ * whose ends cannot be joined is tried again at another place of its lane a few times, so a map reaches the minimum
+ * number of rivers whenever its land allows, and a map too small for a river gets none.
  * <p>
- * The pass runs on plain arrays and one {@link LeastCostPath} that it reuses for every search. It draws from one seeded
- * stream and does nothing on a map with no land, so it repeats for a seed.
+ * A river runs between the same position along both edges, which is how far it lies from the start of the edge as a
+ * share of the edge, so on flat ground it is straight and the cost of the ground bends it. Afterwards each river
+ * receives its own few short tributaries: each one runs from high land a bounded distance from that river, and far
+ * from every river, to the nearest tile of that river, and never across the middle strip or another river.
+ * <p>
+ * The pass runs on plain arrays and one {@link LeastCostPath} that it reuses for every search and that holds the
+ * costs. It draws from one seeded stream and does nothing on a map with no land, so it repeats for a seed.
  */
 public final class RiverCrossingPass implements GenerationPass {
 
@@ -32,6 +38,8 @@ public final class RiverCrossingPass implements GenerationPass {
     private static final long SALT = 0x0C20_55E2_5EED_0001L;
     /** The area, in tiles, that {@code riversPer100k} counts rivers in. */
     private static final double DENSITY_AREA_TILES = 100_000.0;
+    /** A map whose shorter side is below this many tiles is too small for a river and gets none. */
+    private static final int MIN_MAP_SPAN = 32;
     /** What a tile of flat, low, wet land costs, and the lowest cost of any tile, which scales the heuristic. */
     private static final float BASE_COST = 1F;
     /**
@@ -39,9 +47,8 @@ public final class RiverCrossingPass implements GenerationPass {
      * faster: the costs vary far above the lowest one, so the exact heuristic is weak and expands most of the map.
      */
     private static final float SEARCH_SLACK = 3F;
-    /** The land within this many tiles of a carved river costs more, so the next river keeps its distance. */
+    /** The land within this many tiles of a carved river is closed to the rivers that follow, so rivers stay apart. */
     private static final int BAND_RADIUS = 3;
-    private static final float BAND_PENALTY = 6F;
     /** The middle of the map across the rivers costs more, so the strip of land the player starts on stays wide. */
     private static final double CORRIDOR_START = 0.30;
     private static final double CORRIDOR_END = 0.70;
@@ -55,14 +62,21 @@ public final class RiverCrossingPass implements GenerationPass {
     /** How far a river moves from the middle of its slot in a lane, as a share of the slot. */
     private static final double SLOT_JITTER = 0.3;
     private static final double HALF = 0.5;
+    /** How many places a river is tried at, the first in its slot and the others anywhere in its lane. */
+    private static final int MAX_ATTEMPTS = 8;
     /** A river enters the land at the nearest land tile within this many rows of the edge. */
     private static final int EDGE_DEPTH = 10;
-    /** A river enters the land at most this share of the edge away from its slot. */
+    /** A river enters the land at most this share of the edge away from its place. */
     private static final double EDGE_SPAN_SHARE = 0.12;
-    /** Tributaries start in the highest share of the land that lies far from every river. */
+    /** Tributaries start in the highest share of the land that qualifies for the river they join. */
     private static final double TRIBUTARY_SOURCE_SHARE = 0.05;
+    /** A tributary starts at least this many tiles from every river, so it is a stream of its own. */
     private static final int TRIBUTARY_MIN_REACH = 12;
+    /** A tributary starts at most this many tiles from the river it joins, so it stays short. */
+    private static final int TRIBUTARY_MAX_REACH = 30;
     private static final int NO_TILE = -1;
+    /** The number of a tile that belongs to no river. */
+    private static final int NO_RIVER = 0;
 
     private final RiverCrossingParams params;
 
@@ -75,11 +89,13 @@ public final class RiverCrossingPass implements GenerationPass {
         this.params = Objects.requireNonNull(params, "params");
     }
 
+    /** Returns the name the timings report this pass under. */
     @Override
     public String name() {
         return NAME;
     }
 
+    /** Cuts the rivers across the map, one by one, and then adds the tributaries of each. */
     @Override
     public void apply(GenerationContext context) {
         new Crossing(context).run();
@@ -97,22 +113,34 @@ public final class RiverCrossingPass implements GenerationPass {
         return Math.clamp(byArea, params.minRivers(), params.maxRivers());
     }
 
-    /** The state of one run: the costs, the searcher, the rivers carved so far and the buffers. */
+    /** The state of one run: the rivers carved so far, the searcher that holds the costs and the buffers. */
     private final class Crossing {
 
         private final GenerationContext context;
         private final int width;
         private final int height;
         private final float[] heights;
-        private final float[] cost;
+        private final float[] moisture;
         private final RandomGenerator random;
         private final int[] path;
+        /** The tiles of every river and tributary carved so far, the first {@code riverTileCount} filled. */
         private final int[] riverTiles;
-        private final boolean[] inRiver;
-        private final boolean[] banded;
+        /** For each tile, the number of the river that covers it, or {@link #NO_RIVER}. */
+        private final int[] riverOf;
+        /** For each tile, the number of the river whose keep-out band covers it first, or {@link #NO_RIVER}. */
+        private final int[] bandOf;
         private final boolean vertical;
+        private double lowest;
+        private double range;
         private LeastCostPath search;
+        /** The pieces of land that are open to a river, read again after a river is carved. */
+        private Regions landmasses;
+        private boolean landmassesStale = true;
         private int riverTileCount;
+        /** How many rivers are carved. */
+        private int rivers;
+        /** The number of the river that the tiles carved now belong to. */
+        private int owner;
 
         /** Prepares the arrays of a run and draws the direction the rivers run in. */
         Crossing(GenerationContext context) {
@@ -120,105 +148,142 @@ public final class RiverCrossingPass implements GenerationPass {
             this.width = context.width();
             this.height = context.height();
             this.heights = context.field(NoiseField.HEIGHT);
-            this.cost = new float[context.size()];
+            this.moisture = context.hasField(NoiseField.MOISTURE)
+                    ? context.field(NoiseField.MOISTURE) : new float[context.size()];
             this.random = context.random(SALT);
             this.path = new int[context.size()];
             this.riverTiles = new int[context.size()];
-            this.inRiver = new boolean[context.size()];
-            this.banded = new boolean[context.size()];
+            this.riverOf = new int[context.size()];
+            this.bandOf = new int[context.size()];
             this.vertical = random.nextBoolean();
         }
 
-        /** Fills the costs, cuts the rivers one by one and then adds the tributaries. */
+        /** Cuts the rivers one by one, makes up for the ones that failed and then adds the tributaries. */
         void run() {
-            if (!buildCosts()) {
+            if (Math.min(width, height) < MIN_MAP_SPAN || !measureLand()) {
                 return;
             }
-            search = new LeastCostPath(width, height, cost, BASE_COST, SEARCH_SLACK);
-            final var rivers = riverCount(context.size());
-            var crossed = 0;
-            for (var river = 0; river < rivers; river++) {
-                crossed += cross(river, rivers) ? 1 : 0;
+            search = new LeastCostPath(width, height, openCosts(), BASE_COST, SEARCH_SLACK);
+            final var wanted = riverCount(context.size());
+            for (var slot = 0; slot < wanted; slot++) {
+                cross(slot, wanted);
             }
-            addTributaries(crossed);
+            for (var extra = 0; extra < wanted && rivers < params.minRivers(); extra++) {
+                cross(extra, wanted);
+            }
+            addTributaries();
         }
 
-        /** Fills the cost of every tile and tells whether the map has any land to run over. */
-        private boolean buildCosts() {
-            final var moisture = context.hasField(NoiseField.MOISTURE)
-                    ? context.field(NoiseField.MOISTURE) : new float[cost.length];
-            var lowest = Float.POSITIVE_INFINITY;
-            var highest = Float.NEGATIVE_INFINITY;
-            for (var index = 0; index < cost.length; index++) {
+        /** Finds the lowest height and the range of the heights of the land, and tells whether there is any land. */
+        private boolean measureLand() {
+            var low = Float.POSITIVE_INFINITY;
+            var high = Float.NEGATIVE_INFINITY;
+            for (var index = 0; index < context.size(); index++) {
                 if (context.groundAt(index).isLand()) {
-                    lowest = Math.min(lowest, heights[index]);
-                    highest = Math.max(highest, heights[index]);
+                    low = Math.min(low, heights[index]);
+                    high = Math.max(high, heights[index]);
                 }
             }
-            if (lowest > highest) {
-                return false;
+            lowest = low;
+            range = Math.max(Float.MIN_NORMAL, (double) high - low);
+            return low <= high;
+        }
+
+        /** Returns the cost of every tile for the first river: the cost of the land, infinite for anything else. */
+        private float[] openCosts() {
+            final var costs = new float[context.size()];
+            for (var index = 0; index < costs.length; index++) {
+                costs[index] = context.groundAt(index).isLand() ? landCost(index) : Float.POSITIVE_INFINITY;
             }
-            final var range = Math.max(Float.MIN_NORMAL, (double) highest - lowest);
-            for (var index = 0; index < cost.length; index++) {
-                cost[index] = context.groundAt(index).isLand()
-                        ? landCost(index, ((double) heights[index] - lowest) / range, moisture[index])
-                        : Float.POSITIVE_INFINITY;
-            }
-            return true;
+            return costs;
         }
 
         /** The cost of a land tile from its height as a share of the land's range, its moisture and its place. */
-        private float landCost(int index, double relativeHeight, float moisture) {
-            final var wet = Math.clamp((double) moisture, 0.0, 1.0);
-            return (float) (BASE_COST + (double) params.heightWeight() * relativeHeight
-                    + (double) params.meanderWeight() * (1.0 - wet) + corridorPenalty(index));
+        private float landCost(int index) {
+            final var relativeHeight = ((double) heights[index] - lowest) / range;
+            final var wet = Math.clamp(moisture[index], 0.0, 1.0);
+            return (float) (BASE_COST + params.heightWeight() * relativeHeight
+                    + params.meanderWeight() * (1.0 - wet) + corridorPenalty(index));
         }
 
         /** The extra cost of a tile in the middle strip across the rivers, 0 outside it. */
         private double corridorPenalty(int index) {
+            return inCorridor(index) ? CORRIDOR_PENALTY : 0.0;
+        }
+
+        /** Tells whether a tile lies in the middle strip across the rivers. */
+        private boolean inCorridor(int index) {
             final var across = vertical ? index % width : index / width;
             final var span = vertical ? width : height;
             final var share = across / (double) Math.max(1, span - 1);
-            return share >= CORRIDOR_START && share <= CORRIDOR_END ? CORRIDOR_PENALTY : 0.0;
+            return share >= CORRIDOR_START && share <= CORRIDOR_END;
         }
 
-        /** Cuts one river between its two edges and tells whether it found a way. */
-        private boolean cross(int river, int rivers) {
+        /** Tells whether a river may still enter a tile, which is when its cost is finite. */
+        private boolean isOpen(int index) {
+            return Float.isFinite(search.costAt(index));
+        }
+
+        /** Tries to cut the river of a slot, first in the slot and then elsewhere in its lane, and tells if it did. */
+        private boolean cross(int slot, int slots) {
             final var span = vertical ? width : height;
-            final var entryAlong = (int) Math.round(lanePosition(river, rivers) * (span - 1));
-            final var exitAlong = (int) Math.round(lanePosition(river, rivers) * (span - 1));
-            final var start = edgeLand(entryAlong, false);
-            final var goal = edgeLand(exitAlong, true);
-            if (start == NO_TILE || goal == NO_TILE) {
-                return false;
+            for (var attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                final var along = (int) Math.round(lanePosition(slot, slots, attempt > 0) * (span - 1));
+                final var start = edgeLand(along, false);
+                final var goal = edgeLand(along, true);
+                if (start != NO_TILE && goal != NO_TILE && onTheSameLand(start, goal) && carveRiver(start, goal)) {
+                    return true;
+                }
             }
+            return false;
+        }
+
+        /** Tells whether two open tiles lie on the same piece of open land, reading the pieces again when needed. */
+        private boolean onTheSameLand(int first, int second) {
+            if (landmassesStale) {
+                landmasses = Regions.label(width, height, this::isOpen);
+                landmassesStale = false;
+            }
+            return landmasses.labelAt(first) == landmasses.labelAt(second);
+        }
+
+        /** Cuts a river along the cheapest way between two tiles, closes the land around it and tells if it ran. */
+        private boolean carveRiver(int start, int goal) {
             final var length = search.find(start, goal, path);
             if (length == LeastCostPath.NOT_FOUND) {
                 return false;
             }
+            owner = rivers + 1;
             final var before = riverTileCount;
             Carve.path(width, height, path, length, Carve.MAX_STROKE, this::carve);
             for (var position = before; position < riverTileCount; position++) {
-                penaliseAround(riverTiles[position]);
+                closeAround(riverTiles[position]);
             }
+            rivers = owner;
+            landmassesStale = true;
             return true;
         }
 
         /**
-         * Returns where along its edge a river enters or leaves, as a share of the span: the rivers are dealt to the
-         * two lanes in turn, each river has a slot in its lane, and its place is the middle of the slot moved a little.
+         * Returns where along its edge a river enters and leaves, as a share of the span. The rivers are dealt to the
+         * two lanes in turn and each river has a slot in its lane. A first try is the middle of the slot moved a
+         * little, and a retry is anywhere in the lane.
          */
-        private double lanePosition(int river, int rivers) {
+        private double lanePosition(int river, int slotCount, boolean anywhere) {
             final var inFirstLane = river % LANE_SIDES == 0;
-            final var slots = inFirstLane ? (rivers + 1) / LANE_SIDES : rivers / LANE_SIDES;
+            final var slots = inFirstLane ? (slotCount + 1) / LANE_SIDES : slotCount / LANE_SIDES;
             final var start = inFirstLane ? FIRST_LANE_START : SECOND_LANE_START;
             final var end = inFirstLane ? FIRST_LANE_END : SECOND_LANE_END;
+            if (anywhere) {
+                return start + random.nextDouble() * (end - start);
+            }
             final var slotWidth = (end - start) / slots;
-            final var middle = start + slotWidth * (river / LANE_SIDES + HALF);
+            final int slot = river / LANE_SIDES;
+            final var middle = start + slotWidth * (slot + HALF);
             return middle + (random.nextDouble() - HALF) * SLOT_JITTER * slotWidth;
         }
 
-        /** Returns the land tile nearest to a point of an edge, looked for in the first rows beside it. */
+        /** Returns the open tile nearest to a point of an edge, looked for in the first rows beside it. */
         private int edgeLand(int along, boolean far) {
             final var ideal = tileAt(along, 0, far);
             var best = NO_TILE;
@@ -233,7 +298,7 @@ public final class RiverCrossingPass implements GenerationPass {
             return best;
         }
 
-        /** Returns the land tile of a row beside the edge nearest to a position along it, looking outwards. */
+        /** Returns the open tile of a row beside the edge nearest to a position along it, looking outwards. */
         private int nearestLandInRow(int along, int depth, boolean far) {
             final var span = vertical ? width : height;
             final var reach = (int) (span * EDGE_SPAN_SHARE);
@@ -250,14 +315,14 @@ public final class RiverCrossingPass implements GenerationPass {
             return NO_TILE;
         }
 
-        /** Returns the tile at a position along an edge and a depth when it is land inside the map, else no tile. */
+        /** Returns the tile at a position along an edge and a depth when it is open inside the map, else no tile. */
         private int landAt(int along, int depth, boolean far) {
             final var span = vertical ? width : height;
             if (along < 0 || along >= span) {
                 return NO_TILE;
             }
             final var tile = tileAt(along, depth, far);
-            return Float.isFinite(cost[tile]) ? tile : NO_TILE;
+            return isOpen(tile) ? tile : NO_TILE;
         }
 
         /** Returns the tile at a position along an edge and a number of rows in from it, on the near or far edge. */
@@ -275,72 +340,109 @@ public final class RiverCrossingPass implements GenerationPass {
             return dx * dx + dy * dy;
         }
 
-        /** Turns a land tile of the path into river, once, and notes it. */
+        /** Turns a land tile of the path into river of the current owner, once, and notes it. */
         private void carve(int index) {
-            if (!inRiver[index] && context.groundAt(index).isLand()) {
+            if (context.groundAt(index).isLand()) {
                 context.setGround(index, TileType.RIVER);
-                inRiver[index] = true;
+                riverOf[index] = owner;
                 riverTiles[riverTileCount] = index;
                 riverTileCount++;
             }
         }
 
-        /** Makes the land around a river tile cost more for the searches that follow, once for each tile. */
-        private void penaliseAround(int tile) {
+        /** Closes the tile and the land around it to every search that follows, as the keep-out band of the owner. */
+        private void closeAround(int tile) {
             final var x = tile % width;
             final var y = tile / width;
             final var lastY = Math.min(height - 1, y + BAND_RADIUS);
             final var lastX = Math.min(width - 1, x + BAND_RADIUS);
             for (var ny = Math.max(0, y - BAND_RADIUS); ny <= lastY; ny++) {
                 for (var nx = Math.max(0, x - BAND_RADIUS); nx <= lastX; nx++) {
-                    penalise(ny * width + nx);
+                    close(ny * width + nx);
                 }
             }
         }
 
-        /** Adds the penalty to the cost of one open tile, unless it already carries it. */
-        private void penalise(int index) {
-            if (!banded[index] && Float.isFinite(cost[index])) {
-                banded[index] = true;
-                cost[index] = (float) ((double) cost[index] + BAND_PENALTY);
-                search.setCost(index, cost[index]);
+        /** Blocks one tile, noting the owner of the band when no river has claimed it yet. */
+        private void close(int index) {
+            if (bandOf[index] == NO_RIVER) {
+                bandOf[index] = owner;
+            }
+            search.setCost(index, Float.POSITIVE_INFINITY);
+        }
+
+        /** Gives each river its tributaries: short streams from high land to a tile of that same river. */
+        private void addTributaries() {
+            if (params.tributariesPerRiver() == 0 || rivers == 0) {
+                return;
+            }
+            closeCorridor();
+            final var far = DistanceTransform.chebyshev(width, height, index -> riverOf[index] != NO_RIVER);
+            final var sources = new int[context.size()];
+            for (var river = 1; river <= rivers; river++) {
+                owner = river;
+                reopen();
+                joinStreams(far, sources);
+                closeOwnRiver();
             }
         }
 
-        /** Adds each river's tributaries: short streams from high land far from the rivers to the nearest river. */
-        private void addTributaries(int rivers) {
-            final var wanted = rivers * params.tributariesPerRiver();
-            if (wanted == 0 || riverTileCount == 0) {
-                return;
+        /** Closes again the river of the owner, with the tributaries it just received, and the land around it. */
+        private void closeOwnRiver() {
+            for (var i = 0; i < riverTileCount; i++) {
+                if (riverOf[riverTiles[i]] == owner) {
+                    closeAround(riverTiles[i]);
+                }
             }
-            final var reach = DistanceTransform.chebyshev(width, height, index -> inRiver[index]);
-            final IntPredicate eligible = index -> isFarLand(reach, index);
+        }
+
+        /** Blocks the middle strip across the rivers, so that no tributary is carved over the land of the player. */
+        private void closeCorridor() {
+            for (var index = 0; index < context.size(); index++) {
+                if (inCorridor(index)) {
+                    search.setCost(index, Float.POSITIVE_INFINITY);
+                }
+            }
+        }
+
+        /** Opens the river of the owner and the land of its keep-out band, so that its tributaries can reach it. */
+        private void reopen() {
+            for (var index = 0; index < context.size(); index++) {
+                final var isOwnRiver = riverOf[index] == owner;
+                final var isOwnBand = bandOf[index] == owner && context.groundAt(index).isLand()
+                        && !inCorridor(index);
+                if (isOwnRiver || isOwnBand) {
+                    search.setCost(index, landCost(index));
+                }
+            }
+        }
+
+        /** Runs the tributaries of the owner from the highest of the tiles that may be a source for its river. */
+        private void joinStreams(int[] far, int[] sources) {
+            final var near = DistanceTransform.chebyshev(width, height, index -> riverOf[index] == owner);
+            final IntPredicate eligible = index -> isSource(far[index], near[index], index);
             final var threshold = FieldQuantile.above(heights, eligible, TRIBUTARY_SOURCE_SHARE);
-            final var sources = new int[heights.length];
-            final var candidates = collect(eligible, threshold, sources);
-            for (var stream = 0; stream < wanted && candidates > 0; stream++) {
+            var candidates = 0;
+            for (var index = 0; index < heights.length; index++) {
+                if (heights[index] >= threshold && eligible.test(index)) {
+                    sources[candidates] = index;
+                    candidates++;
+                }
+            }
+            for (var stream = 0; stream < params.tributariesPerRiver() && candidates > 0; stream++) {
                 join(sources[random.nextInt(candidates)]);
             }
         }
 
-        /** Tells whether a tile is land that is not river and lies far enough from every river. */
-        private boolean isFarLand(int[] reach, int index) {
-            return !inRiver[index] && context.groundAt(index).isLand() && reach[index] >= TRIBUTARY_MIN_REACH;
+        /**
+         * Tells whether a tile may start a tributary of the owner: open to it, at least the minimum reach from every
+         * river and at most the maximum reach from the owner's river.
+         */
+        private boolean isSource(int reachFromAny, int reachFromOwner, int index) {
+            return reachFromAny >= TRIBUTARY_MIN_REACH && reachFromOwner <= TRIBUTARY_MAX_REACH && isOpen(index);
         }
 
-        /** Lists the eligible tiles at or above a height at the start of a buffer and returns how many. */
-        private int collect(IntPredicate eligible, float threshold, int[] sources) {
-            var found = 0;
-            for (var index = 0; index < heights.length; index++) {
-                if (heights[index] >= threshold && eligible.test(index)) {
-                    sources[found] = index;
-                    found++;
-                }
-            }
-            return found;
-        }
-
-        /** Runs a stream from a source tile to the nearest river tile along the cheapest way. */
+        /** Runs a stream from a source tile to the nearest tile of the owner's river along the cheapest way. */
         private void join(int source) {
             final var goal = nearestRiverTile(source);
             final var length = search.find(source, goal, path);
@@ -349,13 +451,13 @@ public final class RiverCrossingPass implements GenerationPass {
             }
         }
 
-        /** Returns the river tile nearest to a tile, as the crow flies. */
+        /** Returns the tile of the owner's river nearest to a tile, as the crow flies. */
         private int nearestRiverTile(int source) {
-            var nearest = riverTiles[0];
+            var nearest = NO_TILE;
             var nearestDistance = Long.MAX_VALUE;
             for (var i = 0; i < riverTileCount; i++) {
                 final var distance = squaredDistance(source, riverTiles[i]);
-                if (distance < nearestDistance) {
+                if (riverOf[riverTiles[i]] == owner && distance < nearestDistance) {
                     nearest = riverTiles[i];
                     nearestDistance = distance;
                 }
