@@ -59,7 +59,7 @@ class FieldQuantileTest {
     @Test
     void onlyTheSelectedTilesCount() {
         final var values = ramp();
-        final IntPredicate even =index -> index % EVEN == 0;
+        final IntPredicate even = index -> index % EVEN == 0;
 
         final var threshold = FieldQuantile.above(values, even, QUARTER);
 
@@ -116,11 +116,26 @@ class FieldQuantileTest {
     }
 
     @Test
-    void aConstantFieldReturnsItsValue() {
+    void aConstantFieldKeepsNothingForAShareBelowOne() {
         final var values = new float[SIZE];
         Arrays.fill(values, CONSTANT);
 
-        assertEquals(CONSTANT, FieldQuantile.above(values, index -> true, HALF));
+        assertEquals(Float.POSITIVE_INFINITY, FieldQuantile.above(values, index -> true, HALF));
+    }
+
+    @Test
+    void aConstantFieldKeepsEverythingForAShareOfOne() {
+        final var values = new float[SIZE];
+        Arrays.fill(values, CONSTANT);
+
+        assertEquals(CONSTANT, FieldQuantile.above(values, index -> true, 1.0));
+    }
+
+    @Test
+    void aSingleSelectedTileKeepsNothingForAShareBelowOne() {
+        final var values = ramp();
+
+        assertEquals(Float.POSITIVE_INFINITY, FieldQuantile.above(values, index -> index == SIZE / EVEN, HALF));
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class VegetationPassTest {
@@ -41,6 +42,18 @@ class VegetationPassTest {
 
         assertEquals(dense.size(), TestContexts.countResource(dense, ResourceType.TREE));
         assertEquals(0, TestContexts.countResource(sparse, ResourceType.TREE));
+    }
+
+    @Test
+    void reservedTilesGrowNoTree() {
+        final var context = map(TileType.GRASS, DENSE_NOISE);
+        final var reserved = context.index(0, 0);
+        context.reserve(reserved);
+
+        apply(context, DENSITY);
+
+        assertNull(context.resourceAt(reserved));
+        assertEquals(context.size() - 1, TestContexts.countResource(context, ResourceType.TREE));
     }
 
     @Test

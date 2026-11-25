@@ -9,13 +9,14 @@ import java.util.Objects;
  * orthogonal tiles it cuts across is blocked, so a path never squeezes between two blocked corners. A cost of
  * {@link Float#POSITIVE_INFINITY} blocks a tile. The heuristic is the octile distance times the lowest cost of any
  * tile, so it never overestimates, and the path is the cheapest one, only while every open tile costs at least that
- * lowest cost. The constructor checks it and refuses a cost array that breaks it, or that holds a NaN.
+ * lowest cost. The constructor checks it and refuses a cost array that breaks it, or that holds a NaN. Each tile is
+ * expanded at most once per search, so the rounding of the heap's float keys cannot send a search back to a tile it
+ * has settled.
  * <p>
  * One instance serves many searches over the cost array it was built with. The instance keeps its own copy of that
  * array, so a caller that goes on writing to the array it passed does not change the searches, and a new cost layout
  * needs a new instance. The arrays that a search fills are never cleared: each carries a run number, and a tile whose
- * number differs from the current run counts as untouched. A search expands at most as many tiles as the grid holds,
- * a safety bound that an admissible heuristic does not reach.
+ * number differs from the current run counts as untouched.
  */
 final class LeastCostPath {
 
@@ -34,6 +35,7 @@ final class LeastCostPath {
     private final double[] distance;
     private final int[] parent;
     private final int[] stamp;
+    private final int[] closed;
     private final IntMinHeap heap = new IntMinHeap();
     private int run;
     private int goalX;
@@ -59,24 +61,27 @@ final class LeastCostPath {
         if (!Float.isFinite(minCost) || minCost <= 0F) {
             throw new IllegalArgumentException("the lowest cost must be positive and finite: " + minCost);
         }
-        requireCostsFrom(cost, minCost);
         this.width = width;
         this.height = height;
-        this.cost = cost.clone();
+        this.cost = copyChecked(cost, minCost);
         this.minCost = minCost;
         this.distance = new double[cost.length];
         this.parent = new int[cost.length];
         this.stamp = new int[cost.length];
+        this.closed = new int[cost.length];
     }
 
-    /** Refuses a cost that is NaN or lower than the lowest cost, which would make the heuristic overestimate. */
-    private static void requireCostsFrom(float[] cost, float minCost) {
+    /** Copies the costs, refusing a cost that is NaN or lower than the lowest cost, which would break the heuristic. */
+    private static float[] copyChecked(float[] cost, float minCost) {
+        final var copy = new float[cost.length];
         for (var index = 0; index < cost.length; index++) {
             if (Float.isNaN(cost[index]) || cost[index] < minCost) {
-                throw new IllegalArgumentException(
-                        "the cost " + cost[index] + " of tile " + index + " is NaN or below the lowest cost " + minCost);
+                throw new IllegalArgumentException("the cost " + cost[index] + " of tile " + index
+                        + " is NaN or below the lowest cost " + minCost);
             }
+            copy[index] = cost[index];
         }
+        return copy;
     }
 
     /**
@@ -86,8 +91,7 @@ final class LeastCostPath {
      * @param goal  the last tile
      * @param out   receives the tiles of the path, so it must be long enough for it
      * @return the number of tiles written, 1 when the start is the goal, or {@link #NOT_FOUND}, with {@code out}
-     * untouched, when either end is blocked, no route exists or the search hit its expansion bound before it reached
-     * the goal
+     * untouched, when either end is blocked or no route exists
      * @throws IndexOutOfBoundsException when a tile is outside the grid
      * @throws IllegalArgumentException  when the path does not fit in {@code out}
      */
@@ -101,17 +105,15 @@ final class LeastCostPath {
         goalY = goal / width;
         goalX = goal - goalY * width;
         touch(start, 0.0, NO_PARENT);
-        var expansions = 0;
-        while (!heap.isEmpty() && expansions < cost.length) {
-            final var key = heap.peekKey();
+        while (!heap.isEmpty()) {
             final var node = heap.pop();
-            if (key > keyOf(node)) {
+            if (closed[node] == run) {
                 continue;
             }
             if (node == goal) {
                 return unwind(start, goal, out);
             }
-            expansions++;
+            closed[node] = run;
             expand(node);
         }
         return NOT_FOUND;
@@ -132,6 +134,7 @@ final class LeastCostPath {
         run++;
         if (run == 0) {
             Arrays.fill(stamp, 0);
+            Arrays.fill(closed, 0);
             run = 1;
         }
     }
@@ -181,9 +184,9 @@ final class LeastCostPath {
 
     /** Queues a neighbour when this way to it is cheaper than the one known. */
     private void relax(int node, int neighbour, boolean diagonal) {
-        final var step =diagonal ? cost[neighbour] * DIAGONAL : cost[neighbour];
+        final var step = diagonal ? cost[neighbour] * DIAGONAL : cost[neighbour];
         final var reached = distance[node] + step;
-        if (stamp[neighbour] != run || reached < distance[neighbour]) {
+        if (closed[neighbour] != run && (stamp[neighbour] != run || reached < distance[neighbour])) {
             touch(neighbour, reached, node);
         }
     }

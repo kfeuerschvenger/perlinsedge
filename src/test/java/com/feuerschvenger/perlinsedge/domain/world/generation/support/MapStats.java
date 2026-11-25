@@ -23,13 +23,13 @@ public final class MapStats {
     }
 
     /**
-     * Tells whether a terrain is the rock that iron ore and crystals lie in.
+     * Tells whether a terrain is the rocky ground that iron ore and crystals lie in.
      *
      * @param type the terrain
-     * @return true for rocky ground and mountains
+     * @return true for rocky ground only, because a mountain cannot be walked onto
      */
     public static boolean isRocky(TileType type) {
-        return type == TileType.ROCKY_GROUND || type == TileType.MOUNTAIN;
+        return type == TileType.ROCKY_GROUND;
     }
 
     /**
@@ -51,10 +51,10 @@ public final class MapStats {
     }
 
     /**
-     * Counts the tiles of the rocky terrain.
+     * Counts the tiles of rocky ground.
      *
      * @param map the map
-     * @return the number of rocky ground and mountain tiles
+     * @return the number of rocky ground tiles
      */
     public static int rockyTiles(TileMap map) {
         var count = 0;

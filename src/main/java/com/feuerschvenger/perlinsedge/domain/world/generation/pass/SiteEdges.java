@@ -15,7 +15,8 @@ final class SiteEdges {
 
     /**
      * The most sites the build accepts. It tests every pair of sites twice, once to count the edges and once to fill
-     * them, so the work and the size of the edge array grow with the square of this number. A position takes 16 bits,
+     * them, so the work and the size of the edge array grow with the square of this number: at most about 8.4 million
+     * edges, 67 MB, which also fits an {@code int} count. A position takes 16 bits,
      * which would allow far more sites than the pair build can hold.
      */
     public static final int MAX_SITES = 4096;
@@ -51,7 +52,7 @@ final class SiteEdges {
             throw new IllegalArgumentException("the longest edge must be from 0 to " + MAX_LENGTH + ": " + maxDistance);
         }
         final var limit = (long) maxDistance * maxDistance;
-        final var edges = new long[Math.toIntExact(count(sites, width, limit))];
+        final var edges = new long[count(sites, width, limit)];
         var filled = 0;
         for (var first = 0; first < sites.size(); first++) {
             for (var second = first + 1; second < sites.size(); second++) {
@@ -100,8 +101,8 @@ final class SiteEdges {
         return (squared << LENGTH_SHIFT) | ((long) first << POSITION_BITS) | second;
     }
 
-    private static long count(SiteList sites, int width, long limit) {
-        var count = 0L;
+    private static int count(SiteList sites, int width, long limit) {
+        var count = 0;
         for (var first = 0; first < sites.size(); first++) {
             for (var second = first + 1; second < sites.size(); second++) {
                 if (squaredDistance(sites, width, first, second) <= limit) {

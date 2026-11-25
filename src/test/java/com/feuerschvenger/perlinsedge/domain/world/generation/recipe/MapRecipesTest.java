@@ -11,7 +11,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,11 +31,11 @@ class MapRecipesTest {
 
     @ParameterizedTest
     @EnumSource(MapType.class)
-    void everyMapTypeHasARecipeOfItsOwnTypeThatEndsWithTheSpawn(MapType type) {
+    void everyMapTypeHasARecipeOfItsOwnTypeWithASpawnPass(MapType type) {
         final var recipe = new MapRecipes().recipeFor(type);
 
         assertEquals(type, recipe.type());
-        assertInstanceOf(SpawnPass.class, recipe.passes().getLast());
+        assertEquals(1, recipe.passes().stream().filter(SpawnPass.class::isInstance).count());
     }
 
     @ParameterizedTest
@@ -48,6 +47,24 @@ class MapRecipesTest {
         assertEquals(1, names.stream().filter("ground"::equals).count());
         assertTrue(names.indexOf("ground") < names.indexOf("rock-resources"));
         assertTrue(names.indexOf("rivers") < names.indexOf("rock-resources"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(MapType.class)
+    void everyRecipeMakesRockyZonesBeforeTheOreAndBalancesTheResourcesAfterTheSpawn(MapType type) {
+        final var names = new MapRecipes().recipeFor(type).passes().stream().map(GenerationPass::name).toList();
+
+        assertTrue(names.indexOf("rocky-zones") < names.indexOf("rock-resources"));
+        assertTrue(names.indexOf("rock-resources") < names.indexOf("stone"));
+        assertTrue(names.indexOf("stone") < names.indexOf("spawn"));
+        assertTrue(names.indexOf("spawn") < names.indexOf("balance"));
+        if (names.contains("forest-floor")) {
+            assertTrue(names.indexOf("vegetation") < names.indexOf("spawn"));
+            assertTrue(names.indexOf("balance") < names.indexOf("forest-floor"));
+        }
+        if (names.contains("desert-flora")) {
+            assertTrue(names.indexOf("desert-flora") < names.indexOf("spawn"));
+        }
     }
 
     @Test

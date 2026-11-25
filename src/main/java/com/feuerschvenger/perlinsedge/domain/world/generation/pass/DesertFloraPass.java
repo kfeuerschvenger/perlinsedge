@@ -54,9 +54,10 @@ public final class DesertFloraPass implements GenerationPass {
         }
     }
 
-    /** Tells whether a tile is sand with no resource on it. */
+    /** Tells whether a tile is sand with no resource on it that no pass reserved. */
     private static boolean isOpenSand(GenerationContext context, int index) {
-        return context.groundAt(index) == TileType.SAND && context.resourceAt(index) == null;
+        return context.groundAt(index) == TileType.SAND && context.resourceAt(index) == null
+                && !context.isReserved(index);
     }
 
     /** Picks the chance of a tree for a sand tile: the thick one within reach of water, the thin one otherwise. */

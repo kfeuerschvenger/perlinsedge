@@ -17,6 +17,12 @@ final class MountainousRecipe {
     private static final float TREE_FREQUENCY = 0.05F;
     private static final float RIVER_DENSITY = 0.03F;
     private static final float TREE_DENSITY = 0.05F;
+    private static final float ROCKY_SHARE = 0.12F;
+    private static final float ROCKY_HEIGHT_BIAS = 1F;
+    private static final int ROCKY_FOOTHILL_REACH = 2;
+    private static final int IRON_PER_MILLE = 30;
+    private static final int IRON_MIN = 70;
+    private static final int IRON_MAX = 110;
 
     /** Not instantiable: the class only builds the recipe. */
     private MountainousRecipe() {
@@ -34,9 +40,12 @@ final class MountainousRecipe {
                         Set.of(), TREE_FREQUENCY),
                 RecipeParts.ground(GroundRules.MOUNTAINOUS),
                 RecipeParts.rivers(RIVER_DENSITY, TileType.SHALLOW_WATER),
-                RecipeParts.rock(),
+                RecipeParts.rockyZones(ROCKY_SHARE, ROCKY_HEIGHT_BIAS, ROCKY_FOOTHILL_REACH, RecipeParts.greenHosts()),
+                RecipeParts.rock(IRON_PER_MILLE),
                 RecipeParts.stone(),
                 RecipeParts.vegetation(TREE_DENSITY),
-                RecipeParts.spawn()));
+                RecipeParts.spawn(),
+                RecipeParts.balance(IRON_MIN, IRON_MAX, RecipeParts.fertileTrees()),
+                RecipeParts.forestFloor()));
     }
 }

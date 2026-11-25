@@ -65,8 +65,9 @@ final class PoissonDisc {
      * @param width   the number of columns of the grid
      * @param height  the number of rows of the grid
      * @param host    the tiles a site may stand on
-     * @param spacing the least distance between two sites in tiles, from 1 to the larger side of the grid; a larger
-     *                spacing fits at most one site anyway, and the bound keeps the cell arithmetic from overflowing
+     * @param spacing the least distance between two sites in tiles, from 1 to the diagonal of the grid rounded up,
+     *                the longest distance two tiles can be apart; a larger spacing fits at most one site anyway, and
+     *                the bound keeps the cell arithmetic from overflowing
      * @param random  the seeded source of randomness
      * @return the tile indices of the sites, in the order they were found
      * @throws IllegalArgumentException when the grid is empty or the spacing is outside its range
@@ -78,8 +79,8 @@ final class PoissonDisc {
             throw new IllegalArgumentException("the grid " + width + "x" + height + " and spacing " + spacing
                     + " must be positive");
         }
-        if (spacing > Math.max(width, height)) {
-            throw new IllegalArgumentException("the spacing " + spacing + " exceeds the larger side of the grid "
+        if (spacing > Math.ceil(Math.hypot(width, height))) {
+            throw new IllegalArgumentException("the spacing " + spacing + " exceeds the diagonal of the grid "
                     + width + "x" + height);
         }
         return new PoissonDisc(width, height, host, spacing, random).run();

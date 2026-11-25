@@ -8,7 +8,10 @@ import java.util.Arrays;
  * The minimum spanning forest of a set of sites by Kruskal's algorithm over the edges no longer than a limit. The edges
  * that join two parts of the forest are the tree; the ones left over, each of which would close a cycle, are kept in
  * order of length, because a pass that wants a few extra connections beyond the tree, as a trail network does, takes
- * its pick from them. When the limit leaves the sites in several groups the result is one tree per group.
+ * its pick from them. The build holds the sorted edge array of {@link SiteEdges} plus an array of the same length for
+ * the leftover edges, so its memory is about twice the edge array, up to about 134 MB at the most sites the edges
+ * accept, and a caller with that many sites should keep the limit short. When the limit leaves the sites in several
+ * groups the result is one tree per group.
  */
 final class SpanningTree {
 

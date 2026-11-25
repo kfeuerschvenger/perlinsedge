@@ -18,8 +18,8 @@ class MapSourceTest {
 
     private static final int SIZE = 150;
     private static final long SEED = 1L;
-    private static final int PINNED_IRON_ORE = 46;
-    private static final int PINNED_CRYSTALS = 6;
+    private static final int PINNED_IRON_ORE = 25;
+    private static final int PINNED_CRYSTALS = 7;
 
     @Test
     void ironAndCrystalCountsArePinnedForOneSeedAndType() {

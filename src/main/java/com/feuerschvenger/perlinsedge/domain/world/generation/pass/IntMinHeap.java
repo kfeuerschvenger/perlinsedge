@@ -96,20 +96,30 @@ final class IntMinHeap {
     /** Places the last entry, moved to the root, where the order is restored. */
     private void siftDown(int node, float key) {
         var hole = 0;
-        var child = 1;
-        while (child < size) {
-            if (child + 1 < size && keys[child + 1] < keys[child]) {
-                child++;
-            }
+        var first = 1;
+        while (first < size) {
+            final var child = lowestChild(first);
             if (keys[child] >= key) {
                 break;
             }
             nodes[hole] = nodes[child];
             keys[hole] = keys[child];
             hole = child;
-            child = ARITY * hole + 1;
+            first = ARITY * hole + 1;
         }
         nodes[hole] = node;
         keys[hole] = key;
+    }
+
+    /** Returns the child with the lowest key among the {@link #ARITY} children that start at the given one. */
+    private int lowestChild(int first) {
+        var lowest = first;
+        final var end = Math.min(first + ARITY, size);
+        for (var child = first + 1; child < end; child++) {
+            if (keys[child] < keys[lowest]) {
+                lowest = child;
+            }
+        }
+        return lowest;
     }
 }

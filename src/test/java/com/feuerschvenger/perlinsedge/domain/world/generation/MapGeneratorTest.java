@@ -76,7 +76,7 @@ class MapGeneratorTest {
 
         new MapGenerator(recording).generate(new MapRequest(MapType.DENSE_FOREST, seed, TINY, TINY));
 
-        assertEquals(List.of(seed, seed + NoiseField.MOISTURE.seedOffset(), seed + NoiseField.ROCK.seedOffset(),
+        assertEquals(List.of(seed, seed + NoiseField.ROCK.seedOffset(),
                 seed + NoiseField.CRYSTALS.seedOffset(), seed + NoiseField.TREE.seedOffset()), seeds);
     }
 
@@ -159,7 +159,8 @@ class MapGeneratorTest {
             }
 
             assertTrue(stone > 0, "stone is generated on " + type);
-            assertTrue(iron * STONE_PER_IRON_ELSEWHERE < stone, type + ": " + iron + " iron against " + stone + " stone");
+            assertTrue(iron * STONE_PER_IRON_ELSEWHERE < stone,
+                    type + ": " + iron + " iron against " + stone + " stone");
         }
     }
 

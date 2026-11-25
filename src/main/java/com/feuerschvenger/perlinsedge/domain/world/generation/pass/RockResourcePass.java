@@ -8,10 +8,11 @@ import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import java.util.Objects;
 
 /**
- * Scatters iron ore and crystals thinly over the rock, so they stay a find. Only rocky ground and mountains hold them.
- * Each rocky tile is ore with a small chance, and a rocky tile inside a crystal patch, where the crystal noise passes
- * its threshold, is crystals with a chance of its own; a tile that passes both is crystals. Both counts are proportional to
- * the area of rocky terrain, so a map with a little rock still has a few and a mountain range has some dozens.
+ * Scatters iron ore and crystals thinly over the rock, so they stay a find. Only rocky ground holds them: a mountain is
+ * not walkable, so ore on it could never be reached. Each rocky tile is ore with a small chance, and a rocky tile
+ * inside a crystal patch, where the crystal noise passes its threshold, is crystals with a chance of its own; a tile
+ * that passes both is crystals. Both counts are proportional to the area of rocky ground, and the balancing pass that
+ * runs later brings the counts into their ranges. Reserved tiles are left empty.
  * <p>
  * The chances are hashes of the tile, the seed and a salt of each resource, so a map is the same every time it is
  * generated from a seed and the two chances are independent of each other. The pass runs before stone and trees, so how
@@ -45,7 +46,7 @@ public final class RockResourcePass implements GenerationPass {
         for (var y = 0; y < context.height(); y++) {
             for (var x = 0; x < context.width(); x++) {
                 final var index = context.index(x, y);
-                if (Terrain.isRocky(context.groundAt(index))) {
+                if (Terrain.isRocky(context.groundAt(index)) && !context.isReserved(index)) {
                     context.setResource(index, resourceOf(context, x, y, crystalNoise[index]));
                 }
             }

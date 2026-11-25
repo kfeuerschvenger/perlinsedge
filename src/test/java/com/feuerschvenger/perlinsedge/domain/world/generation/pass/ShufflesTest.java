@@ -17,6 +17,7 @@ class ShufflesTest {
     private static final long SEED = 7L;
     private static final long OTHER_SEED = 8L;
     private static final int SMALL = 5;
+    private static final int SLICE_END = 2 * SAMPLE;
     private static final int TRIALS = 20_000;
     private static final double TOLERANCE = 0.15;
 
@@ -75,6 +76,23 @@ class ShufflesTest {
     }
 
     @Test
+    void aPartialShuffleOfASliceStaysInsideTheSlice() {
+        final var values = sequence(SIZE);
+
+        Shuffles.partial(values, SAMPLE, SAMPLE, SAMPLE, new SplittableRandom(SEED));
+
+        for (var index = 0; index < SAMPLE; index++) {
+            assertEquals(index, values[index]);
+        }
+        for (var index = SLICE_END; index < SIZE; index++) {
+            assertEquals(index, values[index]);
+        }
+        assertEquals(SAMPLE,
+                Arrays.stream(values, SAMPLE, SLICE_END).filter(value -> value >= SAMPLE && value < SLICE_END).count());
+        assertFalse(Arrays.equals(sequence(SIZE), values));
+    }
+
+    @Test
     void aPartialShuffleOfNothingChangesNothing() {
         final var values = sequence(SIZE);
 
@@ -109,6 +127,9 @@ class ShufflesTest {
         assertThrows(IllegalArgumentException.class, () -> Shuffles.shuffle(values, -1, random));
         assertThrows(IllegalArgumentException.class, () -> Shuffles.partial(values, SMALL, SMALL + 1, random));
         assertThrows(IllegalArgumentException.class, () -> Shuffles.partial(values, SMALL, -1, random));
+        assertThrows(IllegalArgumentException.class, () -> Shuffles.partial(values, -1, 1, 1, random));
+        assertThrows(IllegalArgumentException.class, () -> Shuffles.partial(values, SMALL, 1, 1, random));
+        assertThrows(IllegalArgumentException.class, () -> Shuffles.partial(values, 1, SMALL, 1, random));
         assertThrows(NullPointerException.class, () -> Shuffles.shuffle(null, 0, random));
         assertThrows(NullPointerException.class, () -> Shuffles.shuffle(values, SMALL, null));
     }

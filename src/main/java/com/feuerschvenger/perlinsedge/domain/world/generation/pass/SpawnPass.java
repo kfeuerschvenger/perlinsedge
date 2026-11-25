@@ -4,16 +4,20 @@ import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationContext;
 import com.feuerschvenger.perlinsedge.domain.world.generation.GenerationPass;
 
 import java.util.Objects;
+import java.util.function.IntConsumer;
 
 /**
- * Chooses the tile where the player starts, the last step of every recipe. The free tiles, walkable ground that holds
+ * Chooses the tile where the player starts, and runs before the passes that balance the resources and floor the forest,
+ * so that they leave the area around the player alone. The free tiles, walkable ground that holds
  * no resource, are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never
  * shut into a pocket; on a sea of islands that region is the largest island. Within it the spawn is the tile nearest to
  * the anchor, which is the spawn hint a pass left in the context, such as the middle of a clearing, or the centre of
  * the map, whose surroundings are free of resources and walkable to the free radius of the parameters.
  * <p>
  * When no tile of the region has such surroundings, the tile of the region nearest to the anchor is taken and the
- * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources.
+ * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources. In both
+ * cases the square of the free radius around the spawn is reserved, so no later pass puts a resource there or floors
+ * it, and the area stays free in the final map whatever the balancing pass has to add elsewhere.
  * <p>
  * The pass labels the map with {@link Regions}, which creates no object per tile.
  */
@@ -52,6 +56,7 @@ public final class SpawnPass implements GenerationPass {
             spawn = nearest(context, regions, largest, anchor, false);
             clearAround(context, spawn);
         }
+        reserveAround(context, spawn);
         context.setSpawnIndex(spawn);
     }
 
@@ -114,6 +119,16 @@ public final class SpawnPass implements GenerationPass {
 
     /** Removes the resources in the square around a tile, as far as it lies on the map. */
     private void clearAround(GenerationContext context, int index) {
+        forEachAround(context, index, tile -> context.setResource(tile, null));
+    }
+
+    /** Reserves the square around a tile, as far as it lies on the map. */
+    private void reserveAround(GenerationContext context, int index) {
+        forEachAround(context, index, context::reserve);
+    }
+
+    /** Visits the tiles of the square of the free radius around a tile, as far as it lies on the map. */
+    private void forEachAround(GenerationContext context, int index, IntConsumer action) {
         final var radius = params.freeRadius();
         final var x = context.xOf(index);
         final var y = context.yOf(index);
@@ -121,7 +136,7 @@ public final class SpawnPass implements GenerationPass {
         final var lastX = Math.min(context.width() - 1, x + radius);
         for (var ny = Math.max(0, y - radius); ny <= lastY; ny++) {
             for (var nx = Math.max(0, x - radius); nx <= lastX; nx++) {
-                context.setResource(context.index(nx, ny), null);
+                action.accept(context.index(nx, ny));
             }
         }
     }

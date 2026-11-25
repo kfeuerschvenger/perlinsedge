@@ -60,7 +60,11 @@ final class Carve {
         if (length < 0 || length > path.length) {
             throw new IllegalArgumentException("the length " + length + " does not fit a path of " + path.length);
         }
-        final var tiles = (long) width * height;
+        requireTilesOnGrid((long) width * height, path, length);
+    }
+
+    /** Refuses a path tile that lies outside a grid of the given number of tiles. */
+    private static void requireTilesOnGrid(long tiles, int[] path, int length) {
         for (var position = 0; position < length; position++) {
             if (path[position] < 0 || path[position] >= tiles) {
                 throw new IllegalArgumentException(

@@ -8,51 +8,92 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StonePassTest {
 
     private static final int SIDE = 8;
-    private static final float THRESHOLD = 0.79F;
+    private static final int BIG_SIDE = 100;
+    private static final int ALWAYS = RockResourceParams.PER_MILLE_SCALE;
+    private static final int ALWAYS_LOOSE = Chance.TEN_THOUSAND_SCALE;
+    private static final int HALF_PER_MILLE = 500;
+    private static final int LOOSE_PER_TEN_THOUSAND = 400;
     private static final float ABOVE = 0.9F;
     private static final float BELOW = 0.5F;
-    private static final float HIGH_THRESHOLD = 0.99F;
-    private static final float UNREACHABLE = 3F;
     private static final int IRON_PER_MILLE = 300;
+    private static final double TOLERANCE = 0.25;
 
-    private static GenerationContext map(TileType ground, float stoneNoise) {
-        final var context = TestContexts.of(SIDE, SIDE);
+    private static GenerationContext map(TileType ground, int side) {
+        final var context = TestContexts.of(side, side);
         TestContexts.fillGround(context, ground);
-        TestContexts.fillField(context, NoiseField.ROCK, stoneNoise);
         return context;
     }
 
-    private static void apply(GenerationContext context) {
-        new StonePass(new StoneParams(THRESHOLD)).apply(context);
+    @Test
+    void stoneFillsTheRockyGroundAtTheRockyChance() {
+        final var context = map(TileType.ROCKY_GROUND, SIDE);
+
+        new StonePass(new StoneParams(ALWAYS, 0)).apply(context);
+
+        assertEquals(context.size(), TestContexts.countResource(context, ResourceType.STONE));
     }
 
     @Test
-    void stoneFillsTheLandWhereTheNoisePassesTheThreshold() {
-        for (var ground : new TileType[] {TileType.GRASS, TileType.SAND, TileType.SNOW, TileType.MOUNTAIN}) {
-            final var context = map(ground, ABOVE);
+    void reservedTilesGetNoStone() {
+        final var rocky = map(TileType.ROCKY_GROUND, SIDE);
+        final var grass = map(TileType.GRASS, SIDE);
+        final var reserved = rocky.index(0, 0);
+        rocky.reserve(reserved);
+        grass.reserve(reserved);
 
-            apply(context);
+        new StonePass(new StoneParams(ALWAYS, ALWAYS_LOOSE)).apply(rocky);
+        new StonePass(new StoneParams(ALWAYS, ALWAYS_LOOSE)).apply(grass);
+
+        assertNull(rocky.resourceAt(reserved));
+        assertNull(grass.resourceAt(reserved));
+        assertEquals(rocky.size() - 1, TestContexts.countResource(rocky, ResourceType.STONE));
+    }
+
+    @Test
+    void theRockyChanceGivesAboutThatShareOfTheRockyGround() {
+        final var context = map(TileType.ROCKY_GROUND, BIG_SIDE);
+
+        new StonePass(new StoneParams(HALF_PER_MILLE, 0)).apply(context);
+
+        final var expected = context.size() / 2.0;
+        assertEquals(expected, TestContexts.countResource(context, ResourceType.STONE), expected * TOLERANCE);
+    }
+
+    @Test
+    void looseStonesLieOnWalkableLandAtTheLooseChance() {
+        for (var ground : new TileType[] {TileType.GRASS, TileType.SAND, TileType.SNOW, TileType.SWAMP}) {
+            final var context = map(ground, SIDE);
+
+            new StonePass(new StoneParams(0, ALWAYS_LOOSE)).apply(context);
 
             assertEquals(context.size(), TestContexts.countResource(context, ResourceType.STONE), ground.name());
         }
     }
 
     @Test
-    void noStoneBelowTheThresholdOrOnWaterAndIce() {
-        final var low = map(TileType.GRASS, BELOW);
-        apply(low);
-        assertEquals(0, TestContexts.countResource(low, ResourceType.STONE));
+    void theLooseChanceIsRare() {
+        final var context = map(TileType.GRASS, BIG_SIDE);
 
-        for (var ground : new TileType[] {TileType.DEEP_WATER, TileType.SHALLOW_WATER, TileType.RIVER,
-            TileType.ICE}) {
-            final var context = map(ground, ABOVE);
+        new StonePass(new StoneParams(0, LOOSE_PER_TEN_THOUSAND)).apply(context);
 
-            apply(context);
+        final var expected = context.size() * (double) LOOSE_PER_TEN_THOUSAND / Chance.TEN_THOUSAND_SCALE;
+        assertEquals(expected, TestContexts.countResource(context, ResourceType.STONE), expected * TOLERANCE * 2);
+    }
+
+    @Test
+    void noStoneOnWaterIceOrMountains() {
+        for (var ground : new TileType[] {TileType.DEEP_WATER, TileType.SHALLOW_WATER, TileType.RIVER, TileType.ICE,
+            TileType.MOUNTAIN}) {
+            final var context = map(ground, SIDE);
+
+            new StonePass(new StoneParams(ALWAYS, ALWAYS_LOOSE)).apply(context);
 
             assertEquals(0, TestContexts.countResource(context, ResourceType.STONE), ground.name());
         }
@@ -60,10 +101,10 @@ class StonePassTest {
 
     @Test
     void aTileThatHoldsAResourceKeepsIt() {
-        final var context = map(TileType.ROCKY_GROUND, ABOVE);
+        final var context = map(TileType.ROCKY_GROUND, SIDE);
         context.setResource(0, ResourceType.IRON_ORE);
 
-        apply(context);
+        new StonePass(new StoneParams(ALWAYS, 0)).apply(context);
 
         assertEquals(ResourceType.IRON_ORE, context.resourceAt(0));
         assertEquals(context.size() - 1, TestContexts.countResource(context, ResourceType.STONE));
@@ -72,22 +113,26 @@ class StonePassTest {
     @Test
     void theAmountOfStoneNeverChangesTheAmountOfIron() {
         var baseline = -1;
-        for (var threshold : new float[] {THRESHOLD, HIGH_THRESHOLD, UNREACHABLE}) {
-            final var context = map(TileType.ROCKY_GROUND, ABOVE);
+        for (var perMille : new int[] {0, HALF_PER_MILLE, ALWAYS}) {
+            final var context = map(TileType.ROCKY_GROUND, SIDE);
             TestContexts.fillField(context, NoiseField.CRYSTALS, BELOW);
 
-            new RockResourcePass(new RockResourceParams(IRON_PER_MILLE, 0, THRESHOLD)).apply(context);
-            new StonePass(new StoneParams(threshold)).apply(context);
+            new RockResourcePass(new RockResourceParams(IRON_PER_MILLE, 0, ABOVE)).apply(context);
+            new StonePass(new StoneParams(perMille, 0)).apply(context);
 
             final var iron = TestContexts.countResource(context, ResourceType.IRON_ORE);
             baseline = baseline < 0 ? iron : baseline;
-            assertEquals(baseline, iron, "threshold " + threshold);
+            assertEquals(baseline, iron, "chance " + perMille);
+            assertTrue(iron > 0);
         }
     }
 
     @Test
-    void theParametersRefuseANumberThatIsNotOne() {
-        assertThrows(IllegalArgumentException.class, () -> new StoneParams(Float.NaN));
+    void theParametersRefuseAChanceOutOfRange() {
+        assertThrows(IllegalArgumentException.class, () -> new StoneParams(-1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new StoneParams(ALWAYS + 1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new StoneParams(0, -1));
+        assertThrows(IllegalArgumentException.class, () -> new StoneParams(0, ALWAYS_LOOSE + 1));
         assertThrows(NullPointerException.class, () -> new StonePass(null));
     }
 }

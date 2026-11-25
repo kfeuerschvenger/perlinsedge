@@ -52,7 +52,7 @@ public enum TileType {
     ),
     ROCKY_GROUND(
             Rgba.rgb(128, 118, 104),
-            new TerrainProperties(true, false, true, true)
+            new TerrainProperties(true, false, true, false)
     ),
     MOUNTAIN(
             Rgba.rgb(90, 90, 90),

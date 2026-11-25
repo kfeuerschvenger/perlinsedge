@@ -12,6 +12,9 @@ final class Chance {
     private static final int UNIT_SHIFT = 11;
     private static final double UNIT_SCALE = 0x1.0p-53;
 
+    /** The scale of a chance given in ten thousandths. */
+    public static final int TEN_THOUSAND_SCALE = 10_000;
+
     /** Not instantiable: the class only holds static helpers. */
     private Chance() {
     }
@@ -41,5 +44,20 @@ final class Chance {
      */
     static boolean perMille(GenerationContext context, int x, int y, long salt, int perMille) {
         return Math.floorMod(context.tileHash(x, y, salt), (long) RockResourceParams.PER_MILLE_SCALE) < perMille;
+    }
+
+    /**
+     * Tells whether a tile passes a chance given in ten thousandths, for the rare things a thousandth is too coarse
+     * for.
+     *
+     * @param context        the generation, which supplies the seed
+     * @param x              the column
+     * @param y              the row
+     * @param salt           a constant of the use, so two uses of the same tile are independent
+     * @param perTenThousand the chance, from 0 to {@link #TEN_THOUSAND_SCALE}
+     * @return true for about {@code perTenThousand} tiles in ten thousand
+     */
+    static boolean perTenThousand(GenerationContext context, int x, int y, long salt, int perTenThousand) {
+        return Math.floorMod(context.tileHash(x, y, salt), (long) TEN_THOUSAND_SCALE) < perTenThousand;
     }
 }
