@@ -6,7 +6,7 @@ import com.feuerschvenger.perlinsedge.domain.entities.Player;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.Building;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.BuildingType;
 import com.feuerschvenger.perlinsedge.domain.entities.buildings.FenceConnections;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
 import com.feuerschvenger.perlinsedge.domain.utils.ClickFeedback;
 import com.feuerschvenger.perlinsedge.domain.utils.Doubles;
@@ -684,39 +684,39 @@ public class FxRenderer {
         }
     }
 
-    /** Adds the enemies that are alive to the render queue, and their shadows to the dynamic list. */
+    /** Adds the creatures that are alive to the render queue, and their shadows to the dynamic list. */
     private void queueEnemies(FrameState f, double alpha) {
-        final var enemies = gameState.getEnemies();
-        if (enemies == null) {
+        final var creatures = gameState.getCreatures();
+        if (creatures == null) {
             return;
         }
-        for (int i = 0, count = enemies.size(); i < count; i++) {
-            final var enemy = enemies.get(i);
-            if (!enemy.isDead()) {
-                queueEnemy(f, enemy, alpha);
+        for (int i = 0, count = creatures.size(); i < count; i++) {
+            final var creature = creatures.get(i);
+            if (!creature.isDead()) {
+                queueCreature(f, creature, alpha);
             }
         }
     }
 
-    /** Adds one enemy to the render queue, and its shadow to the dynamic list when it reaches into the view. */
-    private void queueEnemy(FrameState f, Enemy enemy, double alpha) {
-        final double enemyInterpX = enemy.getInterpolatedX(alpha);
-        final double enemyInterpY = enemy.getInterpolatedY(alpha);
+    /** Adds one creature to the render queue, and its shadow to the dynamic list when it reaches into the view. */
+    private void queueCreature(FrameState f, Creature creature, double alpha) {
+        final double creatureInterpX = creature.getInterpolatedX(alpha);
+        final double creatureInterpY = creature.getInterpolatedY(alpha);
 
-        final double enemyScreenX = (enemyInterpX - enemyInterpY) * f.halfTileWidth + f.offsetX;
-        final double enemyScreenY = (enemyInterpX + enemyInterpY) * f.halfTileHeight + f.offsetY;
-        final double enemyDrawDepth = enemyScreenY + (f.halfTileHeight * 1.5);
+        final double creatureScreenX = (creatureInterpX - creatureInterpY) * f.halfTileWidth + f.offsetX;
+        final double creatureScreenY = (creatureInterpX + creatureInterpY) * f.halfTileHeight + f.offsetY;
+        final double creatureDrawDepth = creatureScreenY + (f.halfTileHeight * 1.5);
 
-        renderQueue.add(enemyScreenX, enemyScreenY, enemyDrawDepth, enemy, null, false, null);
-        if (!f.castShadows || !FxShadowHelper.canReach(enemyScreenX, enemyScreenY, canvas.getWidth(),
+        renderQueue.add(creatureScreenX, creatureScreenY, creatureDrawDepth, creature, null, false, null);
+        if (!f.castShadows || !FxShadowHelper.canReach(creatureScreenX, creatureScreenY, canvas.getWidth(),
                 canvas.getHeight(), shadowReach, shadowBottomReach)) {
             return;
         }
-        if (enemy instanceof Slime slime) {
-            FxEnemyDrawingHelper.addSlimeShadow(dynamicShadows, enemyScreenX, enemyScreenY, f.zoom, slime,
+        if (creature instanceof Slime slime) {
+            FxEnemyDrawingHelper.addSlimeShadow(dynamicShadows, creatureScreenX, creatureScreenY, f.zoom, slime,
                     currentFrameGameTime);
         } else {
-            FxEnemyDrawingHelper.addGenericShadow(dynamicShadows, enemyScreenX, enemyScreenY, f.zoom);
+            FxEnemyDrawingHelper.addGenericShadow(dynamicShadows, creatureScreenX, creatureScreenY, f.zoom);
         }
     }
 

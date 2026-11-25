@@ -47,7 +47,7 @@ class MoveAroundEnemiesTest {
 
     @Test
     void aMoveOrderOntoAnEnemyTileIsRefusedAndTheWalkDoesNotStart() {
-        state.getEnemies().add(new Slime(6, 5));
+        state.getCreatures().add(new Slime(6, 5));
 
         assertFalse(players.movePlayer(map, 6, 5));
 
@@ -59,14 +59,14 @@ class MoveAroundEnemiesTest {
         final Slime slime = new Slime(6, 5);
         slime.setTargetTileX(7);
         slime.setTargetTileY(5);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
 
         assertFalse(players.movePlayer(map, 7, 5));
     }
 
     @Test
     void aMoveOrderToAFreeTileNextToAnEnemyIsAccepted() {
-        state.getEnemies().add(new Slime(6, 5));
+        state.getCreatures().add(new Slime(6, 5));
 
         assertTrue(players.movePlayer(map, 5, 5));
         assertTrue(player.isMoving());
@@ -76,14 +76,14 @@ class MoveAroundEnemiesTest {
     void aDeadEnemyDoesNotBlockItsTile() {
         final Slime slime = new Slime(6, 5);
         slime.takeDamage(1_000);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
 
         assertTrue(players.movePlayer(map, 6, 5));
     }
 
     @Test
     void theWalkNeverStepsOnAnEnemyOnTheWay() {
-        state.getEnemies().add(new Slime(3, 5));
+        state.getCreatures().add(new Slime(3, 5));
         assertTrue(players.movePlayer(map, 8, 5));
 
         for (int i = 0; i < 600 && player.isMoving(); i++) {
@@ -102,7 +102,7 @@ class MoveAroundEnemiesTest {
         for (int i = 0; i < 20; i++) {
             player.update(STEP);
         }
-        state.getEnemies().add(new Slime(3, 5));
+        state.getCreatures().add(new Slime(3, 5));
 
         for (int i = 0; i < 600; i++) {
             players.keepClearOfEnemies();
@@ -119,7 +119,7 @@ class MoveAroundEnemiesTest {
 
     @Test
     void aWalkThatIsNotBlockedIsLeftAlone() {
-        state.getEnemies().add(new Slime(3, 9));
+        state.getCreatures().add(new Slime(3, 9));
         assertTrue(players.movePlayer(map, 8, 5));
 
         for (int i = 0; i < 600 && player.isMoving(); i++) {
@@ -141,7 +141,7 @@ class MoveAroundEnemiesTest {
                 }
             }
         }
-        state.getEnemies().add(new Slime(3, 5));
+        state.getCreatures().add(new Slime(3, 5));
 
         assertFalse(players.movePlayer(map, 8, 5));
     }

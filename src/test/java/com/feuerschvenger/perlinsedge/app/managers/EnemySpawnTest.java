@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileType;
@@ -70,16 +70,16 @@ class EnemySpawnTest {
         final MapManager manager = managerOnFlatMap();
 
         for (int round = 0; round < ROUNDS; round++) {
-            manager.spawnEnemies();
+            manager.spawnCreatures();
 
             final Set<String> tiles = new HashSet<>();
-            for (Enemy enemy : state.getEnemies()) {
+            for (Creature enemy : state.getCreatures()) {
                 assertTrue(tiles.add(enemy.getCurrentTileX() + "," + enemy.getCurrentTileY()),
                         "two enemies spawned on the tile (" + enemy.getCurrentTileX() + ", " + enemy.getCurrentTileY() + ")");
                 assertFalse(enemy.getCurrentTileX() == PLAYER_TILE && enemy.getCurrentTileY() == PLAYER_TILE,
                         "an enemy spawned on the player");
             }
-            assertFalse(state.getEnemies().isEmpty(), "some enemies spawn on the map");
+            assertFalse(state.getCreatures().isEmpty(), "some enemies spawn on the map");
         }
     }
 
@@ -89,9 +89,9 @@ class EnemySpawnTest {
         final int safeRadius = AppConfig.getInstance().world().getStartSafeRadius(SIZE, SIZE);
 
         for (int round = 0; round < ROUNDS; round++) {
-            manager.spawnEnemies();
+            manager.spawnCreatures();
 
-            for (Enemy enemy : state.getEnemies()) {
+            for (Creature enemy : state.getCreatures()) {
                 final double distance = Math.hypot(enemy.getCurrentTileX() - PLAYER_TILE,
                         enemy.getCurrentTileY() - PLAYER_TILE);
                 assertTrue(distance >= safeRadius, "an enemy spawned " + distance + " tiles from the player");
@@ -104,11 +104,11 @@ class EnemySpawnTest {
         final MapManager manager = managerOnFlatMap();
         final var world = AppConfig.getInstance().world();
 
-        manager.spawnEnemies();
+        manager.spawnCreatures();
 
         final int expected = world.getSlimesCount(SIZE, SIZE) + world.getMimicsCount(SIZE, SIZE)
                 + world.getSkeletonsCount(SIZE, SIZE);
-        assertEquals(expected, state.getEnemies().size());
+        assertEquals(expected, state.getCreatures().size());
         assertTrue(world.getSlimesCount(SIZE, SIZE) < world.getSlimesCount(SIZE * 2, SIZE * 2));
     }
 
@@ -127,14 +127,14 @@ class EnemySpawnTest {
         final var world = AppConfig.getInstance().world();
         final int safeRadius = world.getStartSafeRadius(SMALL_SIZE, SMALL_SIZE);
 
-        manager.spawnEnemies();
+        manager.spawnCreatures();
 
         final int expected = world.getSlimesCount(SMALL_SIZE, SMALL_SIZE) + world.getMimicsCount(SMALL_SIZE, SMALL_SIZE)
                 + world.getSkeletonsCount(SMALL_SIZE, SMALL_SIZE);
         assertTrue(safeRadius < AppConfig.getInstance().world().getStartSafeRadius(SIZE, SIZE));
-        assertFalse(state.getEnemies().isEmpty(), "a small map has enemies");
-        assertTrue(state.getEnemies().size() <= expected);
-        for (Enemy enemy : state.getEnemies()) {
+        assertFalse(state.getCreatures().isEmpty(), "a small map has enemies");
+        assertTrue(state.getCreatures().size() <= expected);
+        for (Creature enemy : state.getCreatures()) {
             final double distance = Math.hypot(enemy.getCurrentTileX() - SMALL_SIZE / 2.0,
                     enemy.getCurrentTileY() - SMALL_SIZE / 2.0);
             assertTrue(distance >= safeRadius, "an enemy spawned " + distance + " tiles from the player");
@@ -145,13 +145,13 @@ class EnemySpawnTest {
     void aCrowdedMapNeverHoldsMoreEnemiesThanFreeTilesAndStillSpawnsSome() {
         final MapManager manager = managerOnCrowdedMap();
 
-        manager.spawnEnemies();
+        manager.spawnCreatures();
 
         final var tiles = new HashSet<String>();
-        for (Enemy enemy : state.getEnemies()) {
+        for (Creature enemy : state.getCreatures()) {
             assertTrue(tiles.add(enemy.getCurrentTileX() + "," + enemy.getCurrentTileY()));
         }
-        assertFalse(state.getEnemies().isEmpty(), "some enemies spawn on the patch");
-        assertTrue(state.getEnemies().size() <= PATCH_SIDE * PATCH_SIDE);
+        assertFalse(state.getCreatures().isEmpty(), "some enemies spawn on the patch");
+        assertTrue(state.getCreatures().size() <= PATCH_SIDE * PATCH_SIDE);
     }
 }

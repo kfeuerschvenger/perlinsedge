@@ -52,7 +52,7 @@ class DamageNumbersWiringTest {
     void aHitOnAnEnemyShowsAYellowKindNumberWithTheDamageOfTheItemInHand() {
         player.setItemAt(0, new Item(ItemType.SWORD, 1));
         Slime slime = new Slime(5, 5);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
 
         new CombatManager(state).strikeEnemy(slime);
 
@@ -87,7 +87,7 @@ class DamageNumbersWiringTest {
         player.setItemAt(0, new Item(ItemType.SWORD, 1));
         Slime slime = new Slime(5, 5);
         slime.takeDamage(slime.getHealth() - 5);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
 
         new CombatManager(state).strikeEnemy(slime);
 

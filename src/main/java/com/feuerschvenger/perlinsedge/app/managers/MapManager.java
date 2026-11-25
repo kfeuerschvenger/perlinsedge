@@ -1,11 +1,10 @@
 package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureFactory;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Species;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.utils.IsometricUtils;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapGenerator;
 import com.feuerschvenger.perlinsedge.domain.world.generation.MapRequest;
@@ -23,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 /**
- * Manages map generation, configuration, and enemy spawning.
+ * Manages map generation, configuration, and creature spawning.
  * Handles map creation based on configuration parameters and player position.
  */
 @Slf4j
@@ -41,9 +40,8 @@ public class MapManager {
     // Dependencies
     private final GameStateManager gameState;
     private final MapGenerator mapGenerator;
-    /** Draws the candidate tiles of the enemy spawn search. */
+    /** Draws the candidate tiles of the creature spawn search. */
     private final Random random = new Random();
-
     // State
     @Getter
     private MapRequest currentRequest;
@@ -93,73 +91,57 @@ public class MapManager {
 
     /**
      * Stores a generated map and clears the entities and the hit times of the resources that belonged to the previous
-     * one. Enemies are not spawned here: the caller spawns them once the player has a position on the new map, which
+     * one. Creatures are not spawned here: the caller spawns them once the player has a position on the new map, which
      * keeps them from being placed twice and from landing next to the player.
      */
     private void install(TileMap newMap, long seed) {
         gameState.setCurrentMap(newMap);
         gameState.setWorldSeed(seed);
         gameState.setDroppedItems(new ArrayList<>());
-        gameState.setEnemies(new ArrayList<>());
+        gameState.setCreatures(new ArrayList<>());
         gameState.getResourceHitTimes().clear();
         gameState.getDamageNumbers().clear();
     }
 
     /**
-     * Spawns enemies based on configuration settings.
+     * Spawns the monsters based on configuration settings.
      * Ensures safe positioning relative to player.
      */
-    public void spawnEnemies() {
-        List<Enemy> enemies = new ArrayList<>();
+    public void spawnCreatures() {
+        List<Creature> creatures = new ArrayList<>();
         TileMap map = gameState.getCurrentMap();
 
         int[] playerPosition = getPlayerPosition();
-        // Every enemy takes a tile of its own: a tile held by one already spawned is never picked again
-        final var taken = new EnemyOccupancy();
+        // Every creature takes a tile of its own: a tile held by one already spawned is never picked again
+        final var taken = new CreatureOccupancy();
         final var world = AppConfig.getInstance().world();
         final int width = map.getWidth();
         final int height = map.getHeight();
-        spawnEnemyType(enemies, Slime.class, world.getSlimesCount(width, height), playerPosition, map, taken);
-        spawnEnemyType(enemies, Mimic.class, world.getMimicsCount(width, height), playerPosition, map, taken);
-        spawnEnemyType(enemies, Skeleton.class, world.getSkeletonsCount(width, height), playerPosition, map, taken);
+        spawnSpecies(creatures, Species.SLIME, world.getSlimesCount(width, height), playerPosition, map, taken);
+        spawnSpecies(creatures, Species.MIMIC, world.getMimicsCount(width, height), playerPosition, map, taken);
+        spawnSpecies(creatures, Species.SKELETON, world.getSkeletonsCount(width, height), playerPosition, map, taken);
 
-        gameState.setEnemies(enemies);
-        logSpawnSummary(enemies.size());
+        gameState.setCreatures(creatures);
+        logSpawnSummary(creatures.size());
     }
 
     /**
-     * Spawns multiple enemies of a specific type.
+     * Spawns multiple creatures of a species, built by the factory.
      */
-    private void spawnEnemyType(List<Enemy> enemies, Class<? extends Enemy> type, int count,
-                                int[] playerPosition, TileMap map, EnemyOccupancy taken) {
-        logSpawnAttempt(type.getSimpleName(), count);
+    private void spawnSpecies(List<Creature> creatures, Species species, int count,
+                              int[] playerPosition, TileMap map, CreatureOccupancy taken) {
+        logSpawnAttempt(species.name(), count);
 
         for (var i = 0; i < count; i++) {
             int[] position = findSafePosition(playerPosition, map, taken);
             if (position.length > 0) {
-                final var enemy = createEnemy(type, position[0], position[1]);
-                taken.sync(enemy);
-                enemies.add(enemy);
+                final var creature = CreatureFactory.create(species, position[0], position[1]);
+                taken.sync(creature);
+                creatures.add(creature);
             } else {
-                logSpawnFailure(type.getSimpleName(), i);
+                logSpawnFailure(species.name(), i);
             }
         }
-    }
-
-    /**
-     * Creates an enemy instance based on type.
-     */
-    private static Enemy createEnemy(Class<? extends Enemy> type, int x, int y) {
-        if (type == Slime.class) {
-            return new Slime(x, y);
-        }
-        if (type == Mimic.class) {
-            return new Mimic(x, y);
-        }
-        if (type == Skeleton.class) {
-            return new Skeleton(x, y);
-        }
-        throw new IllegalArgumentException("Unsupported enemy type: " + type);
     }
 
     /**
@@ -167,11 +149,11 @@ public class MapManager {
      * - Walkable terrain
      * - Distance from player
      * - Sufficient adjacent walkable tiles
-     * - A tile no other enemy holds
+     * - A tile no other creature holds
      *
      * @return the position, or {@link #NO_POSITION} when none was found within the attempts
      */
-    private int[] findSafePosition(int[] playerPosition, TileMap map, EnemyOccupancy taken) {
+    private int[] findSafePosition(int[] playerPosition, TileMap map, CreatureOccupancy taken) {
         final var world = AppConfig.getInstance().world();
         final int maxAttempts = world.getMaxPositioningAttempts();
         final int safeRadius = world.getStartSafeRadius(map.getWidth(), map.getHeight());
@@ -239,16 +221,16 @@ public class MapManager {
         log.debug("Generation pass {} took {} us", pass, TimeUnit.NANOSECONDS.toMicros(nanos));
     }
 
-    private void logSpawnAttempt(String enemyType, int count) {
-        log.debug("Attempting to spawn {} {} enemies", count, enemyType);
+    private void logSpawnAttempt(String speciesName, int count) {
+        log.debug("Attempting to spawn {} {} creatures", count, speciesName);
     }
 
-    private void logSpawnFailure(String enemyType, int index) {
-        log.debug("Failed to find position for {} #{}", enemyType, index + 1);
+    private void logSpawnFailure(String speciesName, int index) {
+        log.debug("Failed to find position for {} #{}", speciesName, index + 1);
     }
 
     private void logSpawnSummary(int total) {
-        log.debug("Spawned {} total enemies", total);
+        log.debug("Spawned {} total creatures", total);
     }
 
 }

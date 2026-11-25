@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.app.managers;
 
 import com.feuerschvenger.perlinsedge.domain.crafting.CraftingStation;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.InteractionPlanner;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.OccupiedTiles;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
@@ -82,7 +82,7 @@ public class InteractionManager {
      * The interaction the player is walking to. For an enemy the tile is the one the enemy stood on when the walk was
      * planned, and the enemy itself is the target; for anything else the enemy is null.
      */
-    private record Pending(int tileX, int tileY, Kind kind, Enemy enemy) {
+    private record Pending(int tileX, int tileY, Kind kind, Creature enemy) {
         Pending(int tileX, int tileY, Kind kind) {
             this(tileX, tileY, kind, null);
         }
@@ -189,7 +189,7 @@ public class InteractionManager {
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
         final var planned = InteractionPlanner.pathToReach(map, origin.x, origin.y, tileX, tileY,
-                OccupiedTiles.of(gameState.getEnemies()));
+                OccupiedTiles.of(gameState.getCreatures()));
         if (!planned.reachable()) {
             hintSink.accept("You can't reach that");
             return Outcome.REFUSED;
@@ -298,7 +298,7 @@ public class InteractionManager {
      * Starts an attack on an enemy: the swing happens at once when the enemy is within reach, otherwise the player
      * walks toward it. A swing that must wait for the cooldown stays pending and lands when the cooldown ends.
      */
-    private Outcome attack(Player player, TileMap map, Enemy enemy) {
+    private Outcome attack(Player player, TileMap map, Creature enemy) {
         final int enemyX = enemy.getCurrentTileX();
         final int enemyY = enemy.getCurrentTileY();
         // Reach is measured from the tile the player is approaching, the same one the walk is planned from, so the
@@ -335,14 +335,14 @@ public class InteractionManager {
      *
      * @return false when there is no way to a tile next to the enemy, after hinting so
      */
-    private boolean chase(Player player, TileMap map, Enemy enemy) {
+    private boolean chase(Player player, TileMap map, Creature enemy) {
         final int enemyX = enemy.getCurrentTileX();
         final int enemyY = enemy.getCurrentTileY();
         // A player between two tiles finishes that step first, so the walk is planned from the tile it is approaching
         final PathNode origin = player.getWalkOrigin();
         // Capped: an enemy that cannot be reached, such as one across water, must not make the click search the map
         final var planned = InteractionPlanner.pathToReach(map, origin.x, origin.y, enemyX, enemyY,
-                OccupiedTiles.of(gameState.getEnemies()), enemySearchBudget(map));
+                OccupiedTiles.of(gameState.getCreatures()), enemySearchBudget(map));
         if (!planned.reachable()) {
             hintSink.accept("You can't reach that");
             return false;
@@ -370,7 +370,7 @@ public class InteractionManager {
      */
     private void updateAttack(Player player, TileMap map) {
         final var enemy = pending.enemy();
-        if (enemy.isDead() || !gameState.getEnemies().contains(enemy)) {
+        if (enemy.isDead() || !gameState.getCreatures().contains(enemy)) {
             cancel();
             return;
         }
@@ -389,7 +389,7 @@ public class InteractionManager {
     }
 
     /** Swings at an enemy in reach once the player stands still on a tile, and waits for the arrival before that. */
-    private void swingWhenArrived(Player player, PathNode origin, Enemy enemy) {
+    private void swingWhenArrived(Player player, PathNode origin, Creature enemy) {
         final int enemyX = enemy.getCurrentTileX();
         final int enemyY = enemy.getCurrentTileY();
         player.stop();
@@ -413,10 +413,10 @@ public class InteractionManager {
      * holds a tile of its own, so a tile has one such enemy at rest; while enemies hop, a sprite drawn over the tile
      * may belong to a neighbour, and the enemy whose sprite is nearest to the centre of the tile is the one picked.
      */
-    private Enemy enemyAt(int tileX, int tileY) {
-        Enemy best = null;
+    private Creature enemyAt(int tileX, int tileY) {
+        Creature best = null;
         double bestDistance = Double.MAX_VALUE;
-        for (Enemy enemy : gameState.getEnemies()) {
+        for (Creature enemy : gameState.getCreatures()) {
             if (enemy.isDead() || !isOnOrDrawnOver(enemy, tileX, tileY)) {
                 continue;
             }
@@ -430,7 +430,7 @@ public class InteractionManager {
     }
 
     /** @return true when the enemy stands on the tile or its sprite is drawn over it */
-    private static boolean isOnOrDrawnOver(Enemy enemy, int tileX, int tileY) {
+    private static boolean isOnOrDrawnOver(Creature enemy, int tileX, int tileY) {
         final boolean standsThere = enemy.getCurrentTileX() == tileX && enemy.getCurrentTileY() == tileY;
         final boolean drawnThere = Math.round(enemy.getPosX()) == tileX && Math.round(enemy.getPosY()) == tileY;
         return standsThere || drawnThere;

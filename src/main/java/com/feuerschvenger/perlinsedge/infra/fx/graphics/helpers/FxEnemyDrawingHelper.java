@@ -1,9 +1,8 @@
 package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.strategies.EnemyMovementStrategy;
 import com.feuerschvenger.perlinsedge.domain.strategies.SlimeMovementStrategy;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ShadowList;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.ZoomSteps;
@@ -54,9 +53,9 @@ public final class FxEnemyDrawingHelper {
         final double baseDrawY = tileTopY + (halfTileHeight * 1.5) + slime.getRenderOffsetY();
 
         final SlimeMovementStrategy slimeMove = movementOf(slime);
-        final boolean jumping = slimeMove != null && slimeMove.isJumping();
+        final boolean jumping = slimeMove.isJumping();
         final Image frame = SpriteManager.getInstance().getSlimeFrame(
-                SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
+                SpriteLayout.slimeFrame(jumping, slimeMove.getJumpPhase()));
 
         if (frame != null) {
             // The sprite rests on the point the oval is centred on, whole pixels
@@ -107,13 +106,12 @@ public final class FxEnemyDrawingHelper {
         final double halfTileHeight = CONFIG.graphics().getTileHalfHeight() * zoom;
         final double baseDrawY = tileTopY + (halfTileHeight * 1.5) + slime.getRenderOffsetY();
         final SlimeMovementStrategy slimeMove = movementOf(slime);
-        final boolean jumping = slimeMove != null && slimeMove.isJumping();
+        final boolean jumping = slimeMove.isJumping();
         // Height above the resting position, which is where the shadow stays
         final double jumpHeight = jumping
                 ? Math.sin(slimeMove.getJumpPhase() * Math.PI) * SlimeMovementStrategy.JUMP_HEIGHT_FACTOR : 0.0;
         final double scale = ZoomSteps.integerArtScale(zoom);
-        final Image frame = frames.apply(
-                SpriteLayout.slimeFrame(jumping, slimeMove != null ? slimeMove.getJumpPhase() : 0.0));
+        final Image frame = frames.apply(SpriteLayout.slimeFrame(jumping, slimeMove.getJumpPhase()));
         final double fade = SlimeShadow.opacity(jumpHeight, SlimeMovementStrategy.JUMP_HEIGHT_FACTOR);
         if (frame != null) {
             // The body is drawn at whole screen pixels, and the shadow is anchored and shaped from that same size
@@ -173,10 +171,9 @@ public final class FxEnemyDrawingHelper {
         return SlimeSquash.height(slime.getWindupProgress(), SlimeSquash.breath(gameTime, slime.getBreathPhase()));
     }
 
-    /** Returns the slime movement strategy of a slime, or null when it moves by another strategy. */
+    /** Returns the slime movement strategy of a slime. */
     private static SlimeMovementStrategy movementOf(Slime slime) {
-        final EnemyMovementStrategy movementStrategy = slime.getMovementStrategy();
-        return movementStrategy instanceof SlimeMovementStrategy move ? move : null;
+        return slime.getMovementStrategy();
     }
 
     /**
@@ -188,15 +185,14 @@ public final class FxEnemyDrawingHelper {
         double width;
         double height;
 
-        // Check if movement strategy is available and jumping
-        if (slimeMove != null && slimeMove.isJumping()) {
+        if (slimeMove.isJumping()) {
             // Dynamic squash/stretch during jumps
             final double jumpPhase = slimeMove.getJumpPhase();
             final double scaleFactor = 1.0 + Math.sin(jumpPhase * Math.PI) * JUMP_SCALE_FACTOR;
             width = size * scaleFactor;
             height = size / scaleFactor;
         } else {
-            // Oval shape when grounded or if movement strategy is not SlimeMovementStrategy
+            // Oval shape when grounded
             width = size * GROUNDED_WIDTH_FACTOR;
             height = size * GROUNDED_HEIGHT_FACTOR;
         }
@@ -216,11 +212,12 @@ public final class FxEnemyDrawingHelper {
      * @param screenX Screen X coordinate for drawing.
      * @param screenY Screen Y coordinate for drawing.
      * @param zoom Current zoom factor.
-     * @param enemy The Enemy entity to draw.
+     * @param creature The creature to draw.
      */
-    public static void drawGenericEnemy(GraphicsContext gc, double screenX, double screenY, double zoom, Enemy enemy) {
+    public static void drawGenericEnemy(GraphicsContext gc, double screenX, double screenY, double zoom,
+                                        Creature creature) {
         double size = GENERIC_ENEMY_SIZE * zoom;
-        gc.setFill(FxColors.toFx(enemy.getColor()));
+        gc.setFill(FxColors.toFx(creature.getColor()));
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1 * zoom);
         gc.fillOval(screenX - size * HALF, screenY - size * HALF, size, size);

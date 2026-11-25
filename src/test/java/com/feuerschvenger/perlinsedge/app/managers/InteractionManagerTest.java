@@ -521,7 +521,7 @@ class InteractionManagerTest {
     @Test
     void anEnemyOnlyTheTileLeftBehindReachesIsNotSwungAtWhileThePlayerWalksAwayFromIt() {
         Slime slime = new Slime(1, 4);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
         final double healthBefore = slime.getHealth();
         player.moveTo(map, 0, 8);
         for (int i = 0; i < 5; i++) {
@@ -540,7 +540,7 @@ class InteractionManagerTest {
     @Test
     void aStepEndingNextToTheEnemyStopsThereAndSwingsOnArrivalInsteadOfWalkingOn() {
         Slime slime = new Slime(1, 3);
-        state.getEnemies().add(slime);
+        state.getCreatures().add(slime);
         final double healthBefore = slime.getHealth();
         player.moveTo(map, 0, 0);
         for (int i = 0; i < 5; i++) {

@@ -1,9 +1,11 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.pathfinding.PathNode;
 import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
 
@@ -22,7 +24,7 @@ import java.util.Random;
  * tile in the air starts a new segment from the current position, so the position is continuous at any moment of the
  * hop.</p>
  */
-public class SlimeMovementStrategy implements EnemyMovementStrategy {
+public class SlimeMovementStrategy implements CreatureMovementStrategy {
     // Configuration constants (specific to Slime movement)
     private static final double IDLE_JUMP_INTERVAL_MIN = 2.0;
     private static final double IDLE_JUMP_INTERVAL_MAX = 4.0;
@@ -31,14 +33,14 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     public static final double JUMP_HEIGHT_FACTOR = 50.0; // Public for rendering
     /** Wait before searching again after the next step of the path turned out to be unusable. */
     private static final double REPLAN_WAIT_SECONDS = 0.15;
-    /** Longest random addition to the first wait when the step was blocked by another enemy, so a crowd does not act in step. */
+    /** Longest random addition to the first wait when another creature blocked the step, so a crowd is out of step. */
     private static final double HELD_WAIT_SPREAD_SECONDS = 0.3;
-    /** First wait before a hovering slime looks for a tile to land on again, doubled up to the longest after each miss. */
+    /** First wait before a hovering slime looks for a tile to land on again, doubled to the longest after each miss. */
     private static final double HOVER_RETRY_SECONDS = 0.1;
     private static final double MAX_HOVER_RETRY_SECONDS = 1.0;
     /** How much longer each failed look for a landing tile makes the wait. */
     private static final double HOVER_RETRY_GROWTH_FACTOR = 2.0;
-    /** Extra cost of a tile another enemy holds in a search: a detour up to this long is taken instead. */
+    /** Extra cost of a tile another creature holds in a search: a detour up to this long is taken instead. */
     private static final double HELD_TILE_PENALTY = 6.0;
     /** Rest on the ground between two hops of a chase, shortest and longest. Each slime has one fixed value. */
     private static final double MIN_REST_SECONDS = 0.02;
@@ -74,7 +76,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * taken.
      */
     private double secondsOfReplanWait;
-    /** The step of the path another enemy holds and the wait the slime last gave it. */
+    /** The step of the path another creature holds and the wait the slime last gave it. */
     private final HeldStepBackoff heldStep = new HeldStepBackoff();
     /** Time left before a hovering slime looks for a tile to land on again, and the wait it gives the next miss. */
     private double secondsOfHoverWait;
@@ -86,7 +88,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     /** Time left before the next hop of a chase may start. */
     private double secondsOfRest;
     /** Which enemy holds which tile, set on every update. */
-    private EnemyOccupancy occupancy;
+    private CreatureOccupancy occupancy;
 
     private final Random random;
     private final PathPlanner pathPlanner = new PathPlanner();
@@ -109,11 +111,21 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         this.jumpPhase = 0.0;
     }
 
+    /**
+     * Runs one update of the slime: it strikes in place when the player is in reach, otherwise chases or hops at
+     * random, and advances the hop in the air.
+     *
+     * @param creature  the slime
+     * @param deltaTime time since last update in seconds
+     * @param context   what the slime can see of the world: the map, the player and the occupancy
+     */
     @Override
-    public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
-        this.occupancy = occupancy;
+    public void updateMovement(Creature creature, double deltaTime, CreatureContext context) {
+        final var map = context.map();
+        final var player = context.player();
+        this.occupancy = context.occupancy();
         // Slime-specific movement logic
-        enemy.snapshot(); // Snapshot entity's position for interpolation
+        creature.snapshot(); // Snapshot entity's position for interpolation
         pathPlanner.tick(deltaTime);
         secondsOfReplanWait = Math.max(0, secondsOfReplanWait - deltaTime);
         secondsOfHoverWait = Math.max(0, secondsOfHoverWait - deltaTime);
@@ -121,9 +133,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
         // Next to the player the slime holds its ground and strikes instead of hopping: a hop in the air finishes
         // first, then no new one starts until the player is out of reach again
-        final boolean inReach = SlimeAttackStrategy.isInReach(enemy, player);
+        final boolean inReach = SlimeAttackStrategy.isInReach(creature, player);
         // The leash advances every update, in reach or not, so the hold of an alert runs out while the slime strikes
-        final boolean chasing = leash.update(distanceToPlayer(enemy, player), player.isDead(), deltaTime);
+        final boolean chasing = leash.update(distanceToPlayer(creature, player), player.isDead(), deltaTime);
         if (inReach) {
             currentPath.clear();
             clearBlockedStep();
@@ -131,19 +143,19 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
             // The path is searched from the tile the slime is on, which is the take-off tile while it is in the air:
             // the search waits for the landing
             if (!isJumping) {
-                handleAggroBehavior(enemy, map, player);
+                handleAggroBehavior(creature, map, player);
             }
         } else {
             // Without a chase the hops along a path to the player stop once the one in the air has landed
             currentPath.clear();
             clearBlockedStep();
-            handleIdleBehavior(enemy, map, player, deltaTime);
+            handleIdleBehavior(creature, map, player, deltaTime);
         }
 
         if (isJumping) {
-            updateJump(enemy, deltaTime, map, player);
+            updateJump(creature, deltaTime, map, player);
         } else if (!inReach && shouldStartJump()) {
-            startNextJump(enemy, map, player);
+            startNextJump(creature, map, player);
         }
     }
 
@@ -152,6 +164,17 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
 
     /** @return true while the slime is chasing the player */
     public boolean isChasing() { return leash.isChasing(); }
+
+    /**
+     * A hit makes the slime chase the attacker even from outside its aggro range.
+     *
+     * @param self   the slime that was hurt
+     * @param source who dealt the damage, or null when the source is not known
+     */
+    @Override
+    public void onHurt(Creature self, Entity source) {
+        alert();
+    }
 
     /** Starts a chase that holds for the lose time whatever the distance, for a slime hurt from beyond its range. */
     public void alert() { leash.alert(); }
@@ -187,33 +210,33 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /** @return the distance in tiles between the tile of the enemy and the tile of the player */
-    private static double distanceToPlayer(Enemy enemy, Player player) {
-        return Math.hypot((double) player.getCurrentTileX() - enemy.getCurrentTileX(),
-                (double) player.getCurrentTileY() - enemy.getCurrentTileY());
+    private static double distanceToPlayer(Creature creature, Player player) {
+        return Math.hypot((double) player.getCurrentTileX() - creature.getCurrentTileX(),
+                (double) player.getCurrentTileY() - creature.getCurrentTileY());
     }
 
     /**
      * Searches a path to the player when the one the slime has no longer leads there, and hops at random when none
      * is found. Called only on the ground: the search starts from the tile the slime is on.
      */
-    private void handleAggroBehavior(Enemy enemy, TileMap map, Player player) {
+    private void handleAggroBehavior(Creature creature, TileMap map, Player player) {
         if (secondsOfReplanWait <= 0 && needsNewPath(player)) {
             // Capped, and skipped for a while after a failed search (the player may be unreachable)
             var pathToPlayer = pathPlanner.findPath(
                     map,
-                    enemy.getCurrentTileX(), enemy.getCurrentTileY(),
+                    creature.getCurrentTileX(), creature.getCurrentTileY(),
                     player.getCurrentTileX(), player.getCurrentTileY(),
-                    occupancy.penaltyFor(enemy, HELD_TILE_PENALTY)
+                    occupancy.penaltyFor(creature, HELD_TILE_PENALTY)
             ).nodes();
 
             if (!pathToPlayer.isEmpty()) {
                 currentPath = new LinkedList<>(pathToPlayer);
-                removeCurrentPositionFromPath(enemy);
+                removeCurrentPositionFromPath(creature);
                 forgetBlockedStepUnlessAhead();
             } else {
                 // Nothing to wait for on a path that is not there
                 clearBlockedStep();
-                moveRandomly(enemy, map, player, JUMP_SECONDS_AGGRO); // Fallback to random move if no path
+                moveRandomly(creature, map, player, JUMP_SECONDS_AGGRO); // Fallback to random move if no path
             }
         }
     }
@@ -230,10 +253,10 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /** Drops the first node of the path when it is the tile the slime is already on. */
-    private void removeCurrentPositionFromPath(Enemy enemy) {
+    private void removeCurrentPositionFromPath(Creature creature) {
         if (!currentPath.isEmpty() &&
-                currentPath.getFirst().x == enemy.getCurrentTileX() &&
-                currentPath.getFirst().y == enemy.getCurrentTileY()) {
+                currentPath.getFirst().x == creature.getCurrentTileX() &&
+                currentPath.getFirst().y == creature.getCurrentTileY()) {
             currentPath.removeFirst();
         }
     }
@@ -243,33 +266,33 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * the slime is in the air or resting after a landing is kept pending and tried once it can start, instead of being
      * dropped. The next idle hop is scheduled whenever one was tried, even when no tile was free to hop to.
      */
-    private void handleIdleBehavior(Enemy enemy, TileMap map, Player player, double deltaTime) {
+    private void handleIdleBehavior(Creature creature, TileMap map, Player player, double deltaTime) {
         idleTimer -= deltaTime;
 
         if (idleTimer <= 0 && !isJumping && secondsOfRest <= 0) {
-            moveRandomly(enemy, map, player, JUMP_SECONDS_IDLE);
+            moveRandomly(creature, map, player, JUMP_SECONDS_IDLE);
             resetIdleTimer();
         }
     }
 
     /**
      * Hops to a random free tile around the slime, with the given hop duration, unless it is in the air or resting.
-     * Nothing happens when no tile is free or another enemy took the chosen one first.
+     * Nothing happens when no tile is free or another creature took the chosen one first.
      */
-    private void moveRandomly(Enemy enemy, TileMap map, Player player, double duration) {
+    private void moveRandomly(Creature creature, TileMap map, Player player, double duration) {
         if (isJumping || secondsOfRest > 0) {
             return;
         }
 
-        List<int[]> possibleMoves = findPossibleMoves(enemy, map, player);
+        List<int[]> possibleMoves = findPossibleMoves(creature, map, player);
         if (!possibleMoves.isEmpty()) {
             int[] chosenMove = possibleMoves.get(random.nextInt(possibleMoves.size()));
-            if (!occupancy.tryReserve(enemy, chosenMove[0], chosenMove[1])) {
+            if (!occupancy.tryReserve(creature, chosenMove[0], chosenMove[1])) {
                 return;
             }
-            enemy.setTargetTileX(chosenMove[0]); // Update enemy's target
-            enemy.setTargetTileY(chosenMove[1]); // Update enemy's target
-            startJump(enemy, duration);
+            creature.setTargetTileX(chosenMove[0]); // Update the creature's target
+            creature.setTargetTileY(chosenMove[1]); // Update the creature's target
+            startJump(creature, duration);
         }
     }
 
@@ -277,16 +300,16 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * @return the tiles around the slime it can hop to: free, not the player's, held by no other enemy, and with no
      *         corner cut
      */
-    private List<int[]> findPossibleMoves(Enemy enemy, TileMap map, Player player) {
+    private List<int[]> findPossibleMoves(Creature creature, TileMap map, Player player) {
         List<int[]> moves = new ArrayList<>();
 
         for (var i = 0; i < DX.length; i++) {
-            int nextX = enemy.getCurrentTileX() + DX[i];
-            int nextY = enemy.getCurrentTileY() + DY[i];
+            int nextX = creature.getCurrentTileX() + DX[i];
+            int nextY = creature.getCurrentTileY() + DY[i];
 
             if (!isPlayerTile(nextX, nextY, player)
-                    && occupancy.isFreeFor(enemy, nextX, nextY)
-                    && canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextX, nextY)) {
+                    && occupancy.isFreeFor(creature, nextX, nextY)
+                    && canHop(map, creature.getCurrentTileX(), creature.getCurrentTileY(), nextX, nextY)) {
                 moves.add(new int[]{nextX, nextY});
             }
         }
@@ -313,18 +336,18 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * Takes off towards the target tile already set on the enemy. The duration is latched here and kept for the whole
      * hop, whatever the slime does meanwhile. The path is kept: a hop along a path to the player is one step of it.
      */
-    private void startJump(Enemy enemy, double duration) {
+    private void startJump(Creature creature, double duration) {
         isJumping = true;
         hovering = false;
         hopDuration = duration;
         jumpPhase = 0;
-        beginSegment(enemy, duration, 0);
+        beginSegment(creature, duration, 0);
     }
 
     /** Starts a segment from the position the enemy is at, lasting the given time, at the given jump phase. */
-    private void beginSegment(Enemy enemy, double duration, double startPhase) {
-        segmentStartX = enemy.getPosX();
-        segmentStartY = enemy.getPosY();
+    private void beginSegment(Creature creature, double duration, double startPhase) {
+        segmentStartX = creature.getPosX();
+        segmentStartY = creature.getPosY();
         segmentElapsed = 0;
         segmentDuration = duration;
         segmentStartPhase = startPhase;
@@ -335,9 +358,9 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * more, is replaced before the position moves, so the slime never lands on it. The position is a smoothstep from
      * the segment start to the target, and the hop ends when the segment does.
      */
-    private void updateJump(Enemy enemy, double deltaTime, TileMap map, Player player) {
-        if (hovering ? secondsOfHoverWait <= 0 : !isHopTargetValid(enemy, map, player)) {
-            retargetHop(enemy, map, player);
+    private void updateJump(Creature creature, double deltaTime, TileMap map, Player player) {
+        if (hovering ? secondsOfHoverWait <= 0 : !isHopTargetValid(creature, map, player)) {
+            retargetHop(creature, map, player);
         }
         if (hovering) {
             return;
@@ -346,12 +369,12 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         segmentElapsed += deltaTime;
         final double t = Math.min(1.0, segmentElapsed / segmentDuration);
         final double eased = t * t * (3.0 - 2.0 * t);
-        enemy.setPosX(segmentStartX + (enemy.getTargetTileX() - segmentStartX) * eased);
-        enemy.setPosY(segmentStartY + (enemy.getTargetTileY() - segmentStartY) * eased);
+        creature.setPosX(segmentStartX + (creature.getTargetTileX() - segmentStartX) * eased);
+        creature.setPosY(segmentStartY + (creature.getTargetTileY() - segmentStartY) * eased);
         jumpPhase = segmentStartPhase + (1.0 - segmentStartPhase) * t;
 
         if (t >= 1.0) {
-            completeJump(enemy);
+            completeJump(creature);
             secondsOfRest = restBetweenHops;
         }
     }
@@ -360,11 +383,11 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * @return true when the hop target is free, is not the player's, is held by no other enemy and does not cut a
      *         corner from the take-off tile
      */
-    private boolean isHopTargetValid(Enemy enemy, TileMap map, Player player) {
-        return !isPlayerTile(enemy.getTargetTileX(), enemy.getTargetTileY(), player)
-                && occupancy.isFreeFor(enemy, enemy.getTargetTileX(), enemy.getTargetTileY())
-                && canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(),
-                enemy.getTargetTileX(), enemy.getTargetTileY());
+    private boolean isHopTargetValid(Creature creature, TileMap map, Player player) {
+        return !isPlayerTile(creature.getTargetTileX(), creature.getTargetTileY(), player)
+                && occupancy.isFreeFor(creature, creature.getTargetTileX(), creature.getTargetTileY())
+                && canHop(map, creature.getCurrentTileX(), creature.getCurrentTileY(),
+                creature.getTargetTileX(), creature.getTargetTileY());
     }
 
     /**
@@ -375,17 +398,17 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * proportion to the distance it covers, within bounds, and the jump phase carries on from where it was.
      * When no candidate is valid, the slime hangs where it is, with the phase held, and looks again after a wait that
      * doubles from a tenth of a second up to a second while it stays stuck. The tile it held as its target is let go
-     * at once, so only the take-off tile stays held and another enemy may use the rest; the target is the take-off
+     * at once, so only the take-off tile stays held and another creature may use the rest; the target is the take-off
      * tile meanwhile. A slime whose take-off tile has become the player's and whose neighbours are all held therefore
      * hangs there, checking at most once a second, and lands back on the take-off tile as soon as the player leaves it.
      * The path to the player is dropped, because the hop no longer goes where it was searched for.
      */
-    private void retargetHop(Enemy enemy, TileMap map, Player player) {
+    private void retargetHop(Creature creature, TileMap map, Player player) {
         if (hovering) {
             hoverChecks++;
         }
-        final int fromX = enemy.getCurrentTileX();
-        final int fromY = enemy.getCurrentTileY();
+        final int fromX = creature.getCurrentTileX();
+        final int fromY = creature.getCurrentTileY();
         var bestX = 0;
         var bestY = 0;
         double bestDistance = Double.MAX_VALUE;
@@ -394,10 +417,10 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         for (int i = -1; i < DX.length; i++) {
             final int x = fromX + (i < 0 ? 0 : DX[i]);
             final int y = fromY + (i < 0 ? 0 : DY[i]);
-            if (!canLandOn(enemy, map, player, x, y)) {
+            if (!canLandOn(creature, map, player, x, y)) {
                 continue;
             }
-            final double distance = Math.hypot(x - enemy.getPosX(), y - enemy.getPosY());
+            final double distance = Math.hypot(x - creature.getPosX(), y - creature.getPosY());
             if (distance < bestDistance) {
                 bestDistance = distance;
                 bestX = x;
@@ -407,38 +430,38 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         }
         currentPath.clear();
         // The new target is reserved and the old one let go: the take-off tile stays held either way
-        if (!found || !occupancy.tryReserve(enemy, bestX, bestY)) {
-            hover(enemy, fromX, fromY);
+        if (!found || !occupancy.tryReserve(creature, bestX, bestY)) {
+            hover(creature, fromX, fromY);
             return;
         }
         hovering = false;
         hoverRetrySeconds = 0;
-        enemy.setTargetTileX(bestX);
-        enemy.setTargetTileY(bestY);
+        creature.setTargetTileX(bestX);
+        creature.setTargetTileY(bestY);
         final double duration = Math.clamp(hopDuration * bestDistance,
                 MIN_BEND_FRACTION * hopDuration, MAX_BEND_FRACTION * hopDuration);
-        beginSegment(enemy, duration, jumpPhase);
+        beginSegment(creature, duration, jumpPhase);
     }
 
-    /** Tells whether the enemy may hop from its take-off tile to a tile: not the player's, held by no other enemy, and walkable. */
-    private boolean canLandOn(Enemy enemy, TileMap map, Player player, int x, int y) {
-        return !isPlayerTile(x, y, player) && occupancy.isFreeFor(enemy, x, y)
-                && canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), x, y);
+    /** Tells whether the creature may hop from its take-off tile to a tile: not the player's, free and walkable. */
+    private boolean canLandOn(Creature creature, TileMap map, Player player, int x, int y) {
+        return !isPlayerTile(x, y, player) && occupancy.isFreeFor(creature, x, y)
+                && canHop(map, creature.getCurrentTileX(), creature.getCurrentTileY(), x, y);
     }
 
     /**
      * Hangs in the air with the target moved back to the take-off tile, so the tile that was the target is no longer
      * held, and schedules the next look for a tile to land on. The take-off tile is the slime's own: reserving it
      * only lets go of the old target, and the answer does not change what the slime does. It can be no only when
-     * another enemy took the tile, and then the slime has nowhere else to go and the occupancy gives the tile back to
+     * another creature took the tile, and then the slime has nowhere else to go and the occupancy gives the tile back to
      * it on a later sync, so the slime hangs on either way.
      */
-    private void hover(Enemy enemy, int fromX, int fromY) {
+    private void hover(Creature creature, int fromX, int fromY) {
         hovering = true;
         // The target is set below in this same update, as the contract of tryReserve asks
-        occupancy.tryReserve(enemy, fromX, fromY);
-        enemy.setTargetTileX(fromX);
-        enemy.setTargetTileY(fromY);
+        occupancy.tryReserve(creature, fromX, fromY);
+        creature.setTargetTileX(fromX);
+        creature.setTargetTileY(fromY);
         hoverRetrySeconds = hoverRetrySeconds > 0
                 ? Math.min(MAX_HOVER_RETRY_SECONDS, hoverRetrySeconds * HOVER_RETRY_GROWTH_FACTOR)
                 : HOVER_RETRY_SECONDS;
@@ -449,14 +472,14 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * Lands the hop on its target, which the update has just checked is free and not the player's, and puts the
      * position exactly on the tile.
      */
-    private void completeJump(Enemy enemy) {
+    private void completeJump(Creature creature) {
         isJumping = false;
         hovering = false;
         jumpPhase = 0;
-        enemy.setCurrentTileX(enemy.getTargetTileX()); // Update enemy's current tile position
-        enemy.setCurrentTileY(enemy.getTargetTileY()); // Update enemy's current tile position
-        enemy.setPosX(enemy.getCurrentTileX()); // Ensure interpolated matches current tile at end of jump
-        enemy.setPosY(enemy.getCurrentTileY());
+        creature.setCurrentTileX(creature.getTargetTileX()); // Update the creature's current tile position
+        creature.setCurrentTileY(creature.getTargetTileY()); // Update the creature's current tile position
+        creature.setPosX(creature.getCurrentTileX()); // Ensure interpolated matches current tile at end of jump
+        creature.setPosY(creature.getCurrentTileY());
     }
 
     /** True for the tile the player stands on and the tile the player is stepping to. */
@@ -481,7 +504,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
     }
 
     /**
-     * Waits for a step that another enemy holds, with no search meanwhile. The first wait is random, between the replan
+     * Waits for a step that another creature holds, with no search meanwhile. The first wait is random, between the replan
      * wait and the replan wait plus its spread, so a crowd does not act in step; the wait doubles, up to
      * {@link HeldStepBackoff#MAX_WAIT_SECONDS}, each time the same step is still held when it is tried again.
      *
@@ -498,17 +521,17 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
      * Takes the next step of the path as a hop. The step is checked first: something may have been built on the tile
      * since the path was searched, the player may have stepped on it, or the slime may be on a tile other than the one
      * the path was searched from, so the step is not a hop of one tile. A step that fails clears the path and makes the
-     * slime wait before searching again. A tile another enemy holds does not fail the path at once: the slime keeps it
+     * slime wait before searching again. A tile another creature holds does not fail the path at once: the slime keeps it
      * and waits for the tile to be let go without searching. When the same step is still held after the wait, the
      * path is dropped and searched again after a wait that doubles while the step stays held, see
      * {@link #waitForHeldStep(PathNode)}. The tile of a step that goes ahead is reserved before the slime takes off.
      */
-    private void startNextJump(Enemy enemy, TileMap map, Player player) {
+    private void startNextJump(Creature creature, TileMap map, Player player) {
         final PathNode nextStep = currentPath.getFirst();
-        final boolean adjacent = Math.abs(nextStep.x - enemy.getCurrentTileX()) <= 1
-                && Math.abs(nextStep.y - enemy.getCurrentTileY()) <= 1;
+        final boolean adjacent = Math.abs(nextStep.x - creature.getCurrentTileX()) <= 1
+                && Math.abs(nextStep.y - creature.getCurrentTileY()) <= 1;
         if (!adjacent
-                || !canHop(map, enemy.getCurrentTileX(), enemy.getCurrentTileY(), nextStep.x, nextStep.y)
+                || !canHop(map, creature.getCurrentTileX(), creature.getCurrentTileY(), nextStep.x, nextStep.y)
                 || isPlayerTile(nextStep.x, nextStep.y, player)) {
             currentPath.clear();
             clearBlockedStep();
@@ -517,7 +540,7 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
             secondsOfReplanWait = REPLAN_WAIT_SECONDS;
             return;
         }
-        if (!occupancy.tryReserve(enemy, nextStep.x, nextStep.y)) {
+        if (!occupancy.tryReserve(creature, nextStep.x, nextStep.y)) {
             if (waitForHeldStep(nextStep)) {
                 // Still held after a wait: the holder stays, so the path is dropped and searched again once the
                 // longer wait is over, priced to go around the held tiles when a detour is cheap
@@ -527,14 +550,14 @@ public class SlimeMovementStrategy implements EnemyMovementStrategy {
         }
         currentPath.removeFirst();
         clearBlockedStep();
-        enemy.setTargetTileX(nextStep.x);
-        enemy.setTargetTileY(nextStep.y);
+        creature.setTargetTileX(nextStep.x);
+        creature.setTargetTileY(nextStep.y);
 
-        if (!enemy.reachedPathTarget()) {
-            startJump(enemy, JUMP_SECONDS_AGGRO);
+        if (!creature.reachedPathTarget()) {
+            startJump(creature, JUMP_SECONDS_AGGRO);
         } else {
             // If the path just has the current tile (e.g., path of 1), just complete it immediately
-            completeJump(enemy);
+            completeJump(creature);
         }
     }
 

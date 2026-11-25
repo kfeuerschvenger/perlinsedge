@@ -1,10 +1,9 @@
 package com.feuerschvenger.perlinsedge.domain.strategies;
 
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.Player;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
-import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
+import com.feuerschvenger.perlinsedge.domain.entities.Entity;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
 
 /**
  * Movement of a skeleton: it stands still until the player comes within the aggro range of
@@ -12,14 +11,15 @@ import com.feuerschvenger.perlinsedge.domain.world.model.TileMap;
  * to them, diagonals included. It gives up when the player passes the leash range or stays out of the aggro range
  * for the lose time, and then stands still again. See {@link WalkingChaser} for the walk.
  */
-public class SkeletonMovementStrategy implements EnemyMovementStrategy {
+public class SkeletonMovementStrategy implements CreatureMovementStrategy {
 
     private static final double MOVE_SPEED = 2.5; // Tiles per second
 
     private final WalkingChaser chaser;
 
     /**
-     * Creates a skeleton movement that waits where it stands and chases the player once it is woken by the aggro range or by a hit.
+     * Creates a skeleton movement that waits where it stands and chases the player once it is woken by the aggro
+     * range or by a hit.
      *
      * @param seed seed of its waits for a tile another enemy holds, such as {@link SpawnSeed#of(int, int)}
      */
@@ -27,9 +27,27 @@ public class SkeletonMovementStrategy implements EnemyMovementStrategy {
         this.chaser = new WalkingChaser(MOVE_SPEED, AppConfig.getInstance().enemies().skeleton(), seed);
     }
 
+    /**
+     * Runs one update of the chase of the skeleton.
+     *
+     * @param self      the skeleton
+     * @param deltaTime time since last update in seconds
+     * @param context   what the skeleton can see of the world: the map, the player and the occupancy
+     */
     @Override
-    public void updateMovement(Enemy enemy, double deltaTime, TileMap map, Player player, EnemyOccupancy occupancy) {
-        chaser.update(enemy, deltaTime, map, player, occupancy);
+    public void updateMovement(Creature self, double deltaTime, CreatureContext context) {
+        chaser.update(self, deltaTime, context.map(), context.player(), context.occupancy());
+    }
+
+    /**
+     * A hit makes the skeleton chase the attacker even from outside its aggro range.
+     *
+     * @param self   the skeleton that was hurt
+     * @param source who dealt the damage, or null when the source is not known
+     */
+    @Override
+    public void onHurt(Creature self, Entity source) {
+        alert();
     }
 
     /** Starts a chase that holds for the lose time whatever the distance, for a skeleton hurt from beyond its range. */

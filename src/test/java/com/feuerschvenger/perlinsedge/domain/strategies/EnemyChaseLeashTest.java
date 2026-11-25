@@ -7,7 +7,8 @@ import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Mimic;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Skeleton;
 import com.feuerschvenger.perlinsedge.domain.entities.enemies.Slime;
-import com.feuerschvenger.perlinsedge.domain.pathfinding.EnemyOccupancy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.CreatureContext;
+import com.feuerschvenger.perlinsedge.domain.pathfinding.CreatureOccupancy;
 import com.feuerschvenger.perlinsedge.domain.world.model.Resource;
 import com.feuerschvenger.perlinsedge.domain.world.model.ResourceType;
 import com.feuerschvenger.perlinsedge.domain.world.model.Tile;
@@ -41,7 +42,7 @@ class EnemyChaseLeashTest {
 
     private static void run(Enemy enemy, TileMap map, Player player, double seconds) {
         for (int i = 0; i < Math.round(seconds / STEP); i++) {
-            enemy.update(STEP, map, player, new EnemyOccupancy());
+            enemy.update(STEP, new CreatureContext(map, player, new CreatureOccupancy()));
         }
     }
 
@@ -272,7 +273,7 @@ class EnemyChaseLeashTest {
         slime.takeDamage(1);
         SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
         for (int i = 0; i < 600 && !movement.isJumping(); i++) {
-            slime.update(STEP, map, player, new EnemyOccupancy());
+            slime.update(STEP, new CreatureContext(map, player, new CreatureOccupancy()));
         }
         assertTrue(movement.isJumping(), "the alerted slime hops after the player");
         final int targetX = slime.getTargetTileX();
@@ -281,7 +282,7 @@ class EnemyChaseLeashTest {
         // The player steps onto the tile the slime is hopping to
         player.setPosition(targetX, targetY);
         for (int i = 0; i < 120 && movement.isJumping(); i++) {
-            slime.update(STEP, map, player, new EnemyOccupancy());
+            slime.update(STEP, new CreatureContext(map, player, new CreatureOccupancy()));
         }
 
         assertFalse(movement.isJumping());
@@ -301,7 +302,7 @@ class EnemyChaseLeashTest {
         SlimeMovementStrategy movement = (SlimeMovementStrategy) slime.getMovementStrategy();
 
         for (int i = 0; i < 18; i++) {
-            slime.update(STEP, map, player, new EnemyOccupancy());
+            slime.update(STEP, new CreatureContext(map, player, new CreatureOccupancy()));
         }
 
         assertFalse(movement.isJumping());
@@ -344,7 +345,7 @@ class EnemyChaseLeashTest {
         TileMap map = mapWithStoneWall(wallTop);
         boolean crossed = false;
         for (int i = 0; i < Math.round(seconds / STEP); i++) {
-            enemy.update(STEP, map, player, new EnemyOccupancy());
+            enemy.update(STEP, new CreatureContext(map, player, new CreatureOccupancy()));
             int tileX = enemy.getCurrentTileX();
             int tileY = enemy.getCurrentTileY();
             assertTrue(map.getTile(tileX, tileY).isWalkable(), "stands on a blocked tile " + tileX + "," + tileY);
@@ -385,7 +386,7 @@ class EnemyChaseLeashTest {
         Player player = new Player(11, 6);
 
         for (int i = 0; i < 60 * 20; i++) {
-            mimic.update(STEP, map, player, new EnemyOccupancy());
+            mimic.update(STEP, new CreatureContext(map, player, new CreatureOccupancy()));
             assertTrue(map.getTile(mimic.getCurrentTileX(), mimic.getCurrentTileY()).isWalkable());
             assertTrue(mimic.getPosX() < 7.5 || mimic.getPosX() > 8.5 || mimic.getPosY() > 12.5,
                     "inside the water column at step " + i);

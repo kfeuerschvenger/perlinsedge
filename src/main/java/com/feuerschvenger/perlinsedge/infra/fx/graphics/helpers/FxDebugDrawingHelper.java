@@ -2,7 +2,7 @@ package com.feuerschvenger.perlinsedge.infra.fx.graphics.helpers;
 
 import com.feuerschvenger.perlinsedge.app.managers.GameStateManager;
 import com.feuerschvenger.perlinsedge.config.AppConfig;
-import com.feuerschvenger.perlinsedge.domain.entities.enemies.Enemy;
+import com.feuerschvenger.perlinsedge.domain.entities.creatures.Creature;
 import com.feuerschvenger.perlinsedge.domain.entities.items.DroppedItem;
 import com.feuerschvenger.perlinsedge.domain.world.time.DayCycle;
 import com.feuerschvenger.perlinsedge.infra.fx.graphics.FrameStats;
@@ -107,15 +107,15 @@ public final class FxDebugDrawingHelper {
         }
 
         yPos += LINE_HEIGHT;
-        List<Enemy> enemies = gameState.getEnemies();
-        gc.fillText(String.format("Enemies: %d", (enemies != null ? enemies.size() : 0)), xPos, yPos);
+        List<Creature> creatures = gameState.getCreatures();
+        gc.fillText(String.format("Creatures: %d", (creatures != null ? creatures.size() : 0)), xPos, yPos);
 
         yPos += LINE_HEIGHT;
         List<DroppedItem> droppedItems = gameState.getDroppedItems();
         gc.fillText(String.format("Dropped Items: %d", (droppedItems != null ? droppedItems.size() : 0)), xPos, yPos);
 
         yPos += LINE_HEIGHT;
-        int total = (enemies != null ? enemies.size() : 0) + (droppedItems != null ? droppedItems.size() : 0);
+        int total = (creatures != null ? creatures.size() : 0) + (droppedItems != null ? droppedItems.size() : 0);
         gc.fillText(String.format("Total Entities: %d", total), xPos, yPos);
 
         yPos += LINE_HEIGHT;
