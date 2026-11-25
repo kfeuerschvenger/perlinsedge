@@ -15,6 +15,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Tests that the markers of the minimap follow the resources of the map as they are harvested. */
@@ -268,5 +269,55 @@ class MinimapPixelsTest {
 
         assertEquals(STONE_MARKER, pixels.pixelAt(stone));
         assertEquals(ground(), pixels.pixelAt(centreIndex(LAYOUT, OTHER_X, OTHER_Y)));
+    }
+
+    @Test
+    void coloursThatDoNotFillTheBufferAreRejected() {
+        final var map = groundMap(MAP_SIZE, MAP_SIZE);
+        final var colours = new int[IMAGE_WIDTH * IMAGE_HEIGHT - 1];
+
+        assertThrows(IllegalArgumentException.class, () -> new MinimapPixels(map, colours, LAYOUT));
+    }
+
+    @Test
+    void aRefreshThatFailsLeavesThePixelsStaleAndTheNextOneRepairsThem() {
+        final var map = groundMap(MAP_SIZE, MAP_SIZE);
+        final var flaky = new FlakyTile(OTHER_X, OTHER_Y);
+        map.setTile(OTHER_X, OTHER_Y, flaky);
+        put(map, STONE_X, STONE_Y, ResourceType.STONE);
+        put(map, OTHER_X, OTHER_Y, ResourceType.STONE);
+        final var pixels = pixelsOf(map, LAYOUT);
+        map.getTile(STONE_X, STONE_Y).setWorldResource(null);
+        flaky.failing = true;
+
+        assertThrows(IllegalStateException.class, pixels::refresh);
+        assertTrue(pixels.isStale(), "a failed refresh must not count as seen");
+        flaky.failing = false;
+        final var changed = pixels.refresh();
+
+        assertArrayEquals(new int[]{centreIndex(LAYOUT, STONE_X, STONE_Y)}, changed);
+        assertEquals(ground(), pixels.pixelAt(centreIndex(LAYOUT, STONE_X, STONE_Y)));
+        assertEquals(STONE_MARKER, pixels.pixelAt(centreIndex(LAYOUT, OTHER_X, OTHER_Y)));
+        assertFalse(pixels.isStale());
+    }
+
+    /** A tile that can be told to fail when it is asked whether it holds a resource. */
+    private static final class FlakyTile extends Tile {
+
+        /** Whether the next question fails. */
+        private boolean failing;
+
+        /** Creates a rocky tile at a position. */
+        private FlakyTile(int x, int y) {
+            super(x, y, TileType.ROCKY_GROUND);
+        }
+
+        @Override
+        public boolean hasResource() {
+            if (failing) {
+                throw new IllegalStateException("the tile cannot be read");
+            }
+            return super.hasResource();
+        }
     }
 }

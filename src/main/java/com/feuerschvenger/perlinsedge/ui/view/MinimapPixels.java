@@ -15,22 +15,28 @@ import java.util.BitSet;
  * tiles are looked at again and only the pixels whose marker changed are restored from the colours and marked again,
  * so a harvested resource loses its marker without the whole map being scanned or the whole image being uploaded. When
  * several tiles share one pixel the marker with the highest priority shows, crystals over iron over stone. The class
- * keeps its own copy of the colours and never hands out its working array.
+ * keeps its own copy of the colours and never hands out its working array. Only the removal of the markers collected
+ * at construction is tracked: a resource or terrain added to the map afterwards is not seen, so a feature that
+ * regrows resources must build new pixels instead of refreshing these.
  */
 final class MinimapPixels {
 
-    /** The marker a resource tile shows, from the lowest priority to the highest; the ordinal is the priority. */
+    /** The marker a resource tile shows, from the lowest priority to the highest. */
     private enum Marker {
-        NONE(0),
-        STONE(0xFFCFCFCF),
-        IRON(0xFFB5502E),
-        CRYSTALS(0xFF4FE0E8);
+        NONE(0, 0),
+        STONE(1, 0xFFCFCFCF),
+        IRON(2, 0xFFB5502E),
+        CRYSTALS(3, 0xFF4FE0E8);
+
+        /** The priority of the marker, 0 for none: when tiles share a pixel the highest priority shows. */
+        private final byte priority;
 
         /** The colour of the marker in 0xAARRGGBB layout. */
         private final int argb;
 
-        /** Creates a marker with its colour. */
-        Marker(int argb) {
+        /** Creates a marker with its priority and colour. */
+        Marker(int priority, int argb) {
+            this.priority = (byte) priority;
             this.argb = argb;
         }
     }
@@ -75,8 +81,13 @@ final class MinimapPixels {
      * @param map     the map the pixels show
      * @param colours the colours of the tiles without markers, from {@link FxMinimapDrawer#samplePixels}
      * @param layout  the size of the buffer and where the tiles lie in it
+     * @throws IllegalArgumentException when the colours do not fill the buffer of the layout exactly
      */
     MinimapPixels(TileMap map, int[] colours, Layout layout) {
+        if (colours.length != layout.imageWidth() * layout.imageHeight()) {
+            throw new IllegalArgumentException("the colours hold " + colours.length + " pixels but the layout is "
+                    + layout.imageWidth() + " by " + layout.imageHeight());
+        }
         this.map = map;
         this.base = colours.clone();
         this.current = colours.clone();
@@ -112,13 +123,15 @@ final class MinimapPixels {
      * Looks again at the tiles that carried a marker, and for every pixel whose marker changed puts back the colour of
      * the tile and lays the marker with the highest priority among the tiles on it.
      *
-     * @return the indices of the pixels that were rebuilt, empty when the map did not change or no marker did
+     * @return the indices of the pixels that were rebuilt, empty when the map did not change or no marker did; when
+     * a tile cannot be read the exception is thrown with the map still stale, so the next call reads it again and
+     * rebuilds the pixels already touched
      */
     int[] refresh() {
         if (!isStale()) {
             return NO_PIXELS;
         }
-        seenRevision = map.getRevision();
+        final var revision = map.getRevision();
         for (var i = 0; i < markers.length; i++) {
             final var now = markerOf(map.getTile(markerColumns[i], markerRows[i]));
             if (now != markers[i]) {
@@ -126,6 +139,7 @@ final class MinimapPixels {
                 touched.set(markerPixels[i]);
             }
         }
+        seenRevision = revision;
         if (touched.isEmpty()) {
             return NO_PIXELS;
         }
@@ -166,8 +180,8 @@ final class MinimapPixels {
     private void stamp(int slot) {
         final var marker = markers[slot];
         final var pixel = markerPixels[slot];
-        if (marker.ordinal() > laid[pixel]) {
-            laid[pixel] = (byte) marker.ordinal();
+        if (marker.priority > laid[pixel]) {
+            laid[pixel] = marker.priority;
             current[pixel] = marker.argb;
         }
     }
