@@ -14,7 +14,8 @@ import java.util.random.RandomGenerator;
  * small end so a map has a few large islands and several small ones. The islands are placed from the largest down by
  * rejection sampling: a centre is accepted when the island lies whole on the map and at least the spacing times the
  * sum of the two radii from every island placed before. An island that finds no such centre in a few attempts is tried
- * again at a smaller radius, down to the smallest radius, so the number of islands the parameters ask for is kept while
+ * again at a smaller radius, down to the smallest radius, which is the one of the parameters on a map of ordinary size
+ * and at most a tenth of the shorter side on a small one, so the number of islands the parameters ask for is kept while
  * the map has room for it; only an island that does not fit even at the smallest radius is dropped. The height is
  * lifted around each centre by an amount that fades to nothing at the radius of that island, and where the lifts of
  * two islands meet the higher one counts. Beyond every radius the height is the sea floor, so the noise only shapes
@@ -36,13 +37,20 @@ public final class IslandShapePass implements GenerationPass {
      * island cut by the edge would lose a random part of its area and make the share of the largest island vary.
      */
     private static final double EDGE_MARGIN_OF_RADIUS = 1.0;
+    /** The share of the radius at the edge of an island, where the lift has faded to nothing. */
+    private static final double FULL_SHARE = 1.0;
+    /**
+     * The smallest radius is at most this fraction of the shorter side of the map, so a small map still has room for
+     * the minimum number of islands: five discs of this radius and larger ones fit whole on the map.
+     */
+    private static final int SMALLEST_SIDE_DIVISOR = 10;
     private static final double HALF = 0.5;
     /** The share of its slice that the size of an island is drawn in, around the middle of the slice. */
     private static final double SLICE_JITTER = 0.5;
     /** The margin is kept on both sides of an axis. */
     private static final int MARGIN_SIDES = 2;
     /** How many centres are tried for an island at one radius before it is tried at a smaller one. */
-    private static final int PLACEMENT_ATTEMPTS = 100;
+    private static final int PLACEMENT_ATTEMPTS = 400;
     /** An island that finds no place shrinks to this share of its radius, or by one tile when that changes nothing. */
     private static final double SHRINK_FACTOR = 0.8;
 
@@ -70,8 +78,9 @@ public final class IslandShapePass implements GenerationPass {
     public void apply(GenerationContext context) {
         final var heights = context.field(NoiseField.HEIGHT);
         final var random = context.random(SALT);
-        final var largest = largestRadius(Math.min(context.width(), context.height()));
-        final var smallest = Math.min(params.size().minRadius(), largest);
+        final var shorterSide = Math.min(context.width(), context.height());
+        final var largest = largestRadius(shorterSide);
+        final var smallest = smallestRadius(shorterSide, largest);
         final var radii = drawRadii(random, islandCount(context.width(), context.height()), smallest, largest);
         final var effect = new float[context.size()];
         new Layout(context, random, radii.length, smallest).placeAll(radii, effect);
@@ -117,6 +126,15 @@ public final class IslandShapePass implements GenerationPass {
     private int largestRadius(int shorterSide) {
         final var cap = Math.max(1, (int) Math.round(shorterSide * (double) params.size().maxShareOfSide()));
         return Math.min(params.size().maxRadius(), cap);
+    }
+
+    /**
+     * Returns the smallest radius on a map of a shorter side: the one of the parameters, but never above the largest
+     * radius and never above a tenth of the side, so a small map shrinks the floor instead of dropping islands.
+     */
+    private int smallestRadius(int shorterSide, int largest) {
+        final var affordable = Math.max(1, shorterSide / SMALLEST_SIDE_DIVISOR);
+        return Math.min(params.size().minRadius(), Math.min(largest, affordable));
     }
 
     /** The islands placed so far, with the centres and radii that later islands have to keep their distance from. */
@@ -217,7 +235,7 @@ public final class IslandShapePass implements GenerationPass {
 
         /** Returns how much of the lift remains at a share of the radius from 0 at the centre to 1 at the edge. */
         private double falloff(double shareOfRadius) {
-            final var fade = 1.0 - shareOfRadius;
+            final var fade = FULL_SHARE - shareOfRadius;
             // StrictMath, not Math: Math.pow may differ between JVMs and CPUs in the last bit, and a map has to
             // come out the same for the same seed everywhere
             return squaredFalloff ? fade * fade : StrictMath.pow(fade, params.falloffPower());

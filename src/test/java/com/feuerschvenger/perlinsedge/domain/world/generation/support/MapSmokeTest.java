@@ -8,6 +8,7 @@ import com.feuerschvenger.perlinsedge.infra.noise.FastNoiseLiteAdapter;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -23,16 +24,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MapSmokeTest {
 
     private static final int SMALL = 64;
+    private static final int MEDIUM = 150;
+    private static final int MIN_ISLANDS = 5;
     private static final int WIDE_WIDTH = 200;
     private static final int WIDE_HEIGHT = 120;
 
     private final MapGenerator generator = new MapGenerator(FastNoiseLiteAdapter.FACTORY);
 
+    /** Returns every map type on the small square and on the wide map, which is the argument list of the smoke test. */
     private static Stream<Arguments> typesAndSizes() {
         return Arrays.stream(MapType.values()).flatMap(type -> Stream.of(
                 Arguments.of(type, SMALL, SMALL), Arguments.of(type, WIDE_WIDTH, WIDE_HEIGHT)));
     }
 
+    /** The minimum of five islands is honest on the small maps: every fixed seed has five islands of real size. */
+    @ParameterizedTest
+    @ValueSource(ints = {SMALL, MEDIUM})
+    void anIslandsMapHasAtLeastFiveIslandsOnSmallSizes(int size) {
+        for (var seed : FixedSeeds.ALL) {
+            final var map = generator.generate(new MapRequest(MapType.ISLANDS, seed, size, size));
+
+            final var islands = WaterStats.landMasses(map).countAtLeast(WaterStats.MIN_LAND_TILES);
+
+            assertTrue(islands >= MIN_ISLANDS, "seed " + seed + " size " + size + " has " + islands + " islands");
+        }
+    }
+
+    /** Generates the map of every fixed seed and checks its size, its land, its spawn and its spawn region. */
     @ParameterizedTest
     @MethodSource("typesAndSizes")
     void everyTypeGeneratesLandASpawnAndASpawnRegionOnSmallAndOddSizes(MapType type, int width, int height) {

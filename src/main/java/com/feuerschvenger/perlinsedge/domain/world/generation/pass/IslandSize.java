@@ -9,15 +9,23 @@ package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
  * @param minRadius       the radius of the smallest island in tiles, at least 1
  * @param maxRadius       the radius of the largest island in tiles, not below the smallest
  * @param maxShareOfSide  the largest radius an island may have as a share of the shorter side of the map, above 0 and
- *                        at most 1; the radii of a map whose side gives a smaller cap are drawn between the smallest
- *                        radius and the cap, and between the cap and itself when the cap is below the smallest
+ *                        at most {@link #MAX_SHARE_OF_SIDE}, which is the largest radius for which an island still
+ *                        lies whole on the map; the radii of a map whose side gives a smaller cap are drawn between
+ *                        the smallest radius and the cap, and between the cap and itself when the cap is below the
+ *                        smallest
  * @param spacing         how far apart two islands lie, as a multiple of the sum of their two radii: 1 lets the lifted
  *                        discs of two islands just touch and more leaves a stretch of sea between them, finite and
  *                        above 0
  */
 public record IslandSize(int minRadius, int maxRadius, float maxShareOfSide, float spacing) {
 
-    /** Checks the radii are positive and ordered, the share is above 0 and at most 1 and the spacing is positive. */
+    /** The largest share of the shorter side for a radius: a radius of half the side is a disc that just fits whole. */
+    public static final float MAX_SHARE_OF_SIDE = 0.5F;
+
+    /**
+     * Checks the radii are positive and ordered, the share is above 0 and at most {@link #MAX_SHARE_OF_SIDE} and the
+     * spacing is positive.
+     */
     public IslandSize {
         if (minRadius < 1) {
             throw new IllegalArgumentException("the smallest island radius must be at least 1: " + minRadius);
@@ -26,9 +34,9 @@ public record IslandSize(int minRadius, int maxRadius, float maxShareOfSide, flo
             throw new IllegalArgumentException(
                     "the largest island radius must not be below the smallest: " + maxRadius + " and " + minRadius);
         }
-        if (!(maxShareOfSide > 0F && maxShareOfSide <= 1F)) {
-            throw new IllegalArgumentException(
-                    "the largest radius share of the side must be above 0 and at most 1: " + maxShareOfSide);
+        if (!(maxShareOfSide > 0F && maxShareOfSide <= MAX_SHARE_OF_SIDE)) {
+            throw new IllegalArgumentException("the largest radius share of the side must be above 0 and at most "
+                    + MAX_SHARE_OF_SIDE + " so an island lies whole on the map: " + maxShareOfSide);
         }
         if (!Float.isFinite(spacing) || spacing <= 0F) {
             throw new IllegalArgumentException("the island spacing must be finite and above 0: " + spacing);

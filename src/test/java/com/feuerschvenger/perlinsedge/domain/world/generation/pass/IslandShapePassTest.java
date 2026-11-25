@@ -21,7 +21,15 @@ class IslandShapePassTest {
     private static final int RADIUS = 6;
     private static final float SPACING = 1.05F;
     /** A share of the side at which the cap on the radius never bites on the maps of these tests. */
-    private static final float NO_CAP = 1F;
+    private static final float NO_CAP = IslandSize.MAX_SHARE_OF_SIDE;
+    /** The sizes of the islands recipe, whose five islands have to fit on the small maps too. */
+    private static final int RECIPE_MIN_RADIUS = 12;
+    private static final int RECIPE_MAX_RADIUS = 70;
+    private static final float RECIPE_SHARE = 0.3F;
+    private static final IslandSize RECIPE_SIZE =
+            new IslandSize(RECIPE_MIN_RADIUS, RECIPE_MAX_RADIUS, RECIPE_SHARE, SPACING);
+    private static final int SMALLEST_MAP = 64;
+    private static final long FIT_SEEDS = 20L;
     private static final IslandSize SIZE = new IslandSize(RADIUS, RADIUS, NO_CAP, SPACING);
     private static final float GAIN = 1.5F;
     private static final float LIFT = 0.7F;
@@ -82,7 +90,6 @@ class IslandShapePassTest {
     private static IslandParams params(int per100k, int minimum) {
         return new IslandParams(per100k, minimum, SIZE, GAIN, LIFT, SEA, FALLOFF);
     }
-
 
     /** One island and no more, wherever the seed puts it, so what lies around it is the sea. */
     private static IslandParams singleIsland() {
@@ -315,12 +322,29 @@ class IslandShapePassTest {
         }
     }
 
+    /** The floor of the radius shrinks on a small map, so the minimum of five islands holds there as it does on 300. */
+    @Test
+    void theMinimumOfFiveIslandsHoldsOnTheSmallMapsToo() {
+        final var params = new IslandParams(NO_DENSITY, FLOOR_COUNT, RECIPE_SIZE, GAIN, LIFT, SEA, FALLOFF);
+        for (var side : new int[] {SMALLEST_MAP, SMALL, LARGE}) {
+            for (var seed = 1L; seed <= FIT_SEEDS; seed++) {
+                final var context = flatHeightContext(seed, side, FLAT_SEA);
+
+                new IslandShapePass(params).apply(context);
+
+                assertEquals(FLOOR_COUNT, centres(context).length, "side " + side + " seed " + seed);
+            }
+        }
+    }
+
     @Test
     void theSizeRefusesRadiiAndSpacingsThatCannotWork() {
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(0, 1, NO_CAP, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(2, 1, NO_CAP, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 0F, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, 1.5F, SPACING));
+        assertThrows(IllegalArgumentException.class,
+                () -> new IslandSize(1, 1, Math.nextUp(IslandSize.MAX_SHARE_OF_SIDE), SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, Float.NaN, SPACING));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, 0F));
         assertThrows(IllegalArgumentException.class, () -> new IslandSize(1, 1, NO_CAP, -SPACING));
