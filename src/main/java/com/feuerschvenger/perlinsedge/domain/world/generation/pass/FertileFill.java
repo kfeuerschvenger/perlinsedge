@@ -14,19 +14,19 @@ import java.util.random.RandomGenerator;
  * every candidate tile, no tile is above another and the share widens to every candidate, so the random choice alone
  * decides.
  * <p>
- * The fill owns the buffer it works in, one slot per tile of the map.
+ * The fill works in a buffer its caller lends it for each add, one slot per tile of the map, so the pass that runs it
+ * allocates one buffer for its own scans and for this fill instead of two. The caller must not rely on what the buffer
+ * holds after an add.
  */
 final class FertileFill {
 
     private static final double GROWTH_FACTOR = 2.0;
 
     private final GenerationContext context;
-    private final int[] buffer;
     private final RandomGenerator random;
 
     FertileFill(GenerationContext context, RandomGenerator random) {
         this.context = context;
-        this.buffer = new int[context.size()];
         this.random = random;
     }
 
@@ -36,8 +36,14 @@ final class FertileFill {
      * @param type    the resource
      * @param missing how many tiles to add
      * @param host    the terrain that can hold the resource
+     * @param buffer  the scratch space, with one slot per tile of the map, which the fill overwrites
+     * @throws IllegalArgumentException when the buffer is shorter than the map has tiles
      */
-    void add(ResourceType type, int missing, ResourceQuota.Host host) {
+    void add(ResourceType type, int missing, ResourceQuota.Host host, int[] buffer) {
+        if (buffer.length < context.size()) {
+            throw new IllegalArgumentException(
+                    "the buffer has " + buffer.length + " slots for a map of " + context.size() + " tiles");
+        }
         final IntPredicate candidate = index -> isCandidate(index, host);
         var candidates = 0;
         for (var index = 0; index < context.size(); index++) {
@@ -48,10 +54,10 @@ final class FertileFill {
         }
         final var tree = context.field(NoiseField.TREE);
         var share = Math.min(1.0, (double) missing / candidates);
-        var found = collect(tree, candidate, FieldQuantile.above(tree, candidate, share));
+        var found = collect(tree, candidate, FieldQuantile.above(tree, candidate, share), buffer);
         while (found < missing && share < 1.0) {
             share = Math.min(1.0, share * GROWTH_FACTOR);
-            found = collect(tree, candidate, FieldQuantile.above(tree, candidate, share));
+            found = collect(tree, candidate, FieldQuantile.above(tree, candidate, share), buffer);
         }
         final var take = Math.min(missing, found);
         Shuffles.partial(buffer, found, take, random);
@@ -66,7 +72,7 @@ final class FertileFill {
     }
 
     /** Writes the candidate tiles at or above the threshold into the buffer and returns how many. */
-    private int collect(float[] tree, IntPredicate candidate, float threshold) {
+    private static int collect(float[] tree, IntPredicate candidate, float threshold, int[] buffer) {
         var found = 0;
         for (var index = 0; index < tree.length; index++) {
             if (tree[index] >= threshold && candidate.test(index)) {

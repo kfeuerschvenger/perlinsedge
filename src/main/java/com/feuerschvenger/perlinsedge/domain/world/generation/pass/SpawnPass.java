@@ -7,17 +7,17 @@ import java.util.Objects;
 import java.util.function.IntConsumer;
 
 /**
- * Chooses the tile where the player starts, and runs before the passes that balance the resources and floor the forest,
- * so that they leave the area around the player alone. The free tiles, walkable ground that holds
- * no resource, are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never
- * shut into a pocket; on a sea of islands that region is the largest island. Within it the spawn is the tile nearest to
- * the anchor, which is the spawn hint a pass left in the context, such as the middle of a clearing, or the centre of
- * the map, whose surroundings are free of resources and walkable to the free radius of the parameters.
+ * Chooses the tile where the player starts, and runs before the passes that balance the resources and floor the
+ * forest, so that they leave the area around the player alone. The free tiles, walkable ground that holds no resource,
+ * are labelled into 4-connected regions, and the spawn is taken in the largest one so the player is never shut into a
+ * pocket; on a sea of islands that region is the largest island. Within it the spawn is the tile nearest to the
+ * anchor, which is the spawn hint a pass left in the context, such as the middle of a clearing, or the centre of the
+ * map, whose surroundings are free of resources and walkable to the free radius of the parameters.
  * <p>
  * When no tile of the region has such surroundings, the tile of the region nearest to the anchor is taken and the
- * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources. In both
- * cases the square of the free radius around the spawn is reserved, so no later pass puts a resource there or floors
- * it, and the area stays free in the final map whatever the balancing pass has to add elsewhere.
+ * resources around it are cleared, never the terrain, so the area around the spawn is always free of resources. In
+ * both cases the square of the free radius around the spawn is reserved, so no later pass puts a resource there or
+ * floors it, and the area stays free in the final map whatever the balancing pass has to add elsewhere.
  * <p>
  * The pass labels the map with {@link Regions}, which creates no object per tile.
  */

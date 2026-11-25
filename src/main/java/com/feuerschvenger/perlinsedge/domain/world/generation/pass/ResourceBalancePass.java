@@ -21,8 +21,11 @@ import java.util.random.RandomGenerator;
  * resource does, the pass adds what fits, throws nothing and leaves the count short. {@link #shortfalls} reports by how
  * much, so a caller can tell a quota that was met from one the map could not hold.
  * <p>
- * The counts it leaves are final, because the spawn pass runs before it and reserves the area around the player. It
- * runs on plain arrays and draws from one seeded stream, so it repeats for a seed.
+ * The counts it leaves are final only when it is the last pass that adds or removes a resource, and it has to run
+ * after the spawn pass: the spawn pass reserves the area around the player, so this pass never fills it, but its own
+ * trees may still close a gap between that area and the rest of the free land, which the invariant on the region of
+ * the spawn catches. A recipe that lists a pass that changes resources after this one gives the counts up. It runs on
+ * plain arrays and draws from one seeded stream, so it repeats for a seed.
  */
 public final class ResourceBalancePass implements GenerationPass {
 
@@ -58,7 +61,8 @@ public final class ResourceBalancePass implements GenerationPass {
             if (found > max) {
                 thin(context, scratch, found, found - max, random);
             } else if (found < min) {
-                add(quota, min - found, rocky, fertile);
+                // The scan buffer is free again once a quota is read, so the tree fill works in it
+                add(quota, min - found, rocky, fertile, scratch);
             }
         }
     }
@@ -122,11 +126,11 @@ public final class ResourceBalancePass implements GenerationPass {
         }
     }
 
-    private static void add(ResourceQuota quota, int missing, RockyFill rocky, FertileFill fertile) {
+    private static void add(ResourceQuota quota, int missing, RockyFill rocky, FertileFill fertile, int[] scratch) {
         if (quota.host() == ResourceQuota.Host.ROCKY) {
             rocky.add(quota, missing);
         } else {
-            fertile.add(quota.type(), missing, quota.host());
+            fertile.add(quota.type(), missing, quota.host(), scratch);
         }
     }
 }

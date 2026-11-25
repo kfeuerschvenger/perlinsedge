@@ -24,9 +24,10 @@ final class DenseForestRecipe {
     private static final int IRON_MIN = 55;
     private static final int IRON_MAX = 105;
     /**
-     * The most trees per 100,000 tiles of map. The land is about four fifths of a dense forest map, so this keeps the
-     * trees under the 42% of the land that closes the 28% to 42% band the map type holds, which the density alone
-     * only calibrates.
+     * The most trees per 100,000 tiles of map. This is a count against the map, not against the land, and it assumes
+     * the land is at least 76% of a dense forest map, so 32,000 trees stay under the 42% of the land that closes the
+     * 28% to 42% band the map type holds, which the density alone only calibrates. A recipe change that makes the
+     * water more than a quarter of the map has to lower it.
      */
     private static final int TREES_MAX = 32_000;
 

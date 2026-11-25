@@ -11,6 +11,7 @@ import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FertileFillTest {
 
@@ -33,7 +34,7 @@ class FertileFillTest {
 
     private static void add(GenerationContext context, int missing) {
         new FertileFill(context, new SplittableRandom(SEED)).add(ResourceType.TREE, missing,
-                ResourceQuota.Host.FERTILE);
+                ResourceQuota.Host.FERTILE, new int[AREA]);
     }
 
     @Test
@@ -86,6 +87,16 @@ class FertileFillTest {
         assertNull(context.resourceAt(reserved));
         assertNull(context.resourceAt(rock));
         assertEquals(AREA - EXCLUDED_TILES, TestContexts.countResource(context, ResourceType.TREE));
+    }
+
+    @Test
+    void aBufferShorterThanTheMapIsRefused() {
+        final var context = grass(TIED);
+        final var fill = new FertileFill(context, new SplittableRandom(SEED));
+        final var shortBuffer = new int[AREA - 1];
+
+        assertThrows(IllegalArgumentException.class,
+                () -> fill.add(ResourceType.TREE, MISSING, ResourceQuota.Host.FERTILE, shortBuffer));
     }
 
     @Test
