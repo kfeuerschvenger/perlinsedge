@@ -34,6 +34,11 @@ public final class RiverCrossingPass implements GenerationPass {
     private static final double DENSITY_AREA_TILES = 100_000.0;
     /** What a tile of flat, low, wet land costs, and the lowest cost of any tile, which scales the heuristic. */
     private static final float BASE_COST = 1F;
+    /**
+     * The search may find a river that costs up to this many times the cheapest one, which makes it several times
+     * faster: the costs vary far above the lowest one, so the exact heuristic is weak and expands most of the map.
+     */
+    private static final float SEARCH_SLACK = 3F;
     /** The land within this many tiles of a carved river costs more, so the next river keeps its distance. */
     private static final int BAND_RADIUS = 3;
     private static final float BAND_PENALTY = 6F;
@@ -129,7 +134,7 @@ public final class RiverCrossingPass implements GenerationPass {
             if (!buildCosts()) {
                 return;
             }
-            search = new LeastCostPath(width, height, cost, BASE_COST);
+            search = new LeastCostPath(width, height, cost, BASE_COST, SEARCH_SLACK);
             final var rivers = riverCount(context.size());
             var crossed = 0;
             for (var river = 0; river < rivers; river++) {

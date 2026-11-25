@@ -9,7 +9,9 @@ import java.util.Objects;
  * orthogonal tiles it cuts across is blocked, so a path never squeezes between two blocked corners. A cost of
  * {@link Float#POSITIVE_INFINITY} blocks a tile. The heuristic is the octile distance times the lowest cost of any
  * tile, so it never overestimates, and the path is the cheapest one, only while every open tile costs at least that
- * lowest cost. The constructor checks it and refuses a cost array that breaks it, or that holds a NaN. Each tile is
+ * lowest cost. The constructor checks it and refuses a cost array that breaks it, or that holds a NaN. A heuristic
+ * weight above 1 trades that guarantee for speed: the heuristic is multiplied by it, so the search expands far fewer
+ * tiles and finds a path that costs at most the weight times the cheapest one. Each tile is
  * expanded at most once per search, so the rounding of the heap's float keys cannot send a search back to a tile it
  * has settled.
  * <p>
@@ -33,6 +35,7 @@ final class LeastCostPath {
     private final int height;
     private final float[] cost;
     private final double minCost;
+    private final double heuristicWeight;
     private final double[] distance;
     private final int[] parent;
     private final int[] stamp;
@@ -54,7 +57,30 @@ final class LeastCostPath {
      *                                  finite, or a cost is NaN or below the lowest cost
      */
     LeastCostPath(int width, int height, float[] cost, float minCost) {
+        this(width, height, cost, minCost, 1F);
+    }
+
+    /**
+     * Creates a searcher whose path may cost up to a factor more than the cheapest one, in exchange for a faster
+     * search.
+     *
+     * @param width           the number of columns
+     * @param height          the number of rows
+     * @param cost            the cost of entering each tile, copied, with {@link Float#POSITIVE_INFINITY} for a blocked
+     *                        tile and at least {@code minCost} for every other tile
+     * @param minCost         the lowest cost of any open tile, above 0, which scales the heuristic
+     * @param heuristicWeight how much the heuristic is multiplied by, from 1 for the cheapest path up; the path found
+     *                        costs at most this many times the cheapest one
+     * @throws IllegalArgumentException when the size does not match the cost array, the lowest cost is not positive and
+     *                                  finite, a cost is NaN or below the lowest cost, or the weight is below 1 or not
+     *                                  finite
+     */
+    LeastCostPath(int width, int height, float[] cost, float minCost, float heuristicWeight) {
         Objects.requireNonNull(cost, "cost");
+        if (!Float.isFinite(heuristicWeight) || heuristicWeight < 1F) {
+            throw new IllegalArgumentException("the heuristic weight must be finite and at least 1: "
+                    + heuristicWeight);
+        }
         if (width <= 0 || height <= 0 || cost.length != width * height) {
             throw new IllegalArgumentException(
                     "the cost array has " + cost.length + " tiles, not " + width + "x" + height);
@@ -66,6 +92,7 @@ final class LeastCostPath {
         this.height = height;
         this.cost = copyChecked(cost, minCost);
         this.minCost = minCost;
+        this.heuristicWeight = heuristicWeight;
         this.distance = new double[cost.length];
         this.parent = new int[cost.length];
         this.stamp = new int[cost.length];
@@ -165,7 +192,7 @@ final class LeastCostPath {
         final var dx = Math.abs(index - y * width - goalX);
         final var dy = Math.abs(y - goalY);
         final var straight = Math.max(dx, dy) - Math.min(dx, dy);
-        return minCost * (straight + DIAGONAL * Math.min(dx, dy));
+        return heuristicWeight * minCost * (straight + DIAGONAL * Math.min(dx, dy));
     }
 
     /** Records a better way to reach a tile and queues it. */

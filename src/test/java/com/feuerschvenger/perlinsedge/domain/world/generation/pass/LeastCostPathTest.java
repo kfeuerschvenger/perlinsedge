@@ -28,6 +28,8 @@ class LeastCostPathTest {
     private static final int BIG_COSTS = 4;
     private static final int SHORT_BUFFER = 2;
     private static final float CHEAPER_THAN_LOWEST = 0.5F;
+    private static final float SLACK = 2.5F;
+    private static final float HALF = 0.5F;
 
     /** Reads a picture: {@code .} costs 1, {@code #} is blocked and a digit is its own cost. */
     private static float[] costs(String... rows) {
@@ -263,6 +265,39 @@ class LeastCostPathTest {
                 assertEquals(expected, costOf(cost, RANDOM_SIDE, path, length), TOLERANCE, "query " + query);
             }
         }
+    }
+
+    @Test
+    void aHeuristicWeightKeepsEveryPathWithinThatFactorOfTheCheapestOne() {
+        final var random = new SplittableRandom(SEED);
+        final var size = RANDOM_SIDE * RANDOM_SIDE;
+        final var cost = randomCosts(random, size);
+        final var search = new LeastCostPath(RANDOM_SIDE, RANDOM_SIDE, cost, 1F, SLACK);
+        final var path = new int[size];
+
+        for (var query = 0; query < QUERIES; query++) {
+            final var start = random.nextInt(size);
+            final var goal = random.nextInt(size);
+
+            final var length = search.find(start, goal, path);
+
+            final var cheapest = reference(cost, RANDOM_SIDE, RANDOM_SIDE, start, goal);
+            if (cheapest == Double.POSITIVE_INFINITY) {
+                assertEquals(LeastCostPath.NOT_FOUND, length, "query " + query);
+            } else {
+                assertTrue(costOf(cost, RANDOM_SIDE, path, length) <= SLACK * cheapest + TOLERANCE, "query " + query);
+            }
+        }
+    }
+
+    @Test
+    void aHeuristicWeightBelowOneOrNotFiniteIsRefused() {
+        final var cost = costs("...");
+
+        assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, cost, 1F, HALF));
+        assertThrows(IllegalArgumentException.class, () -> new LeastCostPath(3, 1, cost, 1F, Float.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LeastCostPath(3, 1, cost, 1F, Float.POSITIVE_INFINITY));
     }
 
     @Test
