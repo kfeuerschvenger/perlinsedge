@@ -1,5 +1,6 @@
 package com.feuerschvenger.perlinsedge.domain.world.generation.pass;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.IntPredicate;
 
@@ -51,20 +52,82 @@ final class FieldQuantile {
         if (range.max <= range.min) {
             return Float.POSITIVE_INFINITY;
         }
-        return interpolate(range, histogram(values, mask, range), share * range.count);
+        return interpolate(range, histogram(values, mask, range, new float[BINS]), share * range.count);
     }
 
-    /** Counts the selected tiles into the bins of the range. */
-    private static int[] histogram(float[] values, IntPredicate mask, Range range) {
+    /**
+     * Returns the evenly spaced quantiles of every value of a field from one histogram, so many thresholds cost the
+     * two passes of a single call of {@link #above}. Entry 0 is the lowest value, entry {@code parts} the highest, and
+     * entry {@code k} in between is the threshold {@code above(values, all, 1 - k / parts)} would give.
+     *
+     * @param values the field; every value must be finite
+     * @param parts  how many equal shares to cut the tiles into, at least 1
+     * @return {@code parts + 1} values that never decrease; all 0 when the field is empty. When several thresholds fall
+     * in one bin, because many tiles hold almost the same value, they are set to the lowest value of that bin, so tied
+     * values give tied thresholds
+     * @throws IllegalArgumentException when a value is NaN or infinite, or {@code parts} is below 1
+     */
+    static float[] quantiles(float[] values, int parts) {
+        Objects.requireNonNull(values, "values");
+        if (parts < 1) {
+            throw new IllegalArgumentException("the parts must be at least 1: " + parts);
+        }
+        final var knots = new float[parts + 1];
+        final var range = Range.of(values, index -> true);
+        if (range.count == 0) {
+            return knots;
+        }
+        Arrays.fill(knots, range.min);
+        if (range.max <= range.min) {
+            return knots;
+        }
+        final var lows = new float[BINS];
+        Arrays.fill(lows, Float.POSITIVE_INFINITY);
+        final var counts = histogram(values, index -> true, range, lows);
+        final var bins = new int[parts + 1];
+        for (var part = 1; part < parts; part++) {
+            final var target = (1.0 - part / (double) parts) * range.count;
+            bins[part] = binReaching(counts, target);
+            knots[part] = interpolate(range, counts, target);
+        }
+        bins[parts] = BINS - 1;
+        for (var part = 1; part < parts; part++) {
+            if (bins[part - 1] == bins[part] || bins[part + 1] == bins[part]) {
+                knots[part] = lows[bins[part]];
+            }
+        }
+        knots[parts] = range.max;
+        return knots;
+    }
+
+    /**
+     * Counts the selected tiles into the bins of the range. The array {@code lows} receives the lowest value counted
+     * into each bin and must be filled with positive infinity by the caller.
+     */
+    private static int[] histogram(float[] values, IntPredicate mask, Range range, float[] lows) {
         final var counts = new int[BINS];
         final var scale = BINS / ((double) range.max - range.min);
         for (var index = 0; index < values.length; index++) {
             if (mask.test(index)) {
                 final var bin = (int) ((values[index] - (double) range.min) * scale);
-                counts[Math.min(bin, BINS - 1)]++;
+                final var slot = Math.min(bin, BINS - 1);
+                counts[slot]++;
+                lows[slot] = Math.min(lows[slot], values[index]);
             }
         }
         return counts;
+    }
+
+    /** Walks the bins from the top until {@code target} tiles are counted and returns the bin that reaches it. */
+    private static int binReaching(int[] counts, double target) {
+        var counted = 0.0;
+        for (var bin = BINS - 1; bin > 0; bin--) {
+            counted += counts[bin];
+            if (counted >= target) {
+                return bin;
+            }
+        }
+        return 0;
     }
 
     /** Walks the bins from the top until {@code target} tiles are counted and places the threshold inside that bin. */

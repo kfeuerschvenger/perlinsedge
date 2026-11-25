@@ -76,8 +76,8 @@ class MapGeneratorTest {
 
         new MapGenerator(recording).generate(new MapRequest(MapType.DENSE_FOREST, seed, TINY, TINY));
 
-        assertEquals(List.of(seed, seed + NoiseField.ROCK.seedOffset(),
-                seed + NoiseField.CRYSTALS.seedOffset(), seed + NoiseField.TREE.seedOffset()), seeds);
+        assertEquals(List.of(seed, seed + NoiseField.ROCK.seedOffset(), seed + NoiseField.CRYSTALS.seedOffset(),
+                seed + NoiseField.TREE.seedOffset(), seed + NoiseField.PATCH.seedOffset()), seeds);
     }
 
     @Test

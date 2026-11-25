@@ -20,10 +20,16 @@ public final class GroundDecals {
     /** Name of the second pebble decal, shared by green ground and dunes. */
     private static final String SECOND_PEBBLE_DECAL = "pebble-2";
 
-    /** Names of the decals drawn on grass, forest, savanna and swamp. */
+    /** Name of the first grass tuft decal, shared by green ground and swamp. */
+    private static final String FIRST_TUFT_DECAL = "tuft-1";
+
+    /** Names of the decals drawn on grass, forest and savanna. */
     public static final List<String> GREEN_DECALS = List.of(
-            "tuft-1", "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
+            FIRST_TUFT_DECAL, "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
             "mushroom-1");
+
+    /** Names of the decals drawn on swamp ground: the three reeds and, one pick in four, a grass tuft. */
+    public static final List<String> SWAMP_DECALS = List.of("reed-1", "reed-2", "reed-3", FIRST_TUFT_DECAL);
 
     /** Name of the gravel decal, which only the stony ground shows. */
     private static final String GRAVEL_DECAL = "gravel-1";
@@ -45,8 +51,8 @@ public final class GroundDecals {
 
     /** Every decal name the ground, a water bed or a water surface can show, for the loader. */
     public static final List<String> ALL = List.of(
-            "tuft-1", "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
-            "mushroom-1", "shell-1", GRAVEL_DECAL,
+            FIRST_TUFT_DECAL, "tuft-2", "tuft-3", FIRST_PEBBLE_DECAL, SECOND_PEBBLE_DECAL, "flower-1", "flower-2",
+            "mushroom-1", "shell-1", GRAVEL_DECAL, "reed-1", "reed-2", "reed-3",
             "under-seaweed-1", "under-seaweed-2", "under-pebble-1", "lilypad-1", "lilypad-2");
 
     /** One shallow or coast water tile in this many holds an underwater decal. */
@@ -130,7 +136,11 @@ public final class GroundDecals {
                 pool = ROCKY_DECALS;
                 oneIn = GREEN_ONE_IN;
             }
-            case "grass", "forest", "savanna", "swamp" -> {
+            case "swamp" -> {
+                pool = SWAMP_DECALS;
+                oneIn = GREEN_ONE_IN;
+            }
+            case "grass", "forest", "savanna" -> {
                 pool = GREEN_DECALS;
                 oneIn = GREEN_ONE_IN;
             }
